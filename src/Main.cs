@@ -62,6 +62,26 @@ public partial class Main : Node2D
                  " 人，控制器 ", controllers.Count, " 个");
 
         ProbeUiSkeleton();
+        ProbeInputMapping();
+    }
+
+    /// <summary>
+    /// 让 `UI-7` 的输入链路在启动时真跑一遍并打出判据。
+    /// </summary>
+    /// <remarks>
+    /// **同样是脚手架**，`UI-10` 的端到端测试会替换它。理由与 `ProbeUiSkeleton` 一致：规则层测试
+    /// 证明不了「符号翻译成了对的引擎枚举」与「组合真的经过引擎的事件流」，那两件事要有引擎在场，
+    /// 而引擎内测试底座还不存在（`ENG-6`）。判据打进日志，`tools/check_input_map.py` 读回来判。
+    /// </remarks>
+    private void ProbeInputMapping()
+    {
+        var router = new InputRouter { Name = "InputRouter" };
+        AddChild(router);
+
+        router.DeviceChanged += device => GD.Print("[输入] 设备切换 → ", device);
+        router.SkillGroupChanged += group => GD.Print("[输入] 技能组切换 → ", group);
+
+        AddChild(new InputProbe(router) { Name = "InputProbe" });
     }
 
     /// <summary>

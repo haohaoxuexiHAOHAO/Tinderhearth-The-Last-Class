@@ -53,9 +53,25 @@ python tools/verify.py
 拦得住、还原后复验，并自报覆盖了哪几步。**一个什么都不检的脚本也会全绿**，所以「跑过一次
 全绿」不能当作它可信的证据。
 
+### 门禁之外的两个专项守卫
+
+这两条**不在 `verify.py` 里**，因为它们都要另起一次引擎，而门禁已经起过一次了；改了对应的东西
+再单独跑。
+
+| 命令 | 守什么 | 自证 |
+| --- | --- | --- |
+| `python tools/check_scaling.py` | 逻辑分辨率整数放大到窗口（`UI-3`）。四档窗口从引擎日志读回实际缩放倍数 | 无（它是量具不是守卫，判据全来自引擎自己写的日志） |
+| `python tools/check_input_map.py` | 输入映射（`UI-7`）。绑定逐条与引擎自报名全等比对、扳机死区、内置 `ui_*` 的手柄绑定、`project.godot` 无 `[input]` 段、`src/` 无直接轮询、启动自检的实机判据 | `python tools/selfcheck_input_map.py` |
+
+输入那条要多说一句，因为它守的是一条**看不见的约定**：玩法代码必须通过 `src/UI/InputRouter.cs`
+问输入，不许直接调 `Input.IsActionPressed`。理由是实测结果 —— 在 `_Input` 里
+`SetInputAsHandled` 之后轮询状态**仍然是按下**，所以直接轮询的代码会在玩家按住扳机挑技能时照旧
+打出一次轻攻击，而这件事不报错。守卫会扫 `src/` 下除门面之外的调用并判失败。
+
 ### 工具链依赖
 
-`verify.py`、`selfcheck_verify.py`、`check_scaling.py` 与 `gen_placeholders.py` 都是**纯标准库**，
+`verify.py`、`selfcheck_verify.py`、`check_scaling.py`、`check_input_map.py`、
+`selfcheck_input_map.py` 与 `gen_placeholders.py` 都是**纯标准库**，
 clone 完直接能跑。唯一的第三方依赖是读素材图用的 Pillow，装法：
 
 ```
@@ -127,7 +143,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证 |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，以及缩放、素材、输入三个专项守卫 |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 

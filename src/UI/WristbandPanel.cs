@@ -78,7 +78,36 @@ public partial class WristbandPanel : Control
         };
         column.AddChild(_content);
 
+        // 面板一显示就把焦点放上去（`UI-7`）。不放的话手柄按方向键**什么也不会发生** ——
+        // Godot 的焦点导航是从当前焦点找邻居，而没有焦点时就没有起点。键鼠玩家点一下就有了焦点，
+        // 所以这个坑只在手柄上出现，是那种「实机试一遍很容易漏掉」的失效。
+        VisibilityChanged += OnVisibilityChanged;
+
         RefreshAvailability();
+    }
+
+    /// <summary>
+    /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点。
+    /// </summary>
+    /// <remarks>
+    /// 落点取**第一个可用**的标签页而不是第一个标签页：关卡内前几页里的操作类页是禁用的，
+    /// 而禁用按钮拿不到焦点，落在它身上等于没落点。
+    /// </remarks>
+    private void OnVisibilityChanged()
+    {
+        if (!IsVisibleInTree())
+        {
+            return;
+        }
+
+        foreach (var tab in Wristband.Tabs)
+        {
+            if (tab.AvailableIn(Context))
+            {
+                _tabButtons[tab.Id].GrabFocus();
+                return;
+            }
+        }
     }
 
     /// <summary>切到某一页。不可用的页点不动，所以这里不必再判一次。</summary>
