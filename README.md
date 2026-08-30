@@ -49,6 +49,18 @@ python tools/verify.py
 拦得住、还原后复验，并自报覆盖了哪几步。**一个什么都不检的脚本也会全绿**，所以「跑过一次
 全绿」不能当作它可信的证据。
 
+### 工具链依赖
+
+`verify.py`、`selfcheck_verify.py`、`check_scaling.py` 与 `gen_placeholders.py` 都是**纯标准库**，
+clone 完直接能跑。唯一的第三方依赖是读素材图用的 Pillow，装法：
+
+```
+python -m pip install -r tools/requirements.txt
+```
+
+为什么只在这一处破例、以及为什么不用它改写写 PNG 那半，理由写在 `tools/requirements.txt` 里。
+**依赖缺失的守卫必须报错退出，不许跳过检查** —— 会静默跳过的守卫比没有守卫更坏。
+
 下面三节是那四步各自的原始命令，单独调试时用得上。
 
 ## 怎么构建

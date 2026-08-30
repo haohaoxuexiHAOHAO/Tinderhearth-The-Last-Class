@@ -1,0 +1,15 @@
+# 本仓 tools/ 下 Python 入口的第三方依赖。装法：
+#     python -m pip install -r tools/requirements.txt
+#
+# **默认原则仍是标准库优先。** 现有入口里 verify.py、selfcheck_verify.py、check_scaling.py
+# 与 gen_placeholders.py 都是纯标准库，不受本文影响 —— 一台干净机器上 clone 完就能跑。
+#
+# 唯一的例外是「读别人的 PNG」。写 PNG 用标准库很划算（gen_placeholders.py 用 zlib 手写，
+# 约 40 行，输出还逐字节确定）；但下载来的素材可能是调色板、16 位、灰度带 alpha 或隔行扫描，
+# 手写解码器只认 RGBA8，遇到认不出的文件会**静默跳过** —— 而素材守卫的全部价值就是不漏检。
+# 会静默跳过的守卫比没有守卫更坏。这跟 ADR-0007「不要重复造轮子命中的是通用件」同一条理由。
+#
+# 版本钉死，不用范围：升级要人为决定并重跑守卫的自证。
+# 许可证 MIT-CMU（读自本机 pillow-11.3.0.dist-info/licenses/LICENSE 原文），宽松，
+# 不影响发行物 —— 它只在开发期的工具链里，不进游戏。
+pillow==11.3.0

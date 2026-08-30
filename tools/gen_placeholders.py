@@ -316,29 +316,44 @@ def main() -> int:
             "可进发行包": False,
         })
 
+    # 下载素材那一节**手工维护**，生成器只重写自己那一节。
+    # 不这么分，下一次跑生成器就会抹掉下载件的来源与授权 —— 那是最不该丢的信息。
+    downloaded: list[dict] = []
+    if REGISTRY.is_file():
+        downloaded = json.loads(REGISTRY.read_text(encoding="utf-8")).get("下载素材", [])
+
     if not args.check:
         REGISTRY.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "说明": "素材槽位登记表（ART-4）。尺寸与帧数就是最终规格，替换时按这张表对。"
+            "说明": "素材登记表（ART-4）。尺寸与帧数就是最终规格，替换时按这张表对。"
                     "「可进发行包」为 false 的条目由 ENG-12 的导出守卫拦住。",
-            "生成入口": "python tools/gen_placeholders.py",
-            "槽位": entries,
+            "生成入口": "python tools/gen_placeholders.py（只重写「生成槽位」一节）",
+            "下载素材维护": "手工维护，生成器不动。每条必须写来源链接与许可证依据原文。"
+                            "判据是「许可证明确允许作为游戏的一部分分发」，不是「必须 CC0」。",
+            "生成槽位": entries,
+            "下载素材": downloaded,
         }
         REGISTRY.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8", newline="\n")
 
     check_import_params(entries)
+    check_import_params(downloaded)
 
-    # 登记表与实际文件的双向比对：多出来的文件同样要报，否则漏登记等于绕过守卫。
-    on_disk = {f"placeholder/{p.relative_to(OUT_DIR).as_posix()}"
-               for p in OUT_DIR.rglob("*.png")} if OUT_DIR.is_dir() else set()
-    registered = {e["path"] for e in entries}
+    # 登记表与实际文件的双向比对，两个方向都要查：漏登记等于绕过守卫，
+    # 登记了却没文件说明有人删了素材而没动登记表。扫整个 assets/，不只是 placeholder/。
+    assets_root = ROOT / "assets"
+    on_disk = {p.relative_to(assets_root).as_posix()
+               for p in assets_root.rglob("*.png")} if assets_root.is_dir() else set()
+    registered = {e["path"] for e in entries} | {e["path"] for e in downloaded}
     for extra in sorted(on_disk - registered):
         fail(f"{extra}：文件在但登记表里没有")
+    for gone in sorted(registered - on_disk):
+        fail(f"{gone}：登记表里有但文件不在")
 
-    say(f"\n覆盖量：登记 {len(SLOTS)} 个槽位，核过 {len(entries)} 个，"
-        f"本次内容有变化的 {written} 个；磁盘上 {len(on_disk)} 个 .png")
+    say(f"\n覆盖量：生成槽位登记 {len(SLOTS)} 个、核过 {len(entries)} 个，"
+        f"本次内容有变化的 {written} 个；下载素材 {len(downloaded)} 条（手工维护）；"
+        f"磁盘上 {len(on_disk)} 个 .png")
     if _FAILS:
         say(f"[FAIL] 共 {len(_FAILS)} 条不成立")
     else:
