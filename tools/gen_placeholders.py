@@ -18,8 +18,12 @@
   要求描边，二是纯色大块会被 `ENG-10` 的「每个 2×2 块同色＝放大来的」误判。
 
 用法（从代码仓根目录运行）：
-    python tools/gen_placeholders.py            # 生成 + 写登记表
-    python tools/gen_placeholders.py --check    # 只核对现有文件与登记表是否一致，不写
+    python tools/gen_placeholders.py            # 生成 + 写登记表，然后交素材守卫复核
+    python tools/gen_placeholders.py --check    # 不写文件，只跑复核
+
+**校验不在本入口里。** 半透明像素、放大件、登记表双向比对与导入参数都由
+`tools/check_assets.py` 判（`ENG-10`），本入口只负责生成并调它。两处各写一套的下场很具体：
+判据开始分叉，而没人知道该信哪一个。
 """
 
 from __future__ import annotations
@@ -245,35 +249,6 @@ def png_size(path: Path) -> tuple[int, int] | None:
     return struct.unpack(">II", data[16:24])
 
 
-# 每张纹理的导入参数必须是这三项。**它们的失效方式都是静默的** ——
-# 画面只是「有点花」或「有点糊」，不报错。项目级默认写在 project.godot 的
-# [importer_defaults]，这里核的是每个 .import 里实际落下来的值。
-REQUIRED_IMPORT_PARAMS = {
-    "compress/mode": "0",                   # 无损。VRAM 压缩会毁掉像素图
-    "mipmaps/generate": "false",            # 缩小级别对像素风没有意义
-    "detect_3d/compress_to": "0",           # 关掉「用在 3D 就转 VRAM 压缩」
-}
-
-
-def check_import_params(entries: list[dict]) -> None:
-    """核对每张纹理的 .import 参数。没有 .import 就说明还没导入过，不算通过。"""
-    missing = 0
-    for entry in entries:
-        imp = ROOT / "assets" / (entry["path"] + ".import")
-        if not imp.is_file():
-            missing += 1
-            continue
-        text = imp.read_text(encoding="utf-8")
-        for key, want in REQUIRED_IMPORT_PARAMS.items():
-            if f"{key}={want}" not in text:
-                got = next((ln for ln in text.splitlines() if ln.startswith(f"{key}=")),
-                           "（这一项根本不在）")
-                fail(f"{entry['path']}：导入参数 {key} 应为 {want}，实际是 {got}")
-    if missing:
-        say(f"[..]   {missing} 个槽位还没有 .import（未导入过）—— "
-            f"用 Godot 打开工程或跑 --headless --import 后再核")
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="生成占位素材与槽位登记表（ART-4）")
     ap.add_argument("--check", action="store_true", help="只核对，不写文件")
@@ -337,29 +312,23 @@ def main() -> int:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8", newline="\n")
 
-    check_import_params(entries)
-    check_import_params(downloaded)
+    say(f"\n生成槽位 {len(SLOTS)} 个、核过 {len(entries)} 个，"
+        f"本次内容有变化的 {written} 个；下载素材 {len(downloaded)} 条（手工维护，本入口不动）")
 
-    # 登记表与实际文件的双向比对，两个方向都要查：漏登记等于绕过守卫，
-    # 登记了却没文件说明有人删了素材而没动登记表。扫整个 assets/，不只是 placeholder/。
-    assets_root = ROOT / "assets"
-    on_disk = {p.relative_to(assets_root).as_posix()
-               for p in assets_root.rglob("*.png")} if assets_root.is_dir() else set()
-    registered = {e["path"] for e in entries} | {e["path"] for e in downloaded}
-    for extra in sorted(on_disk - registered):
-        fail(f"{extra}：文件在但登记表里没有")
-    for gone in sorted(registered - on_disk):
-        fail(f"{gone}：登记表里有但文件不在")
-
-    say(f"\n覆盖量：生成槽位登记 {len(SLOTS)} 个、核过 {len(entries)} 个，"
-        f"本次内容有变化的 {written} 个；下载素材 {len(downloaded)} 条（手工维护）；"
-        f"磁盘上 {len(on_disk)} 个 .png")
     if _FAILS:
-        say(f"[FAIL] 共 {len(_FAILS)} 条不成立")
-    else:
-        say("[OK] 槽位、尺寸与登记表三者一致")
-    print(f"EXIT={1 if _FAILS else 0}")
-    return 1 if _FAILS else 0
+        say(f"[FAIL] 生成阶段共 {len(_FAILS)} 条不成立")
+        print("EXIT=1")
+        return 1
+
+    # **校验一律交给 check_assets.py，本入口不再自己判。**
+    # 两处各写一套的下场很具体：判据开始分叉，而没人知道该信哪一个。
+    # 这里只负责「生成出来的东西与自己的规格一致」，其余（半透明像素、放大件、
+    # 登记表双向比对、导入参数）都是素材守卫的职责（`ENG-10`）。
+    say("[..]   交给素材守卫复核 ↓")
+    import check_assets
+    code = check_assets.run_checks()
+    print(f"EXIT={code}")
+    return code
 
 
 if __name__ == "__main__":

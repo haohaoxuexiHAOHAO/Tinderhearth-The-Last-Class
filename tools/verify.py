@@ -123,8 +123,9 @@ SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 
-STEPS = ("build", "test", "export", "smoke")
+STEPS = ("assets", "build", "test", "export", "smoke")
 STEP_TITLES = {
+    "assets": "素材",
     "build": "构建",
     "test": "测试",
     "export": "导出",
@@ -302,13 +303,42 @@ def locate_godot() -> tuple[Path | None, str]:
     return None, why
 
 
-# ── 步骤 1：构建 ──────────────────────────────────────────────────────
+# ── 步骤 0：素材（`ENG-10`。它排在构建之前，见 step_assets 的注释）────
 BUILD_OK_RE = re.compile(r"Build succeeded|生成成功")
 BUILD_BAD_RE = re.compile(r"Build FAILED|生成失败")
 BUILD_COUNT_RE = re.compile(r"^\s*(\d+)\s+(Warning|Error)\(s\)\s*$", re.MULTILINE)
 DIAG_RE = re.compile(r"\b(error|warning) [A-Z]{2}\d{4}\b")
 
 
+def step_assets(rep: Report) -> StepResult:
+    """素材守卫（`ENG-10`）：半透明像素、放大件、登记表比对、纹理导入参数。
+
+    为什么排在最前面：它最快（纯 Python，没有编译与引擎启动），而且**坏素材不该有机会被
+    打进包** —— 放在导出之后才查，等于每次都先花十几秒造一个已知有问题的产物。
+
+    判定不只看退出码：认不出 `check_assets.py` 的输出形状同样拒绝判过（WORKFLOW §7）。
+    """
+    started = time.perf_counter()
+    code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_assets.py")],
+                         ROOT, timeout=600)
+    rep.write_log("0-assets.log", f"# 编码 {enc}\n# 退出码 {code}\n\n{out}")
+    cost = time.perf_counter() - started
+
+    gauge = next((ln for ln in out.splitlines() if ln.startswith("覆盖量：")), "")
+    if code != 0:
+        first = next((ln for ln in out.splitlines() if ln.startswith("[FAIL]")), "详见日志")
+        return StepResult("assets", False, f"失败：{first.removeprefix('[FAIL] ')}",
+                          cost, log_names=["0-assets.log"],
+                          details=[gauge] if gauge else [])
+    if not gauge:
+        return StepResult("assets", False, "认不出 check_assets.py 的输出形状，拒绝判过",
+                          cost, log_names=["0-assets.log"])
+    return StepResult("assets", True, gauge.removeprefix("覆盖量："), cost,
+                      log_names=["0-assets.log"],
+                      details=[f"命令 tools/check_assets.py（输出编码 {enc}）"])
+
+
+# ── 步骤 1：构建 ──────────────────────────────────────────────────────
 def step_build(rep: Report) -> StepResult:
     started = time.perf_counter()
     code, out, enc = run(["dotnet", "build"], ROOT, timeout=900)
@@ -838,7 +868,9 @@ def main() -> int:
         if stopped:
             rep.finish_step(StepResult(name, False, "前一步失败，未执行", skipped=True))
             continue
-        if name == "build":
+        if name == "assets":
+            result = step_assets(rep)
+        elif name == "build":
             result = step_build(rep)
         elif name == "test":
             result = step_test(rep)

@@ -239,6 +239,123 @@ def _noop() -> None:
     pass
 
 
+# ── 素材守卫的注入（`ENG-10`）──────────────────────────────────────────
+# 这几条用真实缺陷形状：半透明像素是画图软件默认开抗锯齿就会出现的，漏登记是往
+# assets/ 里直接拖一个文件就会发生的。两者都不报错，只静默积累。
+SEMI_TARGET = ROOT / "assets" / "placeholder" / "ui" / "panel.png"
+UNREGISTERED = ROOT / "assets" / "placeholder" / "ui" / "dragged-in.png"
+_semi_backup: bytes | None = None
+
+
+def inject_semi_transparent() -> None:
+    """把一个像素的 alpha 改成 128 —— 抗锯齿留下的那种脏边。"""
+    global _semi_backup
+    from PIL import Image
+    _semi_backup = SEMI_TARGET.read_bytes()
+    im = Image.open(SEMI_TARGET).convert("RGBA")
+    px = im.load()
+    r, g, b, _ = px[3, 3]
+    px[3, 3] = (r, g, b, 128)
+    im.save(SEMI_TARGET)
+
+
+def restore_semi_transparent() -> None:
+    global _semi_backup
+    if _semi_backup is not None:
+        SEMI_TARGET.write_bytes(_semi_backup)
+        _semi_backup = None
+
+
+def inject_unregistered_asset() -> None:
+    """往 assets/ 里丢一个没进登记表的文件。"""
+    shutil.copy(SEMI_TARGET, UNREGISTERED)
+
+
+def restore_unregistered_asset() -> None:
+    UNREGISTERED.unlink(missing_ok=True)
+    # 引擎可能已经顺手给它生成了导入元数据，一起清掉，否则下一轮会报「登记表里有但文件不在」
+    Path(str(UNREGISTERED) + ".import").unlink(missing_ok=True)
+
+
+REGISTRY = ROOT / "tools" / "asset-registry.json"
+IMPORT_TARGET = ROOT / "assets" / "placeholder" / "ui" / "panel.png.import"
+_registry_backup: bytes | None = None
+_import_backup: bytes | None = None
+
+
+def inject_wrong_frame_count() -> None:
+    """把登记表里的帧数改错 —— 精灵表切帧算错，游戏里表现为动画错位。"""
+    global _registry_backup
+    import json
+    _registry_backup = REGISTRY.read_bytes()
+    data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    for entry in data.get("下载素材", []):
+        if entry.get("帧数", 1) > 1:
+            entry["帧数"] += 1
+            break
+    REGISTRY.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8", newline="\n")
+
+
+def restore_registry() -> None:
+    global _registry_backup
+    if _registry_backup is not None:
+        REGISTRY.write_bytes(_registry_backup)
+        _registry_backup = None
+
+
+def inject_vram_compression() -> None:
+    """把一张纹理的导入参数改回「用在 3D 就转 VRAM 压缩」—— 像素图被有损压缩的入口。"""
+    global _import_backup
+    _import_backup = IMPORT_TARGET.read_bytes()
+    text = IMPORT_TARGET.read_text(encoding="utf-8")
+    IMPORT_TARGET.write_text(text.replace("detect_3d/compress_to=0",
+                                          "detect_3d/compress_to=1"),
+                             encoding="utf-8", newline="\n")
+
+
+def restore_import() -> None:
+    global _import_backup
+    if _import_backup is not None:
+        IMPORT_TARGET.write_bytes(_import_backup)
+        _import_backup = None
+
+
+def case_upscaled_asset() -> tuple[bool, str]:
+    """造一张真正放大来的图：16×16 内容按最近邻放到 32×32，每个 2×2 块必然同色。"""
+    TEMP.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    import check_assets
+    small = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    sp = small.load()
+    for i in range(16):
+        sp[i, i] = (200, 190, 172, 255)          # 一条对角线，保证不是纯色
+    big = small.resize((32, 32), Image.NEAREST)
+    fake = TEMP / "upscaled.png"
+    big.save(fake)
+    check_assets._FAILS.clear()
+    check_assets.check_upscaled("upscaled.png", Image.open(fake).convert("RGBA"))
+    caught = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    fake.unlink(missing_ok=True)
+    return caught, "认出放大件" if caught else "**没认出来**：2×2 判据失效了"
+
+
+def case_solid_not_upscaled() -> tuple[bool, str]:
+    """纯色图不能被判成放大件 —— 否则守卫会拦下自己生成的占位件，然后被绕过。"""
+    TEMP.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    import check_assets
+    solid = TEMP / "solid.png"
+    Image.new("RGBA", (16, 16), (110, 100, 92, 255)).save(solid)
+    check_assets._FAILS.clear()
+    check_assets.check_upscaled("solid.png", Image.open(solid).convert("RGBA"))
+    misjudged = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    solid.unlink(missing_ok=True)
+    return not misjudged, "纯色图未被误判" if not misjudged else "**误判了**：会拦下自己的占位件"
+
+
 # ── 不必跑 verify.py 全流程的用例（直接撞解析器与落点）────────────────
 def case_bad_pck_format() -> tuple[bool, str]:
     """把包格式版本改成没见过的值：必须报错，不许猜着解。"""
@@ -300,6 +417,10 @@ DIRECT_CASES = (
      case_wrong_root),
     ("Godot 定位不到时在导出之前就说清", "locate_godot", "错的工具链要在早期暴露",
      case_wrong_godot),
+    ("整图放大件被认出来", "check_upscaled", "16×16 放大成 32×32：尺寸对得上但没有信息量",
+     case_upscaled_asset),
+    ("纯色图不被误判成放大件", "check_upscaled", "误判方向：纯色图天然满足每个 2×2 同色",
+     case_solid_not_upscaled),
 )
 
 CASES = (
@@ -318,6 +439,18 @@ CASES = (
     Case("子工程缺 .gdignore 导致包内泄漏时判失败", "step_export", "踩坑记录 33",
          inject_missing_gdignore, restore_gdignore,
          ["--upto", "export"], "泄漏"),
+    Case("素材有半透明像素时判失败", "step_assets", "像素绘制原则 §9 的绝对规则",
+         inject_semi_transparent, restore_semi_transparent,
+         ["--upto", "assets"], "半透明像素"),
+    Case("素材漏登记时判失败", "step_assets", "漏登记等于绕过守卫",
+         inject_unregistered_asset, restore_unregistered_asset,
+         ["--upto", "assets"], "登记表里没有"),
+    Case("精灵表帧数与登记不符时判失败", "step_assets", "切帧算错，动画会错位",
+         inject_wrong_frame_count, restore_registry,
+         ["--upto", "assets"], "帧"),
+    Case("纹理被设成可转 VRAM 压缩时判失败", "step_assets", "像素图被有损压缩的入口",
+         inject_vram_compression, restore_import,
+         ["--upto", "assets"], "detect_3d"),
     Case("产物跑不起来时判失败", "step_smoke", "冒烟步骤的失败方向",
          inject_broken_config, restore_config,
          [], "跑产物"),
