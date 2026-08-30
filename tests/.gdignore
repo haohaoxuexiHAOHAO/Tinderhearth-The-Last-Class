@@ -1,0 +1,4 @@
+此文件让 Godot 的资源扫描跳过整个 tests/ 目录。理由同 rules/.gdignore：
+
+测试源码与它的 obj/ bin/ 中间产物本来就不该进发行包，而 Godot 会把 .cs 当资源打包。
+测试工程用 dotnet 直接跑（见 README），完全不经过 Godot，所以忽略它没有代价。

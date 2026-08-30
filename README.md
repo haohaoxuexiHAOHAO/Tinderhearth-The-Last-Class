@@ -35,6 +35,19 @@ dotnet run --project tests
 
 看结果时**核对测试数量，不要只看它说没说「通过」** —— 理由见踩坑记录第 29 条。
 
+## 怎么导出
+
+```
+<Godot 可执行文件> --headless --export-release "Windows Desktop"
+```
+
+产物落在 `export/`（不入库）。**导出命令的退出码不可信** —— 必须另行校验产物文件确实生成、
+并实际运行产物看它有没有起来。串成一条命令归 `ENG-3`。
+
+`rules/` 与 `tests/` 各有一个 `.gdignore`，让 Godot 的资源扫描跳过它们，否则源码与
+`obj/`／`bin/` 中间产物会被打进发行包（实测过：包从 8.5 KB 变成 182 KB，其中含带本机绝对
+路径的 `project.assets.json`）。
+
 ## 怎么跑游戏
 
 用 Godot 编辑器打开本目录，或者：

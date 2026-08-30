@@ -1,0 +1,9 @@
+此文件让 Godot 的资源扫描跳过整个 rules/ 目录。
+
+为什么需要：Godot 把 .cs 当成 CSharpScript 资源，而导出预设的 export_filter="all_resources"
+会把它们全部打进 .pck —— 实测首次导出时 rules/ 与 tests/ 的源码、连同 obj/ 与 bin/ 里的
+中间产物（project.assets.json、AssemblyInfo.cs 等）都进了发行包。那等于把源码和测试代码
+一起发行，既泄露源码也白占体积。
+
+规则层不含任何 Godot 类型，Godot 压根不需要看见它。程序集通过 csproj 的 ProjectReference
+参与构建，那是 MSBuild 的事，与 .gdignore 无关，所以忽略它不影响构建与导出。
