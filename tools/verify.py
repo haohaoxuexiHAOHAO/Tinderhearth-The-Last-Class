@@ -683,6 +683,10 @@ def step_smoke(rep: Report) -> StepResult:
 
     # 导出的 release 包不带控制台包装器（预设 debug/export_console_wrapper=1 只给 debug），
     # 而 GUI 子系统的 exe 在本机不往管道写东西，所以用引擎自己的 --log-file 落盘再读。
+    #
+    # 跑产物会让它建自己的 user:// 目录（mods 与 saves）。**本入口刻意不删它** —— 那将来
+    # 是玩家真正的存档位置，一个验收工具去删玩家存档是个很难收场的坑。它不是临时资源，
+    # 是产物正常启动的一部分；路径由产物自己打进 4-smoke-godot.log，需要时在那里看。
     game_log = rep.log_dir / "4-smoke-godot.log"
     rep.ensure_log_dir()
     code, out, enc = run(
