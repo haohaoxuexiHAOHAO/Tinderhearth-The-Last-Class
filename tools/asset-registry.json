@@ -1,0 +1,270 @@
+{
+  "说明": "素材槽位登记表（ART-4）。尺寸与帧数就是最终规格，替换时按这张表对。「可进发行包」为 false 的条目由 ENG-12 的导出守卫拦住。",
+  "生成入口": "python tools/gen_placeholders.py",
+  "槽位": [
+    {
+      "path": "placeholder/ui/panel.png",
+      "用途": "9-slice 面板底（对话框、手环、弹窗共用）",
+      "宽": 24,
+      "高": 24,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/bar-track.png",
+      "用途": "资源条底，可横向拉伸",
+      "宽": 4,
+      "高": 6,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/bar-fill.png",
+      "用途": "资源条填充，可横向拉伸",
+      "宽": 4,
+      "高": 6,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/objective.png",
+      "用途": "目标进度图标",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/portrait-frame.png",
+      "用途": "队友头像框",
+      "宽": 20,
+      "高": 20,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/cast-ring.png",
+      "用途": "读条圆环底（世界空间，画在执行者身上）",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/chars/hero.png",
+      "用途": "主角占位剪影（量 HUD 遮挡用）",
+      "宽": 32,
+      "高": 32,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/chars/ally.png",
+      "用途": "学员占位剪影",
+      "宽": 32,
+      "高": 32,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/chars/enemy.png",
+      "用途": "敌人占位剪影",
+      "宽": 32,
+      "高": 32,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/tiles/ground.png",
+      "用途": "侧视地面图块",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/tiles/platform.png",
+      "用途": "侧视单向平台图块",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/tiles/wall.png",
+      "用途": "侧视墙体图块",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-1.png",
+      "用途": "第 1 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-1.png",
+      "用途": "第 1 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-2.png",
+      "用途": "第 2 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-2.png",
+      "用途": "第 2 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-3.png",
+      "用途": "第 3 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-3.png",
+      "用途": "第 3 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-4.png",
+      "用途": "第 4 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-4.png",
+      "用途": "第 4 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-5.png",
+      "用途": "第 5 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-5.png",
+      "用途": "第 5 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-slot-6.png",
+      "用途": "第 6 个技能位空框",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    },
+    {
+      "path": "placeholder/ui/skill-icon-6.png",
+      "用途": "第 6 个技能图标占位",
+      "宽": 16,
+      "高": 16,
+      "帧数": 1,
+      "来源": "tools/gen_placeholders.py 生成",
+      "授权": "本项目自有（脚本产出的纯色几何件）",
+      "待替换": true,
+      "可进发行包": false
+    }
+  ]
+}

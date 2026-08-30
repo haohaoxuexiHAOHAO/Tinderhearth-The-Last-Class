@@ -29,6 +29,20 @@ window/stretch/scale_mode="integer"
 
 project/assembly_name="Tinderhearth-The-Last-Class"
 
+[importer_defaults]
+
+; 纹理导入的项目级默认（`UI-1`）。只覆盖三项，其余留引擎默认：
+; detect_3d/compress_to=0 —— 引擎默认是 1，也就是「发现这张图用在 3D 就重新导入成 VRAM
+;   压缩」。本作是纯 2D，理论上不会触发，但一旦触发就是像素图被有损压缩，画面只是「有点
+;   花」不报错。关掉它比事后排查便宜得多。
+; compress/mode=0 与 mipmaps/generate=false 与引擎默认一致，写出来是为了让
+;   tools/gen_placeholders.py --check 能把三项一起当判据核，而不是依赖「默认值不会变」。
+texture={
+"compress/mode": 0,
+"detect_3d/compress_to": 0,
+"mipmaps/generate": false
+}
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
