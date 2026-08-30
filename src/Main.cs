@@ -1,10 +1,12 @@
 using Godot;
 using Tinderhearth.Platform;
+using Tinderhearth.UI;
 using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
+using Tinderhearth.Rules.Ui;
 
 namespace Tinderhearth;
 
@@ -58,6 +60,47 @@ public partial class Main : Node2D
 
         GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
                  " 人，控制器 ", controllers.Count, " 个");
+
+        ProbeUiSkeleton();
+    }
+
+    /// <summary>
+    /// 让 `UI-6` 的界面骨架在启动时真跑一遍并打出状态。
+    /// </summary>
+    /// <remarks>
+    /// **这是脚手架的一部分，`UI-8` 会用真正的 HUD 样板场景替换它。** 放在这里的理由与
+    /// `[显示]` 那几行一样：「层级建好了」「关卡内禁用了管理页」如果只写在文档里，就没有任何
+    /// 东西能证明它此刻仍然成立。跑一次并打出来，验收入口读日志就能判。
+    /// </remarks>
+    private void ProbeUiSkeleton()
+    {
+        var ui = new UiRoot();
+        AddChild(ui);
+
+        var wristband = new WristbandPanel();
+        ui.Register(Wristband.Surface, wristband);
+        ui.Open(Wristband.Surface);
+
+        var 派工 = new UiSurface("roster", UiLayer.Panel, PausesWorld: false, SurfaceKind.Manage);
+        ui.Register(派工, new Control());
+
+        ui.Context = UiContext.Base;
+        wristband.Context = UiContext.Base;
+        var 基地可用 = ui.Open(派工);
+        ui.Close(派工);
+
+        ui.Context = UiContext.Level;
+        wristband.Context = UiContext.Level;
+        var 关卡可用 = ui.Open(派工);
+
+        GD.Print("[界面] 管理类面板：基地内可开 ", 基地可用, "，关卡内可开 ", 关卡可用);
+        GD.Print("[界面] 手环标签页 关卡内可用 ",
+                 string.Join("、", Wristband.AvailableIn(UiContext.Level).Select(t => t.Id)),
+                 "；被禁用 ",
+                 string.Join("、", Wristband.Tabs
+                     .Where(t => !t.AvailableIn(UiContext.Level)).Select(t => t.Id)));
+        GD.Print("[界面] 导航栈深度 ", ui.Navigation.Depth,
+                 "，世界该暂停 ", ui.Navigation.WorldShouldPause);
     }
 
     private int _framesBeforeMetrics = 2;
