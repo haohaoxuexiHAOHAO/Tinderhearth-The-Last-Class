@@ -24,6 +24,9 @@ public partial class Main : Node2D
         GD.Print("[启动] 引擎 ", Engine.GetVersionInfo()["string"]);
         GD.Print("[启动] .NET ", System.Environment.Version);
 
+        // 显示指标延后两帧再打 —— 见 PrintDisplayMetrics 的注释，_Ready 里读到的是中间态。
+        SetProcess(true);
+
         if (!ModPaths.EnsureWritableDirectories())
         {
             GD.PushError("[启动] 可写目录创建失败，mod 与存档都会不可用");
@@ -55,6 +58,60 @@ public partial class Main : Node2D
 
         GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
                  " 人，控制器 ", controllers.Count, " 个");
+    }
+
+    private int _framesBeforeMetrics = 2;
+
+    /// <summary>
+    /// 等窗口稳定后再打显示指标。**不能在 <c>_Ready</c> 里打。**
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-30 实测过这个坑：请求 3840×2160 的窗口时系统会把它裁成 3840×2130，而
+    /// <c>_Ready</c> 执行时拉伸还没重算完 —— 那一刻读到的是中间态（逻辑 649×360，与窗口
+    /// 尺寸除不通），看起来像配置错了，实际是量早了。两帧之后再读就稳定。
+    /// </remarks>
+    public override void _Process(double delta)
+    {
+        if (--_framesBeforeMetrics > 0)
+        {
+            return;
+        }
+
+        SetProcess(false);
+        PrintDisplayMetrics();
+    }
+
+    /// <summary>
+    /// 把显示链路的实际状态打进启动日志（`UI-3`）。
+    /// </summary>
+    /// <remarks>
+    /// 为什么要打而不是写在文档里：像素游戏最贵的一类静默故障就是缩放变成非整数或纹理过滤
+    /// 变回线性 —— 画面只是"有点糊"，不报错，可能几个月后才被发现。把逻辑尺寸、窗口尺寸、
+    /// 实际缩放倍数与四项设置一起打出来，`tools/check_scaling.py` 就能从日志里判定，而不必
+    /// 靠人盯着看。缩放倍数取自 <see cref="Viewport.GetFinalTransform"/>，也就是引擎真正
+    /// 用上的那个变换，不是我们以为自己设了什么。
+    ///
+    /// **逻辑宽度是下限不是定值。** 2026-08-30 实测 `canvas_items` + `expand` + `integer`
+    /// 的组合：高度锁在 360，宽度按窗口宽高比撑开（3840×2130 的窗口宽高比 1.803，逻辑尺寸
+    /// 就是 649×360），整数缩放取 floor(窗口高 ÷ 360)，除不尽的余量留成黑边。
+    /// 所以「满宽 53 个汉字」是地板数而不是定值，**界面必须靠锚点与容器定位** —— 正典那条
+    /// 要求不是风格偏好。
+    /// </remarks>
+    private void PrintDisplayMetrics()
+    {
+        var logical = GetViewport().GetVisibleRect().Size;
+        var window = DisplayServer.WindowGetSize();
+        var scale = GetViewport().GetFinalTransform().Scale;
+
+        GD.Print("[显示] 逻辑 ", (int)logical.X, "x", (int)logical.Y,
+                 " 窗口 ", window.X, "x", window.Y,
+                 " 缩放 x", scale.X.ToString("0.###"), ",", scale.Y.ToString("0.###"));
+        GD.Print("[显示] 拉伸 ",
+                 ProjectSettings.GetSetting("display/window/stretch/mode"), "/",
+                 ProjectSettings.GetSetting("display/window/stretch/aspect"), "/",
+                 ProjectSettings.GetSetting("display/window/stretch/scale_mode"),
+                 " 纹理过滤 ",
+                 ProjectSettings.GetSetting("rendering/textures/canvas_textures/default_texture_filter"));
     }
 
     /// <summary>基础内容在前，已安装的 mod 依次叠在后面 —— 后者覆盖前者。</summary>
