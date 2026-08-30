@@ -8,9 +8,18 @@ bin/
 obj/
 
 # 导出产物。ENG-1 的导出冒烟会往这里放包，不入库。
+# ENG-3 的验收入口每轮导出前会把本目录清空，好让「文件存在」直接等于「本轮生成」。
 /export/
+
+# 验收日志。ENG-3 的 tools/verify.py 每轮往 logs/verify/<时间戳>/ 写逐步日志与运行摘要。
+# 它们是某一次运行的证据而不是仓库内容，所以不入库；要留证就把摘要贴进验收报告。
+/logs/
 
 # 测试与覆盖率报告
 [Tt]est[Rr]esult*/
 *.trx
 coverage*.xml
+
+# Python 字节码。tools/selfcheck_verify.py 会 import verify.py，于是有了 tools/__pycache__/。
+__pycache__/
+*.py[cod]
