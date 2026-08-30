@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    规则层：游戏的判定与结算规则住在这里，**刻意不引用 Godot**。
+
+    为什么必须是独立程序集而不是一个约定：实测在引擎外构造 Godot 节点
+    （`new Godot.Node()`）会触发**进程级 Fatal error**，崩在 `Node..cctor()`，
+    而且 try/catch 抓不住 —— 一次手滑会带走整轮测试的全部结果，还看不出是哪一行。
+    不引用 GodotSharp，编译器就不给手滑的机会；这是靠构造保证，不是靠自觉。
+
+    Godot 的纯数学结构体（Vector2I 等）实测在引擎外可用，所以「引用 GodotSharp
+    换取方便」技术上可行 —— 但那会把 Node 的门一起打开，护栏就软了。要开口子
+    须先在 ARCHITECTURE.md 里写明开的是哪个口子。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Tinderhearth.Rules</RootNamespace>
+    <AssemblyName>Tinderhearth.Rules</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

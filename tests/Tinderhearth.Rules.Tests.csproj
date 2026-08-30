@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    规则层的测试。跑法见 README「怎么跑测试」一节，用 dotnet run 指定本工程。
+
+    刻意不用 dotnet test：xunit.v3 生成的可执行文件是 xunit 自己的 in-process 控制台
+    运行器，不是 Microsoft.Testing.Platform 测试模块（实测它不认 MTP 的列测试选项），
+    于是 .NET 10 的 dotnet test 用 MTP 协议去问它只会得到「Zero tests ran」。四种开关
+    都试过，结论与诊断见设计仓踩坑记录 30。直接跑可执行文件是 xunit v3 的一等路径而
+    不是绕路：退出码两个方向都可信（全过 0、有失败 1，均已实测）。
+
+    只装 xunit.v3 一个包，不要再加 Microsoft.NET.Test.Sdk 或 xunit.runner.visualstudio：
+    两条测试协议在同一个工程里并存会被 .NET 10 SDK 直接拒绝。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Tinderhearth.Rules.Tests</RootNamespace>
+    <AssemblyName>Tinderhearth.Rules.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\rules\Tinderhearth.Rules.csproj" />
+  </ItemGroup>
+
+</Project>

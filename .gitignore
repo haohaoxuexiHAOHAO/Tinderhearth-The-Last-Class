@@ -1,0 +1,16 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# C# 构建产物。Godot 把游戏程序集输出到 .godot/mono/temp/ 下（已被上面忽略），
+# rules/ 与 tests/ 两个普通工程输出在各自的 bin/ obj/。
+bin/
+obj/
+
+# 导出产物。ENG-1 的导出冒烟会往这里放包，不入库。
+/export/
+
+# 测试与覆盖率报告
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.xml

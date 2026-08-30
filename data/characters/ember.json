@@ -1,0 +1,8 @@
+{
+  "//": "主角。displayNameKey 是文本表里的键，不是名字本身 —— 名字走 data/text/。",
+  "//假名": "玩家开局可自定义主角假名，届时由存档覆盖显示名，见玩法正典「开局」。",
+
+  "id": "ember",
+  "displayNameKey": "character.ember.name",
+  "traitIds": []
+}

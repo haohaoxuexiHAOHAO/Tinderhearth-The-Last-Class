@@ -1,0 +1,8 @@
+{
+  "//": "简体中文文本表。代码里不写死任何玩家看得见的字符串，一律用这里的键（ENG-5）。",
+  "//禁译": "专有名词的禁译与母语审校要求见设计仓 canon/characters/人物.md。",
+
+  "character.ember.name": "烬",
+  "boot.title": "火种：最后一届",
+  "boot.contentReady": "内容已载入"
+}

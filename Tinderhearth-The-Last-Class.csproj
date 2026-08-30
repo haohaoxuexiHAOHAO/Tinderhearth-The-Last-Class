@@ -1,0 +1,33 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <!--
+    Godot 工程本体。**必须放在 project.godot 同级**（Godot 按这个位置找 .csproj），
+    程序集名要与 project.godot 里 [dotnet] project/assembly_name 一致。
+
+    这一层负责场景、节点、输入、显示与文件 I/O，也就是「碰得到引擎」的全部代码。
+    判定与结算规则不写在这里，写在 rules/ —— 边界与理由见 ARCHITECTURE.md。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Tinderhearth</RootNamespace>
+    <AssemblyName>Tinderhearth-The-Last-Class</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    Godot.NET.Sdk 默认把工程目录下的 **/*.cs 全部编进来。而 Godot 工程根就是仓库根，
+    于是 rules/ 与 tests/ 的源码会被**第二次**编进游戏程序集 —— 它们已经是各自独立的
+    程序集，重复编译会直接撞类型重定义。必须显式排掉。
+  -->
+  <ItemGroup>
+    <Compile Remove="rules/**/*.cs" />
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="rules\Tinderhearth.Rules.csproj" />
+  </ItemGroup>
+
+</Project>
