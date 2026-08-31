@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -49,6 +50,21 @@ REQUIRED_IMPORT_PARAMS = {
 }
 
 MAX_REPORTED_COORDS = 6                     # 报坐标够定位就行，不刷屏
+
+# ── texture_filter 覆盖（`ENG-13`）────────────────────────────────────
+# 像素清晰唯一依靠项目级 default_texture_filter=0（最近邻），而 CanvasItem.texture_filter
+# 可逐节点覆盖并向下继承 —— 一次手滑（尤其误设 Linear）就静默毁掉整棵子树，不报错（`UI-4` 实测）。
+# 规则：一律靠继承，不许局部覆盖。两个覆盖面各一条判据：
+#   .tscn／.tres  →  texture_filter = N（N≠0，0=TEXTURE_FILTER_PARENT_NODE=继承）
+#   .cs          →  .TextureFilter = 赋值（`(?!=)` 排除 == 比较；注释与 `TextureFilterEnum`
+#                    枚举引用不带「.TextureFilter =」形状，不会误伤）
+TEXTURE_FILTER_NAMES = {
+    0: "Inherit", 1: "Nearest", 2: "Linear", 3: "NearestMipmap",
+    4: "LinearMipmap", 5: "NearestMipmapAniso", 6: "LinearMipmapAniso",
+}
+TSCN_FILTER_RE = re.compile(r"^\s*texture_filter\s*=\s*(\d+)", re.MULTILINE)
+CS_FILTER_ASSIGN_RE = re.compile(r"\.TextureFilter\s*=(?!=)")
+SCAN_SKIP_DIRS = {".godot", "obj", "bin", "export", ".git"}
 
 _LINES: list[str] = []
 _FAILS: list[str] = []
@@ -188,6 +204,39 @@ def check_import(name: str, rel: str) -> bool:
     return True
 
 
+def check_texture_filter(name: str, text: str) -> None:
+    """扫一份文件里的 `texture_filter` 覆盖（`ENG-13`）。按后缀选规则。
+
+    只报覆盖（赋值／非 Inherit），读取与比较不算 —— `CameraProbe` 那句
+    `camera.TextureFilter == ParentNode` 是在**核**没有覆盖，不能被自己的守卫拦下。
+    """
+    if name.endswith((".tscn", ".tres")):
+        for m in TSCN_FILTER_RE.finditer(text):
+            val = int(m.group(1))
+            if val != 0:
+                filt = TEXTURE_FILTER_NAMES.get(val, str(val))
+                fail(f"{name}：局部覆盖 texture_filter = {val}（{filt}）—— 像素清晰靠项目级"
+                     f"最近邻的继承，不许逐节点覆盖（ENG-13）；删掉这行回到 Inherit(0)")
+    elif name.endswith(".cs"):
+        for m in CS_FILTER_ASSIGN_RE.finditer(text):
+            line_no = text.count("\n", 0, m.start()) + 1
+            fail(f"{name}:{line_no}：给 .TextureFilter 赋值 —— 不许覆盖，一律靠项目级"
+                 f"最近邻继承（ENG-13）；读取或比较（== ParentNode）不在此列")
+
+
+def texture_filter_targets() -> list[Path]:
+    """`ENG-13` 的扫描范围：场景资源全库 + `src/` 与 `rules/` 的 C#，跳过构建产物与缓存。
+
+    C# 不扫 `tools/`（那是守卫代码本身、会提到属性名）也不扫 `tests/`（测试里多是比较）。
+    """
+    targets: list[Path] = list(ROOT.rglob("*.tscn")) + list(ROOT.rglob("*.tres"))
+    for base in (ROOT / "src", ROOT / "rules"):
+        if base.is_dir():
+            targets += base.rglob("*.cs")
+    return sorted({p for p in targets
+                   if not any(part in SCAN_SKIP_DIRS for part in p.parts)})
+
+
 def run_checks(list_only: bool = False) -> int:
     if not REGISTRY.is_file():
         fail(f"登记表不在：{REGISTRY.relative_to(ROOT)} —— 先跑 "
@@ -234,10 +283,18 @@ def run_checks(list_only: bool = False) -> int:
     say("\n字体：")
     font_count = check_fonts(fonts)
 
+    # ENG-13：texture_filter 覆盖 —— 场景资源全库 + src/rules 的 C#。
+    tf_files = texture_filter_targets()
+    for p in tf_files:
+        check_texture_filter(p.relative_to(ROOT).as_posix(), p.read_text(encoding="utf-8"))
+
     say(f"\n覆盖量：登记 {len(entries)} 条，磁盘 {len(on_disk)} 个 .png，"
         f"实际逐像素扫过 {scanned} 个；每个查了 4 类"
         f"（半透明、放大件、尺寸与帧数、导入参数）；"
-        f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）")
+        f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）；"
+        f"另扫 {len(tf_files)} 份场景资源与 C# 的 texture_filter 覆盖（ENG-13）")
+    if not tf_files:
+        fail("texture_filter 扫描一个文件都没扫到 —— 空转的检查也会全绿，故判失败")
     if no_import:
         fail(f"{len(no_import)} 个素材没有 .import（还没导入过，导入参数无从核）："
              f"{'、'.join(no_import[:5])}")
@@ -247,7 +304,8 @@ def run_checks(list_only: bool = False) -> int:
     if _FAILS:
         say(f"[FAIL] 共 {len(_FAILS)} 条不成立")
         return 1
-    say("[OK] 半透明像素 0、放大件 0、登记表与磁盘一致、导入参数全对、字体内容与登记一致")
+    say("[OK] 半透明像素 0、放大件 0、登记表与磁盘一致、导入参数全对、字体内容与登记一致、"
+        "无 texture_filter 覆盖")
     return 0
 
 

@@ -381,6 +381,37 @@ def case_solid_not_upscaled() -> tuple[bool, str]:
     return not misjudged, "纯色图未被误判" if not misjudged else "**误判了**：会拦下自己的占位件"
 
 
+# ── texture_filter 覆盖守卫（`ENG-13`）─────────────────────────────────
+# 直接撞 check_assets.check_texture_filter：真包里没有覆盖（基线干净），也不该为自证往
+# 场景或代码里塞一个。两条形状 —— 拦得住真覆盖、不误判继承与比较。
+def case_texture_filter_override() -> tuple[bool, str]:
+    """`.tscn` 里 `texture_filter=2`（Linear）与 `.cs` 里 `.TextureFilter=` 赋值都要被拦（`ENG-13`）。"""
+    import check_assets
+    check_assets._FAILS.clear()
+    check_assets.check_texture_filter("fake.tscn", "[node name=\"X\"]\ntexture_filter = 2\n")
+    tscn_caught = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    check_assets.check_texture_filter("fake.cs", "sprite.TextureFilter = TextureFilterEnum.Linear;")
+    cs_caught = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = tscn_caught and cs_caught
+    return ok, (".tscn 与 .cs 覆盖都拦下" if ok
+                else f"**漏了**：tscn_caught={tscn_caught}、cs_caught={cs_caught}")
+
+
+def case_texture_filter_inherit_ok() -> tuple[bool, str]:
+    """继承（0）与比较（`== ParentNode`）不能被误判成覆盖 —— 否则 `CameraProbe` 的核会被自己拦下。"""
+    import check_assets
+    check_assets._FAILS.clear()
+    check_assets.check_texture_filter("fake.tscn", "[node name=\"X\"]\ntexture_filter = 0\n")
+    check_assets.check_texture_filter(
+        "fake.cs", "if (camera.TextureFilter == TextureFilterEnum.ParentNode) { }")
+    misjudged = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    return (not misjudged), ("继承与比较未被误判" if not misjudged
+                             else f"**误判了**：{misjudged}")
+
+
 # ── 不必跑 verify.py 全流程的用例（直接撞解析器与落点）────────────────
 def case_bad_pck_format() -> tuple[bool, str]:
     """把包格式版本改成没见过的值：必须报错，不许猜着解。"""
@@ -485,6 +516,10 @@ DIRECT_CASES = (
      case_upscaled_asset),
     ("纯色图不被误判成放大件", "check_upscaled", "误判方向：纯色图天然满足每个 2×2 同色",
      case_solid_not_upscaled),
+    ("场景与代码里的 texture_filter 覆盖被拦下", "check_texture_filter",
+     "ENG-13：.tscn=2 与 .cs 赋值都要拦", case_texture_filter_override),
+    ("继承与比较不被误判成 texture_filter 覆盖", "check_texture_filter",
+     "ENG-13：误判方向，== ParentNode 是在核不是在改", case_texture_filter_inherit_ok),
     ("发行档拦占位件、日常档放行", "manifest_report", "ENG-12：真包含 28 个非自绘素材",
      case_release_blocks_placeholders),
     ("包里未登记素材被审计抓出", "audit_release_assets", "ENG-12：漏登记等于绕过守卫",
