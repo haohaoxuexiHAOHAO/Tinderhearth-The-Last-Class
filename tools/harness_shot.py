@@ -10,8 +10,12 @@ python 正是它盯的形状），而且管道读中文输出会乱码（设计�
 它做三件事：按需构建 → 带窗口跑一次工程并让 `CameraHarness` 存图 → 把结果与图的路径写进
 UTF-8 日志。**不带 `--headless`** —— 没有渲染设备就取不到视口纹理。
 
+**一次出两张**：俯视与侧视各一张。存图前脚手架会把 15 个剪影收拢到视野里 ——
+`UI-8` 的「同屏 10–15 个敌人时 HUD 挡不挡人」那条验收要看得见那个场面，而散开的剪影在侧视
+320×180 的视野里一次只看得见两三个。
+
 用法（从代码仓根目录运行）：
-    python tools/harness_shot.py                      # 构建后存一张 1280x720 的图
+    python tools/harness_shot.py                      # 构建后存两张 1280x720 的图
     python tools/harness_shot.py --no-build           # 跳过构建（改的只是数值时快一截）
     python tools/harness_shot.py --resolution 1920x1080
 """

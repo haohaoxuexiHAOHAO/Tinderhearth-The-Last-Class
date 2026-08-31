@@ -72,6 +72,12 @@ public partial class UiRoot : Node
     /// 布局一律靠锚点与容器 —— 这里强制铺满所属层，具体位置由界面内部的容器决定。
     /// 正典要求不写死绝对像素坐标，理由是 `aspect="expand"` 下逻辑宽度会变（`UI-3` 实测：
     /// 3840×2130 的窗口得到逻辑 649×360），写死坐标的界面在宽窗口上会错位。
+    ///
+    /// **铺满用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`，且顺序无关。**
+    /// 2026-08-31 在 `UI-8` 实测出来的：对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，
+    /// 引擎会把偏移改写成负的视口尺寸以保住当前那个 0×0 矩形 —— 锚点对了，尺寸还是 0×0，
+    /// 而且不报错。原先这行写在 `AddChild` 之前，碰巧躲过了（不在树里时那段改写不执行），
+    /// 于是它的正确性依赖两行代码的先后顺序。改成显式设偏移之后就不依赖了。
     /// </remarks>
     public void Register(UiSurface surface, Control control)
     {
@@ -80,9 +86,9 @@ public partial class UiRoot : Node
             throw new InvalidOperationException($"界面 id 重复登记：{surface.Id}");
         }
 
-        control.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         control.Visible = false;
         LayerOf(surface.Layer).AddChild(control);
+        control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
     }
 
     /// <summary>打开一层。关卡内不可用的层会被拒绝并说明原因，而不是静默不动。</summary>

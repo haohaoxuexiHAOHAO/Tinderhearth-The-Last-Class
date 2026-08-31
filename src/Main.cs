@@ -49,6 +49,7 @@ public partial class Main : Node2D
         GD.Print("[启动] 文本条目 ", text.Count, " 条");
         GD.Print("[启动] 角色定义 ", characters.Count, " 份");
 
+        _text = text;
         var roster = new Roster(config.RosterCapacity);
         var controllers = new ActorControllerRegistry();
         foreach (var character in characters)
@@ -64,11 +65,45 @@ public partial class Main : Node2D
 
         ProbeUiSkeleton();
         ProbeInputMapping();
+        BuildHud();
         ProbeCamera(config);
     }
 
     private UiRoot _ui = null!;
     private InputRouter _router = null!;
+    private LevelHud _hud = null!;
+    private WristbandPanel _wristband = null!;
+    private TextCatalog _text = null!;
+    private IReadOnlyList<PixelTheme.Check> _fontChecks = [];
+
+    /// <summary>
+    /// 建关卡 HUD（`UI-8`）。**它不是导航栈里的一层** —— 常驻显示，不压不弹。
+    /// </summary>
+    /// <remarks>
+    /// 数值来自 <see cref="HudDemoModel"/> 那份**明确标为演示**的数据。真数据要等玩法实现，
+    /// PRD 第 8 节写明 `UI-1` 不读也不搬 `GP-2` 的参数表。
+    ///
+    /// 放置是**四角贴边**，由作者 2026-08-31 从两套候选里选定，几何在
+    /// <see cref="HudLayout.AnchorOf"/>。
+    /// </remarks>
+    private void BuildHud()
+    {
+        var theme = PixelTheme.Install(out var fontChecks);
+        _fontChecks = fontChecks;
+        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 十项属性核对 ",
+                 fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
+
+        // 手环也挂上同一份主题。`UI-6` 的注释就写着「像素字体与主题跟着 `UI-8` 落地，
+        // 那时把 Theme 挂在根节点上即可，不必改结构」—— 这就是那一步。
+        _wristband.Theme = theme;
+
+        _hud = new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates))
+        {
+            Name = "LevelHud",
+            Theme = theme,
+        };
+        _ui.LayerOf(UiLayer.Hud).AddChild(_hud);
+    }
 
     /// <summary>
     /// 让 `UI-5` 的相机行为在启动时真跑一遍并打出判据。
@@ -89,6 +124,21 @@ public partial class Main : Node2D
     private void ProbeCamera(GameConfig config)
     {
         var probe = new CameraProbe(config) { Name = "CameraProbe" };
+        probe.Finished += () => ProbeHud(config);
+        AddChild(probe);
+    }
+
+    /// <summary>
+    /// 让 `UI-8` 的 HUD 排版在启动时真量一遍并打出判据。
+    /// </summary>
+    /// <remarks>
+    /// **排在相机自检之后、脚手架之前**，这个顺序是必须的：本探针会改窗口尺寸（撑开逻辑宽度才
+    /// 量得出锚点有没有生效），而相机自检那一段要在固定窗口下逐像素比对截图，脚手架的存图也要在
+    /// 标准窗口尺寸下取。三者抢同一个窗口，只能串起来。
+    /// </remarks>
+    private void ProbeHud(GameConfig config)
+    {
+        var probe = new HudProbe(_hud, _router, _text, _fontChecks) { Name = "HudProbe" };
         probe.Finished += () => BuildCameraHarness(config);
         AddChild(probe);
     }
@@ -112,7 +162,11 @@ public partial class Main : Node2D
             return;
         }
 
-        AddChild(new CameraHarness(config, _ui, _router) { Name = "CameraHarness" });
+        AddChild(new CameraHarness(config, _ui, _router, _hud,
+                                   (mates, objective) => HudDemoModel.Build(_text, mates, objective))
+        {
+            Name = "CameraHarness",
+        });
     }
 
     /// <summary>
@@ -150,6 +204,7 @@ public partial class Main : Node2D
 
         var wristband = new WristbandPanel();
         ui.Register(Wristband.Surface, wristband);
+        _wristband = wristband;
         ui.Open(Wristband.Surface);
 
         var 派工 = new UiSurface("roster", UiLayer.Panel, PausesWorld: false, SurfaceKind.Manage);

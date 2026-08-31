@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -128,6 +129,51 @@ def check_frames(name: str, im, entry: dict) -> None:
         fail(f"{name}：按帧宽 {fw} 算是 {w // fw} 帧，登记 {frames} 帧")
 
 
+def check_fonts(entries: list[dict]) -> int:
+    """核字体：文件在、内容与登记的 SHA256 一致、旁边有许可证。
+
+    为什么核内容而不只核存在：字体是二进制，换成另一个版本或另一个字形版本（`zh_hant`／`ja`）
+    在 git diff 里只有一行「二进制文件有差异」，而字形覆盖与度量会跟着变 —— 那正是
+    [ADR-0008] 把版本钉死的理由。钉住内容才让「审计过」这句话指向一份确定的文件。
+
+    **渲染参数不在这里核。** 那十项设在 `.ttf.import`、期望在 `rules/Ui/PixelFont.cs`、
+    实际值由引擎自己报，守卫是 `tools/check_hud.py`。这里再抄一份就是第三份真相。
+    """
+    if not entries:
+        fail("登记表里一条字体都没有 —— 界面文字会退回引擎默认字体，而那不报错")
+        return 0
+
+    checked = 0
+    for entry in entries:
+        rel = entry["path"]
+        path = ASSETS / rel
+        checked += 1
+        if not path.is_file():
+            fail(f"{rel}：登记表里有但文件不在（取法见 README「像素字体怎么进来的」）")
+            continue
+
+        data = path.read_bytes()
+        if len(data) != entry["字节数"]:
+            fail(f"{rel}：{len(data)} 字节与登记 {entry['字节数']} 不符")
+            continue
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != entry["sha256"]:
+            fail(f"{rel}：sha256 {digest[:16]}… 与登记 {entry['sha256'][:16]}… 不符 —— "
+                 f"换了版本或换了字形版本，覆盖与度量都会跟着变；"
+                 f"重跑设计仓 python tools/audit_fonts.py 再更新 ADR-0008 与登记表")
+            continue
+
+        license_rel = entry["许可证文件"]
+        if not (ASSETS / license_rel).is_file():
+            fail(f"{license_rel}：不在 —— OFL 第 2 条要求每份拷贝都带许可证与版权声明")
+            continue
+
+        say(f"  {rel}｜{len(data)} 字节｜上游 {entry['上游版本']}｜字号 {entry['字号']}"
+            f"｜许可证 {license_rel}"
+            f"｜{'可进包' if entry.get('可进发行包') else '不得进包'}")
+    return checked
+
+
 def check_import(name: str, rel: str) -> bool:
     """纹理导入参数。没有 .import 说明还没导入过，**不算通过**。"""
     imp = ASSETS / (rel + ".import")
@@ -151,12 +197,18 @@ def run_checks(list_only: bool = False) -> int:
     data = json.loads(REGISTRY.read_text(encoding="utf-8"))
     generated = data.get("生成槽位", [])
     downloaded = data.get("下载素材", [])
+    fonts = data.get("字体", [])
     entries = {e["path"]: e for e in generated + downloaded}
-    say(f"登记表：生成槽位 {len(generated)} 条、下载素材 {len(downloaded)} 条")
+    say(f"登记表：生成槽位 {len(generated)} 条、下载素材 {len(downloaded)} 条、"
+        f"字体 {len(fonts)} 条")
 
     if list_only:
         for e in generated + downloaded:
             say(f"  {e['path']:<44s} {e['宽']}×{e['高']} ×{e.get('帧数', 1)} 帧"
+                f"｜{'待替换' if e.get('待替换') else '正式'}"
+                f"｜{'可进包' if e.get('可进发行包') else '不得进包'}")
+        for e in fonts:
+            say(f"  {e['path']:<44s} {e['字节数']} 字节 字号 {e['字号']}"
                 f"｜{'待替换' if e.get('待替换') else '正式'}"
                 f"｜{'可进包' if e.get('可进发行包') else '不得进包'}")
         return 0
@@ -179,9 +231,13 @@ def run_checks(list_only: bool = False) -> int:
             no_import.append(rel)
         scanned += 1
 
+    say("\n字体：")
+    font_count = check_fonts(fonts)
+
     say(f"\n覆盖量：登记 {len(entries)} 条，磁盘 {len(on_disk)} 个 .png，"
         f"实际逐像素扫过 {scanned} 个；每个查了 4 类"
-        f"（半透明、放大件、尺寸与帧数、导入参数）")
+        f"（半透明、放大件、尺寸与帧数、导入参数）；"
+        f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）")
     if no_import:
         fail(f"{len(no_import)} 个素材没有 .import（还没导入过，导入参数无从核）："
              f"{'、'.join(no_import[:5])}")
@@ -191,7 +247,7 @@ def run_checks(list_only: bool = False) -> int:
     if _FAILS:
         say(f"[FAIL] 共 {len(_FAILS)} 条不成立")
         return 1
-    say("[OK] 半透明像素 0、放大件 0、登记表与磁盘一致、导入参数全对")
+    say("[OK] 半透明像素 0、放大件 0、登记表与磁盘一致、导入参数全对、字体内容与登记一致")
     return 0
 
 

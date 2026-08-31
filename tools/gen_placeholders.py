@@ -299,15 +299,22 @@ def main() -> int:
 
     if not args.check:
         REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "说明": "素材登记表（ART-4）。尺寸与帧数就是最终规格，替换时按这张表对。"
-                    "「可进发行包」为 false 的条目由 ENG-12 的导出守卫拦住。",
-            "生成入口": "python tools/gen_placeholders.py（只重写「生成槽位」一节）",
-            "下载素材维护": "手工维护，生成器不动。每条必须写来源链接与许可证依据原文。"
-                            "判据是「许可证明确允许作为游戏的一部分分发」，不是「必须 CC0」。",
-            "生成槽位": entries,
-            "下载素材": downloaded,
-        }
+        # **只改「生成槽位」那一节，其余原样保留。**
+        #
+        # 第一版是每次重新拼一份完整 payload，那会静默抹掉手工维护的东西：`ART-4` 收窄
+        # 「可进发行包」判据时加的那段说明、`UI-8` 加的「字体」一节，跑一次生成器就没了。
+        # 而登记表本来就分「生成的」与「手工维护的」两半（下载素材那一节的注释已经写明这个
+        # 分工），保留法只对了一半 —— 2026-08-31 在 `UI-8` 里发现并修。
+        payload = json.loads(REGISTRY.read_text(encoding="utf-8")) if REGISTRY.is_file() else {}
+        payload.setdefault(
+            "说明", "素材登记表（ART-4）。尺寸与帧数就是最终规格，替换时按这张表对。"
+                    "「可进发行包」为 false 的条目由 ENG-12 的导出守卫拦住。")
+        payload.setdefault(
+            "生成入口", "python tools/gen_placeholders.py（只重写「生成槽位」一节）")
+        payload.setdefault(
+            "下载素材维护", "手工维护，生成器不动。每条必须写来源链接与许可证依据原文。")
+        payload["生成槽位"] = entries
+        payload["下载素材"] = downloaded
         REGISTRY.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8", newline="\n")

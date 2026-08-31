@@ -91,6 +91,21 @@ PCK_MAGIC = 0x43504447  # "GDPC"
 # 那正是最坏的失效方向。
 PCK_FORMAT_KNOWN = 4
 
+# ── 随发行必须附带的东西（`ART-3`）────────────────────────────────────
+# OFL 第 2 条要求**每份拷贝**都带许可证与版权声明。字体进了发行包，许可证就必须跟着进去，
+# 而漏了不会报错 —— 只会变成上架后的法律问题。所以这里两头都判：
+#   1. 许可证是**允许**出现的（否则会被下面「文档与脚本」那条当泄漏拦掉）；
+#   2. 包里出现字体数据时，许可证**必须**在，否则判失败。
+# ADR-0008 另钉了第 3 条：将来做了子集化或改字形，输出的字体名不得沿用原名 ——
+# 那件事机器判不了（要读字体的 name 表并与「有没有改过」比对），只能人工验收，
+# 已写在 ADR-0008 的「落地要求」与素材登记表的授权那一栏里。
+FONT_DATA_RE = re.compile(r"\.(?:fontdata|ttf|otf)$", re.IGNORECASE)
+# 允许随发行附带的非资源文件，**连理由一起登记**。不登记的话「该带的」与「漏出去的」分不开。
+BUNDLED_FILES = {
+    "assets/fonts/LICENSE-OFL.txt":
+        "SIL OFL 1.1 第 2 条：字体的每份拷贝都必须带许可证与版权声明（ART-3）",
+}
+
 # 不该出现在发行包里的东西。命名说清是哪一类，报错才指得回踩坑记录那一条。
 LEAK_RULES = (
     ("构建中间产物", re.compile(r"(^|/)(obj|bin)/", re.IGNORECASE)),
@@ -576,6 +591,8 @@ def main_scene_entries() -> tuple[str, ...]:
 
 def classify_leak(entry: PackEntry) -> str | None:
     """这条该不该在发行包里。返回泄漏类别，或 None 表示合法。"""
+    if entry.path in BUNDLED_FILES:
+        return None             # 登记过的随发行附带文件，见 BUNDLED_FILES
     for label, rx in LEAK_RULES:
         if rx.search(entry.path):
             return label
@@ -615,17 +632,37 @@ def manifest_report(pck: Path) -> tuple[bool, list[str], list[str]]:
     elif not any(s in have for s in scenes):
         missing.append(f"启动场景 {scenes[0]}（或它的 .remap）")
 
+    # `ART-3`：包里有字体数据就必须有许可证。判据两边都取自**产物本身**，
+    # 不看源码也不看导出预设 —— 预设改坏了正是要拦的情形之一。
+    fonts = [e for e in entries if FONT_DATA_RE.search(e.path)]
+    font_bytes = sum(e.size for e in fonts)
+    unlicensed: list[str] = []
+    for need, why in BUNDLED_FILES.items():
+        if fonts and need not in have:
+            unlicensed.append(f"{need}（{why}）")
+    lines += ["", f"# 字体数据 {len(fonts)} 条／{font_bytes} 字节："
+                  f"{[e.path for e in fonts]}",
+              f"# 随发行附带 {[p for p in BUNDLED_FILES if p in have]}"]
+
     lines += ["", f"# 泄漏 {len(leaks)} 条", f"# 必需条目缺失 {len(missing)} 条"]
     if missing:
         lines.append(f"# 缺：{missing}")
+    if unlicensed:
+        lines.append(f"# 缺随发行附带文件：{unlicensed}")
 
     notes = [f"包内 {meta['count']} 条／{meta['bytes'] / 1024:.1f} KB",
-             f"泄漏 {len(leaks)} 条", f"必需条目缺 {len(missing)} 条"]
+             f"泄漏 {len(leaks)} 条", f"必需条目缺 {len(missing)} 条",
+             f"字体数据 {font_bytes / 1024:.0f} KB，许可证 "
+             + ("在" if not unlicensed else "**不在**")]
     problems = []
     if leaks:
         problems.append(f"泄漏 {len(leaks)} 条：{leaks[:3]}（踩坑记录 33，多半是缺 .gdignore）")
     if missing:
         problems.append(f"包里缺必需条目 {missing}")
+    if unlicensed:
+        problems.append(f"包里有 {len(fonts)} 条字体数据却缺 {unlicensed} —— "
+                        f"OFL 第 2 条要求每份拷贝都带许可证与版权声明（ART-3）。"
+                        f"补法：把它加进 export_presets.cfg 的 include_filter")
     return not problems, (problems or notes), lines
 
 

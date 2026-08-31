@@ -221,6 +221,31 @@ def restore_gdignore() -> None:
             residue.unlink(missing_ok=True)
 
 
+EXPORT_PRESETS = ROOT / "export_presets.cfg"
+_presets_backup: str | None = None
+
+
+def inject_font_without_license() -> None:
+    """把许可证从导出预设的 include_filter 里去掉 —— 包里有字体却没有许可证（`ART-3`）。
+
+    这是真实缺陷形状而不是编的：字体进仓那天要是没人想起改 `include_filter`，包里就是这个样子，
+    而**它不报错** —— 只会变成上架后的法律问题（OFL 第 2 条要求每份拷贝都带许可证与版权声明）。
+    """
+    global _presets_backup
+    _presets_backup = EXPORT_PRESETS.read_text(encoding="utf-8")
+    text = _presets_backup
+    for need in verify.BUNDLED_FILES:
+        text = text.replace(f",{need}", "").replace(f"{need},", "")
+    EXPORT_PRESETS.write_text(text, encoding="utf-8", newline="\n")
+
+
+def restore_presets() -> None:
+    global _presets_backup
+    if _presets_backup is not None:
+        EXPORT_PRESETS.write_text(_presets_backup, encoding="utf-8", newline="\n")
+        _presets_backup = None
+
+
 def inject_broken_config() -> None:
     """把外置配置写成坏 JSON。产物照样导得出来，但一跑就炸 —— 冒烟那一步该拦住它。"""
     global _config_backup
@@ -439,6 +464,10 @@ CASES = (
     Case("子工程缺 .gdignore 导致包内泄漏时判失败", "step_export", "踩坑记录 33",
          inject_missing_gdignore, restore_gdignore,
          ["--upto", "export"], "泄漏"),
+    Case("包里有字体却没有许可证时判失败", "manifest_report",
+         "ART-3：OFL 第 2 条要求每份拷贝都带许可证，而漏了不报错",
+         inject_font_without_license, restore_presets,
+         ["--upto", "export"], "OFL 第 2 条"),
     Case("素材有半透明像素时判失败", "step_assets", "像素绘制原则 §9 的绝对规则",
          inject_semi_transparent, restore_semi_transparent,
          ["--upto", "assets"], "半透明像素"),
@@ -487,7 +516,8 @@ def run_case(case: Case) -> tuple[bool, str]:
     return ok, detail + "；" + _first_problem(out)
 
 
-TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_count")
+TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_count",
+                      "manifest_report")
 
 
 def coverage(names: list[str]) -> tuple[list[str], list[str]]:

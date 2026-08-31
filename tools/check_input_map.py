@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """按启动日志实测输入映射（`UI-7`）。
 
-要判定的事有四类，共同点是**失效都不报错**：
+要判定的事有五类，共同点是**失效都不报错**：
 
 1. **动作齐不齐、绑定对不对。** 默认绑定走代码而不是 `project.godot` 的 `[input]` 段（理由见
    `rules/Ui/InputBindings.cs`），所以没有任何配置文件能让人一眼核对。判据是让引擎自己把装好的
@@ -13,7 +13,10 @@
 3. **除门面之外不许直接轮询引擎的动作状态。** 2026-08-30 实测：在 `_Input` 里
    `SetInputAsHandled` 之后 `Input.IsActionPressed` 仍为 true，所以直接轮询的代码会在玩家按住
    扳机挑技能时照旧看到轻攻击被按下。这条只能靠扫源码守。
-4. **组合、死区与设备切换的实机判据全过。** 引擎内测试底座还不存在（`ENG-6`），所以
+4. **脚手架调试键不许押在编辑器要用的键上，且要与登记逐个对上。** 这些键不过 `InputMap`，
+   绑定表那套核对一条都管不到。2026-08-31 撞过：目标态押在 `F8`，作者从编辑器起工程一按就
+   停进程，看起来像程序崩了。详见 `HARNESS_KEYS` 那一段。
+5. **组合、死区与设备切换的实机判据全过。** 引擎内测试底座还不存在（`ENG-6`），所以
    `src/UI/InputProbe.cs` 在启动时跑一遍脚本化自检并把每条判据打进日志，这里读回来判。
 
 不用管道读中文输出（设计仓 reference/踩坑记录.md 第 27 条）：日志由引擎写 `--log-file`，
@@ -51,6 +54,45 @@ POLLING_ALLOWED = {
     "src/UI/InputProbe.cs",
 }
 POLLING_RE = re.compile(r"Input\.IsAction(?:Pressed|JustPressed|JustReleased)\b")
+
+# ── 脚手架调试键（2026-08-31 撞过）────────────────────────────────────────
+# 这些键**不过 InputMap**：脚手架在 `_UnhandledKeyInput` 里直接匹配原始键码，于是绑定表那套
+# 「一份来源 + 逐条核对」一条都管不到它们，谁挑了一个编辑器要用的键也没人拦。
+#
+# 真撞过的形状：目标进度三态原先押在 `F8`。作者从编辑器起工程、按 `F8`，进程直接关掉 ——
+# 看起来像程序自己崩了，实际是编辑器的「停止运行项目」就是 `F8`，而它在**游戏窗口有焦点时
+# 照样生效**（godotengine/godot#94713）。2026-08-31 实测另一半：脱开编辑器单独跑，注入 `F8`
+# 与 `O` 两个事件，处理器都正常跑完、进程退出码 0 —— 所以问题不在处理器，在键位本身。
+#
+# 用**登记制**而不是只列黑名单：每个调试键都要写明用途，代码里多一个或少一个都判失败。
+# 光有黑名单挡不住下一个人挑另一个被编辑器吃掉的键 —— 登记制会逼着他在这里写一行。
+HARNESS_KEY_FILES = ("src/World/CameraHarness.cs",)
+HARNESS_KEY_RE = re.compile(r"^\s*case Key\.(\w+):", re.MULTILINE)
+
+# 键 → 用途。改脚手架键位就改这里，两边对不上就判失败。
+HARNESS_KEYS = {
+    "F1": "切视角",
+    "F2": "切建造模式",
+    "F3": "震一下",
+    "F4": "震动开关",
+    "F5": "收拢／散开 15 个剪影",
+    "F6": "打印 HUD 排版数据",
+    "F7": "队友数 4↔0",
+    "O": "目标进度三态（原先是 F8，撞编辑器停止键，2026-08-31 换掉）",
+    "G": "手柄预览：模拟按住扳机切成手柄态，不接手柄也能看手柄呈现（2026-08-31 加）",
+    "F9": "放一段演出",
+    "F10": "打印当前数值",
+    "F11": "显示／隐藏调试文字",
+}
+
+# 编辑器会抢走的键：押在这上面的调试键在编辑器里起工程时按不出效果，且失败方式**看起来像崩溃**。
+# 只列有依据的那些：`F8` 由上游 issue 与本项目实机各证一次。`F5`／`F6` 虽然也是编辑器的运行类
+# 快捷键，但实测事件到得了游戏窗口（`F5` 由作者实机确认，`F6`／`F7` 由 2026-08-31 的注入实测
+# 走的是同一条 `_UnhandledKeyInput` 通路），所以不列 —— 没有依据就不写进黑名单。
+EDITOR_GRABBED_KEYS = {
+    "F8": "编辑器「停止运行项目」，游戏窗口有焦点时照样生效（godotengine/godot#94713）——"
+          "按下去只会停掉进程，作者会以为程序崩了",
+}
 
 # [输入] 动作 attack_light 死区 0.20 绑定 2 条
 ACTION_RE = re.compile(r"\[输入\] 动作 (\S+) 死区 ([\d.]+) 绑定 (\d+) 条")
@@ -277,6 +319,42 @@ def check_no_direct_polling() -> None:
         ok(f"扫过 src/ 下 {scanned} 个 .cs，除门面之外没有直接轮询引擎动作状态的地方")
 
 
+def check_harness_debug_keys() -> None:
+    """脚手架调试键不许押在编辑器要用的键上，且必须与登记逐个对上。"""
+    found: dict[str, list[str]] = {}
+    scanned = 0
+    for rel in HARNESS_KEY_FILES:
+        path = ROOT / rel
+        if not path.is_file():
+            fail(f"{rel} 不在 —— 这条检查在空转，而空转的守卫也会「全绿」")
+            return
+        scanned += 1
+        text = path.read_text(encoding="utf-8")
+        for key in HARNESS_KEY_RE.findall(text):
+            found.setdefault(key, []).append(rel)
+
+    if not found:
+        fail(f"在 {list(HARNESS_KEY_FILES)} 里一个 `case Key.X:` 都没扫到 —— "
+             f"脚手架调试键的写法变了，这条检查已经在空转")
+        return
+
+    grabbed = sorted(k for k in found if k in EDITOR_GRABBED_KEYS)
+    if grabbed:
+        fail("脚手架调试键押在编辑器要用的键上："
+             + "；".join(f"{k}（{EDITOR_GRABBED_KEYS[k]}）" for k in grabbed))
+    else:
+        ok(f"扫过 {scanned} 个脚手架源码里的 {len(found)} 个调试键，"
+           f"没有一个押在编辑器要用的 {sorted(EDITOR_GRABBED_KEYS)} 上")
+
+    missing = sorted(set(HARNESS_KEYS) - set(found))
+    extra = sorted(set(found) - set(HARNESS_KEYS))
+    if missing or extra:
+        fail(f"脚手架调试键与登记对不上：代码里多出 {extra}、登记里多出 {missing} —— "
+             f"新加一个键却不登记，就没人核对过它会不会被编辑器吃掉")
+    else:
+        ok(f"{len(found)} 个调试键与登记逐个对上（{'、'.join(f'{k} {v}' for k, v in HARNESS_KEYS.items())}）")
+
+
 def check_verdicts(text: str) -> None:
     verdicts = VERDICT_RE.findall(text)
     if not verdicts:
@@ -337,9 +415,10 @@ def main() -> int:
         return 1
     say(f"绑定表 {BINDINGS_CS.relative_to(ROOT).as_posix()} 声明了 {declared} 条绑定")
 
-    # 不依赖引擎的两条先跑：源码扫描比起引擎快得多，坏在这里就不必等引擎。
+    # 不依赖引擎的三条先跑：源码扫描比起引擎快得多，坏在这里就不必等引擎。
     check_no_input_section()
     check_no_direct_polling()
+    check_harness_debug_keys()
 
     log = LOG_DIR / f"{time.strftime('%Y%m%d-%H%M%S')}.log"
     text = run_engine(launcher, log)

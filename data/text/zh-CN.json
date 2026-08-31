@@ -1,8 +1,22 @@
 {
   "//": "简体中文文本表。代码里不写死任何玩家看得见的字符串，一律用这里的键（ENG-5）。",
   "//禁译": "专有名词的禁译与母语审校要求见设计仓 canon/characters/人物.md。",
+  "//HUD": "hud.* 是关卡 HUD 的文字（UI-8）。HP／SP／MP 沿用正典的缩写，给它们起中文名是文案的事，不在 UI-1 范围。按键记号（1–6、左／上／下、L／R）与倒地记号（×）是符号不是文案，刻意不在这里。",
 
   "character.ember.name": "烬",
   "boot.title": "火种：最后一届",
-  "boot.contentReady": "内容已载入"
+  "boot.contentReady": "内容已载入",
+
+  "hud.gauge.hp": "HP",
+  "hud.gauge.sp": "SP",
+  "hud.gauge.mp": "MP",
+  "hud.gauge.vigor": "体力",
+
+  "hud.objective.material": "素材",
+  "hud.objective.done": "已达成，返回入口点撤离",
+
+  "hud.skill.mark": "标记",
+  "hud.skill.barrier": "屏障",
+  "hud.skill.firstAid": "急救",
+  "hud.skill.control": "控场"
 }

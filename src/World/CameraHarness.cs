@@ -18,7 +18,8 @@ namespace Tinderhearth.World;
 /// 东西让相机行为看得见：可拼接的地面（看得出镜头在动）、画出来的地图边界与可建造区边界
 /// （看得出钳制与推镜在什么位置触发）、每 5 格一个地标（数得出镜头移了多远）。
 ///
-/// **`UI-8` 的 HUD 加在这上面**，`UI-10` 的端到端测试会替换它 —— 与 <see cref="CameraProbe"/>、
+/// **`UI-8` 的 HUD 已经加在这上面**（<see cref="Tinderhearth.UI.LevelHud"/>，由 <c>Main</c> 建、
+/// 本类用调试键驱动），`UI-10` 的端到端测试会替换它 —— 与 <see cref="CameraProbe"/>、
 /// <c>Main.ProbeUiSkeleton</c> 同一性质。
 ///
 /// 两条实现取舍写在这里，免得看起来像绕守卫：
@@ -56,9 +57,18 @@ public sealed partial class CameraHarness : Node2D
     private static readonly Color GridMajorColor = Color.Color8(0x6B, 0x52, 0x3C);      // 20 格粗线
     private static readonly Color GridMinorColor = Color.Color8(0x88, 0x78, 0x60);      // 5 格细线
 
+    /// <summary>收拢敌群时的横纵间隔，世界像素。36×48 让 8 列 2 行刚好铺满侧视的 320×180 视野。</summary>
+    private const int SwarmStepX = 36;
+    private const int SwarmStepY = 48;
+    private const int SwarmColumns = 8;
+
     private readonly GameConfig _config;
     private readonly UiRoot _ui;
     private readonly InputRouter _router;
+    private readonly LevelHud _hud;
+    private readonly Func<int, HudDemoModel.ObjectiveState, HudViewModel> _demo;
+    private readonly List<Sprite2D> _landmarks = [];
+    private readonly List<Vector2> _landmarkHome = [];
 
     private GameCamera _camera = null!;
     private Sprite2D _actor = null!;
@@ -70,6 +80,10 @@ public sealed partial class CameraHarness : Node2D
     private double _cutsceneLeft;
     private double _animTime;
     private bool _moving;
+    private bool _swarmed;
+    private int _mates = HudLayout.MaxTeammates;
+    private HudDemoModel.ObjectiveState _objective = HudDemoModel.ObjectiveState.InProgress;
+    private int _padPreview;   // 手柄预览：0 关、1 模拟按住 LT、2 模拟按住 RT
     private int _shotCountdown = -1;
 
     private Texture2D _idleSheet = null!;
@@ -77,11 +91,14 @@ public sealed partial class CameraHarness : Node2D
     private int _idleFrames;
     private int _runFrames;
 
-    public CameraHarness(GameConfig config, UiRoot ui, InputRouter router)
+    public CameraHarness(GameConfig config, UiRoot ui, InputRouter router, LevelHud hud,
+                        Func<int, HudDemoModel.ObjectiveState, HudViewModel> demo)
     {
         _config = config;
         _ui = ui;
         _router = router;
+        _hud = hud;
+        _demo = demo;
     }
 
     private int BuildableWidthPx => _config.BuildableWidthCells * UiMetrics.BaseUnit;
@@ -92,7 +109,7 @@ public sealed partial class CameraHarness : Node2D
 
     public override void _Ready()
     {
-        // 手环占位面板铺满屏幕且现在没有内容，留着会挡住要看的东西。真 HUD 是 `UI-8` 的事。
+        // 手环占位面板铺满屏幕且现在没有内容，留着会挡住要看的东西（真 HUD 是常驻的，不在栈里）。
         _ui.Close(Wristband.Surface);
 
         BuildGround();
@@ -106,11 +123,18 @@ public sealed partial class CameraHarness : Node2D
                  "px｜可建造区 ", BuildableWidthPx, "x", BuildableHeightPx,
                  "px（", _config.BuildableWidthCells, "x", _config.BuildableHeightCells, " 格）");
         GD.Print("[脚手架] 调试键 F1 切视角｜F2 切建造模式｜F3 震一下｜F4 震动开关｜"
-                 + "F9 放一段演出｜F10 打印当前数值");
+                 + "F5 收拢／散开 15 个剪影（同屏敌群）｜F6 打印 HUD 排版数据｜"
+                 + "F7 队友数 4↔0｜O 目标进度三态｜G 手柄预览（不接手柄也能看手柄呈现）｜"
+                 + "F9 放一段演出｜F10 打印当前数值｜"
+                 + "F11 显示／隐藏这行调试文字（**默认隐藏**，它会挡住要判的东西）");
 
         if (OS.GetCmdlineUserArgs().Contains(ShotArg))
         {
             _shotCountdown = 8;     // 等布局与首帧稳定，理由与 Main 延后两帧打显示指标相同
+
+            // 存图时**先把敌群收拢**：排 HUD 要判的是「同屏 10–15 个敌人时挡不挡人」，
+            // 而散开的剪影在侧视视野里一次只看得见两三个，那张图证明不了这条。
+            ToggleSwarm();
         }
     }
 
@@ -142,7 +166,7 @@ public sealed partial class CameraHarness : Node2D
         Shoot();
 
         // 两种视角各存一张。只存俯视那张的话侧视的 2 倍取景与侍武士精灵表就没人看过，
-        // 而「两种视角共用同一份实现」正是本条的立项理由 —— 只看一半等于没看。
+        // 而「两种视角共用同一份实现」正是 `UI-5` 的立项理由 —— 只看一半等于没看。
         if (_view == CameraView.TopDown)
         {
             ToggleView();
@@ -152,6 +176,78 @@ public sealed partial class CameraHarness : Node2D
 
         _shotCountdown = -1;
         GetTree().Quit(0);
+    }
+
+    /// <summary>把 HUD 的排版数据打进日志（`F6`）。放置方案已定，这里只报数不改东西。</summary>
+    private void PrintHudLayout()
+    {
+        var width = (int)GetViewport().GetVisibleRect().Size.X;
+        var height = (int)GetViewport().GetVisibleRect().Size.Y;
+        var band = HudLayout.ClearBand(width, height);
+        GD.Print("[脚手架] HUD 排版 四角贴边｜占屏 ",
+                 HudLayout.CoverageRatio(width, height).ToString("P2"),
+                 "｜可读横带 ", band.Width, "x", band.Height,
+                 "（占屏高 ", ((double)band.Height / height).ToString("P1"), "）");
+        foreach (var block in Enum.GetValues<HudBlock>())
+        {
+            var rect = _hud.RectOf(block);
+            GD.Print("[脚手架]   ", block, " 贴 ", HudLayout.AnchorOf(block),
+                     " 实际 ", rect.Position.X, ",", rect.Position.Y,
+                     " ", rect.Size.X, "x", rect.Size.Y,
+                     _hud.IsShown(block) ? "" : "（收起）");
+        }
+    }
+
+    /// <summary>
+    /// 手柄预览（`G`）：**不接手柄也能看手柄的 HUD 呈现**。
+    /// </summary>
+    /// <remarks>
+    /// 为什么需要它：技能栏去掉「L」「R」记号列后，手柄靠组间距 + 高亮 + 图标内面键记号分辨哪三个
+    /// 归哪个扳机，而「面键记号在 16px 图标里读不读得清、分组清不清」只能人判。作者手头没有手柄，
+    /// 这条就验不了。手法与 <c>HudProbe</c> 一样：注入一次扳机轴事件 —— 引擎收到
+    /// <c>InputEventJoypadMotion</c> 就把设备族切成手柄，越过死区又会让那一组生效，于是屏幕上就是
+    /// 手柄玩家看到的样子（设备切换与分组都是真代码路径，不是画一张假图）。
+    ///
+    /// 按 <c>G</c> 循环：关 → 按住 LT（左三个高亮）→ 按住 RT（右三个高亮）→ 关。按 <c>G</c> 键本身
+    /// 是键盘事件、会先把设备切回键鼠，所以「关」那一档不必额外做什么；另外两档再注入扳机切成手柄。
+    /// 预览时把六个位都设成就绪，六个面键记号一起显出来，好一次判全。
+    /// </remarks>
+    private void CycleGamepadPreview()
+    {
+        _padPreview = (_padPreview + 1) % 3;
+        InjectTrigger(InputSymbol.PadTriggerLeft, 0f);
+        InjectTrigger(InputSymbol.PadTriggerRight, 0f);
+
+        if (_padPreview == 0)
+        {
+            _hud.Model = _demo(_mates, _objective);     // 恢复演示模型；设备已随 G 键回到键鼠
+            GD.Print("[脚手架] 手柄预览 → 关（回键鼠）");
+            return;
+        }
+
+        // 六个位全设成就绪，六个面键记号都显出来，好判 16px 图标里读不读得清。
+        var model = _demo(_mates, _objective);
+        var ready = new List<HudSkillSlot>();
+        foreach (var slot in model.Skills)
+        {
+            ready.Add(slot with { Unlocked = true, CooldownRemaining = 0.0 });
+        }
+
+        _hud.Model = model.WithSkills(ready);
+        var trigger = _padPreview == 1 ? InputSymbol.PadTriggerLeft : InputSymbol.PadTriggerRight;
+        InjectTrigger(trigger, 1f);
+        GD.Print("[脚手架] 手柄预览 → 按住 ", _padPreview == 1 ? "LT（左三个高亮）" : "RT（右三个高亮）",
+                 "｜六个面键记号都显示，判 16px 图标里读不读得清、分组清不清");
+    }
+
+    /// <summary>注入一次扳机轴事件（同 <c>HudProbe.Inject</c> 的手法），供手柄预览用。</summary>
+    private static void InjectTrigger(InputSymbol symbol, float axisValue)
+    {
+        if (InputMapInstaller.ToEvent(symbol) is InputEventJoypadMotion motion)
+        {
+            motion.AxisValue = motion.AxisValue < 0 ? -axisValue : axisValue;
+            Input.ParseInputEvent(motion);
+        }
     }
 
     private void Shoot()
@@ -164,7 +260,8 @@ public sealed partial class CameraHarness : Node2D
         var image = GetViewport().GetTexture().GetImage();
         var err = image.SavePng(path);
         GD.Print("[脚手架] 存图 ", path, "（", image.GetWidth(), "x", image.GetHeight(),
-                 " 物理像素，视角 ", _view, "，错误码 ", err, "）");
+                 " 物理像素，视角 ", _view,
+                 "，敌群 ", _swarmed ? "收拢" : "散开", "，错误码 ", err, "）");
     }
 
     /// <summary>
@@ -271,15 +368,55 @@ public sealed partial class CameraHarness : Node2D
         {
             for (var row = 0; row < 3; row++)
             {
-                holder.AddChild(new Sprite2D
+                var sprite = new Sprite2D
                 {
                     Texture = (col + row) % 3 == 0 ? ally : enemy,
                     Centered = true,
                     Position = new Vector2(
                         (col * step) + (step / 2), (row * step) + (step / 2)),
-                });
+                };
+                holder.AddChild(sprite);
+                _landmarks.Add(sprite);
+                _landmarkHome.Add(sprite.Position);
             }
         }
+    }
+
+    /// <summary>
+    /// 把 15 个剪影收拢到当前视野里，或散回原位（`F5`）。
+    /// </summary>
+    /// <remarks>
+    /// **本条验收要的那个场面靠它才摆得出来**：「同屏 10–15 个敌人时 HUD 不遮挡角色所在的可读区」。
+    /// 散开的 15 个剪影每隔 8 格一个，侧视 320×180 的视野里一次只看得见两三个 —— 那个数量证明不了
+    /// 这条。收拢成 8 列 2 行、间隔 36×48 世界像素，正好铺满侧视视野，与正典的同屏上限一致。
+    /// </remarks>
+    private void ToggleSwarm()
+    {
+        _swarmed = !_swarmed;
+        if (!_swarmed)
+        {
+            for (var i = 0; i < _landmarks.Count; i++)
+            {
+                _landmarks[i].Position = _landmarkHome[i];
+            }
+
+            GD.Print("[脚手架] 剪影散回原位（每 8 格一个，用来数镜头移了多远）");
+            return;
+        }
+
+        var rows = (_landmarks.Count + SwarmColumns - 1) / SwarmColumns;
+        var originX = _camera.Rig.CenterX - (SwarmStepX * (SwarmColumns - 1) / 2);
+        var originY = _camera.Rig.CenterY - (SwarmStepY * (rows - 1) / 2);
+        for (var i = 0; i < _landmarks.Count; i++)
+        {
+            _landmarks[i].Position = new Vector2(
+                originX + (i % SwarmColumns * SwarmStepX),
+                originY + (i / SwarmColumns * SwarmStepY));
+        }
+
+        GD.Print("[脚手架] 剪影收拢成 ", SwarmColumns, " 列 × ", rows, " 行 ＝ ",
+                 _landmarks.Count, " 个，间隔 ", SwarmStepX, "x", SwarmStepY,
+                 " 世界像素 —— 这就是「同屏 10–15 个敌人」的样子，看 HUD 挡不挡人");
     }
 
     /// <summary>
@@ -323,21 +460,31 @@ public sealed partial class CameraHarness : Node2D
     }
 
     /// <summary>
-    /// 屏幕上打一行当前状态。**用引擎默认字体** —— 像素字体与 <c>Theme</c> 是 `UI-8` 的第一步。
+    /// 屏幕上打一行当前状态。**默认隐藏**，`F11` 打开。
     /// </summary>
+    /// <remarks>
+    /// 为什么改成默认隐藏：`UI-8` 的实机确认要判的正是「HUD 有没有压掉该看的东西」，而这块调试
+    /// 文字自己就压着左上角 —— 它在场，那条判断就做不了。数值靠 `F10` 打进日志（本来就有），
+    /// 要盯着看时按 `F11`。
+    ///
+    /// 它现在与真 HUD 共用像素字体（<see cref="PixelTheme"/> 已把全局回退字体换掉），但字号仍压到
+    /// 一个栅格：它是旁注，不该和 HUD 抢注意力。位置挪到左侧竖直中段 —— 那是两套放置方案都空着
+    /// 的地方，虽然会盖住一点关卡画面，但不会盖住 HUD 本身，于是打开它时仍看得清 HUD 的排版。
+    /// </remarks>
     private void BuildOverlay()
     {
         _overlay = new Label
         {
             Name = "HarnessOverlay",
             Text = "",
+            Visible = false,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
-        _overlay.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
-        _overlay.Position = new Vector2(UiMetrics.SafeMargin, UiMetrics.SafeMargin);
-
-        // 字号压到 8：默认字号在 640×360 的逻辑分辨率下一行占近 20px，五行就吃掉画面的三分之一
-        // （2026-08-31 存图看出来的）。这里要看的是镜头，读数只是旁注。
-        // 引擎默认字体在 8px 下不锐利 —— **这是刻意接受的**，像素字体与 `Theme` 是 `UI-8` 的第一步。
+        _overlay.SetAnchorsPreset(Control.LayoutPreset.CenterLeft);
+        _overlay.SetOffsetsPreset(Control.LayoutPreset.CenterLeft,
+            Control.LayoutPresetMode.KeepSize, UiMetrics.SafeMargin);
+        _overlay.CustomMinimumSize = new Vector2(
+            UiMetrics.BaseWidth / UiMetrics.SideViewZoom, UiMetrics.BaseHeight / UiMetrics.SideViewZoom);
         _overlay.AddThemeFontSizeOverride("font_size", UiMetrics.Grid);
         _ui.LayerOf(UiLayer.Hud).AddChild(_overlay);
     }
@@ -407,6 +554,11 @@ public sealed partial class CameraHarness : Node2D
 
     private void RefreshOverlay()
     {
+        if (!_overlay.Visible)
+        {
+            return;         // 默认隐藏，省掉每帧拼一串字符串
+        }
+
         var rig = _camera.Rig;
         _overlay.Text =
             $"{_view} x{rig.Zoom} 视野 {rig.VisibleWidth}x{rig.VisibleHeight}"
@@ -420,7 +572,12 @@ public sealed partial class CameraHarness : Node2D
             + $"　推镜 {CameraFeel.EdgePushMarginCells}格/{CameraFeel.EdgePushPixelsPerSecond}"
             + $"　滚动 {CameraFeel.ScrollPixelsPerSecond}"
             + (rig.IsUnderCutsceneControl ? $"　演出接管：{rig.CutsceneReason}" : "") + "\n"
-            + "F1 视角　F2 建造　F3 震一下　F4 震动开关　F9 演出　F10 打印数值\n"
+            + $"队友 {_mates}　目标 {_objective}"
+            + $"　敌群 {(_swarmed ? "收拢" : "散开")}　设备 {_router.Device}"
+            + $"　技能组 {_router.ActiveSkillGroup}\n"
+            + $"　手柄预览 {(_padPreview == 0 ? "关" : _padPreview == 1 ? "按住LT" : "按住RT")}\n"
+            + "F1 视角　F2 建造　F3 震一下　F4 震动开关　F5 敌群　F6 HUD 排版\n"
+            + "F7 队友数　O 目标态　G 手柄预览　F9 演出　F10 打印数值　F11 收起这段字\n"
             + "红线地图边界（角色走到这为止）　蓝线可建造区（线外那一圈是周边地形，本来就能走）"
             + "　黄线推镜触发带　脚手架没有碰撞与物理，那归玩法实现";
     }
@@ -454,6 +611,34 @@ public sealed partial class CameraHarness : Node2D
             case Key.F4:
                 _camera.Rig.ShakeEnabled = !_camera.Rig.ShakeEnabled;
                 GD.Print("[脚手架] 震动开关 → ", _camera.Rig.ShakeEnabled ? "开" : "关");
+                break;
+            case Key.F5:
+                ToggleSwarm();
+                break;
+            case Key.F6:
+                PrintHudLayout();
+                break;
+            case Key.F7:
+                _mates = _mates > 0 ? 0 : HudLayout.MaxTeammates;
+                _hud.Model = _demo(_mates, _objective);
+                GD.Print("[脚手架] 队友数 → ", _mates,
+                         _mates == 0 ? "（队友区应当收起，而不是留四个空槽）" : "（满编）");
+                break;
+            // 目标态用普通字母键而不是功能键：`F8` 是编辑器「停止运行项目」，2026-08-31 作者
+            // 从编辑器起的那次一按就把进程停掉了，看起来像程序自己崩。守卫见 check_input_map.py。
+            case Key.O:
+                _objective = (HudDemoModel.ObjectiveState)
+                    (((int)_objective + 1) % Enum.GetValues<HudDemoModel.ObjectiveState>().Length);
+                _hud.Model = _demo(_mates, _objective);
+                GD.Print("[脚手架] 目标进度 → ", _objective,
+                         "（三种态都必须仍然显示，正典要求进度始终可见）");
+                break;
+            case Key.G:
+                CycleGamepadPreview();
+                break;
+            case Key.F11:
+                _overlay.Visible = !_overlay.Visible;
+                GD.Print("[脚手架] 调试文字 → ", _overlay.Visible ? "显示（它会挡住关卡画面）" : "隐藏");
                 break;
             case Key.F9:
                 StartCutscene();

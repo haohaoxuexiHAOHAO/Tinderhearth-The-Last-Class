@@ -53,9 +53,9 @@ python tools/verify.py
 拦得住、还原后复验，并自报覆盖了哪几步。**一个什么都不检的脚本也会全绿**，所以「跑过一次
 全绿」不能当作它可信的证据。
 
-### 门禁之外的三个专项守卫
+### 门禁之外的四个专项守卫
 
-这三条**不在 `verify.py` 里**，因为它们都要另起一次引擎，而门禁已经起过一次了；改了对应的东西
+这四条**不在 `verify.py` 里**，因为它们都要另起一次引擎，而门禁已经起过一次了；改了对应的东西
 再单独跑。
 
 | 命令 | 守什么 | 自证 |
@@ -63,8 +63,9 @@ python tools/verify.py
 | `python tools/check_scaling.py` | 逻辑分辨率整数放大到窗口（`UI-3`）。四档窗口从引擎日志读回实际缩放倍数 | 无（它是量具不是守卫，判据全来自引擎自己写的日志） |
 | `python tools/check_input_map.py` | 输入映射（`UI-7`）。绑定逐条与引擎自报名全等比对、扳机死区、内置 `ui_*` 的手柄绑定、`project.godot` 无 `[input]` 段、`src/` 无直接轮询、启动自检的实机判据 | `python tools/selfcheck_input_map.py` |
 | `python tools/check_camera.py` | 相机五项行为（`UI-5`）。只有一个 `sealed` 的 `Camera2D` 派生类型、规则层相机类型登记比对、场景里没有绕过它的相机、可建造区尺寸不是字面量、两种视角判据名字集合全等、缩放与视野对正典、装进相机的可建造区对配置、像素块实测含反证 | `python tools/selfcheck_camera.py` |
+| `python tools/check_hud.py` | 关卡 HUD 的排版与数据来源（`UI-8`）。静态核扫界面源码（无位置类 API、无逻辑分辨率常量、无 `TextureFilter` 覆盖、除 0 与 1 外无数字字面量）；行为核读启动日志（块的实际矩形对规则层预测、撑开逻辑宽度后锚点行为、灌不同的量看条长跟不跟着变、字体十项属性、两套放置候选判据名字集合全等） | `python tools/selfcheck_hud.py` |
 
-后两条各守着一条**看不见的约定**。
+后三条各守着一条**看不见的约定**。
 
 输入那条：玩法代码必须通过 `src/UI/InputRouter.cs` 问输入，不许直接调 `Input.IsActionPressed`。
 理由是实测结果 —— 在 `_Input` 里 `SetInputAsHandled` 之后轮询状态**仍然是按下**，所以直接轮询的
@@ -77,13 +78,21 @@ python tools/verify.py
 一次、名字集合完全相同」。后者拦的是更隐蔽的形态 —— 类只有一个，但某个行为只在一种视角下跑过。
 它**不带 `--headless`**：其中的像素块实测要真截图。
 
+HUD 那条守着两条 `UI-8` 的验收标准，两条都会静默退化：**界面里没有绝对像素坐标**（`aspect="expand"`
+下逻辑宽度是变量，写死坐标的界面**在 640 宽的窗口上看起来完全正常**，只在宽窗口上错位）、
+**显示的数值全部由视图模型传入**（图省事写个 100 当 HP 上限，代码照样跑，等数值模型真接进来才发现
+有两份互相矛盾的事实）。**一条规则两道核**：静态核证明「没写死」，行为核证明「真的读了传进来那份」——
+只有静态核的话，界面完全可以拿视图模型当摆设、画一根固定长度的条。它同样**不带 `--headless`**：
+headless 下改窗口尺寸不会让拉伸重算，撑开那一段会**假过**，所以引擎侧遇到 headless 会显式打
+「量 跳过」，而守卫把跳过判成失败。
+
 ### 两个辅助入口，不是守卫
 
 它们不判对错，只把「看一眼」这件事落成能复核的文件 —— 所以不进门禁，也没有自证。
 
 | 命令 | 干什么 |
 | --- | --- |
-| `python tools/harness_shot.py` | 跑一次相机验收脚手架（`src/World/CameraHarness.cs`），两种视角各存一张图到 `logs/art/`，并把引擎报错一起报出来。**排 HUD 时靠它复核**：看不见屏幕的人需要一个能落成文件的形式 |
+| `python tools/harness_shot.py` | 跑一次验收脚手架（`src/World/CameraHarness.cs`），两种视角各存一张图到 `logs/art/`，并把引擎报错一起报出来。**排界面时靠它复核**：看不见屏幕的人需要一个能落成文件的形式。存图前会把 15 个剪影收拢到视野里，好让「同屏 10–15 个敌人时 HUD 挡不挡人」那条在图上看得出来 |
 | `python tools/inspect_art_inbox.py` | 量 `temp/art-inbox/` 里的 PNG：画布、色数、能整除的格子尺寸候选，加半透明像素与放大件两条判据。**那两条直接调 `check_assets.py` 的实现**，同一条规则不写第二份 |
 
 脚手架本身是 `UI-5` 的实机确认与 `UI-12` 的手感校准工具，`UI-8` 的 HUD 加在它上面，
@@ -105,6 +114,27 @@ python -m pip install -r tools/requirements.txt
 
 下面三节是构建、测试、导出三步各自的原始命令，单独调试时用得上。素材那一步的原始命令是
 `python tools/check_assets.py`（生成占位件与写登记表是另一条：`python tools/gen_placeholders.py`）。
+
+## 像素字体怎么进来的
+
+主字体是 [ADR-0008] 选定的**缝合像素字体 12px 比例模式 简体版**，落在
+`assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf`，版本与内容都钉死（登记在
+`tools/asset-registry.json` 的「字体」一节，`check_assets.py` 逐次核 SHA256）。
+旁边的 `LICENSE-OFL.txt` 必须随发行 —— OFL 第 2 条要求每份拷贝都带许可证与版权声明，
+执行体是 `verify.py` 解包时那条「包里有字体数据就必须有许可证」（`ART-3`）。
+
+**换版本是三步，刻意不做成一条命令** —— 它一年也不会跑第二次，而每次都必须重读 ADR：
+
+1. 设计仓 `python tools/audit_fonts.py --only fusion-12px`：下载、核授权原文与上游七环、
+   量字形覆盖与度量。下载物落 `temp/font-audit/`。
+2. 把 `.ttf` 与 `LICENSE-OFL` 复制进 `assets/fonts/`，并把新的字节数与 SHA256 填进登记表。
+3. 跑一次 `<Godot> --headless --path . --import` 让 `.ttf.import` 的参数生效，再跑
+   `python tools/check_hud.py` 核那十项渲染属性。
+
+**第 3 步不能省。** 2026-08-31 实测：改了 `.ttf.import` 的 `[params]` 却没重新导入，
+游戏读到的还是上一次烘出来的 `.fontdata` —— 抗锯齿仍是灰度，12px 中文多一圈半透明脏边，
+**一句报错都没有**。那十项属性的期望值在 `rules/Ui/PixelFont.cs`，实际值由引擎自己报，
+`check_hud.py` 逐项比对。
 
 ## 怎么构建
 
@@ -160,12 +190,13 @@ dotnet run --project tests
 | --- | --- |
 | `project.godot` | Godot 工程配置。`aspect="expand"` 与 mobile 渲染方式是有意的，见 ARCHITECTURE |
 | `Tinderhearth-The-Last-Class.csproj` | Godot 工程本体，碰引擎的代码都在这个程序集 |
+| `assets/fonts/` | 像素字体与它的 OFL 许可证。渲染参数在同名 `.ttf.import` 里，见下节 |
 | `src/` | 场景、节点、输入、显示与文件 I/O |
 | `rules/` | 判定与结算规则，**不引用 Godot** |
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，缩放／素材／输入／相机四个专项守卫，加两个辅助入口（脚手架存图、素材收件箱测量） |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，缩放／输入／相机／HUD 四个专项守卫（素材那条已接进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
@@ -173,9 +204,11 @@ dotnet run --project tests
 
 **有**：工程骨架、规则层与测试底座、内容与 mod 的加载链路、`ENG-5` 四条零成本预留、
 验收总入口（`ENG-3`）。`UI-1` 已落地的部分：逻辑分辨率与缩放链路（`UI-3`）、界面层级与导航栈
-（`UI-6`）、输入映射（`UI-7`）、相机五项行为（`UI-5`）。
+（`UI-6`）、输入映射（`UI-7`）、相机五项行为（`UI-5`）、像素字体与主题加关卡 HUD 的屏幕空间
+部分（`UI-8`）。
 
-**没有**：任何玩法实现。关卡 HUD 与世界空间 UI 还没有（`UI-8`、`UI-9`），像素字体与 `Theme` 也
-还没进仓 —— 界面上的文字现在是引擎默认字体。相机只有行为没有场景：基地场景、建造界面与演出系统
-本身都不在（`UI-5` 只做到演出「能接管能归还」这个接缝）。玩法数值代码里也**刻意没有**：设计仓
-`design/数值模型.md` 已给出公式与参数表，但把它搬进规则层属各玩法实现需求，不属本轮。
+**没有**：任何玩法实现。**世界空间 UI 还没有**（`UI-9`：读条、精英血条、伤害数字，它们要挂
+`UiLayer.WorldSpace`）。相机只有行为没有场景：基地场景、建造界面与演出
+系统本身都不在（`UI-5` 只做到演出「能接管能归还」这个接缝）。玩法数值代码里也**刻意没有**：
+设计仓 `design/数值模型.md` 已给出公式与参数表，但把它搬进规则层属各玩法实现需求 —— HUD 显示的
+量一律由视图模型传入，演示数据在 `src/World/HudDemoModel.cs` 且明确标为演示。

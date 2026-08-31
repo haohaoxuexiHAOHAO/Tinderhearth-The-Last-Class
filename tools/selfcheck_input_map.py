@@ -16,6 +16,8 @@
 - **比对器自己漏了几条**（本轮真发生过：改成跨行拼接后，用正则取期望值的老做法静默少解 12 条，
   守卫照样全绿。少算比算错更坏）。
 - 组合解算的取舍被反过来（改成后按的赢）。
+- **脚手架调试键押在编辑器的停止键 `F8` 上**（本轮真撞过：作者一按，进程直接关掉，
+  而失败方式看起来像程序自己崩了），以及加了新调试键却不登记。
 
 用法（从代码仓根目录运行，约三分钟）：
     python tools/selfcheck_input_map.py
@@ -48,6 +50,7 @@ INSTALLER_CS = ROOT / "src" / "UI" / "InputMapInstaller.cs"
 PROBE_CS = ROOT / "src" / "UI" / "InputProbe.cs"
 PROJECT_GODOT = ROOT / "project.godot"
 POLLING_CS = ROOT / "src" / "UI" / "ZzSelfcheckPolling.cs"
+HARNESS_CS = ROOT / "src" / "World" / "CameraHarness.cs"
 
 # 守卫里登记在册的检查函数。**从源码枚举**，所以新增一个 check_ 却不自证会被当场拦住，
 # 而不是等到某天发现守卫一直在空转。
@@ -141,6 +144,25 @@ CASES: list[Case] = [
                     "        var actual = events.Select(e => e.AsText()).OrderBy(t => t).ToList();",
                     "        if (action.StartsWith(\"skill_\")) { return; }\n"
                     "        var actual = events.Select(e => e.AsText()).OrderBy(t => t).ToList();")],
+    ),
+    Case(
+        name="脚手架调试键押回编辑器的停止键 F8",
+        covers=["check_harness_debug_keys"],
+        shape="2026-08-31 真撞过：目标态押在 F8，作者从编辑器起工程一按就停进程，"
+              "看起来像程序自己崩了 —— 而代码侧一句报错都没有",
+        expect="押在编辑器要用的键上",
+        needs_build=False,
+        edits=[Edit(HARNESS_CS, "            case Key.O:", "            case Key.F8:")],
+    ),
+    Case(
+        name="新加一个没登记的脚手架调试键",
+        covers=["check_harness_debug_keys"],
+        shape="加键时只改脚手架不改登记，于是没人核对过这个键会不会被编辑器吃掉 ——"
+              "光有黑名单挡不住下一个人挑另一个坏键",
+        expect="与登记对不上",
+        needs_build=False,
+        edits=[Edit(HARNESS_CS, "            case Key.F9:",
+                    "            case Key.F12:\n            case Key.F9:")],
     ),
     Case(
         name="修饰键的取舍被反过来（改成后按的赢）",
