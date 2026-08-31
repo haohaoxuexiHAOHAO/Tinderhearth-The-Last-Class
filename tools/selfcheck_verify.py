@@ -429,9 +429,48 @@ def case_wrong_root() -> tuple[bool, str]:
     fake = TEMP / "wrong-place"
     (fake / "tools").mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "tools" / "verify.py", fake / "tools" / "verify.py")
+    # verify.py 有同目录依赖（loglib），不一起拷贝的话它会先 ModuleNotFoundError 崩掉、
+    # 根本走不到 check_root，这条用例就测不到它本该测的东西。新增 verify.py 的同目录
+    # 依赖时，这里要跟着加。
+    shutil.copy2(ROOT / "tools" / "loglib.py", fake / "tools" / "loglib.py")
     code, out = _run([sys.executable, str(fake / "tools" / "verify.py"), "--upto", "build"], fake)
     ok = code != 0 and "不像代码仓根目录" in out
     return ok, f"退出码 {code}；" + _first_problem(out)
+
+
+# ── 发行素材守卫（`ENG-12`）──────────────────────────────────────────
+# release 那条用真包撞：EXPORT_PCK 现在就含 28 个「可进发行包=false」的素材，一条判据两头证 ——
+# release 拦得住、日常不误杀。未登记与「字体按字段而非路径」两条用合成清单直接撞审计函数：
+# 真包里既没有未登记素材，也不该为了自证往仓库里塞一个。
+def case_release_blocks_placeholders() -> tuple[bool, str]:
+    """真发行包里就有占位件与下载件：--release 判失败，日常放行（`ENG-12`）。"""
+    if not verify.EXPORT_PCK.is_file():
+        return False, "没有 EXPORT_PCK 可撞"
+    rel_clean, rel_msg, _ = verify.manifest_report(verify.EXPORT_PCK, release=True)
+    day_clean, _, _ = verify.manifest_report(verify.EXPORT_PCK, release=False)
+    ok = (not rel_clean) and day_clean
+    why = "release 拦下、日常放行" if ok else f"release_clean={rel_clean}、day_clean={day_clean}"
+    return ok, why + f"；release 首条：{rel_msg[0][:80] if rel_msg else '无'}"
+
+
+def case_unregistered_in_pack() -> tuple[bool, str]:
+    """包里出现登记表没有的 assets/ 素材 → 审计报未登记（漏登记等于绕过守卫，`ENG-12`）。"""
+    reg = verify.load_asset_registry()
+    ghost = verify.PackEntry("assets/placeholder/ui/zz-ghost.png.import", 0, 100, 0)
+    audit = verify.audit_release_assets([ghost], reg)
+    ok = audit.unregistered == ["placeholder/ui/zz-ghost.png"]
+    return ok, f"未登记={audit.unregistered}" if ok else f"**没抓到**：{audit}"
+
+
+def case_font_shippable_by_field() -> tuple[bool, str]:
+    """字体在 assets/fonts/ 下，但按「可进发行包」字段判是可进包的 —— 按路径判会误杀（`ENG-12`）。"""
+    reg = verify.load_asset_registry()
+    e = verify.PackEntry(
+        "assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf.import", 0, 100, 0)
+    audit = verify.audit_release_assets([e], reg)
+    ok = (audit.shippable == ["fonts/fusion-pixel-12px-proportional-zh_hans.ttf"]
+          and not audit.replaceable and not audit.unregistered)
+    return ok, "字体归可进包" if ok else f"**归类错**：{audit}"
 
 
 DIRECT_CASES = (
@@ -446,6 +485,12 @@ DIRECT_CASES = (
      case_upscaled_asset),
     ("纯色图不被误判成放大件", "check_upscaled", "误判方向：纯色图天然满足每个 2×2 同色",
      case_solid_not_upscaled),
+    ("发行档拦占位件、日常档放行", "manifest_report", "ENG-12：真包含 28 个非自绘素材",
+     case_release_blocks_placeholders),
+    ("包里未登记素材被审计抓出", "audit_release_assets", "ENG-12：漏登记等于绕过守卫",
+     case_unregistered_in_pack),
+    ("字体按可进发行包字段而非路径放行", "audit_release_assets",
+     "ENG-12：按路径判会误杀 assets/fonts/ 下的永久依赖", case_font_shippable_by_field),
 )
 
 CASES = (
@@ -517,7 +562,7 @@ def run_case(case: Case) -> tuple[bool, str]:
 
 
 TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_count",
-                      "manifest_report")
+                      "manifest_report", "audit_release_assets")
 
 
 def coverage(names: list[str]) -> tuple[list[str], list[str]]:

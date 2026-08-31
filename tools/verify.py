@@ -38,6 +38,7 @@ Godot 可执行文件的定位顺序：环境变量 `TINDERHEARTH_GODOT` → `PA
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -63,6 +64,8 @@ EXPORT_EXE = EXPORT_DIR / "Tinderhearth-The-Last-Class.exe"
 EXPORT_PCK = EXPORT_DIR / "Tinderhearth-The-Last-Class.pck"
 TESTS_DIR = ROOT / "tests"
 MAIN_SCAFFOLD = ROOT / "src" / "Main.cs"
+# 素材登记表（`ART-4`）。`ENG-12` 的发行守卫按它的「可进发行包」字段判素材能不能进包。
+ASSET_REGISTRY = ROOT / "tools" / "asset-registry.json"
 
 # 落点自检要看到的文件。两仓各有一个 tools/，靠名字区分不够可靠 —— 让入口自己拒绝
 # 在错的位置跑，才是能自动检出的执行体。
@@ -606,7 +609,62 @@ def classify_leak(entry: PackEntry) -> str | None:
     return None
 
 
-def manifest_report(pck: Path) -> tuple[bool, list[str], list[str]]:
+# ── 发行素材守卫（`ENG-12`）──────────────────────────────────────────
+# 落点在这一步而不是新开一条门禁：这里本来就解包看清单（`ENG-3`），加一条按登记表审素材即可。
+# 判据取登记表的「可进发行包」字段，**不按路径**判 —— 字体在 assets/fonts/ 下却是永久依赖
+# （可进发行包=true），按「在不在 placeholder/ 或 downloaded/」判会把字体一起误杀（`ENG-12`）。
+def load_asset_registry() -> dict[str, dict]:
+    """读素材登记表（`ART-4`），三节合并成 {登记路径: 条目}。
+
+    登记路径是相对 assets/ 的（如 placeholder/ui/panel.png），正好等于包里
+    assets/<它>.import 去掉两头。读不出就抛异常 —— 审不了素材必须判失败，不能当没这回事。
+    """
+    raw = json.loads(ASSET_REGISTRY.read_text(encoding="utf-8"))
+    out: dict[str, dict] = {}
+    for section in ("生成槽位", "下载素材", "字体"):
+        for entry in raw.get(section, []):
+            if "path" in entry:
+                out[entry["path"]] = entry
+    return out
+
+
+@dataclass
+class AssetAudit:
+    total: int                      # 包里 assets/ 下的 .import 数，即登记域内的源素材数
+    registered: int
+    unregistered: list[str]         # 包里有、登记表没有 —— 漏登记等于绕过守卫
+    replaceable: list[str]          # 登记为「可进发行包=false」：占位件与下载件
+    shippable: list[str]            # 登记为「可进发行包=true」：字体这类永久依赖
+
+
+def audit_release_assets(entries: list[PackEntry], registry: dict[str, dict]) -> AssetAudit:
+    """按登记表审包里的美术素材（`ENG-12`）。
+
+    映射：包里每条 `assets/**.import` 就是一个源素材，去掉 `assets/` 前缀与 `.import`
+    后缀正好是登记表的 path。只认 assets/ 下的 —— 根目录的 icon.svg.import 是应用图标、
+    不在登记域内（另见 issue 待确认）。分类只看登记表的「可进发行包」字段，不看路径。
+    """
+    unregistered: list[str] = []
+    replaceable: list[str] = []
+    shippable: list[str] = []
+    total = 0
+    for e in entries:
+        if not (e.path.startswith("assets/") and e.path.endswith(".import")):
+            continue
+        total += 1
+        reg_path = e.path.removeprefix("assets/").removesuffix(".import")
+        entry = registry.get(reg_path)
+        if entry is None:
+            unregistered.append(reg_path)
+        elif entry.get("可进发行包") is True:
+            shippable.append(reg_path)
+        else:
+            replaceable.append(reg_path)
+    return AssetAudit(total, len(shippable) + len(replaceable),
+                      sorted(unregistered), sorted(replaceable), sorted(shippable))
+
+
+def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], list[str]]:
     """返回 (是否干净, 打屏用的要点, 落盘用的整份清单)。"""
     entries, meta = parse_pck(pck)
     lines = [
@@ -665,6 +723,37 @@ def manifest_report(pck: Path) -> tuple[bool, list[str], list[str]]:
         problems.append(f"包里有 {len(fonts)} 条字体数据却缺 {unlicensed} —— "
                         f"OFL 第 2 条要求每份拷贝都带许可证与版权声明（ART-3）。"
                         f"补法：把它加进 export_presets.cfg 的 include_filter")
+
+    # `ENG-12`：按登记表审美术素材。日常放行占位件（只报数），--release 一律不许非自绘。
+    registry_err: str | None = None
+    try:
+        registry = load_asset_registry()
+    except (OSError, ValueError) as exc:
+        registry, registry_err = {}, f"读不出素材登记表 {ASSET_REGISTRY.name}：{exc}"
+    audit = audit_release_assets(entries, registry)
+    mode_label = "发行（--release）" if release else "日常"
+    lines += ["", f"# 登记域素材（{mode_label}）{audit.total} 条：命中 {audit.registered}、"
+                  f"未登记 {len(audit.unregistered)}、待替换 {len(audit.replaceable)}、"
+                  f"可进包 {len(audit.shippable)}"]
+    if audit.unregistered:
+        lines.append(f"# 未登记：{audit.unregistered}")
+    if audit.replaceable:
+        lines.append(f"# 待替换（可进发行包=false）：{audit.replaceable}")
+    notes.append(
+        f"登记域素材 {audit.total}：命中 {audit.registered}、未登记 "
+        f"{len(audit.unregistered)}、待替换 {len(audit.replaceable)}"
+        + (f"（还有 {len(audit.replaceable)} 个待替换成自绘件）" if audit.replaceable else ""))
+    if registry_err:
+        problems.append(f"{registry_err} —— 审不了发行素材，判失败（ENG-12）")
+    if audit.unregistered:
+        problems.append(
+            f"包里有 {len(audit.unregistered)} 个未登记素材：{audit.unregistered[:5]}"
+            f"{' …' if len(audit.unregistered) > 5 else ''} —— 漏登记等于绕过守卫（ENG-12）")
+    if release and audit.replaceable:
+        problems.append(
+            f"发行包（--release）含 {len(audit.replaceable)} 个非自绘素材："
+            f"{audit.replaceable[:5]}{' …' if len(audit.replaceable) > 5 else ''} —— "
+            f"占位件与下载件一律不得进发行包（ENG-12）")
     return not problems, (problems or notes), lines
 
 
@@ -689,7 +778,7 @@ def clean_export_dir() -> list[str]:
     return removed
 
 
-def step_export(rep: Report, godot: Path) -> StepResult:
+def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
     started = time.perf_counter()
     removed = clean_export_dir()
     code, out, enc = run(
@@ -713,7 +802,7 @@ def step_export(rep: Report, godot: Path) -> StepResult:
                           cost, log_names=["3-export.log"])
 
     try:
-        clean, notes, lines = manifest_report(EXPORT_PCK)
+        clean, notes, lines = manifest_report(EXPORT_PCK, release=release)
     except (PckError, OSError) as exc:
         return StepResult("export", False, f"读不出包内清单：{exc}",
                           cost, log_names=["3-export.log"])
@@ -849,7 +938,7 @@ def write_summary(rep: Report, started: datetime, ended: datetime,
 
 
 # ── 入口 ──────────────────────────────────────────────────────────────
-def do_manifest(target: str | None) -> int:
+def do_manifest(target: str | None, release: bool = False) -> int:
     """只看清单，不跑步骤。包在不在、干净不干净，随时能查一眼。"""
     pck = Path(target) if target else EXPORT_PCK
     if not pck.is_file():
@@ -857,7 +946,7 @@ def do_manifest(target: str | None) -> int:
         print("EXIT=1")
         return 1
     try:
-        clean, notes, lines = manifest_report(pck)
+        clean, notes, lines = manifest_report(pck, release=release)
     except (PckError, OSError) as exc:
         print(f"[FAIL] 读不出包内清单：{exc}")
         print("EXIT=1")
@@ -875,10 +964,13 @@ def main() -> int:
                     help="跑到哪一步为止；前置步骤一定跟着跑（默认全跑）")
     ap.add_argument("--manifest", nargs="?", const="", metavar="PCK",
                     help="不跑步骤，只打包内清单；不给路径就看 export/ 下那个")
+    ap.add_argument("--release", action="store_true",
+                    help="按发行档审素材：占位件与下载件一律不许进包（ENG-12）。"
+                         "默认日常档，只拦未登记素材、放行占位件")
     args = ap.parse_args()
 
     if args.manifest is not None:
-        return do_manifest(args.manifest or None)
+        return do_manifest(args.manifest or None, release=args.release)
 
     started = datetime.now()
     rep = Report(LOG_ROOT / started.strftime("%Y%m%d-%H%M%S"))
@@ -915,7 +1007,7 @@ def main() -> int:
             result = step_test(rep)
         elif name == "export":
             assert godot is not None
-            result = step_export(rep, godot)
+            result = step_export(rep, godot, release=args.release)
         else:
             result = step_smoke(rep)
         rep.finish_step(result)
