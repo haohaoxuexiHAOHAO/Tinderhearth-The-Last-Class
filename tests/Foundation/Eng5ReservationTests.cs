@@ -20,12 +20,56 @@ namespace Tinderhearth.Rules.Tests.Foundation;
 /// </remarks>
 public class Eng5ReservationTests
 {
+    /// <summary>配置里除被测字段之外的其余字段，用合法值填满 —— 缺字段现在会当场抛。</summary>
+    private static string ConfigJson(
+        int rosterCapacity = 9, int buildableWidth = 40, int buildableHeight = 30) =>
+        $$"""
+        {
+          "rosterCapacity": {{rosterCapacity}},
+          "buildableWidthCells": {{buildableWidth}},
+          "buildableHeightCells": {{buildableHeight}}
+        }
+        """;
+
     [Fact]
     public void 名册容量来自配置而不是代码里的常量()
     {
         // 两份不同的配置数据，同一份代码 —— 容量跟着数据走才算真外置。
-        Assert.Equal(3, new Roster(GameConfig.Parse("""{ "rosterCapacity": 3 }""").RosterCapacity).Capacity);
-        Assert.Equal(12, new Roster(GameConfig.Parse("""{ "rosterCapacity": 12 }""").RosterCapacity).Capacity);
+        Assert.Equal(3, new Roster(
+            GameConfig.Parse(ConfigJson(rosterCapacity: 3)).RosterCapacity).Capacity);
+        Assert.Equal(12, new Roster(
+            GameConfig.Parse(ConfigJson(rosterCapacity: 12)).RosterCapacity).Capacity);
+    }
+
+    [Fact]
+    public void 可建造区尺寸来自配置而不是写死的四十乘三十()
+    {
+        // PRD 的 FR-24。正典定 40×30，但代码里不许出现这两个数 —— 是否扩大已记 GP-8，
+        // 那件事该是改一行 JSON 加延伸地图，不是改代码。
+        var canon = GameConfig.Parse(ConfigJson());
+        Assert.Equal(40, canon.BuildableWidthCells);
+        Assert.Equal(30, canon.BuildableHeightCells);
+
+        var widened = GameConfig.Parse(ConfigJson(buildableWidth: 64, buildableHeight: 48));
+        Assert.Equal(64, widened.BuildableWidthCells);
+        Assert.Equal(48, widened.BuildableHeightCells);
+    }
+
+    [Fact]
+    public void 配置缺字段时当场抛而不是静默填零()
+    {
+        // 这条钉的是 System.Text.Json 的实际行为：位置参数 record 遇到缺字段**不报错**，
+        // 会拿 default(int)=0 填进构造函数。0 名册容量表现为「谁都招不进来」，0 格可建造区
+        // 表现为「相机钳制退化」—— 两者都不报错，只是游戏不对。所以校验必须在构造时。
+        var missing = Assert.Throws<ArgumentOutOfRangeException>(
+            () => GameConfig.Parse("""{ "rosterCapacity": 9 }"""));
+        Assert.Contains("buildableWidthCells", missing.Message, StringComparison.OrdinalIgnoreCase);
+
+        // 显式写 0 或负数同样拒绝，不是只挡「没写」。
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => GameConfig.Parse(ConfigJson(buildableHeight: 0)));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => GameConfig.Parse(ConfigJson(rosterCapacity: -1)));
     }
 
     [Fact]

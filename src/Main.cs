@@ -1,6 +1,7 @@
 using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.UI;
+using Tinderhearth.World;
 using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
@@ -63,6 +64,24 @@ public partial class Main : Node2D
 
         ProbeUiSkeleton();
         ProbeInputMapping();
+        ProbeCamera(config);
+    }
+
+    /// <summary>
+    /// 让 `UI-5` 的相机行为在启动时真跑一遍并打出判据。
+    /// </summary>
+    /// <remarks>
+    /// **同样是脚手架**，`UI-10` 的端到端测试会替换它。理由与另两个 Probe 一致：规则层测试证明
+    /// 得了死区与钳制这些纯几何，证明不了「<c>Camera2D</c> 的 <c>Zoom</c> 真是那个整数」，更证明
+    /// 不了「分数像素位移会不会破坏像素对齐」—— 后者要截图量像素块。判据打进日志，
+    /// `tools/check_camera.py` 读回来判。
+    ///
+    /// 可建造区尺寸从这里的 <paramref name="config"/> 进相机，**代码里不出现 40 与 30**
+    /// （PRD 的 `FR-24`）。
+    /// </remarks>
+    private void ProbeCamera(GameConfig config)
+    {
+        AddChild(new CameraProbe(config) { Name = "CameraProbe" });
     }
 
     /// <summary>
