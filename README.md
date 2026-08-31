@@ -77,10 +77,22 @@ python tools/verify.py
 一次、名字集合完全相同」。后者拦的是更隐蔽的形态 —— 类只有一个，但某个行为只在一种视角下跑过。
 它**不带 `--headless`**：其中的像素块实测要真截图。
 
+### 两个辅助入口，不是守卫
+
+它们不判对错，只把「看一眼」这件事落成能复核的文件 —— 所以不进门禁，也没有自证。
+
+| 命令 | 干什么 |
+| --- | --- |
+| `python tools/harness_shot.py` | 跑一次相机验收脚手架（`src/World/CameraHarness.cs`），两种视角各存一张图到 `logs/art/`，并把引擎报错一起报出来。**排 HUD 时靠它复核**：看不见屏幕的人需要一个能落成文件的形式 |
+| `python tools/inspect_art_inbox.py` | 量 `temp/art-inbox/` 里的 PNG：画布、色数、能整除的格子尺寸候选，加半透明像素与放大件两条判据。**那两条直接调 `check_assets.py` 的实现**，同一条规则不写第二份 |
+
+脚手架本身是 `UI-5` 的实机确认与 `UI-12` 的手感校准工具，`UI-8` 的 HUD 加在它上面，
+`UI-10` 的端到端测试会替换它。`--headless` 下它刻意不建 —— 没有窗口可看，还白占跑产物那一步的时间。
+
 ### 工具链依赖
 
 `verify.py`、`selfcheck_verify.py`、`check_scaling.py`、`check_input_map.py`、
-`selfcheck_input_map.py`、`check_camera.py`、`selfcheck_camera.py` 与
+`selfcheck_input_map.py`、`check_camera.py`、`selfcheck_camera.py`、`harness_shot.py` 与
 `gen_placeholders.py` 都是**纯标准库**，
 clone 完直接能跑。唯一的第三方依赖是读素材图用的 Pillow，装法：
 
@@ -153,7 +165,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，以及缩放、素材、输入、相机四个专项守卫 |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，缩放／素材／输入／相机四个专项守卫，加两个辅助入口（脚手架存图、素材收件箱测量） |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 

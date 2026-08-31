@@ -67,6 +67,9 @@ public partial class Main : Node2D
         ProbeCamera(config);
     }
 
+    private UiRoot _ui = null!;
+    private InputRouter _router = null!;
+
     /// <summary>
     /// 让 `UI-5` 的相机行为在启动时真跑一遍并打出判据。
     /// </summary>
@@ -78,10 +81,38 @@ public partial class Main : Node2D
     ///
     /// 可建造区尺寸从这里的 <paramref name="config"/> 进相机，**代码里不出现 40 与 30**
     /// （PRD 的 `FR-24`）。
+    ///
+    /// 自检跑完才建 <see cref="CameraHarness"/>：探针为了两种视角各测一遍会反复建与释放相机，
+    /// 而脚手架要的是一台长期活着的。同时存在会抢 <c>current</c>，那种依赖时序的正确性正是
+    /// 「实机上偶尔不对」的来源。
     /// </remarks>
     private void ProbeCamera(GameConfig config)
     {
-        AddChild(new CameraProbe(config) { Name = "CameraProbe" });
+        var probe = new CameraProbe(config) { Name = "CameraProbe" };
+        probe.Finished += () => BuildCameraHarness(config);
+        AddChild(probe);
+    }
+
+    /// <summary>
+    /// 建相机的验收脚手架（`UI-5` 的实机确认 + `UI-12` 的手感校准工具）。
+    /// </summary>
+    /// <remarks>
+    /// **同样是脚手架**，`UI-8` 的 HUD 加在它上面，`UI-10` 的端到端测试会替换它。它存在的理由
+    /// 很直接：`UI-5` 的机器判据全绿，但「作者实机确认」那条没有执行它的办法 —— 场景里没有地面
+    /// 也没有能走的角色，死区取多大、震动会不会晕都无从判起。
+    ///
+    /// `--headless` 下不建：那时没有窗口可看，而它会往场景里塞上百个节点，白占跑产物那一步的
+    /// 时间。判据与 <see cref="CameraProbe"/> 里那条一致，取 <c>DisplayServer.GetName()</c>。
+    /// </remarks>
+    private void BuildCameraHarness(GameConfig config)
+    {
+        if (DisplayServer.GetName() == "headless")
+        {
+            GD.Print("[脚手架] 跳过相机验收场景 —— 显示后端 headless，没有窗口可看");
+            return;
+        }
+
+        AddChild(new CameraHarness(config, _ui, _router) { Name = "CameraHarness" });
     }
 
     /// <summary>
@@ -94,13 +125,13 @@ public partial class Main : Node2D
     /// </remarks>
     private void ProbeInputMapping()
     {
-        var router = new InputRouter { Name = "InputRouter" };
-        AddChild(router);
+        _router = new InputRouter { Name = "InputRouter" };
+        AddChild(_router);
 
-        router.DeviceChanged += device => GD.Print("[输入] 设备切换 → ", device);
-        router.SkillGroupChanged += group => GD.Print("[输入] 技能组切换 → ", group);
+        _router.DeviceChanged += device => GD.Print("[输入] 设备切换 → ", device);
+        _router.SkillGroupChanged += group => GD.Print("[输入] 技能组切换 → ", group);
 
-        AddChild(new InputProbe(router) { Name = "InputProbe" });
+        AddChild(new InputProbe(_router) { Name = "InputProbe" });
     }
 
     /// <summary>
@@ -115,6 +146,7 @@ public partial class Main : Node2D
     {
         var ui = new UiRoot();
         AddChild(ui);
+        _ui = ui;
 
         var wristband = new WristbandPanel();
         ui.Register(Wristband.Surface, wristband);

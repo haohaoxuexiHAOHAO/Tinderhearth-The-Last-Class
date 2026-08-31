@@ -69,6 +69,16 @@ public partial class CameraProbe : Node2D
     }
 
     /// <summary>
+    /// 自检跑完了。**验收脚手架要等这个信号才建自己的相机。**
+    /// </summary>
+    /// <remarks>
+    /// 不等的话两台相机会抢 <c>current</c>：本探针为了两种视角各测一遍，会反复建与释放相机，
+    /// 而 <see cref="CameraHarness"/> 要的是一台长期活着的。谁 current 由建立顺序决定，
+    /// 那种依赖时序的正确性正是「实机上偶尔不对」的来源。
+    /// </remarks>
+    public event Action? Finished;
+
+    /// <summary>
     /// 这次运行有真的渲染设备吗。`--headless` 下没有，截图取回来是空的。
     /// </summary>
     /// <remarks>
@@ -98,10 +108,27 @@ public partial class CameraProbe : Node2D
         {
             Report();
             SetProcess(false);
+            Cleanup();
+            Finished?.Invoke();
             return;
         }
 
         _steps[_index++]();
+    }
+
+    /// <summary>
+    /// 收尾：把自己建的相机释放掉，**场景里不留副产物**。
+    /// </summary>
+    /// <remarks>
+    /// 这条是踩坑记录第 35 条那个形状：注入型自证的还原必须覆盖被测系统的副产物。不释放的话
+    /// 探针最后那台相机会一直留在场景里，而 `UI-8` 与 `UI-9` 要往同一个场景加 HUD 与世界空间
+    /// UI —— 那时「画面糊」或「读条跟错了相机」会先去怀疑那两条。
+    /// </remarks>
+    private void Cleanup()
+    {
+        _camera?.QueueFree();
+        _camera = null;
+        GD.Print("[相机] 探针收尾 已释放自己建的相机，场景里不留副产物");
     }
 
     // ── 规则层几何：两种视角各跑一遍同一批判据 ──────────────────────────
@@ -564,6 +591,14 @@ public partial class CameraProbe : Node2D
         _pattern = null;
         _baseline = null;
 
+        // **反证改过的状态必须还原，而且还原本身要有判据。** 不还原的话这台相机会带着 1.25 的
+        // 非整数缩放、且每帧同步是关着的，一直留在场景里 —— 而 `UI-8` 与 `UI-9` 要往同一个场景
+        // 加 HUD 与世界空间 UI，那时才发现「画面糊」会先怀疑那两条。同一个道理在
+        // 设计仓踩坑记录第 35 条写过：自证的还原必须覆盖被测系统的副产物。
+        var camera = _camera!;
+        camera.SetProcess(true);
+        camera.Apply();
+
         var integer = _runs.GetValueOrDefault(IntegerTag, -1);
         var fractional = _runs.GetValueOrDefault(FractionalTag, -1);
         var broken = _runs.GetValueOrDefault(BrokenZoomTag, -1);
@@ -587,6 +622,13 @@ public partial class CameraProbe : Node2D
             broken > 0 && broken < _expectedRun,
             $"最小跑长 {broken}，期望小于 {_expectedRun}（相机缩放 " +
             $"{BrokenZoom.ToString("0.###")}）");
+
+        Check(PixelTag, "反证改过的状态已还原_没把非整数缩放留给场景",
+            Mathf.IsEqualApprox(camera.Zoom.X, camera.Rig.Zoom)
+            && Mathf.IsEqualApprox(camera.Zoom.Y, camera.Rig.Zoom)
+            && camera.IsProcessing(),
+            $"节点缩放 {camera.Zoom.X}（规则层 {camera.Rig.Zoom}）｜每帧同步 " +
+            $"{camera.IsProcessing()}");
     }
 
     private void Report() =>
