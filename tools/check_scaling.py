@@ -34,6 +34,8 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from loglib import prune_runs, KEEP_RUNS  # noqa: E402  同目录工具（跑完修剪旧日志）
+
 ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR = ROOT / "logs" / "scaling"
 GODOT_ROOT = Path(r"D:\godot\4-7")
@@ -170,6 +172,9 @@ def main() -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("\n".join(_LINES) + "\n", encoding="utf-8", newline="\n")
     say(f"日志 {log_path.relative_to(ROOT)}")
+    _pruned = prune_runs(LOG_DIR)
+    if _pruned:
+        say(f"[清理] logs/scaling 删掉 {len(_pruned)} 份旧日志，只留最近 {KEEP_RUNS} 次")
     print(f"EXIT={1 if _FAILS else 0}")
     return 1 if _FAILS else 0
 

@@ -31,6 +31,8 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from loglib import prune_runs, KEEP_RUNS  # noqa: E402  同目录工具（跑完修剪旧日志）
+
 ROOT = Path(__file__).resolve().parent.parent
 SHOT_DIR = ROOT / "logs" / "art"
 GODOT_ROOT = Path(r"D:\godot\4-7")
@@ -118,6 +120,10 @@ def main() -> int:
     say(f"结果：{'有必须修复项' if bad else '存图成功，引擎无报错'}")
     (SHOT_DIR / f"shot-{stamp}-summary.log").write_text(
         "\n".join(_LINES) + "\n", encoding="utf-8", newline="\n")
+    # 修剪旧存图与日志：一次运行落 ~4 个文件（两张图 + 两份日志），留最近几份足够复核。
+    _pruned = prune_runs(SHOT_DIR)
+    if _pruned:
+        say(f"[清理] logs/art 删掉 {len(_pruned)} 份旧存图/日志，只留最近 {KEEP_RUNS} 份")
     print(f"EXIT={1 if bad else 0}")
     return 1 if bad else 0
 

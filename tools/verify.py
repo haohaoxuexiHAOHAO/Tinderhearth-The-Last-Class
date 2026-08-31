@@ -53,6 +53,8 @@ if hasattr(sys.stdout, "reconfigure"):
     # 被钩子或重定向调用时默认编码可能不是 UTF-8，打第一个中文就崩。
     sys.stdout.reconfigure(encoding="utf-8")
 
+from loglib import prune_runs, KEEP_RUNS  # noqa: E402  同目录工具（跑完修剪旧日志）
+
 ROOT = Path(__file__).resolve().parent.parent
 LOG_ROOT = ROOT / "logs" / "verify"
 EXPORT_DIR = ROOT / "export"
@@ -930,6 +932,9 @@ def main() -> int:
             f"{'，完整' if scope == list(STEPS) else '，不完整'}）"
             f"／{len(rep.fails)} 项必须修复／{(ended - started).total_seconds():.1f}s")
     rep.say(f"摘要 {summary.relative_to(ROOT)}")
+    _pruned = prune_runs(LOG_ROOT)
+    if _pruned:
+        rep.say(f"[清理] logs/verify 删掉 {len(_pruned)} 份旧运行，只留最近 {KEEP_RUNS} 次")
 
     if rep.fails:
         rep.say("[FAIL] 有必须修复项")

@@ -41,6 +41,8 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from loglib import prune_runs, KEEP_RUNS  # noqa: E402  同目录工具（跑完修剪旧日志）
+
 ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR = ROOT / "logs" / "input"
 GODOT_ROOT = Path(r"D:\godot\4-7")
@@ -434,6 +436,9 @@ def main() -> int:
     say(f"覆盖量：{_CHECKED} 条判据，其中 {len(_FAILS)} 条失败")
     say("检查范围：绑定逐条全等比对引擎自报名（比对在引擎侧，本脚本核条数与零 FAIL）、扳机死区、"
         "内置 ui_* 的手柄绑定、project.godot 无 [input] 段、src/ 无直接轮询、启动自检的实机判据")
+    _pruned = prune_runs(LOG_DIR)
+    if _pruned:
+        say(f"[清理] logs/input 删掉 {len(_pruned)} 份旧日志，只留最近 {KEEP_RUNS} 次")
     print("EXIT=" + ("1" if _FAILS else "0"))
     return 1 if _FAILS else 0
 
