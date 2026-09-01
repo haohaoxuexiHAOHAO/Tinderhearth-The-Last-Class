@@ -66,7 +66,7 @@ public partial class Main : Node2D
         ProbeUiSkeleton();
         ProbeInputMapping();
         BuildHud();
-        ProbeCamera(config);
+        ProbeWorldSpace(config);
     }
 
     private UiRoot _ui = null!;
@@ -103,6 +103,22 @@ public partial class Main : Node2D
             Theme = theme,
         };
         _ui.LayerOf(UiLayer.Hud).AddChild(_hud);
+    }
+
+    /// <summary>
+    /// 让 `UI-9` 的世界空间 UI 在启动时真跑一遍并打出判据。
+    /// </summary>
+    /// <remarks>
+    /// **排在探针链最前面、任何相机出现之前。** 它不截图、不需要窗口（全是逻辑与节点关系检查），
+    /// 所以 headless 下照样跑，验收入口的跑产物那一步就能读到判据。放最前面是因为它要在世界空间层
+    /// 画布变换还是恒等时测「圆环位置等于目标世界坐标」—— 相机一活，那层就跟着相机变换了。
+    /// 跑完收掉自己的元素、让层回到干净，再串起相机自检（`UI-10` 的端到端测试会替换整条链）。
+    /// </remarks>
+    private void ProbeWorldSpace(GameConfig config)
+    {
+        var probe = new WorldSpaceProbe(_ui) { Name = "WorldSpaceProbe" };
+        probe.Finished += () => ProbeCamera(config);
+        AddChild(probe);
     }
 
     /// <summary>

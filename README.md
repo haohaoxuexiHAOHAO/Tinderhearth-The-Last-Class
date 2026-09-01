@@ -64,8 +64,9 @@ python tools/verify.py
 | `python tools/check_input_map.py` | 输入映射（`UI-7`）。绑定逐条与引擎自报名全等比对、扳机死区、内置 `ui_*` 的手柄绑定、`project.godot` 无 `[input]` 段、`src/` 无直接轮询、启动自检的实机判据 | `python tools/selfcheck_input_map.py` |
 | `python tools/check_camera.py` | 相机五项行为（`UI-5`）。只有一个 `sealed` 的 `Camera2D` 派生类型、规则层相机类型登记比对、场景里没有绕过它的相机、可建造区尺寸不是字面量、两种视角判据名字集合全等、缩放与视野对正典、装进相机的可建造区对配置、像素块实测含反证 | `python tools/selfcheck_camera.py` |
 | `python tools/check_hud.py` | 关卡 HUD 的排版与数据来源（`UI-8`）。静态核扫界面源码（无位置类 API、无逻辑分辨率常量、无 `TextureFilter` 覆盖、除 0 与 1 外无数字字面量）；行为核读启动日志（块的实际矩形对规则层预测、撑开逻辑宽度后锚点行为、灌不同的量看条长跟不跟着变、字体十项属性、两套放置候选判据名字集合全等） | `python tools/selfcheck_hud.py` |
+| `python tools/check_worldui.py` | 世界空间 UI（`UI-9`）。静态核：读条圆环／精英血条／伤害数字挂 `UiLayer.WorldSpace` 不碰别的层；行为核（可 `--headless`）：读启动日志 `[世界UI]` 判据零 FAIL、自报条数一致、判据标签集合与登记逐条对上 | `python tools/selfcheck_worldui.py` |
 
-后三条各守着一条**看不见的约定**。
+后四条各守着一条**看不见的约定**。
 
 输入那条：玩法代码必须通过 `src/UI/InputRouter.cs` 问输入，不许直接调 `Input.IsActionPressed`。
 理由是实测结果 —— 在 `_Input` 里 `SetInputAsHandled` 之后轮询状态**仍然是按下**，所以直接轮询的
@@ -85,6 +86,13 @@ HUD 那条守着两条 `UI-8` 的验收标准，两条都会静默退化：**界
 只有静态核的话，界面完全可以拿视图模型当摆设、画一根固定长度的条。它同样**不带 `--headless`**：
 headless 下改窗口尺寸不会让拉伸重算，撑开那一段会**假过**，所以引擎侧遇到 headless 会显式打
 「量 跳过」，而守卫把跳过判成失败。
+
+世界空间那条守着 `UI-9` 的一条约定：**读条圆环、精英血条、伤害数字挂在世界空间层
+（`UiLayer.WorldSpace`），不是屏幕空间的 Hud 层**。那层开了 `FollowViewportEnabled`，子节点用世界
+坐标自动跟相机变换与 2 倍缩放；一旦被改挂到 Hud，读条就画到界面角落、不再跟角色走 —— 正典明确
+否掉这个放法，而改动一行报错都没有。静态核扫 `src/UI/WorldSpaceUi.cs` 盯住挂载点是 `WorldSpace`、
+代码不碰别的层；行为核读启动日志 `[世界UI]` 判据。与前两条不同，它**可带 `--headless`**：全是逻辑与
+节点关系检查、不截图，探针因此排在相机之前跑（恒等变换下测「圆环位置等于目标世界坐标」）。
 
 ### 两个辅助入口，不是守卫
 

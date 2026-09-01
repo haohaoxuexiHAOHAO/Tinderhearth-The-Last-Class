@@ -62,6 +62,13 @@ public sealed partial class CameraHarness : Node2D
     private const int SwarmStepY = 48;
     private const int SwarmColumns = 8;
 
+    /// <summary>读条演示填满时长，秒。**脚手架取值**（同 <see cref="WalkPixelsPerSecond"/>）——
+    /// 真读条时长归各玩法实现（`GP-2`），这里只求「看得出环在填」。</summary>
+    private const double CastDemoSeconds = 2.0;
+
+    /// <summary>伤害数字演示值。**脚手架取值** —— 真伤害归战斗实现。</summary>
+    private const int DemoDamageAmount = 12;
+
     private readonly GameConfig _config;
     private readonly UiRoot _ui;
     private readonly InputRouter _router;
@@ -85,6 +92,12 @@ public sealed partial class CameraHarness : Node2D
     private HudDemoModel.ObjectiveState _objective = HudDemoModel.ObjectiveState.InProgress;
     private int _padPreview;   // 手柄预览：0 关、1 模拟按住 LT、2 模拟按住 RT
     private int _shotCountdown = -1;
+
+    private WorldSpaceUi _worldUi = null!;
+    private int _castPhase;        // 读条演示：0 关、1 读条中、2 受击中断
+    private double _castElapsed;
+    private bool _barsShown;
+    private bool _damageOn;
 
     private Texture2D _idleSheet = null!;
     private Texture2D _runSheet = null!;
@@ -116,6 +129,7 @@ public sealed partial class CameraHarness : Node2D
         BuildLandmarks();
         BuildActor();
         BuildCamera();
+        BuildWorldUi();
         BuildOverlay();
 
         GD.Print("[脚手架] 相机验收场景就绪｜地图 ",
@@ -125,6 +139,7 @@ public sealed partial class CameraHarness : Node2D
         GD.Print("[脚手架] 调试键 F1 切视角｜F2 切建造模式｜F3 震一下｜F4 震动开关｜"
                  + "F5 收拢／散开 15 个剪影（同屏敌群）｜F6 打印 HUD 排版数据｜"
                  + "F7 队友数 4↔0｜O 目标进度三态｜G 手柄预览（不接手柄也能看手柄呈现）｜"
+                 + "C 读条三态（关／读条／中断）｜B 精英血条开关｜M 伤害数字开关｜N 冒伤害数字｜"
                  + "F9 放一段演出｜F10 打印当前数值｜"
                  + "F11 显示／隐藏这行调试文字（**默认隐藏**，它会挡住要判的东西）");
 
@@ -142,6 +157,7 @@ public sealed partial class CameraHarness : Node2D
     {
         TickCutscene(delta);
         MoveActor(delta);
+        TickCast(delta);
         RefreshOverlay();
         QueueRedraw();
         TickShot();
@@ -420,6 +436,64 @@ public sealed partial class CameraHarness : Node2D
     }
 
     /// <summary>
+    /// 读条演示三态循环（<c>C</c>）：关 → 读条中 → 受击中断 → 关。
+    /// </summary>
+    /// <remarks>
+    /// 三态对应正典要的三件事：读条画在执行者身上、进度看得出、**受击能中断**（中断即消失）。
+    /// 「读条中」的进度在 <see cref="TickCast"/> 里推进，这里只切态。
+    /// </remarks>
+    private void CycleCast()
+    {
+        _castPhase = (_castPhase + 1) % 3;
+        switch (_castPhase)
+        {
+            case 1:
+                _castElapsed = 0.0;
+                _worldUi.SetCast(new CastState(true, 0.0, false));
+                GD.Print("[脚手架] 读条 → 开始（环从 12 点顺时针填满，循环着好反复看）");
+                break;
+            case 2:
+                _worldUi.SetCast(new CastState(true, _castElapsed / CastDemoSeconds, true));
+                GD.Print("[脚手架] 读条 → 受击中断（环应立刻消失）");
+                break;
+            default:
+                _worldUi.SetCast(CastState.Idle);
+                GD.Print("[脚手架] 读条 → 关");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 精英血条开关（<c>B</c>）：给 15 个剪影挂／撤演示血条。
+    /// </summary>
+    /// <remarks>
+    /// 按序轮 精英／BOSS／杂兵 三种，好一眼看出**杂兵头顶是空的**（正典：只精英与 BOSS 出条）。
+    /// 配 <c>F5</c> 把剪影收拢进视野，就是「同屏 10–15 个敌人、头顶一排血条」的样子，正好判血条在
+    /// 2 倍缩放下糊不糊、挡不挡人。血量是脚手架演示值，不是玩法数值（`GP-2`）。
+    /// </remarks>
+    private void ToggleBars()
+    {
+        _barsShown = !_barsShown;
+        if (!_barsShown)
+        {
+            _worldUi.ClearBars();
+            GD.Print("[脚手架] 精英血条 → 撤下");
+            return;
+        }
+
+        const int demoMax = 20;
+        var ranks = new[] { EnemyRank.Elite, EnemyRank.Boss, EnemyRank.Trash };
+        for (var i = 0; i < _landmarks.Count; i++)
+        {
+            var current = demoMax - (i % demoMax);      // 血条长短各异，好看出填充比例
+            _worldUi.AttachBar(_landmarks[i], new EliteHealth(current, demoMax, ranks[i % ranks.Length]));
+        }
+
+        GD.Print("[脚手架] 精英血条 → 挂上（", _landmarks.Count,
+                 " 个剪影按序轮 精英／BOSS／杂兵，杂兵不出条；按 F5 收拢进视野看一排）");
+    }
+
+    /// <summary>
     /// 摆角色。侧视用侍武士精灵表，俯视用占位剪影。
     /// </summary>
     /// <remarks>
@@ -457,6 +531,25 @@ public sealed partial class CameraHarness : Node2D
         ApplyBounds();
         _camera.Rig.SnapTo((int)_actor.Position.X, (int)_actor.Position.Y);
         _camera.Apply();
+    }
+
+    /// <summary>
+    /// 挂上世界空间 UI（`UI-9`）：读条圆环跟着角色走，精英血条与伤害数字用调试键演示。
+    /// </summary>
+    /// <remarks>
+    /// **挂在相机之后**：世界空间层开了 <c>FollowViewportEnabled</c>，得有活着的相机才谈得上
+    /// 「跟相机变换与 2 倍缩放」—— 而这正是本条要作者实机确认的东西（12px 元素在侧视 2 倍下
+    /// 可读、随角色走不偏移不变形）。读条圆环默认跟着角色但不显示（<c>C</c> 起），血条默认不挂
+    /// （<c>B</c> 挂），伤害数字默认关（正典，<c>M</c> 开）。
+    ///
+    /// <see cref="WorldSpaceUi"/> 挂在本节点下，脚手架被释放时它的 <c>_ExitTree</c> 会收掉挂在
+    /// 世界空间层上的圆环与血条 —— 那层是共享的，不收会留脏。
+    /// </remarks>
+    private void BuildWorldUi()
+    {
+        _worldUi = new WorldSpaceUi(_ui) { Name = "WorldSpaceUi" };
+        AddChild(_worldUi);
+        _worldUi.TrackCast(_actor);
     }
 
     /// <summary>
@@ -534,6 +627,29 @@ public sealed partial class CameraHarness : Node2D
         _actor.RegionRect = new Rect2(frame * SpriteFrame, 0, SpriteFrame, SpriteFrame);
     }
 
+    /// <summary>
+    /// 推进读条演示（<c>C</c> 起）。**只有「读条中」这一态在动**，关与中断都是静止的。
+    /// </summary>
+    /// <remarks>
+    /// 进度从 0 涨到满就归零重来 —— 循环是为了让作者反复看清环从 12 点顺时针填满、在 2 倍缩放下
+    /// 弧线糊不糊。真读条不循环（一次到头就出结果），那归玩法实现；这里是脚手架的看图工具。
+    /// </remarks>
+    private void TickCast(double delta)
+    {
+        if (_castPhase != 1)
+        {
+            return;
+        }
+
+        _castElapsed += delta;
+        if (_castElapsed >= CastDemoSeconds)
+        {
+            _castElapsed = 0.0;
+        }
+
+        _worldUi.SetCast(new CastState(true, _castElapsed / CastDemoSeconds, false));
+    }
+
     private void TickCutscene(double delta)
     {
         if (_cutscene is null)
@@ -576,8 +692,11 @@ public sealed partial class CameraHarness : Node2D
             + $"　敌群 {(_swarmed ? "收拢" : "散开")}　设备 {_router.Device}"
             + $"　技能组 {_router.ActiveSkillGroup}\n"
             + $"　手柄预览 {(_padPreview == 0 ? "关" : _padPreview == 1 ? "按住LT" : "按住RT")}\n"
+            + $"读条 {(_castPhase == 0 ? "关" : _castPhase == 1 ? "读条中" : "中断")}"
+            + $"　精英血条 {(_barsShown ? "开" : "关")}　伤害数字 {(_damageOn ? "开" : "关")}\n"
             + "F1 视角　F2 建造　F3 震一下　F4 震动开关　F5 敌群　F6 HUD 排版\n"
             + "F7 队友数　O 目标态　G 手柄预览　F9 演出　F10 打印数值　F11 收起这段字\n"
+            + "C 读条　B 精英血条　M 伤害数字　N 冒伤害\n"
             + "红线地图边界（角色走到这为止）　蓝线可建造区（线外那一圈是周边地形，本来就能走）"
             + "　黄线推镜触发带　脚手架没有碰撞与物理，那归玩法实现";
     }
@@ -635,6 +754,22 @@ public sealed partial class CameraHarness : Node2D
                 break;
             case Key.G:
                 CycleGamepadPreview();
+                break;
+            case Key.C:
+                CycleCast();
+                break;
+            case Key.B:
+                ToggleBars();
+                break;
+            case Key.M:
+                _damageOn = !_damageOn;
+                _worldUi.SetOptions(new WorldUiOptions(ShowDamageNumbers: _damageOn));
+                GD.Print("[脚手架] 伤害数字 → ", _damageOn ? "开（按 N 冒一个）" : "关（默认关，正典）");
+                break;
+            case Key.N:
+                _worldUi.PopDamage(_actor, DemoDamageAmount);
+                GD.Print("[脚手架] 角色头顶冒伤害 ", DemoDamageAmount,
+                         _worldUi.DamageEnabled ? "（向上飘一段后消失，无淡出）" : "（伤害数字关着，什么都不冒 —— 先按 M 开）");
                 break;
             case Key.F11:
                 _overlay.Visible = !_overlay.Visible;
