@@ -478,6 +478,66 @@ public class InputMappingTests
             InputBindings.For(InputActions.Dodge, InputDeviceKind.Gamepad)[0].Symbol);
     }
 
+    // ── UI-11：面板打开时的玩法动作遮挡 ─────────────────────────────────
+
+    [Fact]
+    public void 面板打开时手柄跳跃与闪避被遮()
+    {
+        // 重叠的两个：下面键=跳跃=ui_accept，右面键=闪避=ui_cancel。
+        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: true,  InputDeviceKind.Gamepad));
+        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true,  InputDeviceKind.Gamepad));
+    }
+
+    [Fact]
+    public void 面板未打开时手柄动作不被遮()
+    {
+        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: false, InputDeviceKind.Gamepad));
+        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: false, InputDeviceKind.Gamepad));
+    }
+
+    [Fact]
+    public void 键鼠不受面板遮挡影响()
+    {
+        // 键鼠确认与返回用 Enter／Escape，没有绑玩法动作，所以不需要屏蔽。
+        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: true, InputDeviceKind.KeyboardMouse));
+        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true, InputDeviceKind.KeyboardMouse));
+    }
+
+    [Fact]
+    public void 被遮清单与内置补丁的重叠面键完全对应()
+    {
+        // 内置补丁补的两个面键绑的正是被遮的两个动作 —— 这条把两张表钉在一起，任何一边改了这里会先失败。
+        var patchedActions = InputBindings.BuiltinUiPatches
+            .SelectMany(kv => kv.Value.Select(b => b.Symbol))
+            .ToHashSet();
+
+        foreach (var action in PanelInputBlock.BlockedByOpenPanel)
+        {
+            var padSymbol = InputBindings.For(action, InputDeviceKind.Gamepad)[0].Symbol;
+            Assert.Contains(padSymbol, patchedActions);
+        }
+    }
+
+    [Fact]
+    public void 闪避不在被修饰键遮但在面板打开时被遮()
+    {
+        // 闪避：修饰键不遮（逃生窗口），但面板+手柄下确认与返回共用同一键，所以面板开时遮。
+        Assert.False(new SkillModifierState().ShouldSuppress(InputActions.Dodge));
+        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true, InputDeviceKind.Gamepad));
+    }
+
+    [Fact]
+    public void 其他战斗动作面板打开时也不被遮()
+    {
+        // 攻击、防御、冲刺不与任何 UI 内置键共享手柄物理位，不应被遮。
+        foreach (var action in new[] { InputActions.AttackLight, InputActions.AttackHeavy,
+                                       InputActions.Guard, InputActions.Sprint })
+        {
+            Assert.False(PanelInputBlock.ShouldBlock(action, panelOpen: true, InputDeviceKind.Gamepad),
+                $"{action} 不该被面板遮挡");
+        }
+    }
+
     [Fact]
     public void 列表与标签页走焦点网格摆放走光标()
     {

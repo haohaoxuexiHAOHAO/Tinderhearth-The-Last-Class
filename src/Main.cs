@@ -196,6 +196,8 @@ public partial class Main : Node2D
     private void ProbeInputMapping()
     {
         _router = new InputRouter { Name = "InputRouter" };
+        // UI-11：把 UiRoot 的导航栈注入门面，让遮挡判定能感知面板是否打开。
+        _router.Nav = _ui.Navigation;
         AddChild(_router);
 
         _router.DeviceChanged += device => GD.Print("[输入] 设备切换 → ", device);
