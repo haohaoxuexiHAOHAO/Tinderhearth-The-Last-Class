@@ -129,6 +129,50 @@ public class MotorStateTests
     }
 
     [Fact]
+    public void 无敌读统一载体且运动机只推进一次所有状态()
+    {
+        var m = new MotorState();
+        m.Statuses.Apply(StatusKind.Invulnerable, 3);
+        m.Statuses.Apply(StatusKind.Hitstun, 2);
+        Assert.True(m.IsInvulnerable);
+        m.Tick(Dash(1), isOnFloor: true, attacking: false);
+        Assert.True(m.IsInvulnerable);
+        Assert.Equal(2, m.Statuses.Get(StatusKind.Invulnerable).RemainingFrames);
+        Assert.Equal(1, m.Statuses.Get(StatusKind.Hitstun).RemainingFrames);
+        m.Tick(CombatInput.None, isOnFloor: true, attacking: true);
+        Assert.True(m.IsInvulnerable);
+        Assert.False(m.Statuses.Has(StatusKind.Hitstun));
+        m.Tick(CombatInput.None, isOnFloor: false, attacking: false);
+        Assert.False(m.IsInvulnerable);
+    }
+
+    [Fact]
+    public void 闪避只在窗口起点注册且退出不主动清除其他来源无敌()
+    {
+        var m = new MotorState();
+        for (var frame = 0; frame < CombatFeel.DodgeDurationFrames; frame++)
+        {
+            m.Tick(frame == 0 ? Dodge(1) : CombatInput.None, isOnFloor: true, attacking: false);
+            var expected = frame >= CombatFeel.DodgeInvulnStartFrame && frame < CombatFeel.DodgeInvulnEndFrame
+                ? CombatFeel.DodgeInvulnEndFrame - frame : 0;
+            Assert.Equal(expected, m.Statuses.Get(StatusKind.Invulnerable).RemainingFrames);
+        }
+
+        m.Tick(Dodge(1), isOnFloor: true, attacking: false);
+        for (var frame = 1; frame < CombatFeel.DodgeInvulnEndFrame; frame++)
+        {
+            m.Tick(CombatInput.None, isOnFloor: true, attacking: false);
+        }
+        m.Statuses.Apply(StatusKind.Invulnerable, CombatFeel.DodgeDurationFrames);
+        for (var frame = CombatFeel.DodgeInvulnEndFrame; frame < CombatFeel.DodgeDurationFrames; frame++)
+        {
+            m.Tick(CombatInput.None, isOnFloor: true, attacking: false);
+        }
+        Assert.Equal(MotorPhase.Grounded, m.Phase);
+        Assert.True(m.IsInvulnerable);
+    }
+
+    [Fact]
     public void 出招时地面定身且封锁跳闪冲()
     {
         var m = new MotorState();

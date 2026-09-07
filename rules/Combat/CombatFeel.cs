@@ -90,6 +90,24 @@ public static class CombatFeel
     /// <summary>重攻击连段的段数。</summary>
     public const int HeavyChainLength = 2;
 
+    /// <summary>轻击击退距离，世界像素；GP-11 未实测初值，待 GP-6 校准。</summary>
+    public const int LightKnockbackWorldPx = 8;
+
+    /// <summary>重击击退距离，世界像素；未实测初值。</summary>
+    public const int HeavyKnockbackWorldPx = 16;
+
+    /// <summary>轻击硬直帧；未实测初值。</summary>
+    public const int LightHitstunFrames = 10;
+
+    /// <summary>重击硬直帧；未实测初值。</summary>
+    public const int HeavyHitstunFrames = 18;
+
+    /// <summary>轻击顿帧；未实测初值。</summary>
+    public const int LightHitstopFrames = 3;
+
+    /// <summary>重击顿帧；未实测初值。</summary>
+    public const int HeavyHitstopFrames = 5;
+
     // ── 派生 ────────────────────────────────────────────────────────────
 
     /// <summary>一个物理帧的时长，秒。速度乘它得到每帧位移。</summary>

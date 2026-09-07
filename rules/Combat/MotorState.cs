@@ -53,8 +53,11 @@ public sealed class MotorState
     /// <summary>本帧的纵向速度，世界像素／秒，负为向上。</summary>
     public double VerticalVelocity => _verticalVelocity;
 
-    /// <summary>这一帧处于无敌吗（仅闪避的无敌窗内为真）。</summary>
-    public bool IsInvulnerable { get; private set; }
+    /// <summary>角色唯一状态载体；本机 Tick 在每个非顿帧逻辑帧开头推进，外层不得再 Tick。</summary>
+    public StatusEffects Statuses { get; } = new();
+
+    /// <summary>这一帧处于无敌吗；唯一依据是统一载体。</summary>
+    public bool IsInvulnerable => Statuses.Has(StatusKind.Invulnerable);
 
     /// <summary>推进一帧。</summary>
     /// <param name="input">本帧输入。</param>
@@ -62,6 +65,7 @@ public sealed class MotorState
     /// <param name="attacking">连段机是否正在出招（<see cref="ComboStateMachine.IsAttacking"/>）。</param>
     public void Tick(in CombatInput input, bool isOnFloor, bool attacking)
     {
+        Statuses.Tick();
         if (Phase == MotorPhase.Dodge)
         {
             AdvanceDodge(isOnFloor);
@@ -119,7 +123,6 @@ public sealed class MotorState
             HorizontalVelocity = dir * (double)CombatFeel.MoveSpeedPixelsPerSecond;
         }
 
-        IsInvulnerable = false;
         Phase = !grounded
             ? MotorPhase.Airborne
             : dashing ? MotorPhase.Dash : MotorPhase.Grounded;
@@ -129,8 +132,11 @@ public sealed class MotorState
     {
         HorizontalVelocity = _dodgeDirection * (double)CombatFeel.DodgeSpeedPixelsPerSecond;
         _verticalVelocity = 0.0;
-        IsInvulnerable = _dodgeFrame >= CombatFeel.DodgeInvulnStartFrame
-            && _dodgeFrame < CombatFeel.DodgeInvulnEndFrame;
+        if (_dodgeFrame == CombatFeel.DodgeInvulnStartFrame)
+        {
+            Statuses.Apply(StatusKind.Invulnerable,
+                CombatFeel.DodgeInvulnEndFrame - CombatFeel.DodgeInvulnStartFrame);
+        }
         Phase = MotorPhase.Dodge;
 
         _dodgeFrame++;
@@ -138,7 +144,6 @@ public sealed class MotorState
         {
             _dodgeFrame = 0;
             HorizontalVelocity = 0.0;
-            IsInvulnerable = false;
             Phase = isOnFloor ? MotorPhase.Grounded : MotorPhase.Airborne;
         }
     }
