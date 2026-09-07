@@ -143,9 +143,10 @@ SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 
-STEPS = ("assets", "build", "test", "export", "smoke")
+STEPS = ("assets", "eol", "build", "test", "export", "smoke")
 STEP_TITLES = {
     "assets": "素材",
+    "eol": "行尾",
     "build": "构建",
     "test": "测试",
     "export": "导出",
@@ -358,7 +359,37 @@ def step_assets(rep: Report) -> StepResult:
                       details=[f"命令 tools/check_assets.py（输出编码 {enc}）"])
 
 
-# ── 步骤 1：构建 ──────────────────────────────────────────────────────
+# ── 步骤 1：行尾（`ENG-11`）──────────────────────────────────────────
+def step_eol(rep: Report) -> StepResult:
+    """行尾守卫（`ENG-11`）：代码仓文本文件行尾必须符合 `.gitattributes`。
+
+    排在构建之前：`.sh` 与 git 钩子带 `\\r` 时 Git Bash 报
+    `bad interpreter: /bin/sh^M` 直接不执行（踩坑记录 28）。
+    纯 Python 无编译，与素材守卫同属「零成本的早期门槛」。
+
+    判定不只看退出码：认不出 `check_eol.py` 的输出形状同样拒绝判过。
+    """
+    started = time.perf_counter()
+    code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_eol.py")],
+                         ROOT, timeout=120)
+    rep.write_log("1-eol.log", f"# 编码 {enc}\n# 退出码 {code}\n\n{out}")
+    cost = time.perf_counter() - started
+
+    gauge = next((ln for ln in out.splitlines() if ln.startswith("覆盖量：")), "")
+    if not gauge:
+        return StepResult("eol", False, "认不出 check_eol.py 的输出形状，拒绝判过",
+                          cost, log_names=["1-eol.log"])
+    if code != 0:
+        first = next((ln for ln in out.splitlines() if ln.startswith("[FAIL]")), "详见日志")
+        return StepResult("eol", False, f"失败：{first.removeprefix('[FAIL] ')}",
+                          cost, log_names=["1-eol.log"],
+                          details=[gauge])
+    return StepResult("eol", True, gauge.removeprefix("覆盖量："), cost,
+                      log_names=["1-eol.log"],
+                      details=[f"命令 tools/check_eol.py（输出编码 {enc}）"])
+
+
+# ── 步骤 2：构建 ──────────────────────────────────────────────────────
 def step_build(rep: Report) -> StepResult:
     started = time.perf_counter()
     code, out, enc = run(["dotnet", "build"], ROOT, timeout=900)
@@ -1001,6 +1032,8 @@ def main() -> int:
             continue
         if name == "assets":
             result = step_assets(rep)
+        elif name == "eol":
+            result = step_eol(rep)
         elif name == "build":
             result = step_build(rep)
         elif name == "test":

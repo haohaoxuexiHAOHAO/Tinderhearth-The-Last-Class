@@ -62,7 +62,15 @@ def say(text: str = "") -> None:
 
 
 def log_path() -> Path:
-    return verify.LOG_ROOT / f"selfcheck-{time.strftime('%Y%m%d-%H%M%S')}.log"
+    base = verify.LOG_ROOT / f"selfcheck-{time.strftime('%Y%m%d-%H%M%S')}.log"
+    if not base.exists():
+        return base
+    n = 2
+    while True:
+        candidate = base.with_stem(base.stem + f"-{n}")
+        if not candidate.exists():
+            return candidate
+        n += 1
 
 
 def flush_log(path: Path) -> None:
@@ -346,6 +354,28 @@ def restore_import() -> None:
         _import_backup = None
 
 
+# ── 行尾守卫（`ENG-11`）──────────────────────────────────────────────
+# 用 .gitattributes 本身作为注入目标：它是最小的已跟踪文本文件（一行），改回来也最快。
+# 注入形状：把 LF 改成 CRLF —— 这是编辑工具在 Windows 上最常见的静默转换（踩坑记录 28）。
+_EOL_TARGET = ROOT / ".gitattributes"
+_eol_backup: bytes | None = None
+
+
+def inject_crlf_in_tracked_file() -> None:
+    """把 .gitattributes 的行尾改成 CRLF —— eol=lf 文件里出现 \\r\\n 的形状。"""
+    global _eol_backup
+    _eol_backup = _EOL_TARGET.read_bytes()
+    crlf = _eol_backup.replace(b"\n", b"\r\n")
+    _EOL_TARGET.write_bytes(crlf)
+
+
+def restore_eol_target() -> None:
+    global _eol_backup
+    if _eol_backup is not None:
+        _EOL_TARGET.write_bytes(_eol_backup)
+        _eol_backup = None
+
+
 def case_upscaled_asset() -> tuple[bool, str]:
     """造一张真正放大来的图：16×16 内容按最近邻放到 32×32，每个 2×2 块必然同色。"""
     TEMP.mkdir(parents=True, exist_ok=True)
@@ -379,6 +409,53 @@ def case_solid_not_upscaled() -> tuple[bool, str]:
     check_assets._FAILS.clear()
     solid.unlink(missing_ok=True)
     return not misjudged, "纯色图未被误判" if not misjudged else "**误判了**：会拦下自己的占位件"
+
+
+def case_self_drawn_soft_alpha_blocked() -> tuple[bool, str]:
+    """自绘件（可进发行包=True）的软 alpha 仍然被拦（`ART-5`）。
+
+    例外口子只针对不得进包的下载件，不能扩大到自绘件 —— 否则 §9 的绝对规则
+    对成品素材就形同虚设。
+    """
+    TEMP.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    import check_assets
+    img = Image.new("RGBA", (8, 8), (200, 180, 160, 255))
+    px = img.load()
+    px[2, 2] = (200, 180, 160, 128)          # 一个软 alpha 像素
+    path = TEMP / "self-drawn-soft.png"
+    img.save(path)
+    check_assets._FAILS.clear()
+    # skip_if_non_releasable=False 模拟自绘件（可进发行包=True）
+    check_assets.check_alpha("self-drawn-soft.png", Image.open(path).convert("RGBA"),
+                             skip_if_non_releasable=False)
+    caught = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    path.unlink(missing_ok=True)
+    return caught, "自绘件软 alpha 被拦" if caught else "**没拦住**：例外口子漏到了自绘件"
+
+
+def case_downloaded_soft_alpha_allowed() -> tuple[bool, str]:
+    """下载件（可进发行包=False）的软 alpha 被放行（`ART-5`）。
+
+    下载件注定替换，开发期软 alpha 不影响成品质量。
+    """
+    TEMP.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    import check_assets
+    img = Image.new("RGBA", (8, 8), (200, 180, 160, 255))
+    px = img.load()
+    px[2, 2] = (200, 180, 160, 77)           # 柔和投影那种软 alpha
+    path = TEMP / "downloaded-soft.png"
+    img.save(path)
+    check_assets._FAILS.clear()
+    # skip_if_non_releasable=True 模拟下载件（可进发行包=False）
+    check_assets.check_alpha("downloaded-soft.png", Image.open(path).convert("RGBA"),
+                             skip_if_non_releasable=True)
+    allowed = not bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    path.unlink(missing_ok=True)
+    return allowed, "下载件软 alpha 被放行" if allowed else "**被误拦**：例外口子没生效"
 
 
 # ── texture_filter 覆盖守卫（`ENG-13`）─────────────────────────────────
@@ -516,6 +593,10 @@ DIRECT_CASES = (
      case_upscaled_asset),
     ("纯色图不被误判成放大件", "check_upscaled", "误判方向：纯色图天然满足每个 2×2 同色",
      case_solid_not_upscaled),
+    ("自绘件的软 alpha 仍被拦下", "check_alpha",
+     "ART-5：例外口子只针对下载件，不能漏到自绘件", case_self_drawn_soft_alpha_blocked),
+    ("下载件的软 alpha 被放行", "check_alpha",
+     "ART-5：下载件注定替换，开发期柔和投影不影响成品", case_downloaded_soft_alpha_allowed),
     ("场景与代码里的 texture_filter 覆盖被拦下", "check_texture_filter",
      "ENG-13：.tscn=2 与 .cs 赋值都要拦", case_texture_filter_override),
     ("继承与比较不被误判成 texture_filter 覆盖", "check_texture_filter",
@@ -532,6 +613,9 @@ CASES = (
     Case("构建有编译错误时判失败", "step_build", "构建步骤的失败方向",
          inject_broken_rule, lambda: _drop(BROKEN_RULE),
          ["--upto", "build"], "错误"),
+    Case("行尾违反 .gitattributes 时判失败", "step_eol", "踩坑记录 28：编辑工具静默转 CRLF",
+         inject_crlf_in_tracked_file, restore_eol_target,
+         ["--upto", "eol"], "CRLF"),
     Case("源码里有测试没被编译进去时判失败", "step_test", "踩坑记录 29",
          inject_phantom_test, lambda: _drop(PHANTOM_TEST),
          ["--upto", "test"], "条数对不上"),

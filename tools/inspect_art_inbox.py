@@ -73,8 +73,10 @@ def describe(path: Path, root: Path) -> None:
     w, h = im.size
 
     # 半透明与放大件两条直接用 ENG-10 的实现。它们自己打 [FAIL]，本函数不重复判定。
+    # 下载桶（other-material）对应「不得进发行包」，放行软 alpha（ART-5）；自绘桶仍强制。
+    is_other = bucket_of(rel) == OTHER_BUCKET
     before = len(check_assets._FAILS)                    # noqa: SLF001  见模块注释
-    check_assets.check_alpha(rel, im)
+    check_assets.check_alpha(rel, im, skip_if_non_releasable=is_other)
     check_assets.check_upscaled(rel, im)
     pixel_ok = len(check_assets._FAILS) == before        # noqa: SLF001
 

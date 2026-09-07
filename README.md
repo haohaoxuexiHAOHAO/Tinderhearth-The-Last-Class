@@ -11,8 +11,7 @@
 2. 本文 → [ARCHITECTURE.md](./ARCHITECTURE.md)（分层与边界）→ `CONVENTIONS.md`
 3. 以代码和测试为准
 
-`CONVENTIONS.md` **尚未建立**，归待办 `ENG-4`。在它到位前，命名与风格参照设计仓
-`reference/学习CSharp-Java程序员向.md`（本项目用 Allman 大括号、接口 `I` 前缀）。
+命名与风格规范见 [CONVENTIONS.md](./CONVENTIONS.md)（`ENG-4`，2026-09-02 建立）。
 
 ## 怎么验收
 
@@ -20,23 +19,24 @@
 python tools/verify.py
 ```
 
-**门禁只调这一条。** 它把素材 → 构建 → 测试 → 导出 → 跑产物五步串起来，逐步日志落到
+**门禁只调这一条。** 它把素材 → 行尾 → 构建 → 测试 → 导出 → 跑产物六步串起来，逐步日志落到
 `logs/verify/<时间戳>/`（不入库），同目录写一份带起止时间戳的 `summary.md`。失败即停 ——
 后一步依赖前一步的产物，硬跑下去只会产出误导性的失败。
 
 **标准输出每步只有一行**，详细的东西都在日志里。不做成整轮一行是因为那样看不出是哪一步炸的，
 必须先打开日志才能定位，而这条命令的用途正是快速判断这一轮能不能收。
 
-**入口住在代码仓而不是设计仓**：被验收的对象全在这里，三条底层命令的工作目录也都是本仓根。
+**入口住在代码仓而不是设计仓**：被验收的对象全在这里，底层命令的工作目录也都是本仓根。
 放设计仓就得跨目录去找兄弟仓，等于让守卫依赖工作区的目录布局。它启动时会确认同级有
 `project.godot` 与 `.sln`，不在就拒绝执行 —— 两仓各有一个 `tools/`，靠命名区分依赖记性，
 靠落点自检才能自动检出。
 
-重点不在省几次敲键盘，在于**每步都另找一个量具核对产物**，因为这三步的退出码都骗过人：
+重点不在省几次敲键盘，在于**每步都另找一个量具核对产物**，因为这六步的退出码都骗过人：
 
 | 步骤 | 除退出码之外还核对什么 |
 | --- | --- |
 | 素材 | 逐像素扫半透明像素与整图放大件；登记表与磁盘双向比对；核纹理导入参数。扫到 0 个文件判失败（`ENG-10`） |
+| 行尾 | git 管的文本文件行尾必须符合 `.gitattributes`。认不出 `check_eol.py` 输出形状就判失败（`ENG-11`） |
 | 构建 | 自己数错误行；认不出 `dotnet build` 的输出形状就判失败，不闭眼签字 |
 | 测试 | 运行器报的条数**等于**从测试源码静态数出来的条数，两个来源互相独立（踩坑记录 29） |
 | 导出 | 先清空 `export/` 再导，于是「文件存在」＝「本轮生成」；再**解开 `.pck` 逐条看清单**查泄漏（踩坑记录 33） |
@@ -45,7 +45,7 @@ python tools/verify.py
 **素材那一步排在最前面**：它最快（纯 Python，不编译不起引擎），而且坏素材不该有机会被打进
 包 —— 放在导出之后才查，等于每次都先花十几秒造一个已知有问题的产物。
 
-两个附带用法：`--upto assets|build|test|export` 只跑到某步（前置步骤一定跟着跑，所以跑不出旧
+两个附带用法：`--upto assets|eol|build|test|export` 只跑到某步（前置步骤一定跟着跑，所以跑不出旧
 产物；范围不完整时摘要会写明「不能当一次验收」）；`--manifest [某个.pck]` 不跑任何步骤，
 只把包内清单打出来。
 
@@ -108,7 +108,7 @@ headless 下改窗口尺寸不会让拉伸重算，撑开那一段会**假过**�
 
 ### 工具链依赖
 
-`verify.py`、`selfcheck_verify.py`、`check_scaling.py`、`check_input_map.py`、
+`verify.py`、`selfcheck_verify.py`、`check_eol.py`、`check_scaling.py`、`check_input_map.py`、
 `selfcheck_input_map.py`、`check_camera.py`、`selfcheck_camera.py`、`harness_shot.py` 与
 `gen_placeholders.py` 都是**纯标准库**，
 clone 完直接能跑。唯一的第三方依赖是读素材图用的 Pillow，装法：
@@ -120,8 +120,9 @@ python -m pip install -r tools/requirements.txt
 为什么只在这一处破例、以及为什么不用它改写写 PNG 那半，理由写在 `tools/requirements.txt` 里。
 **依赖缺失的守卫必须报错退出，不许跳过检查** —— 会静默跳过的守卫比没有守卫更坏。
 
-下面三节是构建、测试、导出三步各自的原始命令，单独调试时用得上。素材那一步的原始命令是
-`python tools/check_assets.py`（生成占位件与写登记表是另一条：`python tools/gen_placeholders.py`）。
+下面四节是构建、测试、导出与行尾四步各自的原始命令，单独调试时用得上。素材那一步的原始命令是
+`python tools/check_assets.py`（生成占位件与写登记表是另一条：`python tools/gen_placeholders.py`）；
+行尾那一步是 `python tools/check_eol.py`（修复行尾：`python tools/check_eol.py --fix`）。
 
 ## 像素字体怎么进来的
 
@@ -204,7 +205,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，缩放／输入／相机／HUD 四个专项守卫（素材那条已接进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，`check_eol.py` 行尾守卫（`ENG-11`），缩放／输入／相机／HUD 四个专项守卫（素材与行尾已接进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 

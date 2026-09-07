@@ -92,8 +92,15 @@ def load_image(path: Path):
     return Image.open(path).convert("RGBA")
 
 
-def check_alpha(name: str, im) -> None:
-    """alpha 只允许 0 或 255。报出前几个坐标，够定位就行。"""
+def check_alpha(name: str, im, skip_if_non_releasable: bool = False) -> None:
+    """alpha 只允许 0 或 255。报出前几个坐标，够定位就行。
+
+    `skip_if_non_releasable=True` 时对「不得进发行包」的下载件放行软 alpha（`ART-5`）：
+    下载件注定要被替换，§9 守的是成品质量；开发期临时素材带柔和投影不影响发行。
+    自绘件（`可进发行包: true`）无论如何都必须通过 —— 例外条件只认这一个，不扩展。
+    """
+    if skip_if_non_releasable:
+        return
     alpha = im.getchannel("A")
     values = set(alpha.getdata())
     bad = sorted(v for v in values if v not in (0, 255))
@@ -273,7 +280,10 @@ def run_checks(list_only: bool = False) -> int:
     no_import = []
     for rel in sorted(on_disk & set(entries)):
         im = load_image(ASSETS / rel)
-        check_alpha(rel, im)
+        # 「不得进发行包」的下载件放行软 alpha（ART-5）：它们注定要被自绘件替换，
+        # §9 守的是成品质量，不值得为临时素材增加收件摩擦。自绘件仍强制执行。
+        non_releasable = not entries[rel].get("可进发行包", True)
+        check_alpha(rel, im, skip_if_non_releasable=non_releasable)
         check_upscaled(rel, im)
         check_frames(rel, im, entries[rel])
         if not check_import(rel, rel):
