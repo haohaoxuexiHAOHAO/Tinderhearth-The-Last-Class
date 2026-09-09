@@ -73,20 +73,27 @@ def describe(path: Path, root: Path) -> None:
     w, h = im.size
 
     # 半透明与放大件两条直接用 ENG-10 的实现。它们自己打 [FAIL]，本函数不重复判定。
-    # 下载桶（other-material）对应「不得进发行包」，放行软 alpha（ART-5）；自绘桶仍强制。
+    # 下载桶（other-material）是下载件，放行软 alpha（ART-5）；自绘桶仍强制。
     is_other = bucket_of(rel) == OTHER_BUCKET
     before = len(check_assets._FAILS)                    # noqa: SLF001  见模块注释
-    check_assets.check_alpha(rel, im, skip_if_non_releasable=is_other)
+    check_assets.check_alpha(rel, im, allow_soft_alpha=is_other)
     check_assets.check_upscaled(rel, im)
     pixel_ok = len(check_assets._FAILS) == before        # noqa: SLF001
 
     colors = len({im.load()[x, y] for y in range(h) for x in range(w)})
     opaque = sum(1 for a in im.getchannel("A").getdata() if a == 255)
     guesses = tile_guesses(w, h)
+    # 放大倍数要报**真实**的那个数。2026-09-08 踩过：只测 2 倍的旧实现对 10 倍件报「改用
+    # 160×160」，而真实源尺寸是 32×32 —— 报错报得不对，照着做只会得到另一张放大件。
+    scale = check_assets.upscale_factor(im)
 
     say(f"  {rel}")
     say(f"      桶 {bucket_of(rel)}｜画布 {w}×{h}｜色数 {colors}｜不透明像素 {opaque}／{w * h}"
         f"（{opaque * 100 // (w * h)}%）")
+    if scale > 1:
+        say(f"      **{scale} 倍整数放大件**，真实源尺寸 {w // scale}×{h // scale}"
+            f"（每个 {scale}×{scale} 块同色，可无损降采样）"
+            f"｜角色逐帧件跑 python tools/import_role_sheets.py 自动接仓")
     say(f"      能整除的格子尺寸 {guesses if guesses else '（8／16／32／48／64／96 都除不尽）'}"
         f"｜像素判据 {'过' if pixel_ok else '**不过，见上面的 FAIL**'}")
 
@@ -155,13 +162,19 @@ def main() -> int:
 
     say()
     say(f"覆盖量：逐像素扫过 {len(pngs)} 个 PNG，每个查了 2 类"
-        f"（半透明、放大件，实现来自 check_assets.py）加 3 项测量（色数、格子尺寸候选、桶）")
+        f"（半透明、放大件，实现来自 check_assets.py）加 4 项测量"
+        f"（色数、真实放大倍数与源尺寸、格子尺寸候选、桶）")
     if not pngs:
         say("[FAIL] 一个 PNG 都没扫到 —— 空转的检查也会「全绿」，所以这里必须失败")
 
-    fails = len(check_assets._FAILS) + len(naked) + len(stray)   # noqa: SLF001
+    upscaled = [f for f in check_assets._FAILS if "倍放大来的" in f]   # noqa: SLF001
+    fails = len(check_assets._FAILS) + len(naked) + len(stray)         # noqa: SLF001
     say(f"结果：{fails} 条判据不成立"
         + ("（不改就不能进仓）" if fails else "（像素规格与授权归属都过，剩下的是用途判断）"))
+    if upscaled:
+        say(f"  其中 {len(upscaled)} 条是「整数倍放大件」—— **不是画错**，是可无损降采样，"
+            f"角色逐帧件跑 python tools/import_role_sheets.py 接仓；"
+            f"收件箱的硬规格仍写明交 1 倍件，所以这里照旧判不成立")
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log = LOG_DIR / f"inbox-{time.strftime('%Y%m%d-%H%M%S')}.log"

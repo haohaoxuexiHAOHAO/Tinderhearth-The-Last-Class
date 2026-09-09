@@ -376,24 +376,80 @@ def restore_eol_target() -> None:
         _eol_backup = None
 
 
-def case_upscaled_asset() -> tuple[bool, str]:
-    """造一张真正放大来的图：16×16 内容按最近邻放到 32×32，每个 2×2 块必然同色。"""
+def _diagonal(size: int):
+    """一张带对角线的图，保证不是纯色 —— 纯色图天然满足任意倍数，不能当放大的证据。"""
+    from PIL import Image
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    px = img.load()
+    for i in range(size):
+        px[i, i] = (200, 190, 172, 255)
+    return img
+
+
+def _upscale_report(tag: str, source: int, factor: int) -> tuple[int, str]:
+    """把 source×source 放大 factor 倍存盘、过一遍守卫，返回 (报出的倍数, 那条 FAIL 原文)。"""
     TEMP.mkdir(parents=True, exist_ok=True)
     from PIL import Image
     import check_assets
-    small = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-    sp = small.load()
-    for i in range(16):
-        sp[i, i] = (200, 190, 172, 255)          # 一条对角线，保证不是纯色
-    big = small.resize((32, 32), Image.NEAREST)
-    fake = TEMP / "upscaled.png"
-    big.save(fake)
+    side = source * factor
+    fake = TEMP / f"upscaled-{tag}.png"
+    _diagonal(source).resize((side, side), Image.NEAREST).save(fake)
+    img = Image.open(fake).convert("RGBA")
+    reported = check_assets.upscale_factor(img)
     check_assets._FAILS.clear()
-    check_assets.check_upscaled("upscaled.png", Image.open(fake).convert("RGBA"))
-    caught = bool(check_assets._FAILS)
+    check_assets.check_upscaled(fake.name, img)
+    message = check_assets._FAILS[0] if check_assets._FAILS else ""
     check_assets._FAILS.clear()
+    img.close()
     fake.unlink(missing_ok=True)
-    return caught, "认出放大件" if caught else "**没认出来**：2×2 判据失效了"
+    return reported, message
+
+
+def case_upscaled_asset() -> tuple[bool, str]:
+    """造一张真正放大来的图：16×16 内容按最近邻放到 32×32，每个 2×2 块必然同色。"""
+    reported, message = _upscale_report("2x", 16, 2)
+    caught = bool(message) and reported == 2
+    return caught, f"认出放大件（{reported} 倍）" if caught else "**没认出来**：放大判据失效了"
+
+
+def case_upscaled_reports_real_factor() -> tuple[bool, str]:
+    """10 倍放大件必须报「10 倍、源 32×32」，不是「2 倍、源 160×160」（2026-09-08 真实缺陷）。
+
+    这是作者交来的自绘件的真实形状：320×320 的逐帧 PNG，实际内容 32×32。只测 2 倍的旧实现
+    会把它判成放大件（对的），但建议「改用 160×160 的源尺寸」（错的）—— 照着做只会得到另一张
+    放大 5 倍的图，而且下一轮守卫还会再拦一次，报的数还是错的。**守卫报错报得不对比不报更坏。**
+    """
+    reported, message = _upscale_report("10x", 32, 10)
+    ok = reported == 10 and "10 倍放大来的" in message and "32×32" in message
+    return ok, (f"报出真实倍数：{message[-60:]}" if ok
+                else f"**报错了**：倍数={reported}，原文={message or '（一条都没报）'}")
+
+
+def case_upscaled_odd_side_caught() -> tuple[bool, str]:
+    """奇数边长的放大件也要拦：45×45 是 15×15 放大 3 倍来的（旧实现遇奇数直接放过）。"""
+    reported, message = _upscale_report("3x", 15, 3)
+    ok = reported == 3 and "15×15" in message
+    return ok, (f"奇数边长也拦下：{message[-52:]}" if ok
+                else f"**漏了**：倍数={reported}，原文={message or '（一条都没报）'}")
+
+
+def case_real_pixel_art_not_upscaled() -> tuple[bool, str]:
+    """1 倍真像素画不能被判成放大件 —— 误判会把进仓的自绘件全拦下来。"""
+    TEMP.mkdir(parents=True, exist_ok=True)
+    from PIL import Image
+    import check_assets
+    path = TEMP / "true-1x.png"
+    _diagonal(31).save(path)                     # 31 是质数：除了 1 没有别的候选倍数
+    img = Image.open(path).convert("RGBA")
+    reported = check_assets.upscale_factor(img)
+    check_assets._FAILS.clear()
+    check_assets.check_upscaled(path.name, img)
+    misjudged = bool(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    img.close()
+    path.unlink(missing_ok=True)
+    ok = reported == 1 and not misjudged
+    return ok, "1 倍件未被误判" if ok else f"**误判了**：报成 {reported} 倍"
 
 
 def case_solid_not_upscaled() -> tuple[bool, str]:
@@ -426,9 +482,9 @@ def case_self_drawn_soft_alpha_blocked() -> tuple[bool, str]:
     path = TEMP / "self-drawn-soft.png"
     img.save(path)
     check_assets._FAILS.clear()
-    # skip_if_non_releasable=False 模拟自绘件（可进发行包=True）
+    # allow_soft_alpha=False 模拟自绘件（登记在「自绘素材」一节）
     check_assets.check_alpha("self-drawn-soft.png", Image.open(path).convert("RGBA"),
-                             skip_if_non_releasable=False)
+                             allow_soft_alpha=False)
     caught = bool(check_assets._FAILS)
     check_assets._FAILS.clear()
     path.unlink(missing_ok=True)
@@ -449,13 +505,139 @@ def case_downloaded_soft_alpha_allowed() -> tuple[bool, str]:
     path = TEMP / "downloaded-soft.png"
     img.save(path)
     check_assets._FAILS.clear()
-    # skip_if_non_releasable=True 模拟下载件（可进发行包=False）
+    # allow_soft_alpha=True 模拟下载件（登记在「下载素材」一节）
     check_assets.check_alpha("downloaded-soft.png", Image.open(path).convert("RGBA"),
-                             skip_if_non_releasable=True)
+                             allow_soft_alpha=True)
     allowed = not bool(check_assets._FAILS)
     check_assets._FAILS.clear()
     path.unlink(missing_ok=True)
     return allowed, "下载件软 alpha 被放行" if allowed else "**被误拦**：例外口子没生效"
+
+
+# ── 单色帧守卫（`ART-6`）──────────────────────────────────────────────
+# 缺陷形状不是编的：作者交来的 `hit` 源第 3、4 帧就是整张单色的闪白（2026-09-08 实测，
+# 去掉地面行后只剩 (255,255,255,255) 一色、246 像素）。它们已由 import_role_sheets.py 排除，
+# 所以这里拿**同一张表里真正的姿态帧**做两件事：原样必须放行，把它的不透明像素刷成一色后
+# 必须被拦下 —— 后者与作者那两帧逐像素同形（同一剪影、单色、无半透明）。
+HIT_SHEET = ROOT / "assets" / "self-drawn" / "test-role" / "hit.png"
+SAMURAI_HURT = ROOT / "assets" / "downloaded" / "samurai" / "hurt.png"
+_hit_backup: bytes | None = None
+
+
+def _flatten_first_frame(source: Path, frame_width: int):
+    """把一张精灵表的第 1 帧的不透明像素全刷成白色，其余帧不动。返回新图。"""
+    from PIL import Image
+    im = Image.open(source).convert("RGBA")
+    px = im.load()
+    for y in range(im.height):
+        for x in range(frame_width):
+            if px[x, y][3] != 0:
+                px[x, y] = (255, 255, 255, 255)
+    return im
+
+
+def case_solid_frame_blocked() -> tuple[bool, str]:
+    """自绘表里出现单色帧要被拦下，正常姿态帧要被放行（`ART-6`）。"""
+    import check_assets
+    from PIL import Image
+    entry = {"帧宽": 46, "源帧号": [1, 2, 5, 6, 7, 8]}
+    check_assets._FAILS.clear()
+    good = check_assets.check_solid_frames("hit.png", Image.open(HIT_SHEET).convert("RGBA"), entry)
+    passed = not check_assets._FAILS and not good
+    check_assets._FAILS.clear()
+    check_assets.check_solid_frames("hit-flat.png", _flatten_first_frame(HIT_SHEET, 46), entry)
+    caught = [f for f in check_assets._FAILS]
+    check_assets._FAILS.clear()
+    ok = passed and len(caught) == 1 and "第 1 帧" in caught[0] and "源帧 1" in caught[0]
+    return ok, (f"单色帧被拦并报出真实帧号：{caught[0][-70:]}" if ok
+                else f"正常帧放行={passed}；拦下={caught or '（一条都没报）'}")
+
+
+def case_downloaded_solid_frame_allowed() -> tuple[bool, str]:
+    """下载件的单色帧被放行且被自报出来（`ART-5` 同一理由）。
+
+    这一条撞的是**真实样本**：`downloaded/samurai/hurt.png` 第 1 帧本来就是整张白的 ——
+    「受击表里塞一张闪白」在下载素材里是常见做法，这也正是闪白必须由代码持有的理由之一。
+    """
+    import check_assets
+    from PIL import Image
+    if not SAMURAI_HURT.is_file():
+        return False, f"没有 {SAMURAI_HURT.name} 可撞"
+    check_assets._FAILS.clear()
+    waived = check_assets.check_solid_frames(
+        "downloaded/samurai/hurt.png", Image.open(SAMURAI_HURT).convert("RGBA"),
+        {"帧宽": 96}, allow_solid=True)
+    blocked = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = not blocked and len(waived) == 1 and "第 1 帧" in waived[0]
+    return ok, (f"放行并自报：{waived[0]}" if ok
+                else f"拦下={blocked}；自报={waived}")
+
+
+def inject_solid_frame_in_repo() -> None:
+    """把进仓 hit.png 的第 1 帧刷成单色 —— 作者那两帧要是没被排除，仓里就是这个样子。"""
+    global _hit_backup
+    _hit_backup = HIT_SHEET.read_bytes()
+    _flatten_first_frame(HIT_SHEET, 46).save(HIT_SHEET)
+
+
+def restore_hit_sheet() -> None:
+    global _hit_backup
+    if _hit_backup is not None:
+        HIT_SHEET.write_bytes(_hit_backup)
+        _hit_backup = None
+
+
+# ── 常量与登记表的绑定（`ART-6`）──────────────────────────────────────
+# 三个方向各一条，因为它们是三种不同的失效：改常量（人改代码忘了改图）、改登记表（图重生成
+# 而常量没跟着）、改 Active 窗口（相位映射变了而判定框没跟着）。三者都不报错。
+PLAYER_ACTOR_CS = ROOT / "src" / "World" / "PlayerActor.cs"
+COMBAT_FEEL_CS = ROOT / "rules" / "Combat" / "CombatFeel.cs"
+_cs_backups: dict[Path, str] = {}
+
+
+def _patch_cs(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if old not in text:
+        raise RuntimeError(f"{path.name} 里找不到要改的那一行：{old!r}")
+    _cs_backups[path] = text
+    path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+
+def restore_cs() -> None:
+    for path, text in list(_cs_backups.items()):
+        path.write_text(text, encoding="utf-8", newline="\n")
+        del _cs_backups[path]
+
+
+def inject_wrong_ground_row_const() -> None:
+    """把 PlayerActor 的 GroundRow 改成 29 —— 精灵会整体上移一像素，脚底离地，**不报错**。"""
+    _patch_cs(PLAYER_ACTOR_CS, "internal const int GroundRow = 30;",
+              "internal const int GroundRow = 29;")
+
+
+def inject_shared_hitbox_const() -> None:
+    """把轻击判定框宽度改回与重击相同 —— 这正是 2026-09-08 之前的真实状态。"""
+    _patch_cs(COMBAT_FEEL_CS, "public const int LightHitboxWidthWorldPx = 18;",
+              "public const int LightHitboxWidthWorldPx = 22;")
+
+
+def inject_shifted_active_window() -> None:
+    """把 Active 起始帧往后挪一帧 —— 相位映射变了，判定框却还是照旧那个数。"""
+    _patch_cs(PLAYER_ACTOR_CS, "internal const int AttackActiveFirstFrame = 1;",
+              "internal const int AttackActiveFirstFrame = 2;")
+
+
+def inject_wrong_registry_ground_row() -> None:
+    """把登记表里自绘素材的帧内地面行改错 —— 图重生成后帧框变了的形状。"""
+    global _registry_backup
+    import json
+    _registry_backup = REGISTRY.read_bytes()
+    data = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    for entry in data.get("自绘素材", []):
+        entry["帧内地面行"] = entry["帧内地面行"] - 1
+    REGISTRY.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8", newline="\n")
 
 
 # ── texture_filter 覆盖守卫（`ENG-13`）─────────────────────────────────
@@ -601,6 +783,11 @@ DIRECT_CASES = (
      "ENG-13：.tscn=2 与 .cs 赋值都要拦", case_texture_filter_override),
     ("继承与比较不被误判成 texture_filter 覆盖", "check_texture_filter",
      "ENG-13：误判方向，== ParentNode 是在核不是在改", case_texture_filter_inherit_ok),
+    ("自绘表里的单色帧被拦、姿态帧被放行", "check_solid_frames",
+     "ART-6：作者 hit 源第 3、4 帧就是整张单色的闪白", case_solid_frame_blocked),
+    ("下载件的单色帧被放行并自报", "check_solid_frames",
+     "ART-5 同一理由；真实样本 downloaded/samurai/hurt.png 第 1 帧就是整张白的",
+     case_downloaded_solid_frame_allowed),
     ("发行档拦占位件、日常档放行", "manifest_report", "ENG-12：真包含 28 个非自绘素材",
      case_release_blocks_placeholders),
     ("包里未登记素材被审计抓出", "audit_release_assets", "ENG-12：漏登记等于绕过守卫",
@@ -644,6 +831,26 @@ CASES = (
     Case("纹理被设成可转 VRAM 压缩时判失败", "step_assets", "像素图被有损压缩的入口",
          inject_vram_compression, restore_import,
          ["--upto", "assets"], "detect_3d"),
+    Case("进仓精灵表里出现单色帧时判失败", "check_solid_frames",
+         "ART-6：作者 hit 源第 3、4 帧没被排除时仓里就是这个样子",
+         inject_solid_frame_in_repo, restore_hit_sheet,
+         ["--upto", "assets"], "只有一种不透明颜色"),
+    Case("帧框常量与登记表不符时判失败", "check_frame_geometry_binding",
+         "ART-6：素材重生成后帧框变了而常量没跟着改，表现是脚底离地且不报错",
+         inject_wrong_ground_row_const, restore_cs,
+         ["--upto", "assets"], "GroundRow"),
+    Case("登记表帧框被改动时判失败", "check_frame_geometry_binding",
+         "ART-6：反方向 —— 常量没动而登记表变了，一样对不上",
+         inject_wrong_registry_ground_row, restore_registry,
+         ["--upto", "assets"], "帧内地面行"),
+    Case("判定框常量与实测伸展不符时判失败", "check_hitbox_binding",
+         "ART-6：轻重共用一个数正是 2026-09-08 之前的真实状态",
+         inject_shared_hitbox_const, restore_cs,
+         ["--upto", "assets"], "LightHitboxWidthWorldPx"),
+    Case("Active 窗口挪动而判定框没跟着时判失败", "check_hitbox_binding",
+         "ART-6：第三个漂移方向 —— 相位映射变了，取的帧就变了",
+         inject_shifted_active_window, restore_cs,
+         ["--upto", "assets"], "Active 帧"),
     Case("产物跑不起来时判失败", "step_smoke", "冒烟步骤的失败方向",
          inject_broken_config, restore_config,
          [], "跑产物"),
@@ -681,7 +888,12 @@ def run_case(case: Case) -> tuple[bool, str]:
 
 
 TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_count",
-                      "manifest_report", "audit_release_assets")
+                      "manifest_report", "audit_release_assets",
+                      # check_assets.py 的判定也登记在这里：它是 step_assets 调的，
+                      # 「step_assets 有用例」不等于「它调的每条判定都撞过」。
+                      "check_alpha", "check_upscaled", "check_texture_filter",
+                      "check_solid_frames", "check_frame_geometry_binding",
+                      "check_hitbox_binding")
 
 
 def coverage(names: list[str]) -> tuple[list[str], list[str]]:

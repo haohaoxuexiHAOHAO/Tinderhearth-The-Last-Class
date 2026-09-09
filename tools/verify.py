@@ -645,14 +645,17 @@ def classify_leak(entry: PackEntry) -> str | None:
 # 判据取登记表的「可进发行包」字段，**不按路径**判 —— 字体在 assets/fonts/ 下却是永久依赖
 # （可进发行包=true），按「在不在 placeholder/ 或 downloaded/」判会把字体一起误杀（`ENG-12`）。
 def load_asset_registry() -> dict[str, dict]:
-    """读素材登记表（`ART-4`），三节合并成 {登记路径: 条目}。
+    """读素材登记表（`ART-4`），四节合并成 {登记路径: 条目}。
 
     登记路径是相对 assets/ 的（如 placeholder/ui/panel.png），正好等于包里
     assets/<它>.import 去掉两头。读不出就抛异常 —— 审不了素材必须判失败，不能当没这回事。
+
+    **新增分节必须加进这张清单。** 漏加不会静默：那一节的素材在包里会被审成「未登记」而判
+    失败（`ENG-12`），所以少一节是响的、不是哑的。2026-09-08 加了「自绘素材」一节。
     """
     raw = json.loads(ASSET_REGISTRY.read_text(encoding="utf-8"))
     out: dict[str, dict] = {}
-    for section in ("生成槽位", "下载素材", "字体"):
+    for section in ("生成槽位", "下载素材", "自绘素材", "字体"):
         for entry in raw.get(section, []):
             if "path" in entry:
                 out[entry["path"]] = entry
@@ -825,9 +828,14 @@ def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
     missing_files = [p.name for p in (EXPORT_EXE, EXPORT_PCK) if not p.is_file()]
     if missing_files:
         # 这一步的退出码本来就不可信，所以先信文件系统。
-        return StepResult("export", False,
-                          f"退出码 {code}，但产物缺 {missing_files}（本轮 export/ 只有 {produced}）",
-                          cost, log_names=["3-export.log"])
+        # 顺带点名最常见的那个原因：`tools/run_local_check.py` 把 APPDATA 换成了工作区 temp 下
+        # 的空目录，导出模板没跟着复制过去时，Godot 产不出东西而报的错与模板无关。
+        # 2026-09-08 实测撞过：selfcheck_verify.py 当时不在那份清单里，四条用例一起挂。
+        why = f"退出码 {code}，但产物缺 {missing_files}（本轮 export/ 只有 {produced}）"
+        appdata = os.environ.get("APPDATA")
+        if appdata and not (Path(appdata) / "Godot" / "export_templates").is_dir():
+            why += f"；且 APPDATA 里没有导出模板（{appdata}\\Godot\\export_templates）"
+        return StepResult("export", False, why, cost, log_names=["3-export.log"])
     if EXPORT_EXE.stat().st_size == 0 or EXPORT_PCK.stat().st_size == 0:
         return StepResult("export", False, "产物存在但是 0 字节的空壳",
                           cost, log_names=["3-export.log"])
