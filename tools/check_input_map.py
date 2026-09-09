@@ -392,6 +392,16 @@ def check_verdicts(text: str) -> None:
         fail(f"技能组内容不对：实际 {groups}，期望 {want}")
 
 
+def check_probe_order(text: str) -> None:
+    """Shared input probes must not run concurrently (ENG-14)."""
+    completed = list(SELFCHECK_RE.finditer(text))
+    hud = text.find("[HUD] 判据")
+    if len(completed) != 1 or hud < 0 or completed[0].end() >= hud:
+        fail("输入与 HUD 探针未按完成顺序串行运行，或探针日志缺失")
+    else:
+        ok("输入自检完成后才运行 HUD 判据，共享输入探针顺序正确")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="输入映射实测（UI-7）")
     ap.add_argument("--exported", action="store_true", help="跑 export/ 下的产物而不是工程源码")
@@ -435,6 +445,7 @@ def main() -> int:
         check_actions_and_bindings(text, declared)
         check_builtin_ui_actions(text)
         check_verdicts(text)
+        check_probe_order(text)
 
     say()
     say(f"覆盖量：{_CHECKED} 条判据，其中 {len(_FAILS)} 条失败")

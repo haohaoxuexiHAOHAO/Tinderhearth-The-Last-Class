@@ -29,6 +29,9 @@ public partial class InputProbe : Node
     private int _checks;
     private int _passed;
 
+    /// <summary>全部输入判据及收尾完成，后续共享输入的探针才能启动。</summary>
+    public event Action? Finished;
+
     /// <summary>本自检一共有几条判据。</summary>
     public int Checks => _checks;
 
@@ -54,6 +57,7 @@ public partial class InputProbe : Node
         {
             GD.Print("[输入] 自检 ", _passed, "/", _checks, " 条通过");
             SetProcess(false);
+            Finished?.Invoke();
             return;
         }
 

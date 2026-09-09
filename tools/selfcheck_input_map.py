@@ -88,6 +88,15 @@ class Case:
 
 CASES: list[Case] = [
     Case(
+        name="输入与 HUD 探针重新并行",
+        covers=["check_probe_order"],
+        shape="ENG-14 原缺陷：输入尚未完成就启动共享 Input 的后续探针链",
+        expect="未按完成顺序串行运行",
+        edits=[Edit(ROOT / "src" / "Main.cs",
+                    "        _inputProbe.Finished += OnInputProbeFinished;",
+                    "        OnInputProbeFinished();")],
+    ),
+    Case(
         name="project.godot 里冒出 [input] 段",
         covers=["check_no_input_section"],
         shape="有人在编辑器的 Input Map 面板里手加一个动作，于是绑定有了第二份来源",

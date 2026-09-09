@@ -63,10 +63,20 @@ public partial class Main : Node2D
         GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
                  " 人，控制器 ", controllers.Count, " 个");
 
+        _probeConfig = config;
         ProbeUiSkeleton();
         ProbeInputMapping();
         BuildHud();
-        ProbeWorldSpace(config);
+    }
+
+    private GameConfig _probeConfig = null!;
+    private InputProbe _inputProbe = null!;
+
+    private void OnInputProbeFinished() => ProbeWorldSpace(_probeConfig);
+
+    public override void _ExitTree()
+    {
+        _inputProbe.Finished -= OnInputProbeFinished;
     }
 
     private UiRoot _ui = null!;
@@ -203,7 +213,10 @@ public partial class Main : Node2D
         _router.DeviceChanged += device => GD.Print("[输入] 设备切换 → ", device);
         _router.SkillGroupChanged += group => GD.Print("[输入] 技能组切换 → ", group);
 
-        AddChild(new InputProbe(_router) { Name = "InputProbe" });
+        // ENG-14：输入与 HUD 都注入全局 Input，必须按完成通知串行运行。
+        _inputProbe = new InputProbe(_router) { Name = "InputProbe" };
+        _inputProbe.Finished += OnInputProbeFinished;
+        AddChild(_inputProbe);
     }
 
     /// <summary>
