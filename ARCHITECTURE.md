@@ -62,6 +62,32 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 约束由 `tools/check_camera.py` 守着：派生 `Camera2D` 的类型恰好一个，且相机位置恒为整数世界
 像素（唯一的取整点在 `GameCamera.RoundToPixel`）。
 
+## 战斗：三个轴，但位置的所有权在纵深轴上是反的
+
+正典把战斗关卡定为**带连续可行走纵深的横版**（设计仓 `canon/gameplay/战斗与关卡.md`），于是运动有
+三个轴。它们的所有权不一样，这一处不对称值得写明，否则下一个人只会当成漏改。
+
+| 轴 | 速度 | 位置 | 谁做碰撞 |
+| --- | --- | --- | --- |
+| 横向 | `MotorState.HorizontalVelocity` | 引擎（`CharacterBody2D.Position.X`） | 引擎 `MoveAndSlide` |
+| 跳跃高度 | `MotorState.VerticalVelocity` | 引擎（`CharacterBody2D.Position.Y`） | 引擎 `MoveAndSlide` |
+| 纵深 | `MotorState.DepthVelocity` | **规则层**（`MotorState.DepthWorldPx`） | 无（本轮纵深上没有碰撞体） |
+
+**为什么纵深连位置一起归规则层**：Godot 2D 只有两个轴，已经被横向与跳跃高度占满，纵深在引擎那边
+没有对应的位置量可以借；纵深上本轮也没有碰撞体（物件在纵深上的阻挡归关卡实现）。反过来若让引擎持
+纵深位置，48px 带的钳制就只能写在引擎层、或者两处各写一份 —— 而「钳制」正是 `GP-15` 要能脱引擎单
+测的东西。
+
+**代价写在这里**：引擎层只读 `DepthWorldPx`，**绝不许自己再积分一遍纵深速度** —— 那会得到两倍位移，
+而且不报错。执行体分两半：写入口由编译器守（`DepthWorldPx` 是 `private set`，引擎层唯一能调的写法
+是 `MotorState.PlaceDepth`，那是摆位用的、不产生速度），逐帧步长由 `tools/player_dev.py` 的
+`depth-front`／`depth-back` 守（每帧步进必须恰好等于 `CombatFeel.DepthSpeedPixelsPerSecond` 换算出
+的一格）。**没有守住的那一半**：引擎层若另建一份自己的纵深变量去绘制，静态检查扫不出来 —— 那属于
+`ENG-15` 接绘制排序时的评审项，**只能人工核**，本文记在这里以免到时候忘了它是个约定。
+
+纵深的坐标口径（0 最靠后、48 最靠前、与屏幕向下同向）与它的理由在 `rules/Combat/DepthBand.cs`，
+不在本文抄第二份。
+
 ## 界面：量在规则层，节点在引擎层
 
 `UI-8` 的关卡 HUD 把这条边界推到了极致，值得单独写一段，因为后续每个界面都照它做。

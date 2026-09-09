@@ -38,6 +38,18 @@ public static class CombatFeel
     /// <summary>水平减速度，世界像素／秒²；未校准初值，104px/s 用4帧停止。</summary>
     public const int HorizontalDecelerationPixelsPerSecondSquared = 1560;
 
+    /// <summary>纵深移动速度，世界像素／秒；`GP-15` 未校准初值，归 `GP-6`。</summary>
+    /// <remarks>
+    /// 三条依据，都可核：约为横向行走速度（104）的 58%，与 belt-scroll 那一类作品把纵深走得比
+    /// 横向慢的惯例一致；一排纵深（<see cref="DepthBand.RowSpacingWorldPx"/> ＝16px）要走 16 帧
+    /// 约 0.27 秒，走完整条 48px 带 0.8 秒；60Hz 下正好 1 世界像素／帧，于是纵深每帧都落在整
+    /// 像素上，绘制偏移（`ENG-15`）不必每帧取整、不会抖。
+    ///
+    /// **这三条证明的是「有依据」，不是「手感对」。** 快到躲不出决策、慢到挪不开都只能实机看，
+    /// 归 `GP-6`。纵深挪步与命中容差（`GP-16`）是一对：容差一改，这个速度大概要跟着重调。
+    /// </remarks>
+    public const int DepthSpeedPixelsPerSecond = 60;
+
     /// <summary>跳跃初速，世界像素／秒（向上）。</summary>
     public const int JumpInitialPixelsPerSecond = 260;
 
@@ -49,6 +61,18 @@ public static class CombatFeel
 
     /// <summary>闪避的水平速度，世界像素／秒。</summary>
     public const int DodgeSpeedPixelsPerSecond = 168;
+
+    /// <summary>闪避的纵深速度，世界像素／秒；`GP-15` 未校准初值，归 `GP-6`。</summary>
+    /// <remarks>
+    /// **为什么纵深闪避不复用 <see cref="DodgeSpeedPixelsPerSecond"/>：** 那个 168 是按 320px 宽的
+    /// 横向视野定的，18 帧走 50.4px。同一个数放到 48px 宽的纵深带上，一次纵深闪避的位移就超过
+    /// 整条带 —— 于是每次纵深闪避都会撞在带沿上，**落点由钳制决定而不是由输入决定**，「往里挪
+    /// 半步」与「翻到最里侧」变成同一个结果。这件事不报错，只表现为「纵深闪避没有分寸」。
+    ///
+    /// 取 90：60Hz 下 1.5 世界像素／帧，18 帧走 27px，约 1.7 排（16px／排），出了当前这一排又
+    /// 离带沿还有余量。它是纵深行走速度的 1.5 倍，对应横向那边闪避约为行走 1.6 倍的比例。
+    /// </remarks>
+    public const int DodgeDepthSpeedPixelsPerSecond = 90;
 
     /// <summary>闪避总时长，帧。翻滚从起到收的全长。</summary>
     public const int DodgeDurationFrames = 18;

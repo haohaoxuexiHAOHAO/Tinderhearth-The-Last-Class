@@ -36,6 +36,17 @@ public partial class PlayerDev : Node2D
     private int _drawn = -1;
     private int _tickSlips;
     private int _focusLost;
+    // `GP-15` 纵深阶段的累积量。逐帧累积、末尾一次报，理由同 sprite-phase：纵深接线的失效方式是
+    // 慢慢跑偏（少走一帧、某一帧串到 X 上），抽查一帧看不出来。
+    private Vector2 _depthOrigin;
+    private double _depthPrev;
+    private int _depthDir;
+    private bool _depthWalkValid = true;
+    private int _depthAdvanceFrames;
+    private bool _depthAirValid = true;
+    private int _depthAirFrames;
+    private double _depthAtTakeoff = double.NaN;
+    private int _depthLandTick = -1;
 
     /// <summary>
     /// 窗口失焦次数。Godot 在失焦时**释放全部按下的动作**，于是探针合成的「按住右移」会被
@@ -187,7 +198,7 @@ public partial class PlayerDev : Node2D
             _previousFloor = actor.IsOnFloor(); _previousVy = actor.Combat.Motor.VerticalVelocity;
             if (_tick == 23 && !_fell) { Check("dodge-ledge-fall", false); Capture(); }
         }
-        else
+        else if (_stage <= 5)
         {
             var heavy = _stage == 4;
             var action = heavy ? InputActions.AttackHeavy : InputActions.AttackLight;
@@ -204,8 +215,133 @@ public partial class PlayerDev : Node2D
             else if (_chainStarted)
             {
                 if (heavy) { _stage = 5; _tick = 0; _chainStarted = false; }
-                else { Check("ledge-landed", _landed); Capture(); }
+                else
+                {
+                    Check("ledge-landed", _landed);
+                    SpawnSubject(new Vector2(400, 140));
+                    _stage = 6;
+                }
             }
+        }
+        else
+        {
+            DepthProbe(actor);
+        }
+    }
+
+    /// <summary>走满整条纵深带要几帧，加余量。</summary>
+    /// <remarks>
+    /// **不写死帧数**（踩坑记录 48 同一条理由）：纵深速度是 `GP-6` 的未校准初值、带宽可能被
+    /// `ENG-16` 回改，写死的阶段长度只对今天这一版成立，改数之后判据会以「还没走到带沿」的形状
+    /// 失败，而那与它要测的东西无关。
+    /// </remarks>
+    private static int DepthLegFrames => (int)Math.Ceiling(
+        DepthBand.WidthWorldPx / (CombatFeel.DepthSpeedPixelsPerSecond * CombatFeel.FrameSeconds)) + 8;
+
+    /// <summary>
+    /// `GP-15` 纵深轴的**接线**判据：三轴分离本身由规则层单测钉死，这里只证明引擎那一段真的接上了。
+    /// </summary>
+    /// <remarks>
+    /// 为什么值得占几十个物理帧：接线断掉的表现是「按 W／S 没反应」，而规则层测试照旧全绿 —— 它
+    /// 测的是喂进去的 <see cref="CombatInput"/>，测不到喂进来的那条路（<c>InputRouter</c> 的移动
+    /// 向量 → <c>DepthSign</c>）。**符号写反更坏**：它不报错，只让「往里走」变成「往外走」，要等
+    /// `ENG-15` 把绘制排序接上才看得出来，而那时前后关系已经与命中判定相反了（正典点名这条）。
+    ///
+    /// 四条判据分两组。地面两条钉「按住向前／向后键，纵深逐帧走登记的步长、走到带沿被钳住、
+    /// 钳后不留假速度」，同时逐帧核**引擎持有的 X 与 Y 一像素都没动** —— 那是三轴不串在引擎侧的
+    /// 形状。空中两条钉「离地期间纵深一帧都不动，落地后同一份按住的输入立刻又生效」，这条最容易
+    /// 在 `ENG-15` 接绘制时被改坏。
+    ///
+    /// 起手那一两帧不钉步长：输入经 deferred 队列生效，那几帧纵深还没开始动。**不是放松判据** ——
+    /// 「按了键却一帧都没动」由推进帧数下限（由带宽与步长算出）判死，中途卡住也照旧判失败。
+    /// </remarks>
+    private void DepthProbe(PlayerActor actor)
+    {
+        var motor = actor.Combat.Motor;
+        var step = CombatFeel.DepthSpeedPixelsPerSecond * CombatFeel.FrameSeconds;
+        var depth = motor.DepthWorldPx;
+        var frontEnd = 1 + DepthLegFrames;
+        var backEnd = frontEnd + DepthLegFrames;
+        if (_tick == 1)
+        {
+            _depthOrigin = actor.Position;
+            _depthPrev = depth;
+            _depthDir = 1;
+            Press(InputActions.MoveDown, true);
+            return;
+        }
+
+        // 横向一像素都不许动：整段一次横向输入都没给过。
+        _depthWalkValid &= Math.Abs(actor.Position.X - _depthOrigin.X) < 0.001 && DepthBand.Contains(depth);
+
+        if (_tick <= backEnd)
+        {
+            var delta = depth - _depthPrev;
+            var edge = _depthDir > 0 ? DepthBand.FrontWorldPx : DepthBand.BackWorldPx;
+            _depthPrev = depth;
+            if (Math.Abs(delta) > 1e-9) _depthAdvanceFrames++;
+            _depthWalkValid &= !motor.IsDepthAirLocked
+                && Math.Abs(actor.Position.Y - _depthOrigin.Y) < 0.001
+                && (_depthAdvanceFrames == 0
+                    || Math.Abs(delta - _depthDir * step) < 1e-9
+                    || (depth == edge && Math.Abs(delta) <= step + 1e-9));
+            if (_tick == frontEnd)
+            {
+                // 从带中线走到前沿：半条带的距离，所以推进帧数就是它除以步长，与输入延迟无关。
+                Check("depth-front", _depthWalkValid && depth == DepthBand.FrontWorldPx
+                    && motor.DepthVelocity == 0
+                    && _depthAdvanceFrames >= Math.Ceiling(DepthBand.CenterWorldPx / step));
+                _depthWalkValid = true;
+                _depthAdvanceFrames = 0;
+                _depthDir = -1;
+                Press(InputActions.MoveDown, false);
+                Press(InputActions.MoveUp, true);
+            }
+            else if (_tick == backEnd)
+            {
+                Check("depth-back", _depthWalkValid && depth == DepthBand.BackWorldPx
+                    && motor.DepthVelocity == 0
+                    && _depthAdvanceFrames >= Math.Ceiling(DepthBand.WidthWorldPx / step));
+                // 起跳前把方向换成向前：带沿这一侧还有整条带的余量，锁没锁住一眼看得出来。
+                Press(InputActions.MoveUp, false);
+                Press(InputActions.MoveDown, true);
+                Press(InputActions.Jump, true);
+            }
+            return;
+        }
+
+        if (_tick == backEnd + 2) Press(InputActions.Jump, false);
+        if (!actor.IsOnFloor())
+        {
+            if (double.IsNaN(_depthAtTakeoff)) _depthAtTakeoff = depth;
+            _depthAirValid &= motor.IsDepthAirLocked && depth == _depthAtTakeoff;
+            _depthAirFrames++;
+            return;
+        }
+        if (_depthAirFrames == 0) return;
+        if (_depthLandTick < 0)
+        {
+            _depthLandTick = _tick;
+            // 滞空帧数下限取「上升段」的理论帧数（初速 ÷ 重力），同样由手感常量导出而不是写死：
+            // 它只用来排除「压根没起跳也算通过」。起跳时纵深必须还没贴到前沿，否则按住向前本来
+            // 就动不了，这条判据会变成空判。
+            var risingFrames = CombatFeel.JumpInitialPixelsPerSecond
+                / (double)CombatFeel.GravityPixelsPerSecondSquared * CombatFeel.PhysicsTicksPerSecond;
+            Check("depth-air-lock", _depthAirValid && _depthAirFrames >= risingFrames
+                && _depthAtTakeoff < DepthBand.FrontWorldPx);
+            return;
+        }
+        if (_tick == _depthLandTick + 2)
+        {
+            // 落地后**同一份**按住的输入立刻又生效：落地帧本身不推进（那一帧的 Tick 读到的还是
+            // 落地前的 isOnFloor），所以两帧里恰好走两格。跳跃轴要回到同一块地面并静止 ——
+            // 容差取引擎自报的碰撞安全边距（<c>SafeMargin</c>，默认 0.08），因为落地静止位置与
+            // 起跳前本来就差一个边距（实测 0.025px）。挑一个刚好能过的数是量具骗自己。
+            Check("depth-land-unlock", _depthWalkValid && !motor.IsDepthAirLocked
+                && depth >= _depthAtTakeoff + 2 * step - 1e-9
+                && motor.VerticalVelocity == 0
+                && Math.Abs(actor.Position.Y - _depthOrigin.Y) <= actor.SafeMargin);
+            Capture();
         }
     }
 

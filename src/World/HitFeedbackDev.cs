@@ -24,6 +24,10 @@ public partial class HitFeedbackDev : Node2D
     private Vector2 _dummyAt;
     private Vector2 _cameraAt;
     private Vector2 _offset;
+    // 纵深由规则层持有（`GP-15`），不在 Position 里，所以「冻结期间什么都不动」要单独记它一份 ——
+    // 否则第三个轴在顿帧里偷偷推进也照样全绿。本场景一次纵深输入都没给，所以它全程该是常量。
+    private double _depthAt;
+    private double _sequenceDepth;
     private int _spriteFrame;
     private int _phaseFrame;
     private int _stun;
@@ -120,6 +124,7 @@ public partial class HitFeedbackDev : Node2D
                 if (!_heavy && _frozen == 2) Press(InputActions.Jump, false);
                 _freezeValid &= _stop.RemainingFrames == before - 1 && _player.Position == _playerAt
                     && _dummy.Position == _dummyAt && _camera.Position == _cameraAt && _camera.Offset == _offset
+                    && _player.Combat.Motor.DepthWorldPx == _depthAt
                     && _player.Sprite.Frame == _spriteFrame && _player.Combat.Combo.FrameInPhase == _phaseFrame
                     && _dummy.Statuses.Get(StatusKind.Hitstun).RemainingFrames == _stun
                     && _dummy.FlashRemaining == CombatFeel.FlashFrames;
@@ -151,6 +156,7 @@ public partial class HitFeedbackDev : Node2D
             _hitX = _dummy.Position.X;
             _playerAt = _player.Position; _dummyAt = _dummy.Position; _cameraAt = _camera.Position;
             _offset = _camera.Offset; _spriteFrame = _player.Sprite.Frame; _phaseFrame = _player.Combat.Combo.FrameInPhase;
+            _depthAt = _player.Combat.Motor.DepthWorldPx;
             _stun = _dummy.Statuses.Get(StatusKind.Hitstun).RemainingFrames;
         }
         _sawShake |= _camera.Offset != Vector2.Zero;
@@ -185,6 +191,7 @@ public partial class HitFeedbackDev : Node2D
         _inputFrozen = 0;
         _sequenceValid = true;
         _sequenceAt = _player.Position;
+        _sequenceDepth = _player.Combat.Motor.DepthWorldPx;
         _expectedSpeed = 0;
         Check($"{InputCaseName}-ready", ReadyForInput);
         _stop.Begin(CombatFeel.HeavyHitstopFrames);
@@ -197,6 +204,7 @@ public partial class HitFeedbackDev : Node2D
         {
             _inputFrozen++;
             _sequenceValid &= _player.Position == _sequenceAt && ReadyForInput
+                && _player.Combat.Motor.DepthWorldPx == _sequenceDepth
                 && _stop.RemainingFrames == CombatFeel.HeavyHitstopFrames - _inputFrozen;
             if (_inputFrozen == 1)
             {
@@ -253,6 +261,8 @@ public partial class HitFeedbackDev : Node2D
                 && Math.Abs(_player.Velocity.X - _expectedSpeed) < 0.001
                 && Math.Abs(_player.Position.X - at.X - _expectedSpeed * CombatFeel.FrameSeconds) < 0.002
                 && Math.Abs(_player.Position.Y - at.Y) < 0.002 && !motor.IsInvulnerable
+                // 横向冲刺 22 帧不许把纵深带走一丝：三轴不串在真实输入路径上的形状（`GP-15`）。
+                && motor.DepthWorldPx == _sequenceDepth && motor.DepthVelocity == 0
                 && motor.Phase == (_inputTick <= 12 ? MotorPhase.Dash : MotorPhase.Grounded);
             _sequenceValid &= valid;
             if (_inputTick == 1) Check("sprint-first-resume", valid);

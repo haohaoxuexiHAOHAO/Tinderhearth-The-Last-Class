@@ -9,24 +9,27 @@ public class ActorCombatStateTests
     public void AttackWinsSimultaneousJumpDodgeAndMove()
     {
         var state = new ActorCombatState();
-        state.Tick(new(1, true, true, true, true, true), true);
+        state.Tick(new(1, 1, true, true, true, true, true), true);
         Assert.Equal(ComboKind.Light, state.Combo.Kind);
         Assert.Equal(MotorPhase.Grounded, state.Motor.Phase);
         Assert.Equal(0, state.Motor.HorizontalVelocity);
         Assert.Equal(0, state.Motor.VerticalVelocity);
+        // 三个轴一起定身（`GP-15`）：同帧连纵深键也按着，纵深仍然一像素不动。
+        Assert.Equal(0, state.Motor.DepthVelocity);
+        Assert.Equal(DepthBand.CenterWorldPx, state.Motor.DepthWorldPx);
     }
 
     [Fact]
     public void DodgeRejectsAttackIncludingExitFrame()
     {
         var state = new ActorCombatState();
-        state.Tick(new(1, false, false, false, true, false), true);
+        state.Tick(new(1, 0, false, false, false, true, false), true);
         for (var i = 1; i < CombatFeel.DodgeDurationFrames; i++)
         {
-            state.Tick(new(0, false, true, true, false, false), true);
+            state.Tick(new(0, 0, false, true, true, false, false), true);
             Assert.False(state.Combo.IsAttacking);
         }
-        state.Tick(new(0, false, false, true, false, false), true);
+        state.Tick(new(0, 0, false, false, true, false, false), true);
         Assert.Equal(ComboKind.Heavy, state.Combo.Kind);
     }
 
@@ -34,8 +37,8 @@ public class ActorCombatStateTests
     public void CollisionFeedbackDoesNotAdvanceTimersAndClearsAirCombo()
     {
         var state = new ActorCombatState();
-        state.Tick(new(0, true, false, false, false, false), true);
-        state.Tick(new(0, false, true, false, false, false), false);
+        state.Tick(new(0, 0, true, false, false, false, false), true);
+        state.Tick(new(0, 0, false, true, false, false, false), false);
         state.Motor.Statuses.Apply(StatusKind.Invulnerable, 4);
         state.AfterMove(false, true);
         Assert.Equal(0, state.Motor.VerticalVelocity);
@@ -54,7 +57,7 @@ public class ActorCombatStateTests
     public void FullChainUsesActualWindow(bool heavy, int length)
     {
         var state = new ActorCombatState();
-        var press = new CombatInput(0, false, !heavy, heavy, false, false);
+        var press = new CombatInput(0, 0, false, !heavy, heavy, false, false);
         state.Tick(press, true);
         for (var step = 1; step < length; step++)
         {

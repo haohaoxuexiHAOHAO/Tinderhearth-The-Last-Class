@@ -17,7 +17,11 @@ import time
 from check_input_map import find_godot, ROOT
 
 
-EXPECTED = set('floor move dash jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
+# GP-15 纵深轴的接线判据。规则层单测钉三轴分离本身，这四条钉「引擎那一段真的接上了」：
+# 门面的移动向量 Y 变成纵深输入、符号没写反、纵深没漏进引擎持有的 X／Y、离地锁住落地解锁。
+DEPTH = set('depth-front depth-back depth-air-lock depth-land-unlock'.split())
+
+EXPECTED = DEPTH | set('floor move dash jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
     f'{kind}-{step}-{phase}' for kind, count in (('light', 3), ('heavy', 2))
     for step in range(1, count + 1) for phase in ('startup', 'active', 'recovery')}
 
@@ -63,9 +67,9 @@ def selfcheck():
            good + '\n[GP12] PASS extra', '\n'.join(lines), good + '\n[GP12] PASS malformed extra']
     # 新增名称逐个注入「缺失」与「FAIL」两种形状：漏报一条判据和报了但失败，是两种不同的失效。
     for name in sorted(name for name in EXPECTED
-                       if name in ('frame-count', 'foot-row', 'body-height', 'sprite-phase',
-                                   'dodge-sprite', 'startup-frame', 'tick-frame-1to1',
-                                   'focus-kept')):
+                       if name in DEPTH or name in ('frame-count', 'foot-row', 'body-height',
+                                                    'sprite-phase', 'dodge-sprite', 'startup-frame',
+                                                    'tick-frame-1to1', 'focus-kept')):
         record = f'[GP12] PASS {name}'
         bad.extend((good.replace(record + '\n', ''), good.replace(record, f'[GP12] FAIL {name}')))
     assert valid_log(good, 0) and not valid_log(good, 1)

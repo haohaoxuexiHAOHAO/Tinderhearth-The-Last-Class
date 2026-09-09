@@ -57,6 +57,28 @@ public class CombatFeelTests
         Assert.True(CombatFeel.DashSpeedPixelsPerSecond > CombatFeel.MoveSpeedPixelsPerSecond);
     }
 
+    [Fact]
+    public void 纵深两个速度为正且闪避比行走快()
+    {
+        Assert.True(CombatFeel.DepthSpeedPixelsPerSecond > 0);
+        Assert.True(CombatFeel.DodgeDepthSpeedPixelsPerSecond > CombatFeel.DepthSpeedPixelsPerSecond);
+    }
+
+    /// <summary>
+    /// 一次纵深闪避不许走完整条带（`GP-15`）。**这条关系就是纵深闪避另设一个速度的理由**：走满
+    /// 整条带的话每次纵深闪避都撞在带沿上，落点由钳制决定而不是由输入决定，「往里挪半步」与「翻
+    /// 到最里侧」变成同一个结果。今天的数：横向闪避 18 帧走 50.4px，已经超过 48px 的带宽，所以
+    /// 照搬横向那个速度正好踩在这条线外面。**不把横向那个比较写成断言** —— 横向速度归 `GP-6` 调，
+    /// 调小了不该让这条判据失败。
+    /// </summary>
+    [Fact]
+    public void 一次纵深闪避走不完整条纵深带()
+    {
+        var distance = CombatFeel.DodgeDepthSpeedPixelsPerSecond
+            * CombatFeel.DodgeDurationFrames / (double)CombatFeel.PhysicsTicksPerSecond;
+        Assert.InRange(distance, DepthBand.RowSpacingWorldPx, DepthBand.WidthWorldPx - 1);
+    }
+
     /// <summary>
     /// 判定框轻重分开之后的关系守卫（`ART-6`）。**不测 18 与 22 这两个数对不对** —— 它们由
     /// <c>tools/import_role_sheets.py</c> 从精灵表量出、由 <c>tools/check_assets.py</c> 逐条
