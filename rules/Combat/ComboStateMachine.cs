@@ -135,6 +135,18 @@ public sealed class ComboStateMachine
         }
     }
 
+    /// <summary>本相已过的物理帧，用于同步表现，渲染不自行计时。</summary>
+    public int FrameInPhase => _frameInPhase;
+
+    /// <summary>碰撞后立即打断空中连段，不推进计时。</summary>
+    public void AfterMove(bool onFloor)
+    {
+        if (_startedAirborne && onFloor)
+        {
+            Reset();
+        }
+    }
+
     private void Begin(ComboKind kind, bool isOnFloor)
     {
         Kind = kind;

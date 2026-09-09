@@ -56,4 +56,37 @@ public class CombatFeelTests
     {
         Assert.True(CombatFeel.DashSpeedPixelsPerSecond > CombatFeel.MoveSpeedPixelsPerSecond);
     }
+
+    /// <summary>
+    /// 判定框轻重分开之后的关系守卫（`ART-6`）。**不测 18 与 22 这两个数对不对** —— 它们由
+    /// <c>tools/import_role_sheets.py</c> 从精灵表量出、由 <c>tools/check_assets.py</c> 逐条
+    /// 比对，那是守卫的活。这里只钉「重击必须比轻击伸得远」这条关系：它是本轮改动的**理由**，
+    /// 一旦谁把两个数改成相等或倒过来，画面与判定就又对不上了，而那不报错。
+    /// </summary>
+    [Fact]
+    public void 重击判定框比轻击伸得远_否则画面上打得更远却同框()
+    {
+        Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > CombatFeel.LightHitboxWidthWorldPx);
+    }
+
+    [Fact]
+    public void 判定框尺寸为正且中心落在角色本体高度内()
+    {
+        Assert.True(CombatFeel.LightHitboxWidthWorldPx > 0);
+        Assert.True(CombatFeel.LightHitboxHeightWorldPx > 0);
+        Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > 0);
+        Assert.True(CombatFeel.HeavyHitboxHeightWorldPx > 0);
+        // 本体 ≤32px 高（正典「像素基准」），框心在脚底之上、不许高过头顶。
+        Assert.InRange(CombatFeel.HitboxCenterYWorldPx, 1, 32);
+    }
+
+    [Fact]
+    public void 判定框上下沿都落在角色本体高度内()
+    {
+        foreach (var height in new[] { CombatFeel.LightHitboxHeightWorldPx, CombatFeel.HeavyHitboxHeightWorldPx })
+        {
+            Assert.True(CombatFeel.HitboxCenterYWorldPx - height / 2.0 >= 0);
+            Assert.True(CombatFeel.HitboxCenterYWorldPx + height / 2.0 <= 32);
+        }
+    }
 }

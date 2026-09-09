@@ -64,7 +64,7 @@ public class MotorStateTests
         var m = new MotorState();
 
         m.Tick(Move(1), isOnFloor: true, attacking: false);
-        Assert.Equal((double)CombatFeel.MoveSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
+        Assert.Equal(CombatFeel.HorizontalAccelerationPixelsPerSecondSquared * CombatFeel.FrameSeconds, m.HorizontalVelocity, 3);
         Assert.Equal(1, m.Facing);
 
         m.Tick(Move(-1), isOnFloor: true, attacking: false);
@@ -76,10 +76,62 @@ public class MotorStateTests
     public void 冲刺快于移动且相位为冲刺()
     {
         var m = new MotorState();
-        m.Tick(Dash(1), isOnFloor: true, attacking: false);
+        for (var frame = 0; frame < 11; frame++)
+            m.Tick(Dash(1), isOnFloor: true, attacking: false);
 
         Assert.Equal((double)CombatFeel.DashSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
         Assert.Equal(MotorPhase.Dash, m.Phase);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void HorizontalAccelerationAndBrakingAreClampedPerTick(bool floor)
+    {
+        var m = new MotorState();
+        for (var frame = 1; frame <= 8; frame++)
+        {
+            m.Tick(Move(1), floor, false);
+            Assert.Equal(Math.Min(104, frame * 1040.0 / 60), m.HorizontalVelocity, 8);
+        }
+        for (var frame = 1; frame <= 5; frame++)
+        {
+            m.Tick(CombatInput.None, floor, false);
+            Assert.Equal(Math.Max(0, 104 - frame * 1560.0 / 60), m.HorizontalVelocity, 8);
+        }
+    }
+
+    [Fact]
+    public void DodgeOutputsAllEighteenTicksAndFallsOffLedge()
+    {
+        var m = new MotorState();
+        double distance = 0;
+        for (var frame = 0; frame < CombatFeel.DodgeDurationFrames; frame++)
+        {
+            m.Tick(frame == 0 ? Dodge(1) : Move(-1), frame == 0, false);
+            Assert.Equal(168, m.HorizontalVelocity);
+            Assert.Equal(frame * 980.0 / 60, m.VerticalVelocity, 8);
+            distance += m.HorizontalVelocity * CombatFeel.FrameSeconds;
+        }
+        Assert.Equal(50.4, distance, 8);
+        Assert.Equal(MotorPhase.Airborne, m.Phase);
+        m.Tick(CombatInput.None, false, false);
+        Assert.Equal(142, m.HorizontalVelocity);
+    }
+
+    [Fact]
+    public void CollisionFeedbackClearsMomentumWithoutTickingStatuses()
+    {
+        var m = new MotorState();
+        m.Tick(new CombatInput(1, true, false, false, false, false), true, false);
+        Assert.True(m.HorizontalVelocity > 0);
+        m.Statuses.Apply(StatusKind.Invulnerable, 4);
+        m.AfterMove(false, true, true, 0);
+        Assert.Equal(0, m.VerticalVelocity);
+        Assert.Equal(0, m.HorizontalVelocity);
+        Assert.Equal(4, m.Statuses.Get(StatusKind.Invulnerable).RemainingFrames);
+        m.Tick(CombatInput.None, false, false);
+        Assert.Equal(980.0 / 60, m.VerticalVelocity, 8);
     }
 
     [Fact]

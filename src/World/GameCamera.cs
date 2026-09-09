@@ -73,7 +73,16 @@ public sealed partial class GameCamera : Camera2D
         MakeCurrent();
     }
 
+    /// <summary>战斗场景显式驱动时禁止渲染帧另行推进；默认兼容原相机。</summary>
+    public bool ManualAdvance { get; init; }
+
     public override void _Process(double delta)
+    {
+        if (!ManualAdvance) Advance(delta);
+    }
+
+    /// <summary>统一推进跟随、震动与节点表现。</summary>
+    public void Advance(double delta)
     {
         SyncViewport();
         Rig.Advance(delta);

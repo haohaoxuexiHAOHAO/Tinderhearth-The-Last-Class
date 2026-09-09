@@ -114,13 +114,13 @@ public sealed class MotorState
         {
             HorizontalVelocity = 0.0;
         }
-        else if (dashing)
-        {
-            HorizontalVelocity = dir * (double)CombatFeel.DashSpeedPixelsPerSecond;
-        }
         else
         {
-            HorizontalVelocity = dir * (double)CombatFeel.MoveSpeedPixelsPerSecond;
+            var target = dir * (double)(dashing ? CombatFeel.DashSpeedPixelsPerSecond : CombatFeel.MoveSpeedPixelsPerSecond);
+            var braking = HorizontalVelocity * target < 0 || Math.Abs(target) < Math.Abs(HorizontalVelocity);
+            var step = (braking ? CombatFeel.HorizontalDecelerationPixelsPerSecondSquared
+                : CombatFeel.HorizontalAccelerationPixelsPerSecondSquared) * Dt;
+            HorizontalVelocity += Math.Clamp(target - HorizontalVelocity, -step, step);
         }
 
         Phase = !grounded
@@ -128,10 +128,25 @@ public sealed class MotorState
             : dashing ? MotorPhase.Dash : MotorPhase.Grounded;
     }
 
+    /// <summary>碰撞后校正竖速，避免撞顶后下一帧重新施加向上速度。</summary>
+    public void AfterMove(bool onFloor, bool onCeiling, bool onWall = false, double horizontalVelocity = 0)
+    {
+        if (onWall) HorizontalVelocity = horizontalVelocity;
+        if ((onCeiling && _verticalVelocity < 0) || (onFloor && _verticalVelocity > 0))
+        {
+            _verticalVelocity = 0;
+        }
+        if (onFloor && Phase == MotorPhase.Airborne)
+        {
+            Phase = MotorPhase.Grounded;
+        }
+    }
+
     private void AdvanceDodge(bool isOnFloor)
     {
         HorizontalVelocity = _dodgeDirection * (double)CombatFeel.DodgeSpeedPixelsPerSecond;
-        _verticalVelocity = 0.0;
+        _verticalVelocity = isOnFloor ? 0.0
+            : _verticalVelocity + CombatFeel.GravityPixelsPerSecondSquared * Dt;
         if (_dodgeFrame == CombatFeel.DodgeInvulnStartFrame)
         {
             Statuses.Apply(StatusKind.Invulnerable,
@@ -143,7 +158,7 @@ public sealed class MotorState
         if (_dodgeFrame >= CombatFeel.DodgeDurationFrames)
         {
             _dodgeFrame = 0;
-            HorizontalVelocity = 0.0;
+            // 退出相位但保留本 Tick 位移输出，引擎尚未消费第18帧速度。
             Phase = isOnFloor ? MotorPhase.Grounded : MotorPhase.Airborne;
         }
     }
