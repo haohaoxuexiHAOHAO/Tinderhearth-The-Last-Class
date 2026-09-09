@@ -205,7 +205,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，`check_eol.py` 行尾守卫（`ENG-11`），缩放／输入／相机／HUD 四个专项守卫（素材与行尾已接进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，`check_eol.py` 行尾守卫（`ENG-11`），缩放／输入／相机／HUD 四个专项守卫（素材与行尾已接进门禁），三个专项图形探针（`player_dev.py` 主角、`hit_feedback_dev.py` 打击反馈、`depth_dev.py` 纵深排序与影子；判据名与条数登记在各自入口里，不进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 

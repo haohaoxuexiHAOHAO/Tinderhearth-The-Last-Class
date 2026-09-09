@@ -141,6 +141,37 @@ public static class CombatFeel
     /// <summary>闪白持续的非冻结帧数，GP-13 未校准初值。</summary>
     public const int FlashFrames = 6;
 
+    // ── 代码影子（`ENG-15` 未校准初值，归 `GP-6`）──────────────────────
+    //
+    // 影子由代码画、不进精灵帧（`ART-6` 定的口径）。它承担两件事：告诉玩家角色**站在纵深的
+    // 哪一排**，以及**此刻离地多高** —— 带纵深之后这两件事在屏幕上都是「上下移动」，没有影子
+    // 就分不开「往里走了」和「跳起来了」。所以它是可读性的承重件，不是装饰。
+    //
+    // **随高度只缩小、不变淡**，理由见 `DepthRendering.ShadowScaleAt`：变淡要 alpha，而项目
+    // 把「只用完全透明或完全不透明」定为绝对规则。
+
+    /// <summary>影子贴地时的宽度，世界像素；未校准初值。</summary>
+    /// <remarks>取 16：比角色碰撞框（18px 宽）略窄一点，站着时影子不会从脚边露出来。</remarks>
+    public const int ShadowWidthWorldPx = 16;
+
+    /// <summary>影子贴地时的高度（纵深方向的厚度），世界像素；未校准初值。</summary>
+    /// <remarks>
+    /// 取 6：约为宽度的三分之一，是「地面上一个被压扁的圆」该有的比例；同时明显小于一排纵深
+    /// （<see cref="DepthBand.RowSpacingWorldPx"/> ＝16px），于是相邻两排的影子不会连成一片。
+    /// </remarks>
+    public const int ShadowHeightWorldPx = 6;
+
+    /// <summary>影子缩到最小时占原尺寸的百分比；未校准初值。</summary>
+    public const int ShadowMinScalePercent = 50;
+
+    /// <summary>影子缩到最小所需的离地高度，世界像素；未校准初值。</summary>
+    /// <remarks>
+    /// 取 32，即跳跃峰高（初速 260 与重力 980 算出约一个精灵格）。这样一次完整跳跃正好把影子
+    /// 从原尺寸缩到最小，高度提示用满整个行程 —— 取得比峰高大，影子在空中几乎不变；取得比峰高
+    /// 小，上升段一半之后就没有提示了。
+    /// </remarks>
+    public const int ShadowShrinkHeightWorldPx = 32;
+
     // ── 判定框（`ART-6` 实测导出，`GP-6` 待校准）──────────────────────────
     //
     // 轻重**分开**取值，不再共用一个 28×28。共用的后果是画面与判定对不上：作者的轻拳在

@@ -5,7 +5,7 @@ using Tinderhearth.Rules.Foundation.Actors;
 namespace Tinderhearth.World;
 
 /// <summary>GP-12 主角节点，位置归物理引擎、动作与速度归规则层。</summary>
-public partial class PlayerActor : CharacterBody2D
+public partial class PlayerActor : CharacterBody2D, IDepthActor
 {
     // ── 精灵表几何（`ART-6`）───────────────────────────────────────────
     // 三个数由 tools/import_role_sheets.py 从收件箱原件量出来，同时写进 tools/asset-registry.json
@@ -53,6 +53,18 @@ public partial class PlayerActor : CharacterBody2D
     public string VisualAction { get; private set; } = "idle";
     private int _visualFrame;
 
+    /// <summary>
+    /// 纵深可视根（`ENG-15`）：精灵挂在它下面，纵深偏移与影子都由它管。
+    /// </summary>
+    public DepthVisual Visual { get; private set; } = null!;
+
+    /// <inheritdoc />
+    /// <remarks>转发规则层那一份，不另存 —— 纵深的唯一来源是 <c>Combat.Motor</c>。</remarks>
+    public double DepthWorldPx => Combat.Motor.DepthWorldPx;
+
+    /// <inheritdoc />
+    public DepthSubject DepthSubject => Visual.Subject;
+
     /// <summary>缺图退回几何占位的动作名，开发探针用；空表示全部动作都有真图。</summary>
     public IReadOnlyList<string> MissingSheets => _missing;
     private readonly List<string> _missing = [];
@@ -99,7 +111,10 @@ public partial class PlayerActor : CharacterBody2D
         GD.Print(_missing.Count == 0
             ? $"[GP12] Missing animations: none; frame {FrameWidth}x{FrameHeight} ground row {GroundRow}"
             : $"[GP12] Missing animations: {string.Join(", ", _missing)}; geometry fallback");
-        AddChild(Sprite);
+        // 精灵挂在纵深可视根下，于是纵深偏移只有一处来源（`ENG-15`）。
+        Visual = new DepthVisual { Actor = this };
+        AddChild(Visual);
+        Visual.AddChild(Sprite);
         UpdateVisual();
     }
 
@@ -121,6 +136,8 @@ public partial class PlayerActor : CharacterBody2D
         Velocity = new Vector2((float)Combat.Motor.HorizontalVelocity, (float)Combat.Motor.VerticalVelocity);
         MoveAndSlide();
         Combat.AfterMove(IsOnFloor(), IsOnCeiling(), IsOnWall(), Velocity.X);
+        // 位置已定才刷纵深偏移与影子：射线要问的是这一帧的最终位置。
+        Visual.Sync();
         UpdateVisual();
     }
 
@@ -133,7 +150,12 @@ public partial class PlayerActor : CharacterBody2D
             : motor.Phase == MotorPhase.Dodge ? "dodge"
             : motor.Phase == MotorPhase.Airborne ? "jump"
             : motor.Phase == MotorPhase.Dash ? "run"
-            : Math.Abs(motor.HorizontalVelocity) > 0 ? "walk" : "idle";
+            // **两个轴都算「在走」**（`ENG-15` 修）。原来只看横向速度，于是纯纵深移动时动作是
+            // idle —— 角色站着不动地在纵深上滑，而这件事不报错：位置在变、判据全绿、只有眼睛
+            // 看得出来。走纵深复用侧面行走姿态，不需要新素材：belt-scroll 那一类作品都是这么
+            // 做的（没有「往里走」的专用动画），而正典也定了角色不因远近缩放、朝向只有左右两面。
+            : Math.Abs(motor.HorizontalVelocity) > 0 || Math.Abs(motor.DepthVelocity) > 0
+                ? "walk" : "idle";
         _visualFrame = action == VisualAction ? _visualFrame + 1 : 0;
         VisualAction = action;
         Sprite.Visible = Sprite.SpriteFrames.HasAnimation(action);
@@ -190,6 +212,9 @@ public partial class PlayerActor : CharacterBody2D
     {
         if (!Sprite.Visible)
         {
+            // 占位几何也得跟着纵深偏移，否则缺图的动作在纵深上走动时画面不动（`ENG-15`）。
+            // 偏移读可视根那一份，不在这里再算一次 —— 算第二遍就多了一处会漂的地方。
+            DrawSetTransform(Visual.Position);
             var color = Combat.Motor.IsInvulnerable ? Colors.Cyan : Colors.White;
             DrawRect(new Rect2(-9, -28, 18, 28), color, false, 2);
             DrawLine(new Vector2(0, -18), new Vector2(Combat.Motor.Facing * 20, -18), color, 2);

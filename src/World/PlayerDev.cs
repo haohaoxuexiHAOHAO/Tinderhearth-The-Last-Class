@@ -44,6 +44,7 @@ public partial class PlayerDev : Node2D
     private bool _depthWalkValid = true;
     private int _depthAdvanceFrames;
     private bool _depthAirValid = true;
+    private bool _depthWalkVisual = true;
     private int _depthAirFrames;
     private double _depthAtTakeoff = double.NaN;
     private int _depthLandTick = -1;
@@ -285,6 +286,11 @@ public partial class PlayerDev : Node2D
                 && (_depthAdvanceFrames == 0
                     || Math.Abs(delta - _depthDir * step) < 1e-9
                     || (depth == edge && Math.Abs(delta) <= step + 1e-9));
+            // 纵深在动就得是「在走」而不是待机。**只按 W／S 时横向速度是 0**，原来的动作选择
+            // 只看横向，于是角色站着不动地在纵深上滑 —— 位置在变、判据全绿、只有眼睛看得出来
+            // （作者 2026-09-09 实机报的）。所以逐帧钉住它，别再靠眼睛。
+            if (Math.Abs(motor.DepthVelocity) > 0) _depthWalkVisual &= actor.VisualAction == "walk";
+
             if (_tick == frontEnd)
             {
                 // 从带中线走到前沿：半条带的距离，所以推进帧数就是它除以步长，与输入延迟无关。
@@ -341,6 +347,9 @@ public partial class PlayerDev : Node2D
                 && depth >= _depthAtTakeoff + 2 * step - 1e-9
                 && motor.VerticalVelocity == 0
                 && Math.Abs(actor.Position.Y - _depthOrigin.Y) <= actor.SafeMargin);
+            // 走过整条带来回两趟，每一个纵深在动的帧都得是行走姿态；顺带核它真的量过（不是空判）。
+            Check("depth-walk-visual", _depthWalkVisual
+                && _depthAdvanceFrames >= Math.Ceiling(DepthBand.WidthWorldPx / step));
             Capture();
         }
     }

@@ -19,7 +19,7 @@ from check_input_map import find_godot, ROOT
 
 # GP-15 纵深轴的接线判据。规则层单测钉三轴分离本身，这四条钉「引擎那一段真的接上了」：
 # 门面的移动向量 Y 变成纵深输入、符号没写反、纵深没漏进引擎持有的 X／Y、离地锁住落地解锁。
-DEPTH = set('depth-front depth-back depth-air-lock depth-land-unlock'.split())
+DEPTH = set('depth-front depth-back depth-air-lock depth-land-unlock depth-walk-visual'.split())
 
 EXPECTED = DEPTH | set('floor move dash jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
     f'{kind}-{step}-{phase}' for kind, count in (('light', 3), ('heavy', 2))
