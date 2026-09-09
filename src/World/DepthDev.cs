@@ -55,7 +55,7 @@ public partial class DepthDev : Node2D
     private bool _jumping;
     private bool _attacking;
     private bool _walking;
-    private double _idleShadowWidth;
+    private GroundSpan _idleShadow;
     private double _walkShadowMin = double.MaxValue;
     private double _walkShadowMax;
     private int _walkFrames;
@@ -187,8 +187,8 @@ public partial class DepthDev : Node2D
             && _player.Visual.Position.Y < 0 && _dummy.Visual.Position.Y > 0
             && Math.Abs(DepthRendering.ShadowScaleAt(0) - 1.0) < 1e-9);
 
-        // 待机姿态的影子宽度，留给后面的攻击阶段做对照。这时角色确实在待机（没有任何输入）。
-        _idleShadowWidth = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+        // 待机姿态的影子范围，留给后面的攻击阶段做对照。这时角色确实在待机（没有任何输入）。
+        _idleShadow = DepthRendering.ShadowSpanAt(_player.BodySpanWorldPx);
 
         // 影子跟着纵深走：它画在角色所在那一排，所以它的全局 Y 也带着纵深偏移。同样两个方向都核。
         Check("shadow-follows-depth",
@@ -213,7 +213,7 @@ public partial class DepthDev : Node2D
             Press(InputActions.MoveRight, true);
             return;
         }
-        var width = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+        var width = DepthRendering.ShadowSpanAt(_player.BodySpanWorldPx).Width;
         _walkShadowMin = Math.Min(_walkShadowMin, width);
         _walkShadowMax = Math.Max(_walkShadowMax, width);
         if (_player.VisualAction == "walk")
@@ -226,7 +226,8 @@ public partial class DepthDev : Node2D
             return;
         }
         Press(InputActions.MoveRight, false);
-        var floor = DepthRendering.ShadowWidthAt(PlayerActor.BodyWidthFloorWorldPx);
+        var floor = DepthRendering.ShadowSpanAt(
+            GroundSpan.Centered(PlayerActor.BodyWidthFloorWorldPx)).Width;
         GD.Print($"[ENG15] walkShadow min={_walkShadowMin:F2} max={_walkShadowMax:F2} floor={floor:F2}");
         Check("shadow-width-floor", _walkShadowMin >= floor - 1e-9
             && _walkShadowMax >= _walkShadowMin && _walkFrames >= 8 * 4);
@@ -345,7 +346,7 @@ public partial class DepthDev : Node2D
         // 引擎默认 0.08）留了一丝间隙，实测 0.025px。所以容差取引擎自报的那个边距（踩坑记录 49），
         // 而「恢复了」这件事按**可观察量**判：影子取整后的宽度回到贴地原宽，而不是要求缩放位
         // 精确等于 1.0 —— 那个要求会被一个看不见的 0.0004 判失败。
-        var grounded = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+        var grounded = DepthRendering.ShadowSpanAt(_player.BodySpanWorldPx).Width;
         var landedWidth = Math.Round(
             grounded * DepthRendering.ShadowScaleAt(visual.HeightAboveGroundWorldPx));
         Check("shadow-restored-on-land",
@@ -380,16 +381,24 @@ public partial class DepthDev : Node2D
         // 拳伸到最远正是 Active 帧（`ART-6` 的帧映射把命中姿放在那里）。
         if (_player.Combat.Combo.IsAttacking && _player.Combat.Combo.Phase == AttackPhase.Active)
         {
-            var swinging = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
-            GD.Print($"[ENG15] shadowWidth idle={_idleShadowWidth:F2} light-active={swinging:F2}");
+            var swinging = DepthRendering.ShadowSpanAt(_player.BodySpanWorldPx);
+            GD.Print($"[ENG15] shadow idle=[{_idleShadow.Left:F2},{_idleShadow.Right:F2}]"
+                + $" light-active=[{swinging.Left:F2},{swinging.Right:F2}] facing={_player.Combat.Motor.Facing}");
             Check("shadow-width-follows-action", _player.VisualAction == "light"
-                && swinging > _idleShadowWidth && _idleShadowWidth > 0);
+                && swinging.Width > _idleShadow.Width && _idleShadow.Width > 0);
+            // **影子跟着拳偏过去。** 朝右出拳时它的中点与右边缘都该比待机时更靠右 —— 作者报的
+            // 「攻击时左侧影子没有了」正是对称画法的后果：椭圆恒以脚底为心，于是后腿那侧盖过头、
+            // 拳那侧不够长。角色在本阶段朝右（没给过向左的输入）。
+            Check("shadow-span-follows-reach", _player.Combat.Motor.Facing > 0
+                && swinging.Center > _idleShadow.Center
+                && swinging.Right > _idleShadow.Right);
             Capture();
             return;
         }
         if (_tick > 60)
         {
             Check("shadow-width-follows-action", false);
+            Check("shadow-span-follows-reach", false);
             Capture();
         }
     }

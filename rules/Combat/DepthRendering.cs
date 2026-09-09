@@ -1,5 +1,35 @@
 namespace Tinderhearth.Rules.Combat;
 
+/// <summary>
+/// 一段贴地的水平范围，相对脚底锚点、向右为正（世界像素）。
+/// </summary>
+/// <remarks>
+/// 影子要的是**范围**而不只是宽度。只给宽度、把椭圆恒画在脚底锚点上，出拳时就会错开：那一帧
+/// 的本体从锚点向右伸出去很远、向左只有小半个身子，而对称的椭圆在拳这一侧不够长、在后腿这一侧
+/// 又盖过头。作者 2026-09-09 实机一眼看出来了（「攻击的时候左侧影子没有了」）。
+/// </remarks>
+/// <param name="Left">左边界，相对脚底锚点。</param>
+/// <param name="Right">右边界，相对脚底锚点。</param>
+public readonly record struct GroundSpan(double Left, double Right)
+{
+    /// <summary>宽度；左右反了就当空的，不返回负数。</summary>
+    public double Width => Math.Max(0.0, Right - Left);
+
+    /// <summary>中点，相对脚底锚点。</summary>
+    public double Center => (Left + Right) / 2.0;
+
+    /// <summary>并集：两段都要被盖住。</summary>
+    public GroundSpan Union(GroundSpan other) =>
+        new(Math.Min(Left, other.Left), Math.Max(Right, other.Right));
+
+    /// <summary>左右镜像。角色朝左时姿态跟着翻，而边界是在未翻转的图上量的。</summary>
+    public GroundSpan Mirrored() => new(-Right, -Left);
+
+    /// <summary>以脚底锚点为中心、宽 <paramref name="widthWorldPx"/> 的对称范围。</summary>
+    public static GroundSpan Centered(double widthWorldPx) =>
+        new(-widthWorldPx / 2.0, widthWorldPx / 2.0);
+}
+
 /// <summary>参与纵深排序的一个对象：它的纵深，与它脚底所在的地面高度。</summary>
 /// <param name="DepthWorldPx">纵深位置，口径见 <see cref="DepthBand"/>（0 最靠后）。</param>
 /// <param name="GroundYWorldPx">脚底所在**地面**的世界 Y，向下为正。**不含跳跃高度** —— 跳起来不改变前后关系。</param>
@@ -76,15 +106,18 @@ public static class DepthRendering
         DepthBand.Clamp(depthWorldPx) - DepthBand.CenterWorldPx;
 
     /// <summary>
-    /// 本体宽 <paramref name="bodyWidthWorldPx"/> 的角色，贴地时影子多宽（世界像素）。
+    /// 本体贴地范围 <paramref name="body"/> 对应的影子范围，贴地时（不缩小）。
     /// </summary>
     /// <remarks>
-    /// 影子跟着当前姿态的本体宽度走，不是一个固定值 —— 理由与「按动作取值而不是逐帧取」见
-    /// <see cref="CombatFeel.ShadowWidthPercentOfBody"/>。负宽度（不该出现）钳成 0，不返回负数
-    /// 让下游画出翻转的多边形。
+    /// **保中点、按比例收窄**：影子比本体略窄（<see cref="CombatFeel.ShadowWidthPercentOfBody"/>），
+    /// 但**跟着本体的中点走**，不强行画在脚底锚点上。出拳那一帧本体的中点偏向拳的一侧，影子就跟着
+    /// 偏过去 —— 顶光垂直投影本来就该这样。
     /// </remarks>
-    public static double ShadowWidthAt(double bodyWidthWorldPx) =>
-        Math.Max(0.0, bodyWidthWorldPx) * CombatFeel.ShadowWidthPercentOfBody / 100.0;
+    public static GroundSpan ShadowSpanAt(GroundSpan body)
+    {
+        var half = body.Width / 2.0 * CombatFeel.ShadowWidthPercentOfBody / 100.0;
+        return new(body.Center - half, body.Center + half);
+    }
 
     /// <summary>
     /// 影子在离地 <paramref name="heightAboveGroundWorldPx"/> 时缩到多少（1.0 是贴地原尺寸）。

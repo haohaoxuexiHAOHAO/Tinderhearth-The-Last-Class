@@ -76,11 +76,11 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
-    /// <summary>各动作**逐帧**的本体宽度，世界像素。指向下面那份按表共享的缓存。</summary>
-    private readonly Dictionary<string, int[]> _bodyWidths = [];
+    /// <summary>各动作**逐帧**的本体左右边界（帧内像素索引）。指向下面那份按表共享的缓存。</summary>
+    private readonly Dictionary<string, (int Left, int Right)[]> _bodyBounds = [];
 
     /// <summary>
-    /// 逐帧本体宽度的缓存，键是精灵表路径。**同一张表只扫一次**，所有角色共享结果。
+    /// 逐帧本体边界的缓存，键是精灵表路径。**同一张表只扫一次**，所有角色共享结果。
     /// </summary>
     /// <remarks>
     /// 不缓存的话每个角色实例都要重扫一遍：探针里 spawn 六个替身就是 45 万像素，正典的同屏 20 个
@@ -90,21 +90,36 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     /// 这个开销不会被任何判据报出来（它不影响任何结论，只是载入变慢），发现它靠的是启动日志里
     /// 同一行打了六遍。所以宽度那行只在真正扫的时候打 —— 打的次数本身就是「扫了几次」的量具。
     /// </remarks>
-    private static readonly Dictionary<string, int[]> BodyWidthCache = [];
+    private static readonly Dictionary<string, (int Left, int Right)[]> BodyBoundsCache = [];
 
     /// <inheritdoc />
     /// <remarks>
-    /// **取实体宽与当前帧姿态宽的较大者**，理由见 <see cref="BodyWidthFloorWorldPx"/>：整帧宽度含
-    /// 四肢，照抄会让走动中的影子随手臂摆动缩到一半。缺图退回占位框时只有实体宽可用。
+    /// **当前帧的不透明边界与实体范围取并集**，理由见 <see cref="BodyWidthFloorWorldPx"/>：整帧
+    /// 边界含四肢，只用它会让走动中的影子随手臂摆动缩到一半。边界是在**未翻转**的图上量的，所以
+    /// 朝左时要镜像。缺图退回占位框时只有实体范围可用。
     /// </remarks>
-    public double BodyWidthWorldPx =>
-        Math.Max(BodyWidthFloorWorldPx,
-            _bodyWidths.TryGetValue(VisualAction, out var widths) && widths.Length > 0
-                ? widths[Math.Clamp(Sprite.Frame, 0, widths.Length - 1)]
-                : BodyWidthFloorWorldPx);
+    public GroundSpan BodySpanWorldPx
+    {
+        get
+        {
+            var floor = GroundSpan.Centered(BodyWidthFloorWorldPx);
+            if (!_bodyBounds.TryGetValue(VisualAction, out var bounds) || bounds.Length == 0)
+            {
+                return floor;
+            }
+            var (left, right) = bounds[Math.Clamp(Sprite.Frame, 0, bounds.Length - 1)];
+            if (right < left)
+            {
+                return floor;   // 空帧（整帧全透明），没有可量的边界
+            }
+            // 精灵居中绘制，所以帧的横向中点（帧宽的一半）落在节点原点上；像素 x 覆盖 [x, x+1)。
+            var span = new GroundSpan(left - (FrameWidth / 2.0), right + 1 - (FrameWidth / 2.0));
+            return (Sprite.FlipH ? span.Mirrored() : span).Union(floor);
+        }
+    }
 
     /// <summary>
-    /// 逐帧量本体宽度：扫每一帧不透明像素的左右边界。
+    /// 逐帧量本体的左右边界（帧内像素索引）：扫每一帧不透明像素的最左与最右列。
     /// </summary>
     /// <remarks>
     /// **为什么运行时重算而不是读登记表**：`tools/asset-registry.json` 的「角色本体」一项有同类
@@ -115,10 +130,10 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     ///
     /// 代价可忽略：七张表共 54 帧、约 7.6 万像素，只在 <c>_Ready</c> 扫一次。
     /// </remarks>
-    private static int[] MeasureBodyWidths(Texture2D texture, int frames)
+    private static (int Left, int Right)[] MeasureBodyBounds(Texture2D texture, int frames)
     {
         var image = texture.GetImage();
-        var widths = new int[frames];
+        var bounds = new (int Left, int Right)[frames];
         for (var frame = 0; frame < frames; frame++)
         {
             var left = int.MaxValue;
@@ -136,9 +151,10 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
                     break;
                 }
             }
-            widths[frame] = right >= left ? right - left + 1 : 0;
+            // 全透明帧留成反向区间，消费方据此退回实体范围 —— 不编一个 0 宽度出来。
+            bounds[frame] = (left, right);
         }
-        return widths;
+        return bounds;
     }
 
     /// <summary>缺图退回几何占位的动作名，开发探针用；空表示全部动作都有真图。</summary>
@@ -183,13 +199,14 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
                 });
             }
             var path = $"{SheetDir}/{name}.png";
-            if (!BodyWidthCache.TryGetValue(path, out var widths))
+            if (!BodyBoundsCache.TryGetValue(path, out var bounds))
             {
-                widths = MeasureBodyWidths(texture, count);
-                BodyWidthCache[path] = widths;
-                GD.Print($"[GP12] BodyWidth {name}=[{string.Join(",", widths)}]");
+                bounds = MeasureBodyBounds(texture, count);
+                BodyBoundsCache[path] = bounds;
+                GD.Print($"[GP12] BodySpan {name}="
+                    + $"[{string.Join(",", bounds.Select(b => $"{b.Left}:{b.Right}"))}]");
             }
-            _bodyWidths[name] = widths;
+            _bodyBounds[name] = bounds;
             // **这一行的格式是与 `tools/player_dev.py` 的契约**：它用 `^\[GP12\] Sheet (\w+)=(\d+)$`
             // 把引擎自报的帧数与登记表比对（引擎读不到登记表）。行尾是锚定的，**在后面追加任何东西
             // 都会让那条比对静默读不到帧数**（2026-09-09 实测踩过：把本体宽度接在这行后面，46 项

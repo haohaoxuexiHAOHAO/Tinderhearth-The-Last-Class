@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://pbvf1cmwx7dw"]
 
-[ext_resource type="Script" path="res://src/World/DepthDev.cs" id="1"]
+[ext_resource type="Script" uid="uid://bfqobsp60yhu3" path="res://src/World/DepthDev.cs" id="1"]
 
-[node name="DepthDev" type="Node2D"]
+[node name="DepthDev" type="Node2D" unique_id=1729742629]
 script = ExtResource("1")

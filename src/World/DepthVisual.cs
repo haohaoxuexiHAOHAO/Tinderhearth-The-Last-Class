@@ -18,13 +18,14 @@ public interface IDepthActor
     double DepthWorldPx { get; }
 
     /// <summary>
-    /// 当前姿态的本体宽度，世界像素。影子按它取宽（<see cref="CombatFeel.ShadowWidthPercentOfBody"/>）。
+    /// 当前姿态贴地的水平**范围**，相对脚底锚点、已含朝向镜像。影子按它取范围。
     /// </summary>
     /// <remarks>
-    /// 由实现者决定「本体」怎么量：有精灵的按当前动作的帧内实测宽度，几何体按自己的尺寸。放进
-    /// 接口而不是让影子自己去猜，是因为只有角色知道自己此刻是什么姿态。
+    /// 给范围而不是给宽度：只有宽度的话影子只能对称画在脚底上，出拳那一帧就会与本体错开（见
+    /// <see cref="GroundSpan"/>）。由实现者决定「本体」怎么量 —— 有精灵的按当前帧的不透明边界，
+    /// 几何体按自己的尺寸。放进接口而不是让影子自己猜，是因为只有角色知道自己此刻是什么姿态。
     /// </remarks>
-    double BodyWidthWorldPx { get; }
+    GroundSpan BodySpanWorldPx { get; }
 
     /// <summary>
     /// 排序要用的两个键。实现者转发自己的 <see cref="DepthVisual.Subject"/>，不自己拼。
@@ -141,9 +142,11 @@ public partial class DepthVisual : Node2D
         }
 
         var scale = DepthRendering.ShadowScaleAt(HeightAboveGroundWorldPx);
-        var radiusX = (float)(DepthRendering.ShadowWidthAt(Actor.BodyWidthWorldPx) * scale / 2.0);
+        var span = DepthRendering.ShadowSpanAt(Actor.BodySpanWorldPx);
+        var radiusX = (float)(span.Width * scale / 2.0);
         var radiusY = (float)(CombatFeel.ShadowHeightWorldPx * scale / 2.0);
-        var center = new Vector2(0, (float)(ground - _host.GlobalPosition.Y));
+        // 横向中心跟着本体的中点走（出拳时偏向拳那一侧），纵向仍落在地面投影点上。
+        var center = new Vector2((float)span.Center, (float)(ground - _host.GlobalPosition.Y));
         for (var i = 0; i < ShadowVertices; i++)
         {
             var angle = Mathf.Tau * i / ShadowVertices;

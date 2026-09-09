@@ -19,6 +19,9 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     private static readonly Color PostColor = new("b85450");
     private static readonly Color ArmColor = new("d99863");
 
+    /// <summary>柱子宽度，世界像素。碰撞框、绘制与影子范围共用它，不各写一个 18。</summary>
+    private const int PostWidthWorldPx = 18;
+
     /// <summary>
     /// 纵深可视根（`ENG-15`）：木桩的两块几何挂在它下面，纵深偏移与影子都由它管。
     /// </summary>
@@ -35,8 +38,8 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     public DepthSubject DepthSubject => Visual.Subject;
 
     /// <inheritdoc />
-    /// <remarks>木桩是几何体、没有精灵，本体宽度就是它画出来的那根柱子的宽（18px）。</remarks>
-    public double BodyWidthWorldPx => 18;
+    /// <remarks>木桩是几何体、没有精灵，本体范围就是那根柱子（18px 宽、以脚底为中心）。</remarks>
+    public GroundSpan BodySpanWorldPx => GroundSpan.Centered(PostWidthWorldPx);
 
     /// <summary>把木桩摆到带内某个纵深上。带外的值被钳进带内。</summary>
     public void PlaceDepth(double depthWorldPx)
@@ -49,15 +52,20 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     {
         CollisionLayer = 4;
         CollisionMask = 1;
-        AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(18, 32) }, Position = new Vector2(0, -16) });
+        AddChild(new CollisionShape2D
+        {
+            Shape = new RectangleShape2D { Size = new Vector2(PostWidthWorldPx, 32) },
+            Position = new Vector2(0, -16),
+        });
         AddChild(new Hurtbox { Actor = this });
         Visual = new DepthVisual { Actor = this };
         AddChild(Visual);
         // 身体从 `_Draw` 改成挂在可视根下的几何（`ENG-15`）：纵深偏移因此只有一处来源，
         // 而且影子（画在可视根自己的 `_Draw` 里）天然排在身体下面，不必再管两者的先后。
+        const int half = PostWidthWorldPx / 2;
         _post = new Polygon2D
         {
-            Polygon = [new(-9, -32), new(9, -32), new(9, 0), new(-9, 0)],
+            Polygon = [new(-half, -32), new(half, -32), new(half, 0), new(-half, 0)],
             Color = PostColor,
         };
         _arm = new Polygon2D
