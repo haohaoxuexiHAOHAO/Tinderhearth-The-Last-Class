@@ -138,11 +138,44 @@ public class DepthRenderingTests
     [Fact]
     public void 影子尺寸与角色和排间距的关系()
     {
-        Assert.True(CombatFeel.ShadowWidthWorldPx > 0);
         Assert.True(CombatFeel.ShadowHeightWorldPx > 0);
         Assert.True(CombatFeel.ShadowHeightWorldPx < DepthBand.RowSpacingWorldPx);
-        Assert.True(CombatFeel.ShadowHeightWorldPx < CombatFeel.ShadowWidthWorldPx);
         Assert.InRange(CombatFeel.ShadowMinScalePercent, 1, 99);
         Assert.True(CombatFeel.ShadowShrinkHeightWorldPx > 0);
+        // 影子比本体略窄：站着时不从脚边露出来，但也不能窄到看不出是这个角色的影子。
+        Assert.InRange(CombatFeel.ShadowWidthPercentOfBody, 50, 100);
+    }
+
+    [Theory]
+    [InlineData(19)]    // 待机
+    [InlineData(36)]    // 重击伸展到最远
+    public void 影子宽度按本体宽度取_比本体略窄(int bodyWidth)
+    {
+        var width = DepthRendering.ShadowWidthAt(bodyWidth);
+
+        Assert.True(width < bodyWidth);
+        Assert.True(width > 0);
+        Assert.Equal(bodyWidth * CombatFeel.ShadowWidthPercentOfBody / 100.0, width, 8);
+        // 贴地不缩，所以贴地宽度就是这个数。
+        Assert.Equal(width, width * DepthRendering.ShadowScaleAt(0), 8);
+    }
+
+    /// <summary>
+    /// **本体越宽影子越宽**，这就是「攻击与闪避时影子跟着变」那条反馈的可测形状。
+    /// </summary>
+    [Fact]
+    public void 本体变宽影子跟着变宽()
+    {
+        Assert.True(DepthRendering.ShadowWidthAt(36) > DepthRendering.ShadowWidthAt(19));
+        // 空中缩小与本体宽度是两件独立的事，乘在一起不互相抵消。
+        Assert.True(DepthRendering.ShadowWidthAt(36) * DepthRendering.ShadowScaleAt(32)
+            > DepthRendering.ShadowWidthAt(19) * DepthRendering.ShadowScaleAt(32));
+    }
+
+    [Fact]
+    public void 本体宽度为零或负时影子宽度钳成零_不画翻转的形状()
+    {
+        Assert.Equal(0.0, DepthRendering.ShadowWidthAt(0), 8);
+        Assert.Equal(0.0, DepthRendering.ShadowWidthAt(-10), 8);
     }
 }

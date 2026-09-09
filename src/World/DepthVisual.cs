@@ -18,6 +18,15 @@ public interface IDepthActor
     double DepthWorldPx { get; }
 
     /// <summary>
+    /// 当前姿态的本体宽度，世界像素。影子按它取宽（<see cref="CombatFeel.ShadowWidthPercentOfBody"/>）。
+    /// </summary>
+    /// <remarks>
+    /// 由实现者决定「本体」怎么量：有精灵的按当前动作的帧内实测宽度，几何体按自己的尺寸。放进
+    /// 接口而不是让影子自己去猜，是因为只有角色知道自己此刻是什么姿态。
+    /// </remarks>
+    double BodyWidthWorldPx { get; }
+
+    /// <summary>
     /// 排序要用的两个键。实现者转发自己的 <see cref="DepthVisual.Subject"/>，不自己拼。
     /// </summary>
     /// <remarks>
@@ -132,7 +141,7 @@ public partial class DepthVisual : Node2D
         }
 
         var scale = DepthRendering.ShadowScaleAt(HeightAboveGroundWorldPx);
-        var radiusX = (float)(CombatFeel.ShadowWidthWorldPx * scale / 2.0);
+        var radiusX = (float)(DepthRendering.ShadowWidthAt(Actor.BodyWidthWorldPx) * scale / 2.0);
         var radiusY = (float)(CombatFeel.ShadowHeightWorldPx * scale / 2.0);
         var center = new Vector2(0, (float)(ground - _host.GlobalPosition.Y));
         for (var i = 0; i < ShadowVertices; i++)

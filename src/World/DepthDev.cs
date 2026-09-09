@@ -53,6 +53,12 @@ public partial class DepthDev : Node2D
     private double _smallestScale = double.MaxValue;
     private int _redFront;
     private bool _jumping;
+    private bool _attacking;
+    private bool _walking;
+    private double _idleShadowWidth;
+    private double _walkShadowMin = double.MaxValue;
+    private double _walkShadowMax;
+    private int _walkFrames;
 
     public override void _Ready()
     {
@@ -124,6 +130,16 @@ public partial class DepthDev : Node2D
         _layer.Sort();
         if (!_probe) return;
 
+        if (_walking)
+        {
+            AdvanceWalk();
+            return;
+        }
+        if (_attacking)
+        {
+            AdvanceAttack();
+            return;
+        }
         if (_jumping)
         {
             AdvanceJump();
@@ -171,12 +187,52 @@ public partial class DepthDev : Node2D
             && _player.Visual.Position.Y < 0 && _dummy.Visual.Position.Y > 0
             && Math.Abs(DepthRendering.ShadowScaleAt(0) - 1.0) < 1e-9);
 
+        // 待机姿态的影子宽度，留给后面的攻击阶段做对照。这时角色确实在待机（没有任何输入）。
+        _idleShadowWidth = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+
         // 影子跟着纵深走：它画在角色所在那一排，所以它的全局 Y 也带着纵深偏移。同样两个方向都核。
         Check("shadow-follows-depth",
             Math.Abs(_player.Visual.GlobalPosition.Y - _player.GlobalPosition.Y
                 - DepthRendering.DrawOffsetWorldPx(PlayerDepth)) < 0.001
             && Math.Abs(_dummy.Visual.GlobalPosition.Y - _dummy.GlobalPosition.Y
                 - DepthRendering.DrawOffsetWorldPx(DummyDepth)) < 0.001);
+    }
+
+    /// <summary>
+    /// 走一整轮行走循环，影子宽度不许掉到实体宽以下（`ENG-15`）。
+    /// </summary>
+    /// <remarks>
+    /// 钉的是那条下限。行走表的整帧不透明宽度实测在 11–20px 之间摆（手臂前后摆动），照抄会让影子
+    /// 以每四个物理帧一次的节奏缩到一半 —— 而角色占的那块地没变。去掉下限这件事不报错，只是走起来
+    /// 影子在脉动，所以要有判据。上限那一头也核：走动时不该比出拳还宽。
+    /// </remarks>
+    private void AdvanceWalk()
+    {
+        if (_tick == 2)
+        {
+            Press(InputActions.MoveRight, true);
+            return;
+        }
+        var width = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+        _walkShadowMin = Math.Min(_walkShadowMin, width);
+        _walkShadowMax = Math.Max(_walkShadowMax, width);
+        if (_player.VisualAction == "walk")
+        {
+            _walkFrames++;
+        }
+        // 走满一整轮 walk 循环（8 张图 × 每张 4 个物理帧）再判，否则可能只覆盖到宽的那几帧。
+        if (_walkFrames < 8 * 4)
+        {
+            return;
+        }
+        Press(InputActions.MoveRight, false);
+        var floor = DepthRendering.ShadowWidthAt(PlayerActor.BodyWidthFloorWorldPx);
+        GD.Print($"[ENG15] walkShadow min={_walkShadowMin:F2} max={_walkShadowMax:F2} floor={floor:F2}");
+        Check("shadow-width-floor", _walkShadowMin >= floor - 1e-9
+            && _walkShadowMax >= _walkShadowMin && _walkFrames >= 8 * 4);
+        _walking = false;
+        _attacking = true;
+        _tick = 0;
     }
 
     /// <summary>影子落在宿主脚底那一点上：地面 Y 等于宿主的物理 Y，离地高度为零。</summary>
@@ -289,13 +345,53 @@ public partial class DepthDev : Node2D
         // 引擎默认 0.08）留了一丝间隙，实测 0.025px。所以容差取引擎自报的那个边距（踩坑记录 49），
         // 而「恢复了」这件事按**可观察量**判：影子取整后的宽度回到贴地原宽，而不是要求缩放位
         // 精确等于 1.0 —— 那个要求会被一个看不见的 0.0004 判失败。
+        var grounded = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
         var landedWidth = Math.Round(
-            CombatFeel.ShadowWidthWorldPx * DepthRendering.ShadowScaleAt(visual.HeightAboveGroundWorldPx));
+            grounded * DepthRendering.ShadowScaleAt(visual.HeightAboveGroundWorldPx));
         Check("shadow-restored-on-land",
             visual.HeightAboveGroundWorldPx <= _player.SafeMargin
-            && landedWidth == CombatFeel.ShadowWidthWorldPx);
+            && landedWidth == Math.Round(grounded));
         GD.Print($"[ENG15] airFrames={_airFrames} smallestScale={_smallestScale:F3}");
-        Capture();
+        _jumping = false;
+        _walking = true;
+        _tick = 0;
+    }
+
+    /// <summary>
+    /// 攻击阶段：影子宽度必须跟着姿态变宽（作者 2026-09-09 反馈的那件事的可测形状）。
+    /// </summary>
+    /// <remarks>
+    /// 拿待机与轻击对比，而不是待机与跳跃：待机本体约 19px、跳跃约 20px，差一个像素判不出什么；
+    /// 轻击伸到约 29px，差距明显。两个数都是**量出来的**，探针不写死 —— 它比的是两次实测宽度的
+    /// 大小关系，素材换了关系仍然成立（只要攻击确实比站着伸得开）。
+    /// </remarks>
+    private void AdvanceAttack()
+    {
+        if (_tick == 2)
+        {
+            Press(InputActions.AttackLight, true);
+            return;
+        }
+        if (_tick == 3)
+        {
+            Press(InputActions.AttackLight, false);
+        }
+        // **等 Active 帧再量**：前摇帧的姿态还是静止起手姿，宽度与待机几乎一样，那时比较是空判。
+        // 拳伸到最远正是 Active 帧（`ART-6` 的帧映射把命中姿放在那里）。
+        if (_player.Combat.Combo.IsAttacking && _player.Combat.Combo.Phase == AttackPhase.Active)
+        {
+            var swinging = DepthRendering.ShadowWidthAt(_player.BodyWidthWorldPx);
+            GD.Print($"[ENG15] shadowWidth idle={_idleShadowWidth:F2} light-active={swinging:F2}");
+            Check("shadow-width-follows-action", _player.VisualAction == "light"
+                && swinging > _idleShadowWidth && _idleShadowWidth > 0);
+            Capture();
+            return;
+        }
+        if (_tick > 60)
+        {
+            Check("shadow-width-follows-action", false);
+            Capture();
+        }
     }
 
     private static void Press(string action, bool pressed) => Callable.From(() =>

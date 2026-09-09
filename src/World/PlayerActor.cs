@@ -29,6 +29,17 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     /// <summary>帧内地面行：脚底像素落在它上一行，精灵偏移就是把这一行对到节点原点。</summary>
     internal const int GroundRow = 30;
 
+    /// <summary>
+    /// 角色实体宽度，世界像素。碰撞框用它，影子的宽度下限也用它（`ENG-15`）。
+    /// </summary>
+    /// <remarks>
+    /// 贴角色实测轮廓（登记表「角色本体」站立姿约 19px 宽，取 18 作实体宽）。**影子不许比它更窄**：
+    /// 整帧的不透明宽度含四肢，而手臂前后摆会让它在走动中从 20px 掉到 11px —— 逐帧照抄就会让影子
+    /// 以 15Hz 缩到一半，而角色占的那块地根本没变。影子代表占地，所以取「实体宽与当前姿态宽的较
+    /// 大者」：走动时稳定在实体宽，出拳时跟着伸出去。
+    /// </remarks>
+    internal const int BodyWidthFloorWorldPx = 18;
+
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
     // 本轮接进 A1 玩法的动作。另外六张已入仓（登记表里有）但**刻意不载入**：`light_hit`、
@@ -65,6 +76,71 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
+    /// <summary>各动作**逐帧**的本体宽度，世界像素。指向下面那份按表共享的缓存。</summary>
+    private readonly Dictionary<string, int[]> _bodyWidths = [];
+
+    /// <summary>
+    /// 逐帧本体宽度的缓存，键是精灵表路径。**同一张表只扫一次**，所有角色共享结果。
+    /// </summary>
+    /// <remarks>
+    /// 不缓存的话每个角色实例都要重扫一遍：探针里 spawn 六个替身就是 45 万像素，正典的同屏 20 个
+    /// 角色会是 150 万 —— 而那是**同一批图**。缓存键取完整路径而不是动作名，好让将来不同角色用
+    /// 不同表时仍然各自命中（现在全体共用 <see cref="SheetDir"/> 那一套）。
+    ///
+    /// 这个开销不会被任何判据报出来（它不影响任何结论，只是载入变慢），发现它靠的是启动日志里
+    /// 同一行打了六遍。所以宽度那行只在真正扫的时候打 —— 打的次数本身就是「扫了几次」的量具。
+    /// </remarks>
+    private static readonly Dictionary<string, int[]> BodyWidthCache = [];
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// **取实体宽与当前帧姿态宽的较大者**，理由见 <see cref="BodyWidthFloorWorldPx"/>：整帧宽度含
+    /// 四肢，照抄会让走动中的影子随手臂摆动缩到一半。缺图退回占位框时只有实体宽可用。
+    /// </remarks>
+    public double BodyWidthWorldPx =>
+        Math.Max(BodyWidthFloorWorldPx,
+            _bodyWidths.TryGetValue(VisualAction, out var widths) && widths.Length > 0
+                ? widths[Math.Clamp(Sprite.Frame, 0, widths.Length - 1)]
+                : BodyWidthFloorWorldPx);
+
+    /// <summary>
+    /// 逐帧量本体宽度：扫每一帧不透明像素的左右边界。
+    /// </summary>
+    /// <remarks>
+    /// **为什么运行时重算而不是读登记表**：`tools/asset-registry.json` 的「角色本体」一项有同类
+    /// 数据（导入器从收件箱原件量的），但 `tools/` 带 `.gdignore`、不进发行包，导出后的产物在运行
+    /// 时拿不到它 —— 与类顶部那段「三个数为什么要重复一份」同一条理由。**两边算出来的对得上**：
+    /// 2026-09-09 实测七张表的逐帧最大值是 19／20／25／20／27／29／36，与登记表的「角色本体 最宽」
+    /// 逐个相同，两套独立实现（Python 导入器与这里的 C#）互为量具。
+    ///
+    /// 代价可忽略：七张表共 54 帧、约 7.6 万像素，只在 <c>_Ready</c> 扫一次。
+    /// </remarks>
+    private static int[] MeasureBodyWidths(Texture2D texture, int frames)
+    {
+        var image = texture.GetImage();
+        var widths = new int[frames];
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var left = int.MaxValue;
+            var right = int.MinValue;
+            for (var x = 0; x < FrameWidth; x++)
+            {
+                for (var y = 0; y < FrameHeight; y++)
+                {
+                    if (image.GetPixel((frame * FrameWidth) + x, y).A <= 0)
+                    {
+                        continue;
+                    }
+                    left = Math.Min(left, x);
+                    right = Math.Max(right, x);
+                    break;
+                }
+            }
+            widths[frame] = right >= left ? right - left + 1 : 0;
+        }
+        return widths;
+    }
+
     /// <summary>缺图退回几何占位的动作名，开发探针用；空表示全部动作都有真图。</summary>
     public IReadOnlyList<string> MissingSheets => _missing;
     private readonly List<string> _missing = [];
@@ -80,7 +156,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
         // 底边落在节点原点 —— 原点即脚底，精灵偏移也对到同一处。
         AddChild(new CollisionShape2D
         {
-            Shape = new RectangleShape2D { Size = new Vector2(18, 28) },
+            Shape = new RectangleShape2D { Size = new Vector2(BodyWidthFloorWorldPx, 28) },
             Position = new Vector2(0, -14),
         });
         Sprite.SpriteFrames = new SpriteFrames();
@@ -106,6 +182,18 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
                     Region = new Rect2(frame * FrameWidth, 0, FrameWidth, FrameHeight),
                 });
             }
+            var path = $"{SheetDir}/{name}.png";
+            if (!BodyWidthCache.TryGetValue(path, out var widths))
+            {
+                widths = MeasureBodyWidths(texture, count);
+                BodyWidthCache[path] = widths;
+                GD.Print($"[GP12] BodyWidth {name}=[{string.Join(",", widths)}]");
+            }
+            _bodyWidths[name] = widths;
+            // **这一行的格式是与 `tools/player_dev.py` 的契约**：它用 `^\[GP12\] Sheet (\w+)=(\d+)$`
+            // 把引擎自报的帧数与登记表比对（引擎读不到登记表）。行尾是锚定的，**在后面追加任何东西
+            // 都会让那条比对静默读不到帧数**（2026-09-09 实测踩过：把本体宽度接在这行后面，46 项
+            // 判据全过而入口判失败）。新信息另起一行，不动这行。
             GD.Print($"[GP12] Sheet {name}={count}");
         }
         GD.Print(_missing.Count == 0

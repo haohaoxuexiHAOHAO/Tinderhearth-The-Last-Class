@@ -34,6 +34,10 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
+    /// <inheritdoc />
+    /// <remarks>木桩是几何体、没有精灵，本体宽度就是它画出来的那根柱子的宽（18px）。</remarks>
+    public double BodyWidthWorldPx => 18;
+
     /// <summary>把木桩摆到带内某个纵深上。带外的值被钳进带内。</summary>
     public void PlaceDepth(double depthWorldPx)
     {

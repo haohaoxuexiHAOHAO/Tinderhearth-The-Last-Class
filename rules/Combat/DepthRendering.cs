@@ -76,6 +76,17 @@ public static class DepthRendering
         DepthBand.Clamp(depthWorldPx) - DepthBand.CenterWorldPx;
 
     /// <summary>
+    /// 本体宽 <paramref name="bodyWidthWorldPx"/> 的角色，贴地时影子多宽（世界像素）。
+    /// </summary>
+    /// <remarks>
+    /// 影子跟着当前姿态的本体宽度走，不是一个固定值 —— 理由与「按动作取值而不是逐帧取」见
+    /// <see cref="CombatFeel.ShadowWidthPercentOfBody"/>。负宽度（不该出现）钳成 0，不返回负数
+    /// 让下游画出翻转的多边形。
+    /// </remarks>
+    public static double ShadowWidthAt(double bodyWidthWorldPx) =>
+        Math.Max(0.0, bodyWidthWorldPx) * CombatFeel.ShadowWidthPercentOfBody / 100.0;
+
+    /// <summary>
     /// 影子在离地 <paramref name="heightAboveGroundWorldPx"/> 时缩到多少（1.0 是贴地原尺寸）。
     /// </summary>
     /// <remarks>

@@ -10,7 +10,8 @@ from check_input_map import find_godot, ROOT
 SORTING = set('sorted-count order-back-first order-swaps overlap-front-visible'.split())
 # 纵深偏移与影子那一半。
 SHADOW = set('depth-offset-signed shadow-foot-on-land shadow-follows-depth '
-             'shadow-ground-fixed shadow-shrinks-in-air shadow-restored-on-land'.split())
+             'shadow-ground-fixed shadow-shrinks-in-air shadow-restored-on-land '
+             'shadow-width-follows-action shadow-width-floor'.split())
 # 前提判据：这一轮的测量条件成立吗（物理帧与渲染帧 1:1、窗口没失焦）。它们不测玩法 ——
 # 失焦会让需要持续输入的判据以「玩法坏了」的形状失败，把它们单列才分得开「这一轮不能算」。
 PRECONDITIONS = {'tick-frame-1to1', 'focus-kept'}
