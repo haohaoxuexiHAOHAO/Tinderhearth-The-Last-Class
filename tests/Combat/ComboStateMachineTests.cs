@@ -62,9 +62,10 @@ public class ComboStateMachineTests
     }
 
     [Fact]
-    public void 后摇取消窗内按同键续下一段()
+    public void 后摇取消窗内命中后按同键续下一段()
     {
         var m = StartLight();
+        m.RegisterHit();   // 轻击续段要命中确认（方案 b）
         AdvanceToComboWindow(m);
 
         Assert.True(m.IsComboWindowOpen);
@@ -95,6 +96,7 @@ public class ComboStateMachineTests
         var m = StartLight();
         for (var step = 0; step < CombatFeel.LightChainLength - 1; step++)
         {
+            m.RegisterHit();   // 每段命中才能续（方案 b）
             AdvanceToComboWindow(m);
             m.Tick(true, false, true);
         }
@@ -148,5 +150,43 @@ public class ComboStateMachineTests
         var m = StartLight();
         m.Tick(false, false, isOnFloor: true);
         Assert.True(m.IsAttacking);
+    }
+
+    [Fact]
+    public void 轻击本段打空则续段窗内按键也不续段()
+    {
+        var m = StartLight();   // 不调 RegisterHit：本段打空
+        AdvanceToComboWindow(m);
+        Assert.True(m.IsComboWindowOpen);
+
+        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        Assert.Equal(0, m.Step);   // 打空不能续段（方案 b）
+
+        for (var i = 0; i < 80 && m.IsAttacking; i++)
+        {
+            m.Tick(false, false, true);
+        }
+
+        Assert.False(m.IsAttacking);   // 走完后摇回到待机
+    }
+
+    [Fact]
+    public void 重击是单招从不开续段窗()
+    {
+        var m = new ComboStateMachine();
+        m.Tick(lightPressed: false, heavyPressed: true, isOnFloor: true);   // 重击起手
+
+        // 重击 ChainLength=1：续段窗永不开，命中且按键也不续（后续再加重击连段）。
+        var everOpen = false;
+        for (var i = 0; i < 80 && m.IsAttacking; i++)
+        {
+            m.RegisterHit();
+            if (m.IsComboWindowOpen) everOpen = true;
+            m.Tick(lightPressed: false, heavyPressed: true, isOnFloor: true);
+        }
+
+        Assert.False(everOpen);
+        Assert.False(m.IsAttacking);
+        Assert.Equal(0, m.Step);
     }
 }

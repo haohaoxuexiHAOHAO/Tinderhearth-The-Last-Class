@@ -22,7 +22,7 @@ from check_input_map import find_godot, ROOT
 DEPTH = set('depth-front depth-back depth-air-lock depth-land-unlock depth-walk-visual'.split())
 
 EXPECTED = DEPTH | set('floor move dash jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
-    f'{kind}-{step}-{phase}' for kind, count in (('light', 3), ('heavy', 2))
+    f'{kind}-{step}-{phase}' for kind, count in (('light', 3), ('heavy', 1))
     for step in range(1, count + 1) for phase in ('startup', 'active', 'recovery')}
 
 REGISTRY = ROOT / 'tools' / 'asset-registry.json'

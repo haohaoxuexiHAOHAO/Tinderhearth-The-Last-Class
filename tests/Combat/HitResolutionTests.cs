@@ -14,7 +14,7 @@ public class HitResolutionTests
             CombatFeel.LightHitstopFrames, false), light);
         Assert.Equal(new HitReaction(CombatFeel.HeavyKnockbackWorldPx, CombatFeel.HeavyHitstunFrames,
             CombatFeel.HeavyHitstopFrames, true), heavy);
-        Assert.True(light.KnockbackWorldPx > 0);
+        Assert.Equal(0, light.KnockbackWorldPx);   // 作者 2026-09-11 定：轻击不击退
         Assert.True(light.HitstunFrames > 0);
         Assert.True(light.HitstopFrames > 0);
         Assert.True(heavy.KnockbackWorldPx > light.KnockbackWorldPx);

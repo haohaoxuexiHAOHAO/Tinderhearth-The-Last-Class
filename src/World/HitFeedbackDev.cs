@@ -162,7 +162,7 @@ public partial class HitFeedbackDev : Node2D
         _sawShake |= _camera.Offset != Vector2.Zero;
         if (_frame == 38 || _frame == 90)
         {
-            Check($"{Kind}-distance", Math.Abs(_dummy.Position.X - _hitX - (_heavy ? 16 : 8)) < 0.002);
+            Check($"{Kind}-distance", Math.Abs(_dummy.Position.X - _hitX - (_heavy ? CombatFeel.HeavyKnockbackWorldPx : CombatFeel.LightKnockbackWorldPx)) < 0.002);
             Check($"{Kind}-expired", !_dummy.Statuses.Has(StatusKind.Hitstun) && _dummy.FlashRemaining == 0);
             Check($"{Kind}-dedup", _dummy.HitCount == (_heavy ? 2 : 1));
             Check($"{Kind}-shake", _heavy && _shakeEnabled ? _sawShake : !_sawShake);
@@ -357,7 +357,7 @@ public partial class HitFeedbackDev : Node2D
         var start = _dummy.Position.X;
         _dummy.Receive(HitResolution.Resolve(ComboKind.Light), -1);
         for (var i = 0; i < 10; i++) _dummy.AdvanceCombat();
-        Check("refresh-distance", Math.Abs(_dummy.Position.X - start + 8) < 0.002 && !_dummy.Statuses.Has(StatusKind.Hitstun));
+        Check("refresh-distance", Math.Abs(_dummy.Position.X - start + CombatFeel.LightKnockbackWorldPx) < 0.002 && !_dummy.Statuses.Has(StatusKind.Hitstun));
         start = _dummy.Position.X;
         _dummy.AdvanceCombat();
         Check("no-tail-slide", _dummy.Position.X == start);
@@ -508,7 +508,8 @@ public partial class HitFeedbackDev : Node2D
         GD.Print($"[GP13] knockback dx={dx:F4} expect={CombatFeel.LightKnockbackWorldPx}"
             + $" margin={_dummy.SafeMargin} depth={depthBefore}→{_dummy.DepthWorldPx}");
         Check("knockback-horizontal-only", freshHit && _dummy.DepthWorldPx == depthBefore
-            && Math.Sign(dx) == motor.Facing
+            // 轻击击退归 0 后没有方向可言(dx≈0),方向判据仅在有击退时成立。
+            && (CombatFeel.LightKnockbackWorldPx == 0 || Math.Sign(dx) == motor.Facing)
             && Math.Abs(dx - CombatFeel.LightKnockbackWorldPx) <= _dummy.SafeMargin
             && !_dummy.Statuses.Has(StatusKind.Hitstun));
 

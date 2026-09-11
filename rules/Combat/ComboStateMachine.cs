@@ -46,6 +46,7 @@ public sealed class ComboStateMachine
     private int _step;
     private int _frameInPhase;
     private bool _startedAirborne;
+    private bool _hitLanded;
 
     /// <summary>当前连段类型，待机时为 <see cref="ComboKind.None"/>。</summary>
     public ComboKind Kind { get; private set; } = ComboKind.None;
@@ -68,6 +69,14 @@ public sealed class ComboStateMachine
         && Phase == AttackPhase.Recovery
         && HasNextStep
         && _frameInPhase > RecoveryFrames - ComboWindowFrames;
+
+    /// <summary>引擎在本段判定框命中目标时调用一次（命中确认续段，`GP-10` 方案 b）。</summary>
+    /// <remarks>
+    /// 命中检测在引擎层（<c>Hitbox.Resolve</c> 的形状查询 + 纵深容差），规则层拿不到目标，所以
+    /// 「这一段打中没有」只能由引擎回传。轻击续段要求本段命中过；打空则标志一直为假、续段窗按了
+    /// 也不续。标志在每段起手清零，所以每一段都要各自打中才能再续。
+    /// </remarks>
+    public void RegisterHit() => _hitLanded = true;
 
     /// <summary>推进一帧。</summary>
     /// <param name="lightPressed">本帧刚按下轻攻击（边沿）。</param>
@@ -118,7 +127,11 @@ public sealed class ComboStateMachine
 
             case AttackPhase.Recovery:
                 var samePress = Kind == ComboKind.Light ? lightPressed : heavyPressed;
-                if (samePress && IsComboWindowOpen)
+                // 续段要命中确认（`GP-10` 方案 b，轻重都适用）：本段打空则续段窗按了也不续，走完
+                // 后摇。命中检测在引擎层，命中经 RegisterHit 回传。（重击当前 ChainLength=1、无续段，
+                // 这条门对它现在不触发；后续加重击连段时即生效。）
+                var hitConfirmed = _hitLanded;
+                if (samePress && IsComboWindowOpen && hitConfirmed)
                 {
                     _step++;
                     EnterPhase(AttackPhase.Startup);
@@ -159,6 +172,8 @@ public sealed class ComboStateMachine
     {
         Phase = phase;
         _frameInPhase = 0;
+        // 每段起手清命中标志：Begin 与续段都经这里进 Startup，所以每一段都要各自打中才能再续。
+        if (phase == AttackPhase.Startup) _hitLanded = false;
     }
 
     private void Reset()
@@ -168,6 +183,7 @@ public sealed class ComboStateMachine
         _step = 0;
         _frameInPhase = 0;
         _startedAirborne = false;
+        _hitLanded = false;
     }
 
     private bool HasNextStep => _step + 1 < ChainLength;

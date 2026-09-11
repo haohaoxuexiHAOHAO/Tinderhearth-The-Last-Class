@@ -92,6 +92,9 @@ public partial class Hitbox : Area2D
             feedback(reaction);
             count++;
         }
+        // 命中回传连段机：轻击续段靠命中确认（`GP-10` 方案 b）。命中检测在这里（形状查询 + 纵深），
+        // 规则层拿不到目标,所以由这里通知。任一命中即置位;轻击的续段门用它,重击忽略(仍走时间窗)。
+        if (count > 0) player.Combat.Combo.RegisterHit();
         return count;
     }
 

@@ -117,11 +117,11 @@ public static class CombatFeel
     /// <summary>重攻击的连段衔接窗，帧。后摇末尾这么多帧内按重攻击续下一段。必须 ≤ 后摇。</summary>
     public const int HeavyComboWindowFrames = 10;
 
-    /// <summary>重攻击连段的段数。</summary>
-    public const int HeavyChainLength = 2;
+    /// <summary>重攻击连段的段数。**作者 2026-09-11 定为 1：重击当前是单招、不连段**，后续可能再加连段。</summary>
+    public const int HeavyChainLength = 1;
 
-    /// <summary>轻击击退距离，世界像素；GP-11 未实测初值，待 GP-6 校准。</summary>
-    public const int LightKnockbackWorldPx = 8;
+    /// <summary>轻击击退距离，世界像素。**作者 2026-09-11 实机定为 0**：轻击有击退会把敌人推出连段射程、只能平 A 一下就够不到，归 0 让轻击连段留在射程里。重击照旧击退。</summary>
+    public const int LightKnockbackWorldPx = 0;
 
     /// <summary>重击击退距离，世界像素；未实测初值。</summary>
     public const int HeavyKnockbackWorldPx = 16;

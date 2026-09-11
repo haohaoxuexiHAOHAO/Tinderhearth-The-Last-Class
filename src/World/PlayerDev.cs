@@ -209,6 +209,9 @@ public partial class PlayerDev : Node2D
             if (combo.IsAttacking)
             {
                 _chainStarted = true;
+                // 轻击续段要命中确认(`GP-10` 方案 b)。本场景无木桩,探针在命中相注入一次命中,
+                // 好让轻击连段链走得下去;重击忽略这个标志。
+                if (combo.IsHitActive) combo.RegisterHit();
                 var name = $"{(heavy ? "heavy" : "light")}-{combo.Step + 1}-{combo.Phase.ToString().ToLowerInvariant()}";
                 if (_seen.Add(name)) Check(name, combo.Kind == (heavy ? ComboKind.Heavy : ComboKind.Light));
                 if (combo.IsComboWindowOpen && combo.Step < (heavy ? 1 : 2)) Press(action, true);

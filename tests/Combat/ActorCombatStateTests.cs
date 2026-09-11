@@ -53,7 +53,7 @@ public class ActorCombatStateTests
 
     [Theory]
     [InlineData(false, 3)]
-    [InlineData(true, 2)]
+    [InlineData(true, 1)]
     public void FullChainUsesActualWindow(bool heavy, int length)
     {
         var state = new ActorCombatState();
@@ -64,6 +64,7 @@ public class ActorCombatStateTests
             for (var frame = 0; !state.Combo.IsComboWindowOpen && frame < 60; frame++)
                 state.Tick(CombatInput.None, true);
             Assert.True(state.Combo.IsComboWindowOpen);
+            state.Combo.RegisterHit();   // 续段要命中确认（方案 b，轻重都适用）
             state.Tick(press, true);
             Assert.Equal(step, state.Combo.Step);
             Assert.Equal(0, state.Combo.FrameInPhase);
