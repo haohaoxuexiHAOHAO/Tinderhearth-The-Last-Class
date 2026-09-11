@@ -370,6 +370,7 @@ public partial class HitFeedbackDev : Node2D
         Check("wall-block", _dummy.Position.X > start && _dummy.Position.X < start + 4.01f);
         wall.QueueFree();
         await ReachSplitProbe();
+        await DepthToleranceProbe();
         Capture();
     }
 
@@ -408,6 +409,117 @@ public partial class HitFeedbackDev : Node2D
         }
         Check("reach-split-drained", _dummy.FlashRemaining == 0
             && !_dummy.Statuses.Has(StatusKind.Hitstun));
+    }
+
+    /// <summary>
+    /// 纵深容差的**行为级**证明（`GP-16`）：同一个横向距离，纵深对齐时打到、错开一排时打空。
+    /// </summary>
+    /// <remarks>
+    /// 为什么不能只靠规则层单测：<c>DepthOverlap</c> 全绿而 <c>Hitbox</c> 忘了调它，命中照旧是单
+    /// 平面的 —— 两边各自正确、测试照样全绿，而画面上隔着一排也能打中。这里走真实物理查询，横向
+    /// 距离全程钉死在 <see cref="NearX"/>（已由 <c>probe-near-in-reach</c> 判死在轻击框内），
+    /// **只有纵深在变**，于是打不到只能是纵深那一半造成的。
+    ///
+    /// 「纵深对齐时打到」这一头其实已经被前面 60 多条判据全体覆盖了 —— 本场景两个角色都在带中线，
+    /// 纵深条件一旦漏判，那些判据会成片变红。所以这里只补它们盖不到的四种形状：错开一排打空、
+    /// 同一次挥击里挪回同排能打中（打空没被登记成打过）、正好差一个容差仍打中、击退不碰纵深。
+    ///
+    /// 距离一律从常量导出，不写死（踩坑记录 48）：「错开」取正典的一排间距，「边界」取容差本身。
+    /// </remarks>
+    private async Task DepthToleranceProbe()
+    {
+        var combo = _player.Combat.Combo;
+        var motor = _player.Combat.Motor;
+        var aligned = motor.DepthWorldPx;
+        var edge = aligned + CombatFeel.HitDepthToleranceWorldPx;
+        var offRow = aligned + DepthBand.RowSpacingWorldPx;
+        // 前提判据：本阶段要用的两个纵深都得落在带内，且「错开一排」真的在容差之外。前一半要紧是
+        // 因为 `PlaceDepth` 会钳 —— 主角的纵深恒在带内，所以钳过只会让**实际纵深差变小**，于是
+        // 「该打空的」可能变成打中。容差调到一排以上时这条当场说清原因，而不是让下面那条莫名失败。
+        Check("probe-depth-rows-derived",
+            CombatFeel.HitDepthToleranceWorldPx < DepthBand.RowSpacingWorldPx
+            && DepthBand.Contains(edge) && DepthBand.Contains(offRow));
+
+        // 先让判定框看见一个非 Active 帧。**这不是仪式，是量具的前提**：每挥击一个去重集合靠
+        // `Resolve` 在相邻两次调用之间观察到的 Active 上升沿清空（见 `Hitbox.Resolve` 的调用契约），
+        // 而上一阶段最后一次调用停在 Active 上。不先清一次，本阶段整段都会被当成「这次挥击已经打过
+        // 它了」而静默打空 —— 2026-09-11 实测踩过：depth-off-row-miss 因此**假绿**（返回 0 是被去重
+        // 挡的，不是纵深挡的），下游三条同时变红，而失败信息指向纵深。
+        while (combo.IsAttacking) combo.Tick(false, false, true);
+        Check("depth-probe-fresh-swing", _hitbox.Resolve(_player, _ => { }) == 0 && !_hitbox.IsActive);
+
+        _dummy.Position = _player.Position + new Vector2(NearX, 0);
+        _dummy.PlaceDepth(offRow);
+        // 只有**物理位置**要等一帧让空间状态刷新；纵深不参与引擎碰撞，改它不需要等（也等不到）。
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        combo.Tick(true, false, true);
+        for (var i = 0; i < CombatFeel.LightStartupFrames; i++) combo.Tick(false, false, true);
+        var hitsBefore = _dummy.HitCount;
+        // `RejectedAsAlreadyHit == 0` 是这条判据的**量具**：它说明这个 0 是纵深挡下来的，而不是
+        // 去重挡下来的。少了它，去重集合一脏这条就假绿，而它声称测的东西压根没被测到。
+        Check("depth-off-row-miss", combo.IsHitActive
+            && DepthOverlap.SeparationWorldPx(motor.DepthWorldPx, _dummy.DepthWorldPx)
+                == DepthBand.RowSpacingWorldPx
+            && _hitbox.Resolve(_player, _ => { }) == 0 && _dummy.HitCount == hitsBefore
+            && _hitbox.RejectedAsAlreadyHit == 0);
+
+        // **同一次挥击**里只把纵深挪回同一排：打空没有被登记成打过，所以这一下必须中。去重排在
+        // 纵深判定之前也不报错，只表现为「刚才错开那一下把这次挥击用掉了」—— 玩家侧的形状是
+        // 「贴着敌人挥空一次之后，站对了也还是空」，而那会被归因于判定不准。
+        _dummy.PlaceDepth(aligned);
+        Check("depth-realign-hits-same-swing", combo.IsHitActive
+            && DepthOverlap.SeparationWorldPx(motor.DepthWorldPx, _dummy.DepthWorldPx) == 0.0
+            && _hitbox.Resolve(_player, _ => { }) == 1 && _dummy.HitCount == hitsBefore + 1
+            && _hitbox.RejectedAsAlreadyHit == 0);
+
+        // 容差边界：正好差一个容差仍要打中（边界含在内）。这一条把那个常量钉在真实物理世界里 ——
+        // 规则层单测只证明 `Within` 自己含边界，证不了引擎传的是同一个容差。
+        while (combo.IsAttacking) combo.Tick(false, false, true);
+        // 同 depth-probe-fresh-swing：换挥击要让本机看见一个非 Active 帧，否则去重集合还留着上一次
+        // 的内容。下面那条判据里的 `RejectedAsAlreadyHit == 0` 就是它没生效时的报警。
+        _hitbox.Resolve(_player, _ => { });
+        _dummy.PlaceDepth(edge);
+        combo.Tick(true, false, true);
+        for (var i = 0; i < CombatFeel.LightStartupFrames; i++) combo.Tick(false, false, true);
+        Check("depth-tolerance-edge-hit", combo.IsHitActive
+            && DepthOverlap.SeparationWorldPx(motor.DepthWorldPx, _dummy.DepthWorldPx)
+                == CombatFeel.HitDepthToleranceWorldPx
+            && _hitbox.Resolve(_player, _ => { }) == 1
+            && _hitbox.RejectedAsAlreadyHit == 0);
+
+        // 击退**只沿横向**（`GP-16` 定，理由记在 issue 笔记）：纵深上不施加击退。整段硬直跑完再看，
+        // 不抽查一帧 —— 击退是按硬直帧数摊开的，「每帧往前偷挪一点纵深」这种形状抽查看不出来。
+        //
+        // **纵深那一半按精确相等判，横向那一半按引擎自报的接触边距判。** 两个轴的量具不同不是偷懒：
+        // 纵深位置在规则层、没有引擎介入，本该分毫不动；横向位置由 `MoveAndCollide` 推进，而木桩这时
+        // **正贴着主角**（NearX 是两个 18 宽实体刚好不互插的间距），第一帧会带一次脱离接触的推出。
+        // 实测 dx=8.0748 对 8，超出量落在 `SafeMargin`（引擎默认 0.08）以内 —— 容差因此取引擎自报的
+        // 那个边距，不自己挑一个刚好能过的数（踩坑记录 49）。方向另判：位移符号必须等于攻击者朝向。
+        //
+        // `freshHit` 不是装饰：本阶段前面那一下也是轻击、击退量一模一样，所以边界那一下万一没打中，
+        // 这里会**静默量到上一次命中留下的硬直**，判据照样全绿。2026-09-11 反证时正是这个形状 ——
+        // 把边界改成不含之后 depth-tolerance-edge-hit 变红，而本条仍然 PASS。所以要钉「刚打中」。
+        var depthBefore = _dummy.DepthWorldPx;
+        var xBefore = _dummy.Position.X;
+        var freshHit = _dummy.Statuses.Get(StatusKind.Hitstun).RemainingFrames
+            == CombatFeel.LightHitstunFrames;
+        for (var i = 0; i < CombatFeel.LightHitstunFrames; i++) _dummy.AdvanceCombat();
+        var dx = _dummy.Position.X - xBefore;
+        GD.Print($"[GP13] knockback dx={dx:F4} expect={CombatFeel.LightKnockbackWorldPx}"
+            + $" margin={_dummy.SafeMargin} depth={depthBefore}→{_dummy.DepthWorldPx}");
+        Check("knockback-horizontal-only", freshHit && _dummy.DepthWorldPx == depthBefore
+            && Math.Sign(dx) == motor.Facing
+            && Math.Abs(dx - CombatFeel.LightKnockbackWorldPx) <= _dummy.SafeMargin
+            && !_dummy.Statuses.Has(StatusKind.Hitstun));
+
+        // 还原摆位：本阶段把木桩挪近了、纵深也错开了，而 restored-pixel 是按木桩自身变换取屏幕
+        // 像素的 —— 纵深偏移会把取样点顶到柱子边沿之外。理由与 reach-split-drained 那段同类：
+        // 别让下一条判据因为上一段留下的状态而失败。
+        _dummy.PlaceDepth(aligned);
+        _dummy.Position = _player.Position + new Vector2(30, 0);
+        Check("depth-probe-restored", _dummy.FlashRemaining == 0
+            && !_dummy.Statuses.Has(StatusKind.Hitstun)
+            && DepthOverlap.SeparationWorldPx(motor.DepthWorldPx, _dummy.DepthWorldPx) == 0.0);
     }
 
     private async void SaveFlash()

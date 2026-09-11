@@ -30,7 +30,8 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     /// <inheritdoc />
     /// <remarks>
     /// 木桩不建 <see cref="MotorState"/>（`SPEC` §3.2：不建无用的 Motor），所以纵深就存在这里，
-    /// **这是它的唯一一份**。将来命中容差（`GP-16`）读的也是它，不再存第二份。
+    /// **这是它的唯一一份**。绘制排序（`ENG-15`）与命中的纵深条件（`GP-16`）读的都是它，
+    /// 都经这个接口，没有第二份。
     /// </remarks>
     public double DepthWorldPx => _depthWorldPx;
 

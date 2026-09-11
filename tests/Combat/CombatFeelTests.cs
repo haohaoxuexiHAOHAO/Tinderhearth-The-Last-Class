@@ -102,6 +102,18 @@ public class CombatFeelTests
         Assert.InRange(CombatFeel.HitboxCenterYWorldPx, 1, 32);
     }
 
+    /// <summary>
+    /// `GP-16` 命中纵深容差的关系守卫。**不测 8 这个数手感对不对** —— 归 `GP-6`。这里钉正典点名的
+    /// 两个坏法：容差 ≥ 一排间距的话隔一排也能打中，纵深上就没有「站错排」这回事；容差窗口盖满整条
+    /// 带的话带内不存在打不到的位置，纵深挪步失去意义、48px 的排位是白做的。两头都不报错。
+    /// </summary>
+    [Fact]
+    public void 命中纵深容差让隔一排打不到且带内存在打不到的位置()
+    {
+        Assert.InRange(CombatFeel.HitDepthToleranceWorldPx, 1, DepthBand.RowSpacingWorldPx - 1);
+        Assert.True(2 * CombatFeel.HitDepthToleranceWorldPx < DepthBand.WidthWorldPx);
+    }
+
     [Fact]
     public void 判定框上下沿都落在角色本体高度内()
     {

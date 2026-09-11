@@ -39,6 +39,10 @@ public static class DepthBand
     /// 纵深是**连续**的，这个数不是网格 —— 角色能停在任意纵深上（正典：分道会把「往里挪半步
     /// 躲开」变成「换道」，那是两种手感）。留它是因为「48px 能排下 4 排」这句话要有个能查的
     /// 依据，而不是让读代码的人回去翻正典重算。密度判定归 `ENG-16`。
+    ///
+    /// `GP-16` 起它还是命中纵深容差的推导依据（容差取半排，见
+    /// <see cref="CombatFeel.HitDepthToleranceWorldPx"/>）—— 那是**推导**关系，不是等式：容差是
+    /// 手感量、能被 `GP-6` 单独改，改到隔一排也能打中就是改坏了，单测钉着那条关系。
     /// </remarks>
     public const int RowSpacingWorldPx = 16;
 

@@ -20,6 +20,14 @@ REACH_SPLIT = {'reach-split-shape', 'light-reach-miss', 'heavy-reach-hit', 'reac
                # 美术把它缩到放置距离以内时，这条会当场说清原因，而不是让下游某条判据莫名失败。
                'probe-near-in-reach'}
 EXPECTED |= REACH_SPLIT
+# GP-16：纵深容差命中的行为级判据 —— 同一横向距离，错开一排打空、挪回同排打中、正好差一个容差
+# 仍打中、击退不碰纵深。加上一条前提判据（探针用的两个纵深都从常量导出且真的落在带内）。
+# 两条前提判据：距离从常量导出且真的落在带内；本阶段开头去重集合是干净的（脏了会让「纵深错开
+# 打空」假绿 —— 返回 0 是被去重挡的，不是纵深挡的）。
+DEPTH_TOLERANCE = {'probe-depth-rows-derived', 'depth-probe-fresh-swing', 'depth-off-row-miss',
+                   'depth-realign-hits-same-swing', 'depth-tolerance-edge-hit',
+                   'knockback-horizontal-only', 'depth-probe-restored'}
+EXPECTED |= DEPTH_TOLERANCE
 # 前提判据：这一轮的测量条件成立吗（物理帧与渲染帧 1:1、窗口没失焦）。它们不测玩法。
 PRECONDITIONS = {'tick-frame-1to1', 'focus-kept'}
 EXPECTED |= PRECONDITIONS
@@ -43,7 +51,7 @@ def selfcheck():
            good.replace('PASS', 'FAIL', 1), good + '\n' + summary,
            good.replace(summary, '[GP13] Summary 0/0'), good + '\nERROR: injected',
            good + '\n[GP13] PASS extra', '\n'.join(lines), good + '\n[GP13] PASS malformed extra']
-    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'sprint-'))} | REACH_SPLIT | PRECONDITIONS):
+    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'sprint-'))} | REACH_SPLIT | DEPTH_TOLERANCE | PRECONDITIONS):
         record = f'[GP13] PASS {name}'
         bad.extend((good.replace(record + '\n', ''), good.replace(record, f'[GP13] FAIL {name}')))
     assert valid_log(good, 0) and not valid_log(good, 1)
