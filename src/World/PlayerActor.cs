@@ -42,17 +42,23 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
 
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
-    // 本轮接进 A1 玩法的动作。另外六张已入仓（登记表里有）但**刻意不载入**：`light_hit`、
-    // `heavy_hit`、`general_defense`、`precise_defense`、`imbalance`、`death` —— 受击、防御、
-    // 失衡与死亡的玩法都还没有，载进来只会出现「有图没规则」的半成品状态。
+    // 本轮接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`，2026-09-11），
+    // 由 <see cref="UpdateVisual"/> 按 <c>combo.Step</c> 选。另外六张已入仓（登记表里有）但**刻意
+    // 不载入**：`light_hit`、`heavy_hit`、`general_defense`、`precise_defense`、`imbalance`、`death`
+    // —— 受击、防御、失衡与死亡的玩法都还没有，载进来只会出现「有图没规则」的半成品状态。
     // `imbalance` 另有一层不确定：失衡与失衡恢复合在同一张 5 帧表里，帧号区间**作者尚未给出**，
     // 就算现在想接也没有可依据的切分点。
-    private static readonly string[] Sheets = ["idle", "walk", "run", "jump", "dodge", "light", "heavy"];
+    private static readonly string[] Sheets = ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy"];
 
-    // 攻击相位 → 精灵帧的**占位映射**（`ART-6` 未收口）。轻击 6 帧被 3 段连段共用、重击 7 帧被
-    // 2 段共用，所以每段看起来一样 —— 分辨不出第几段要三倍的帧数，那是正式角色美术的事。
-    // 唯一的硬约束在这里：**前摇只准用第 0 帧**。作者的第 1 帧是静止起手姿、第 2 帧就是拳伸到
-    // 最远的命中姿，若让渲染时钟自己跑，命中姿会在判定框开之前先亮出来，玩家学到的时机是错的。
+    // 攻击相位 → 精灵帧的映射。轻击三段现在**各有独立表**（`ART-6`，2026-09-11 接仓），重击单招
+    // 一张表；每段的帧数不同（light 6、light2 5、light3 6、heavy 7），映射按当前表的 `count` 算，
+    // 不写死。唯一的硬约束在这里：**前摇只准用第 0 帧，Active 只准用第 1–2 帧**。作者每段的第 1 帧
+    // （0 基第 0 帧）是静止起手姿、第 2–3 帧（0 基 1–2）才是拳脚伸出的命中姿；判定框的取值也正是
+    // 从这两帧的实测伸展导出的（见 `CombatFeel` 与 `check_hitbox_binding`），所以「命中姿落在
+    // Active 窗那两帧」是画面与判定对齐的前提。三段都逐段核过：light 峰值右伸在 0 基第 1 帧、
+    // light2 在第 1 帧、light3（踢腿）在第 2 帧，全部落在 [1,2] 内。若让渲染时钟自己跑，命中姿会
+    // 在判定框开之前先亮出来，玩家学到的时机是错的；探针 `startup-frame`／`active-frame`
+    // 与 `sprite-phase` 逐帧钉住它。
     private const int AttackStartupFrame = 0;
     internal const int AttackActiveFirstFrame = 1;
     internal const int AttackActiveSpan = 2;
@@ -251,7 +257,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
         var motor = Combat.Motor;
         var combo = Combat.Combo;
         var action = combo.IsAttacking
-            ? combo.Kind == ComboKind.Heavy ? "heavy" : "light"
+            ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
             : motor.Phase == MotorPhase.Dodge ? "dodge"
             : motor.Phase == MotorPhase.Airborne ? "jump"
             : motor.Phase == MotorPhase.Dash ? "run"
@@ -278,6 +284,18 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
         }
         QueueRedraw();
     }
+
+    /// <summary>轻击每段的精灵表名（`ART-6`，2026-09-11）：第 1/2/3 段 → light/light2/light3。</summary>
+    /// <remarks>
+    /// 段号超出（理论上不会，`LightChainLength=3`）落到第 3 段，与 <see cref="Hitbox.SpecFor"/> 的
+    /// 兜底方向一致 —— 两处对「未知段」的处理必须同向，否则动画与判定框会各选一段。
+    /// </remarks>
+    private static string LightSheet(int step) => step switch
+    {
+        0 => "light",
+        1 => "light2",
+        _ => "light3",
+    };
 
     /// <summary>一段攻击的相位 → 精灵帧。命中姿绝不出现在前摇里，见类顶部注释。</summary>
     private static int AttackFrame(ComboStateMachine combo, int count)

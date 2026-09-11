@@ -515,11 +515,13 @@ def case_downloaded_soft_alpha_allowed() -> tuple[bool, str]:
 
 
 # ── 单色帧守卫（`ART-6`）──────────────────────────────────────────────
-# 缺陷形状不是编的：作者交来的 `hit` 源第 3、4 帧就是整张单色的闪白（2026-09-08 实测，
-# 去掉地面行后只剩 (255,255,255,255) 一色、246 像素）。它们已由 import_role_sheets.py 排除，
-# 所以这里拿**同一张表里真正的姿态帧**做两件事：原样必须放行，把它的不透明像素刷成一色后
-# 必须被拦下 —— 后者与作者那两帧逐像素同形（同一剪影、单色、无半透明）。
-HIT_SHEET = ROOT / "assets" / "self-drawn" / "test-role" / "hit.png"
+# 缺陷形状不是编的：作者最初交来的 `hit` 源第 3、4 帧就是整张单色的闪白（2026-09-08 实测，去掉
+# 地面行后只剩 (255,255,255,255) 一色、246 像素），已由 import_role_sheets.py 排除。2026-09-09
+# 作者把 `hit` 拆成了 `light_hit`／`heavy_hit`，仓里已无 `hit.png`（此前这里仍指向它、量具
+# 一开就 FileNotFoundError，2026-09-11 接三段轻击跑自证时发现并改到现存的表）。所以改拿**仍在
+# 仓里的受击姿态表 `light_hit`**（6 帧、帧宽 44、全是姿态帧）做两件事：原样必须放行，把它第 1 帧
+# 的不透明像素刷成一色后必须被拦下 —— 后者与作者那两帧闪白逐像素同形（同一剪影、单色、无半透明）。
+HIT_SHEET = ROOT / "assets" / "self-drawn" / "test-role" / "light_hit.png"
 SAMURAI_HURT = ROOT / "assets" / "downloaded" / "samurai" / "hurt.png"
 _hit_backup: bytes | None = None
 
@@ -540,12 +542,12 @@ def case_solid_frame_blocked() -> tuple[bool, str]:
     """自绘表里出现单色帧要被拦下，正常姿态帧要被放行（`ART-6`）。"""
     import check_assets
     from PIL import Image
-    entry = {"帧宽": 46, "源帧号": [1, 2, 5, 6, 7, 8]}
+    entry = {"帧宽": 44, "源帧号": [1, 2, 3, 4, 5, 6]}
     check_assets._FAILS.clear()
-    good = check_assets.check_solid_frames("hit.png", Image.open(HIT_SHEET).convert("RGBA"), entry)
+    good = check_assets.check_solid_frames("light_hit.png", Image.open(HIT_SHEET).convert("RGBA"), entry)
     passed = not check_assets._FAILS and not good
     check_assets._FAILS.clear()
-    check_assets.check_solid_frames("hit-flat.png", _flatten_first_frame(HIT_SHEET, 46), entry)
+    check_assets.check_solid_frames("light_hit-flat.png", _flatten_first_frame(HIT_SHEET, 44), entry)
     caught = [f for f in check_assets._FAILS]
     check_assets._FAILS.clear()
     ok = passed and len(caught) == 1 and "第 1 帧" in caught[0] and "源帧 1" in caught[0]
@@ -575,10 +577,10 @@ def case_downloaded_solid_frame_allowed() -> tuple[bool, str]:
 
 
 def inject_solid_frame_in_repo() -> None:
-    """把进仓 hit.png 的第 1 帧刷成单色 —— 作者那两帧要是没被排除，仓里就是这个样子。"""
+    """把进仓 light_hit.png 的第 1 帧刷成单色 —— 作者最初 hit 源那两帧要是没被排除，仓里就是这样。"""
     global _hit_backup
     _hit_backup = HIT_SHEET.read_bytes()
-    _flatten_first_frame(HIT_SHEET, 46).save(HIT_SHEET)
+    _flatten_first_frame(HIT_SHEET, 44).save(HIT_SHEET)
 
 
 def restore_hit_sheet() -> None:
@@ -616,10 +618,12 @@ def inject_wrong_ground_row_const() -> None:
               "internal const int GroundRow = 29;")
 
 
-def inject_shared_hitbox_const() -> None:
-    """把轻击判定框宽度改回与重击相同 —— 这正是 2026-09-08 之前的真实状态。"""
-    _patch_cs(COMBAT_FEEL_CS, "public const int LightHitboxWidthWorldPx = 18;",
-              "public const int LightHitboxWidthWorldPx = 22;")
+def inject_wrong_hitbox_const() -> None:
+    """把踢腿（轻击第 3 段）的判定框宽度改成与直拳（第 1 段）相同 —— 这正是「三段共用一个框」
+    那个病的形状（作者 2026-09-11 点名要消除的：踢腿伸到脚边、判定框却停在拳的位置）。踢腿实测
+    右伸 16，直拳 15，改成 15 后判定框比画面短一像素，`check_hitbox_binding` 逐段核就会拦下。"""
+    _patch_cs(COMBAT_FEEL_CS, "public const int Light3HitboxWidthWorldPx = 16;",
+              "public const int Light3HitboxWidthWorldPx = 15;")
 
 
 def inject_shifted_active_window() -> None:
@@ -844,9 +848,9 @@ CASES = (
          inject_wrong_registry_ground_row, restore_registry,
          ["--upto", "assets"], "帧内地面行"),
     Case("判定框常量与实测伸展不符时判失败", "check_hitbox_binding",
-         "ART-6：轻重共用一个数正是 2026-09-08 之前的真实状态",
-         inject_shared_hitbox_const, restore_cs,
-         ["--upto", "assets"], "LightHitboxWidthWorldPx"),
+         "ART-6：踢腿用直拳的框（三段共用一个数）正是作者 2026-09-11 点名要消除的",
+         inject_wrong_hitbox_const, restore_cs,
+         ["--upto", "assets"], "Light3HitboxWidthWorldPx"),
     Case("Active 窗口挪动而判定框没跟着时判失败", "check_hitbox_binding",
          "ART-6：第三个漂移方向 —— 相位映射变了，取的帧就变了",
          inject_shifted_active_window, restore_cs,

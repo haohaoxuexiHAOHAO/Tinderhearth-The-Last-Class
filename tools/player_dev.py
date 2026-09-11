@@ -26,8 +26,9 @@ EXPECTED = DEPTH | set('floor move dash jump air-attack land dodge-exclusive hea
     for step in range(1, count + 1) for phase in ('startup', 'active', 'recovery')}
 
 REGISTRY = ROOT / 'tools' / 'asset-registry.json'
-# PlayerActor 本轮载入的表。hit/defense/death 已入仓但刻意不载（有图没规则），所以不在这里。
-LOADED_SHEETS = ('idle', 'walk', 'run', 'jump', 'dodge', 'light', 'heavy')
+# PlayerActor 本轮载入的表。轻击三段各有独立表 light/light2/light3（`ART-6`，2026-09-11）。
+# hit/defense/death 已入仓但刻意不载（有图没规则），所以不在这里。
+LOADED_SHEETS = ('idle', 'walk', 'run', 'jump', 'dodge', 'light', 'light2', 'light3', 'heavy')
 SHEET_LINE = re.compile(r'^\[GP12\] Sheet (\w+)=(\d+)$', re.MULTILINE)
 
 

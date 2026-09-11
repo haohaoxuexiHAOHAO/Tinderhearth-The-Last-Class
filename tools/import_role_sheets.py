@@ -28,9 +28,9 @@
 5. **单色帧不接仓。** 去掉地面行后整帧只有一种不透明颜色的，那是一张闪白不是一个姿态 ——
    闪白由代码持有（`CombatFeel.FlashFrames`），画进精灵表等于同一件事有两个真相。判据按
    **形状**不按颜色（作者这批是白的，下一批可能是红的），报出真实帧号与真实颜色，原件不动。
-6. **攻击动作量「伸出静止起手姿之外」的那部分。** 那就是打出去的那只拳，判定框的宽高由它导出
-   （`CombatFeel.LightHitboxWidthWorldPx` 等），`tools/check_assets.py` 拿登记表逐条核常量 ——
-   于是「素材改了而判定框没跟着改」不再是静默失效。
+6. **攻击动作量「伸出静止起手姿之外」的那部分。** 那就是打出去的那只拳脚，判定框的宽高由它导出
+   （轻击三段各一份 `CombatFeel.Light1/2/3HitboxWidthWorldPx` 等，重击 `Heavy…`），
+   `tools/check_assets.py` 拿登记表逐段核常量 —— 于是「素材改了而判定框没跟着改」不再是静默失效。
 
 用法（从代码仓根目录运行）：
 
@@ -81,13 +81,20 @@ REGISTRY_SECTION = "自绘素材"
 # `general_defense`／`precise_defense`，另新增 `imbalance`（失衡）。后五张与 `death` 一样
 # **只入仓备用、不载入 PlayerActor** —— 受击、防御、失衡与死亡的玩法都还不存在，载进来只会
 # 出现「有图没规则」的半成品状态。
+#
+# 2026-09-11 作者把轻击拆成三段各有独立动画：`fist_light_attack`／`_2`／`_3` ＝第 1／2／3 段
+# （第 3 段是踢腿、伸展更远）。**每段一张表、各自量伸展**，判定框按段分开、不共用（见
+# `design/角色状态机.md` 的攻击那段）；三段的表名是 `light`／`light2`／`light3`，与 PlayerActor
+# 里按 `combo.Step` 选的动画名一一对应。原来「轻拳三段共用同一组帧」的占位映射到此作废。
 ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("idle", "idle", "待机", False),
     ("walk", "walk", "行走（低速位移）", False),
     ("run", "run", "奔跑与冲刺", False),
     ("jump", "jump", "跳跃与滞空", False),
     ("dodge", "dodge", "闪避翻滚", False),
-    ("fist_light_attack", "light", "轻拳，三段连段共用同一组帧（占位映射）", True),
+    ("fist_light_attack", "light", "轻拳第 1 段（直拳），独立动画与独立判定框", True),
+    ("fist_light_attack2", "light2", "轻拳第 2 段，独立动画与独立判定框", True),
+    ("fist_light_attack3", "light3", "轻拳第 3 段（踢腿，伸展更远），独立动画与独立判定框", True),
     ("fist_heavy_attack", "heavy", "重拳，两段连段共用同一组帧（占位映射）", True),
     ("light_hit", "light_hit", "轻受击。本轮未接进玩法，入仓备用", False),
     ("heavy_hit", "heavy_hit", "重受击。本轮未接进玩法，入仓备用", False),
@@ -100,6 +107,21 @@ ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
                                "本轮未接进玩法，入仓备用", False),
     ("death", "death", "死亡。本轮未接进玩法，入仓备用", False),
 )
+
+# 收件箱里**已知但本轮不接**的动作目录，各带原因。它们与 ACTIONS 一起构成「收件箱里允许出现的
+# 全部目录」：既不在 ACTIONS、也不在这里的目录，仍当作漏登记或打错名当场拦下 —— 那正是 build()
+# 里「多出目录」那条判据要防的。这份表是那条判据「多的要么加进表要么说明为什么不接」的第二个出口。
+#
+# 为什么不像受击/防御那样直接进 ACTIONS「入仓备用」：那几张已经能进仓（帧规格齐、只是玩法没接），
+# 下面这两个不同 —— `jump_attack` 是单帧占位（正式多帧美术还没画）、`knocked_away` 依赖的受击链
+# 状态机与帧号区间都还没设计。现在接进来会写出一份将来必然重来的登记，且会误导「有图就等于能用」。
+# 所以显式登记「知道它在、本轮不接、原因如下」，比塞进 ACTIONS 或静默忽略都诚实。
+DEFERRED: dict[str, str] = {
+    "jump_attack": "空中攻击帧（单帧占位）。空中攻击是单一招式、不分轻重不连段，玩法尚未接线；"
+                   "单帧只是占位，正式多帧美术与接仓时机随空中攻击实现，不在三段轻击这一轮。",
+    "knocked_away": "击倒→起身帧（5 帧）。受击链（受击→失衡→击倒→起身）玩法尚不存在，"
+                    "帧号区间与状态机都还没定，接进来只会是「有图没规则」的半成品。",
+}
 
 # 地面参考线的判据只有形状，颜色只用来报告与核对（闪白帧的线是白的，见模块注释第 2 条）。
 LINE_MIN_RUN = 4                 # 少于这么长的一段不当线：孤立几个同色像素太容易撞上肢体
@@ -129,10 +151,18 @@ def fail(text: str) -> None:
 
 
 def frame_index(path: Path) -> int:
-    """从文件名尾部取帧号。认不出就报错 —— 猜顺序等于猜动画。"""
-    m = re.fullmatch(r"[A-Za-z_]+?(\d+)", path.stem)
+    """从文件名**尾部那串数字**取帧号，认不出就报错 —— 猜顺序等于猜动画。
+
+    只认结尾的数字，动作名自己可以带数字：轻击第 2／3 段的目录是 `fist_light_attack2`／`_3`，
+    帧文件按 `<动作名>_<序号>.png`（如 `fist_light_attack2_1.png`）命名，动作名里的那个 `2`
+    不是帧号。原来用 `[A-Za-z_]+?(\\d+)` 全匹配，遇到动作名带数字或用下划线分隔的序号就认不出
+    （2026-09-11 接三段轻击时踩到）。取「结尾的数字」对两种命名都成立：`fist_light_attack1`
+    取 1、`fist_light_attack2_1` 也取 1。
+    """
+    m = re.search(r"(\d+)$", path.stem)
     if m is None:
-        raise SystemExit(f"[FAIL] 文件名认不出帧号：{path.name}（要求 <动作名><序号>.png）")
+        raise SystemExit(f"[FAIL] 文件名尾部认不出帧号：{path.name}"
+                         f"（要求 <动作名><序号>.png 或 <动作名>_<序号>.png）")
     return int(m.group(1))
 
 
@@ -345,11 +375,14 @@ def build(inbox: Path) -> tuple[dict[str, list[Frame]], dict[str, list[Frame]],
         if frames:
             actions[sheet] = frames
 
-    extra = sorted(p.name for p in inbox.iterdir()
-                   if p.is_dir() and p.name not in {a[0] for a in ACTIONS})
+    present = {p.name for p in inbox.iterdir() if p.is_dir()}
+    known = {a[0] for a in ACTIONS} | set(DEFERRED)
+    extra = sorted(present - known)
     if extra:
-        fail(f"收件箱多出没登记的动作目录 {extra} —— 接仓映射只认 ACTIONS 那张表，"
-             f"多的要么加进表要么说明为什么不接")
+        fail(f"收件箱多出没登记的动作目录 {extra} —— 接仓映射只认 ACTIONS 那张表（或 DEFERRED 里"
+             f"说明为什么不接），多的要么加进表要么加进 DEFERRED 说明原因")
+    for name in sorted(present & set(DEFERRED)):
+        say(f"  [本轮不接] {name}/：{DEFERRED[name]}")
 
     # 水平锚点直接取作者标的锚点像素那一列。measure_action 已经判死「一帧恰好一个、落在参考线
     # 那一行、各帧完全一致」，所以这里不需要再统计、也没有取整规则可讨论。

@@ -306,12 +306,16 @@ public partial class HitFeedbackDev : Node2D
         _capturing = true;
         var combo = _player.Combat.Combo;
         // 「近」取实体刚好不互插的最小间距（两个 18 宽实体 → 18），而不是写死一个数：
-        // 重叠条件是 距离 ≤ 轻击伸展 + 受击框半宽，而**伸展是从美术量出来的**（`ART-6`）。
-        // 原来写死 24 正好踩在那个上界（15+9），于是首次命中后的击退把木桩推开 2px 就掉出框外，
-        // 美术一改这条判据就断 —— 实测 2026-09-09 轻击伸展由 18 变 15 时它就是这样失败的。
-        // 下面那条前置判据把「18 真的在轻击框内」判死，将来伸展再缩小会当场说清原因。
+        // 重叠条件是 距离 ≤ 该段轻击伸展 + 受击框半宽，而**伸展是从美术量出来的**（`ART-6`）。
+        // 原来写死 24 正好踩在上界，美术一改这条判据就断 —— 实测 2026-09-09 轻击伸展由 18 变 15
+        // 时它就是这样失败的。判定框按段分开后（2026-09-11），本探针在 NearX 处会打到第 1 段
+        // （直拳，伸展 15）与第 2 段（light2，伸展 12），所以前置判据取**最窄那一段**：18 落在它
+        // 框内，最窄的段都够到，更宽的段自然够到。将来任一段伸展缩到 18 − 半框宽以下会当场说清原因。
+        var narrowestLightReach = Math.Min(Hitbox.SpecFor(ComboKind.Light, 0).Size.X,
+            Math.Min(Hitbox.SpecFor(ComboKind.Light, 1).Size.X,
+                     Hitbox.SpecFor(ComboKind.Light, 2).Size.X));
         Check("probe-near-in-reach",
-            NearX <= CombatFeel.LightHitboxWidthWorldPx + Hurtbox.WidthWorldPx / 2);
+            NearX <= narrowestLightReach + Hurtbox.WidthWorldPx / 2);
         _dummy.Position = _player.Position + new Vector2(NearX, 0);
         await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
         combo.Tick(true, false, true);
@@ -378,15 +382,15 @@ public partial class HitFeedbackDev : Node2D
     /// 判定框轻重分开之后的**行为级**证明（`ART-6`）：同一个距离，轻击打空、重击打到。
     /// </summary>
     /// <remarks>
-    /// 为什么不能只靠「常量不相等」：常量分开了但 <c>Hitbox</c> 忘了按轻重换尺寸，两个数照样
+    /// 为什么不能只靠「常量不相等」：常量分开了但 <c>Hitbox</c> 忘了按段换尺寸，两个数照样
     /// 各自正确、测试照样全绿，而画面上重击仍然打不到远处的东西。这里用真实物理世界查询走一遍：
-    /// 木桩摆在木桩受击框左沿 21px 处（轻 18 够不到、重 22 刚够到），两条判据一正一反。
+    /// 木桩摆在木桩受击框左沿 21px 处（轻击第 1 段 15 够不到、重击 21 刚够到），两条判据一正一反。
     /// </remarks>
     private async Task ReachSplitProbe()
     {
         var combo = _player.Combat.Combo;
         Check("reach-split-shape",
-            Hitbox.SizeFor(ComboKind.Heavy).X > Hitbox.SizeFor(ComboKind.Light).X);
+            Hitbox.SpecFor(ComboKind.Heavy, 0).Size.X > Hitbox.SpecFor(ComboKind.Light, 0).Size.X);
         while (combo.IsAttacking) combo.Tick(false, false, true);
         _dummy.Position = _player.Position + new Vector2(30, 0);
         await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
@@ -409,6 +413,74 @@ public partial class HitFeedbackDev : Node2D
         }
         Check("reach-split-drained", _dummy.FlashRemaining == 0
             && !_dummy.Statuses.Has(StatusKind.Hitstun));
+        await SegmentReachSplitProbe();
+    }
+
+    /// <summary>
+    /// 判定框**按段**分开的行为级证明（`ART-6`，2026-09-11）：同一横向距离，第 2 段直拳打空、
+    /// 第 3 段踢腿打到。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="ReachSplitProbe"/> 同一理由，只是守的维度从「轻/重」换成「段」：常量按段分开了，
+    /// 但 <c>Hitbox.Resolve</c> 若没按 <c>combo.Step</c> 取（比如塌成第 1 段、或段号映射写反），三个
+    /// 数照样各自正确、`check_hitbox_binding` 与 <c>CombatFeelTests</c> 照样全绿，而画面上那一脚踢到
+    /// 脚边、判定框却停在拳的位置 —— 且不报错。只靠「常量按段不相等」证不到这一步，必须走真实物理
+    /// 查询、把连段真的推到第 3 段。木桩放在第 2 段够不到、第 3 段够得到的那个距离，一空一中。
+    ///
+    /// 距离从常量导出，不写死（踩坑记录 48）：取「刚好越过第 2 段伸展」的 <c>splitX</c>，前提判据
+    /// 钉它同时落在第 2 段够不到、第 3 段够得到的区间里。每段要命中确认才续得下去（`GP-10` 方案 b），
+    /// 所以近处（<see cref="NearX"/>）先命中续段、再把木桩挪到 <c>splitX</c> 测这一段的伸展；换段前
+    /// 都先让判定框看见一个非 Active 帧清去重（<c>Hitbox.Resolve</c> 的调用契约，同 depth 探针）。
+    /// </remarks>
+    private async Task SegmentReachSplitProbe()
+    {
+        var combo = _player.Combat.Combo;
+        var half = Hurtbox.WidthWorldPx / 2f;
+        // splitX：刚好越过第 2 段（light2）的伸展。第 3 段（踢腿）更远，所以够得到。
+        var splitX = Hitbox.SpecFor(ComboKind.Light, 1).Size.X + half + 1f;
+        Check("probe-segment-reach-derived",
+            splitX > Hitbox.SpecFor(ComboKind.Light, 1).Size.X + half
+            && splitX <= Hitbox.SpecFor(ComboKind.Light, 2).Size.X + half);
+
+        while (combo.IsAttacking) combo.Tick(false, false, true);
+        _hitbox.Resolve(_player, _ => { });                 // 非 Active 帧，清去重
+        // 第 1 段：近处命中，只为把连段续到后面两段（本身不测伸展）。
+        _dummy.Position = _player.Position + new Vector2(NearX, 0);
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        combo.Tick(true, false, true);
+        for (var i = 0; i < CombatFeel.LightStartupFrames; i++) combo.Tick(false, false, true);
+        _hitbox.Resolve(_player, _ => { });                 // 第 1 段命中 → 续段确认
+        while (combo.IsAttacking && !combo.IsComboWindowOpen) combo.Tick(false, false, true);
+
+        // 第 2 段（light2，伸 12）：splitX 处应打空。
+        combo.Tick(true, false, true);
+        _hitbox.Resolve(_player, _ => { });                 // 第 2 段起手，非 Active，清去重
+        for (var i = 0; i < CombatFeel.LightStartupFrames; i++) combo.Tick(false, false, true);
+        _dummy.Position = _player.Position + new Vector2(splitX, 0);
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        Check("segment-light2-miss", combo.Step == 1 && combo.IsHitActive
+            && _hitbox.Resolve(_player, _ => { }) == 0);
+        _dummy.Position = _player.Position + new Vector2(NearX, 0);
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        _hitbox.Resolve(_player, _ => { });                 // 第 2 段命中（打空未登记成打过）→ 续段确认
+        while (combo.IsAttacking && !combo.IsComboWindowOpen) combo.Tick(false, false, true);
+
+        // 第 3 段（踢腿，伸 16）：同一个 splitX 处应打到。
+        combo.Tick(true, false, true);
+        _hitbox.Resolve(_player, _ => { });                 // 第 3 段起手，非 Active，清去重
+        for (var i = 0; i < CombatFeel.LightStartupFrames; i++) combo.Tick(false, false, true);
+        _dummy.Position = _player.Position + new Vector2(splitX, 0);
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        Check("segment-kick-hit", combo.Step == 2 && combo.IsHitActive
+            && _hitbox.Resolve(_player, _ => { }) == 1);
+
+        // 收尾：连段跑完、把木桩的闪白与硬直放干净，别让 DepthToleranceProbe 因本段留下的状态失败。
+        while (combo.IsAttacking) combo.Tick(false, false, true);
+        for (var i = 0; i < 64 && (_dummy.FlashRemaining > 0
+                 || _dummy.Statuses.Has(StatusKind.Hitstun)); i++)
+        {
+            _dummy.AdvanceCombat();
+        }
     }
 
     /// <summary>

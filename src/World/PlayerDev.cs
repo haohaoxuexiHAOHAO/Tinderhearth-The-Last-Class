@@ -372,7 +372,10 @@ public partial class PlayerDev : Node2D
         var frame = actor.Sprite.Frame;
         if (combo.IsAttacking)
         {
-            var name = combo.Kind == ComboKind.Heavy ? "heavy" : "light";
+            // 轻击三段各有独立表（`ART-6`）：第 1/2/3 段 → light/light2/light3。这里**独立按 Step
+            // 算**期望表名，不读 VisualAction —— 那样才是对「UpdateVisual 选对了段」的独立核对。
+            var name = combo.Kind == ComboKind.Heavy ? "heavy"
+                : combo.Step == 0 ? "light" : $"light{combo.Step + 1}";
             var count = actor.Sprite.SpriteFrames.GetFrameCount(name);
             var first = PlayerActor.AttackActiveFirstFrame;
             var last = first + PlayerActor.AttackActiveSpan - 1;

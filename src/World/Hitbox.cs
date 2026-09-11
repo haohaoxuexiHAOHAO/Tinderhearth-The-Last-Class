@@ -3,6 +3,9 @@ using Tinderhearth.Rules.Combat;
 
 namespace Tinderhearth.World;
 
+/// <summary>一段攻击判定框的几何：尺寸（世界像素）与中心离脚底的高度（世界像素，向上为正）。</summary>
+public readonly record struct HitboxSpec(Vector2 Size, float CenterY);
+
 /// <summary>
 /// Active 硬门后的实时形状查询，不依赖延迟的 Area 重叠缓存。
 /// </summary>
@@ -13,7 +16,7 @@ namespace Tinderhearth.World;
 public partial class Hitbox : Area2D
 {
     private readonly HashSet<ulong> _hit = new();
-    private readonly RectangleShape2D _shape = new() { Size = SizeFor(ComboKind.Light) };
+    private readonly RectangleShape2D _shape = new() { Size = SpecFor(ComboKind.Light, 0).Size };
     private bool _wasActive;
 
     /// <summary>
@@ -27,10 +30,25 @@ public partial class Hitbox : Area2D
     /// </remarks>
     public int RejectedAsAlreadyHit { get; private set; }
 
-    /// <summary>轻重各自的判定框尺寸，世界像素。取值依据见 <see cref="CombatFeel"/>。</summary>
-    public static Vector2 SizeFor(ComboKind kind) => kind == ComboKind.Heavy
-        ? new Vector2(CombatFeel.HeavyHitboxWidthWorldPx, CombatFeel.HeavyHitboxHeightWorldPx)
-        : new Vector2(CombatFeel.LightHitboxWidthWorldPx, CombatFeel.LightHitboxHeightWorldPx);
+    /// <summary>一段攻击判定框的尺寸与中心高度，世界像素。轻击按段（<c>combo.Step</c>）取，重击单招。取值依据见 <see cref="CombatFeel"/>。</summary>
+    /// <remarks>
+    /// **轻击三段各有一份**（`ART-6`，2026-09-11）：第 1/2/3 段分别对应 <c>light</c>／<c>light2</c>／
+    /// <c>light3</c> 精灵表，尺寸与中心都从各自 Active 帧的实测伸展导出（见 <see cref="CombatFeel"/>）。
+    /// 踢腿（第 3 段）伸得更远、更低，所以它的框既比拳宽、中心也更靠脚底 —— 三段共用一个框就会
+    /// 让画面上那一脚与判定停在两处。重击忽略 <paramref name="step"/>（单招，`HeavyChainLength=1`）。
+    /// </remarks>
+    public static HitboxSpec SpecFor(ComboKind kind, int step) => kind == ComboKind.Heavy
+        ? new HitboxSpec(new Vector2(CombatFeel.HeavyHitboxWidthWorldPx, CombatFeel.HeavyHitboxHeightWorldPx),
+                         CombatFeel.HeavyHitboxCenterYWorldPx)
+        : step switch
+        {
+            0 => new HitboxSpec(new Vector2(CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx),
+                                CombatFeel.Light1HitboxCenterYWorldPx),
+            1 => new HitboxSpec(new Vector2(CombatFeel.Light2HitboxWidthWorldPx, CombatFeel.Light2HitboxHeightWorldPx),
+                                CombatFeel.Light2HitboxCenterYWorldPx),
+            _ => new HitboxSpec(new Vector2(CombatFeel.Light3HitboxWidthWorldPx, CombatFeel.Light3HitboxHeightWorldPx),
+                                CombatFeel.Light3HitboxCenterYWorldPx),
+        };
     /// <summary>当前逻辑帧是否开放检测。</summary>
     public bool IsActive { get; private set; }
 
@@ -62,10 +80,11 @@ public partial class Hitbox : Area2D
         if (IsActive && !_wasActive) _hit.Clear();
         _wasActive = IsActive;
         if (!IsActive) return 0;
-        // 框按轻重换尺寸：贴住画面上那一拳真正伸到的距离，重击更远就真的更远（`ART-6` 实测）。
-        _shape.Size = SizeFor(player.Combat.Combo.Kind);
-        Position = new Vector2(player.Combat.Motor.Facing * _shape.Size.X / 2f,
-                               -CombatFeel.HitboxCenterYWorldPx);
+        // 框按段换尺寸与中心：贴住画面上这一段的拳脚真正伸到的距离与高度（`ART-6` 实测）。轻击第
+        // 1/2/3 段各一份，踢腿（第 3 段）更远更低就真的更远更低；重击单招走 Kind、忽略 Step。
+        var spec = SpecFor(player.Combat.Combo.Kind, player.Combat.Combo.Step);
+        _shape.Size = spec.Size;
+        Position = new Vector2(player.Combat.Motor.Facing * spec.Size.X / 2f, -spec.CenterY);
         var query = new PhysicsShapeQueryParameters2D
         {
             Shape = _shape, Transform = GlobalTransform, CollisionMask = Hurtbox.Layer,

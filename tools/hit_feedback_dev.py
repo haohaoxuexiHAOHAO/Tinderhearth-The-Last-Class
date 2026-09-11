@@ -14,8 +14,11 @@ EXPECTED |= {f'{action}-{check}' for action in ('jump', 'attack-light', 'attack-
              for check in ('ready', 'frozen-sequence', 'first-resume', 'no-replay', 'fresh-press')}
 EXPECTED |= {f'sprint-{check}' for check in ('ready', 'frozen-sequence', 'first-resume',
                                            'full-speed', 'release-first', 'normal-motion', 'direction-release')}
-# ART-6：判定框按轻重分开之后的行为级判据 —— 同一距离轻击打空、重击打到。
+# ART-6：判定框按轻/重分开之后的行为级判据 —— 同一距离轻击打空、重击打到。
+# 再加**按段**分开的行为级判据（2026-09-11）：连段推到第 3 段，同一距离第 2 段直拳打空、第 3 段
+# 踢腿打到；前提判据钉那个距离由常量导出、且真的落在「第 2 段够不到、第 3 段够得到」的区间里。
 REACH_SPLIT = {'reach-split-shape', 'light-reach-miss', 'heavy-reach-hit', 'reach-split-drained',
+               'segment-light2-miss', 'segment-kick-hit', 'probe-segment-reach-derived',
                # 前提判据：探针放木桩的那个距离**真的**落在轻击框内。伸展是从美术量出来的，
                # 美术把它缩到放置距离以内时，这条会当场说清原因，而不是让下游某条判据莫名失败。
                'probe-near-in-reach'}

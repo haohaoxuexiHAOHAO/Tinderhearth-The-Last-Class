@@ -187,31 +187,60 @@ public static class CombatFeel
 
     // ── 判定框（`ART-6` 实测导出，`GP-6` 待校准）──────────────────────────
     //
-    // 轻重**分开**取值，不再共用一个 28×28。共用的后果是画面与判定对不上：作者的轻拳在
-    // Active 帧伸到脚底锚点右侧 15px，重拳伸到 21px，而判定框都是 28 —— 重击明明打得更远
-    // 却和轻击一样的框，玩家读到的是「重击不实」，且这件事**不报错**。
+    // **按段分开取值**（作者 2026-09-11 定）。轻击三段各有独立动画（`light`／`light2`／`light3`），
+    // 三段打出去的拳脚伸到的距离与高度都不一样 —— 尤其第 3 段是踢腿，伸得比前两段的直拳都远、
+    // 且更低。若三段共用一个框（更早一版轻重共用 28×28 也是同一个病），画面上那一脚踢到脚边、
+    // 判定框却停在拳的位置，玩家读到的是「这一下明明够到了却没打中」，且这件事**不报错**。重击
+    // 仍是单招、自成一段。
     //
-    // 下面四个数不是估的，是量出来的：`tools/import_role_sheets.py` 逐帧算出「伸出静止起手姿
-    // 之外的那部分」（也就是打出去的那只拳）的包围盒，写进 `tools/asset-registry.json` 的
-    // `逐帧伸展`；`tools/check_assets.py` 的 `check_hitbox_binding` 再按 Active 窗口
-    // （<c>PlayerActor.AttackActiveFirstFrame</c> 与 <c>AttackActiveSpan</c>）取极值，与这里
-    // 逐条比对。所以三处任意一处变了都会被当场拦下：改素材、改 Active 窗口、改常量。
+    // 下面每个数不是估的，是量出来的：`tools/import_role_sheets.py` 逐帧算出「伸出静止起手姿之外
+    // 的那部分」（也就是打出去的那只拳脚）的包围盒，写进 `tools/asset-registry.json` 的 `逐帧伸展`；
+    // `tools/check_assets.py` 的 `check_hitbox_binding` 再按 Active 窗口
+    // （<c>PlayerActor.AttackActiveFirstFrame</c> 与 <c>AttackActiveSpan</c>）**逐段**取极值，与
+    // 这里逐条比对：宽＝Active 两帧的最大右伸，高＝Active 两帧行区间的并，中心＝脚底之上到那个
+    // 区间中点的高度。所以三处任意一处变了都会被当场拦下：改素材、改 Active 窗口、改常量。
     //
-    // **仍是未校准初值，归 `GP-6`。** 量出来的是「跟画面对齐」，不是「手感对」——
-    // 尤其轻击框只有 4px 高（作者画的直拳本身就这么高），实机若发现容易打空，
-    // 那是 `GP-6` 要调的宽容量，不是回头改这条对齐口径。
+    // **仍是未校准初值，归 `GP-6`。** 量出来的是「跟画面对齐」，不是「手感对」—— 尤其轻击框只有
+    // 三四像素高（作者画的直拳本身就这么高），实机若发现容易打空，那是 `GP-6` 要调的宽容量，不是
+    // 回头改这条对齐口径。中心离脚底的高度也按段（原先轻重共用一个 18）：直拳落在脚底上方约 17px，
+    // 踢腿更低（实测 15.5、取整 16）—— 再共用一个 18 会让踢腿的判定框浮在腿上方，那正是本轮要
+    // 消除的「画面与判定对不上」，`check_hitbox_binding` 逐段核中心就会当场拦下。
 
-    /// <summary>轻击判定框宽度（伸展距离），世界像素；由 Active 帧实测导出，未校准初值。</summary>
-    public const int LightHitboxWidthWorldPx = 15;
+    /// <summary>轻击第 1 段（直拳）判定框宽度（伸展距离），世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light1HitboxWidthWorldPx = 15;
 
-    /// <summary>轻击判定框高度，世界像素；由 Active 帧实测导出，未校准初值。</summary>
-    public const int LightHitboxHeightWorldPx = 4;
+    /// <summary>轻击第 1 段判定框高度，世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light1HitboxHeightWorldPx = 4;
 
-    /// <summary>重击判定框宽度（伸展距离），世界像素；由 Active 帧实测导出，未校准初值。</summary>
+    /// <summary>轻击第 1 段判定框中心离脚底的高度，世界像素；实测 17.5、取整 18，未校准初值。</summary>
+    public const int Light1HitboxCenterYWorldPx = 18;
+
+    /// <summary>轻击第 2 段判定框宽度（伸展距离），世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light2HitboxWidthWorldPx = 12;
+
+    /// <summary>轻击第 2 段判定框高度，世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light2HitboxHeightWorldPx = 3;
+
+    /// <summary>轻击第 2 段判定框中心离脚底的高度，世界像素；实测 17，未校准初值。</summary>
+    public const int Light2HitboxCenterYWorldPx = 17;
+
+    /// <summary>轻击第 3 段（踢腿，伸得更远更低）判定框宽度，世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light3HitboxWidthWorldPx = 16;
+
+    /// <summary>轻击第 3 段判定框高度，世界像素；Active 帧实测导出，未校准初值。</summary>
+    public const int Light3HitboxHeightWorldPx = 6;
+
+    /// <summary>轻击第 3 段判定框中心离脚底的高度，世界像素；实测 15.5、取整 16，未校准初值。</summary>
+    public const int Light3HitboxCenterYWorldPx = 16;
+
+    /// <summary>重击判定框宽度（伸展距离），世界像素；Active 帧实测导出，未校准初值。</summary>
     public const int HeavyHitboxWidthWorldPx = 21;
 
-    /// <summary>重击判定框高度，世界像素；由 Active 帧实测导出，未校准初值。</summary>
+    /// <summary>重击判定框高度，世界像素；Active 帧实测导出，未校准初值。</summary>
     public const int HeavyHitboxHeightWorldPx = 16;
+
+    /// <summary>重击判定框中心离脚底的高度，世界像素；实测 17.5、取整 18，未校准初值。</summary>
+    public const int HeavyHitboxCenterYWorldPx = 18;
 
     /// <summary>命中的纵深容差，世界像素；`GP-16` 未校准初值，归 `GP-6`。</summary>
     /// <remarks>
@@ -240,14 +269,9 @@ public static class CombatFeel
     /// </remarks>
     public const int HitDepthToleranceWorldPx = 8;
 
-    /// <summary>判定框中心离脚底的高度，世界像素；轻重实测都是 17.5，取整到 18。</summary>
-    /// <remarks>
-    /// 轻重共用一个值不是偷懒：实测两者的伸展区中心都落在脚底上方 17.5px（轻拳行 11–14、
-    /// 重拳行 5–20，帧内地面行 30），差异在半个像素内，分开写两个 18 只会多一处要维护。
-    /// 这个数原先是 <c>Hitbox.cs</c> 里的字面量 −18，那违反本文件「全部可调手感量的唯一
-    /// 落点」（`FR-18`），一并搬过来。
-    /// </remarks>
-    public const int HitboxCenterYWorldPx = 18;
+    // 判定框中心离脚底的高度**已按段拆进上面的 `Light1/2/3` 与 `Heavy` 常量**（原先是共用的一个
+    // `HitboxCenterYWorldPx`＝18）：直拳约 17.5、踢腿约 15.5，共用一个数会让踢腿的判定框浮在腿上方。
+    // 它原先是 `Hitbox.cs` 里的字面量 −18，搬来这里是为守住本文件「全部可调手感量的唯一落点」（`FR-18`）。
 
     // ── 派生 ────────────────────────────────────────────────────────────
 

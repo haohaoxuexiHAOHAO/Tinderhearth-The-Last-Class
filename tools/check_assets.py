@@ -14,9 +14,9 @@
    方式都是静默的 —— 画面只是「有点花」或「有点糊」，不报错。
 5. **单色帧**（整帧不透明像素只有一种颜色）。闪白由代码持有，动画只提供姿态；一帧只有一种
    颜色时它表达不出姿态，见 <see cref="check_solid_frames"/>（`ART-6`）。
-6. **引擎常量与登记表的绑定**（帧框 44×32／地面行 30、判定框轻 15 重 21）。两处相等此前纯靠
-   人记得同步，不同步全都不报错，见 <see cref="check_frame_geometry_binding"/> 与
-   <see cref="check_hitbox_binding"/>（`ART-6`）。
+6. **引擎常量与登记表的绑定**（帧框 44×32／地面行 30；判定框**按段**：轻击第 1/2/3 段与重击各一份
+   宽/高/中心，从各自 Active 帧的实测伸展导出）。两处相等此前纯靠人记得同步，不同步全都不报错，
+   见 <see cref="check_frame_geometry_binding"/> 与 <see cref="check_hitbox_binding"/>（`ART-6`）。
 
 **阈值类明确不做**：亮部比例、对比、色数、孤点。理由不是懒，而是[像素绘制原则 §11] 自己
 写的那条 —— 那类警告永远需要人回到目标背景与题材去解释一次，把它和能判死的检查混在一个
@@ -334,8 +334,12 @@ SELF_DRAWN_SECTION = "自绘素材"
 CS_CONST_RE = re.compile(r"const\s+int\s+(\w+)\s*=\s*(-?\d+)\s*;")
 # 引擎常量名 → 登记表字段名。三条都是「帧框」，缺一条就对不上帧。
 FRAME_GEOMETRY = (("FrameWidth", "帧宽"), ("FrameHeight", "帧高"), ("GroundRow", "帧内地面行"))
-# 精灵表路径 → CombatFeel 常量前缀。判定框按轻重分开之后各有一份取值依据。
-HITBOX_SHEETS = {"self-drawn/test-role/light.png": "Light",
+# 精灵表路径 → CombatFeel 常量前缀。判定框**按段**分开之后各有一份取值依据：轻击三段
+# （light/light2/light3 → Light1/Light2/Light3）加重击单招（Heavy）。每个前缀对应三个常量
+# {前缀}HitboxWidthWorldPx／{前缀}HitboxHeightWorldPx／{前缀}HitboxCenterYWorldPx。
+HITBOX_SHEETS = {"self-drawn/test-role/light.png": "Light1",
+                 "self-drawn/test-role/light2.png": "Light2",
+                 "self-drawn/test-role/light3.png": "Light3",
                  "self-drawn/test-role/heavy.png": "Heavy"}
 
 
@@ -411,7 +415,6 @@ def check_hitbox_binding(self_drawn: list[dict]) -> int:
         return 0
 
     checked = 0
-    center_const = feel.get("HitboxCenterYWorldPx")
     for path, prefix in sorted(HITBOX_SHEETS.items()):
         entry = entries[path]
         reach = {r["帧"]: r for r in entry.get("逐帧伸展", [])}
@@ -446,11 +449,13 @@ def check_hitbox_binding(self_drawn: list[dict]) -> int:
                      f"{expect} 不符 —— 画面上伸 {width}px 而判定框另一个数，"
                      f"表现是「打得不实」或「打空」，**不报错**")
         checked += 1
+        center_const = feel.get(f"{prefix}HitboxCenterYWorldPx")
         if center_const is None:
-            fail("CombatFeel.cs 里找不到 HitboxCenterYWorldPx")
+            fail(f"CombatFeel.cs 里找不到常量 {prefix}HitboxCenterYWorldPx —— 判定框中心按段绑，"
+                 f"这一段缺一份")
         elif abs(center_const - center) > 0.5:
-            fail(f"CombatFeel.cs 的 HitboxCenterYWorldPx={center_const} 与 {path} 的伸展区"
-                 f"中心 {center}（脚底之上）差超过半个像素 —— 判定框和画面上那只拳不在同一高度")
+            fail(f"CombatFeel.cs 的 {prefix}HitboxCenterYWorldPx={center_const} 与 {path} 的伸展区"
+                 f"中心 {center}（脚底之上）差超过半个像素 —— 判定框和画面上那只拳脚不在同一高度")
         say(f"  判定框绑定：{prefix} Active 帧 {active} 实测右伸 {width}px、"
             f"行 {top}–{bottom}（高 {height}）、中心距脚底 {center}px "
             f"≙ CombatFeel（3 条判据）")
@@ -540,7 +545,8 @@ def run_checks(list_only: bool = False) -> int:
         f"（半透明、放大件、尺寸与帧数、单色帧、导入参数）；"
         f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）；"
         f"另扫 {len(tf_files)} 份场景资源与 C# 的 texture_filter 覆盖（ENG-13）；"
-        f"另核常量与登记表绑定 {binding} 条判据（帧框 4 条 + 判定框轻重各 3 条，ART-6）")
+        f"另核常量与登记表绑定 {binding} 条判据"
+        f"（帧框 4 条 + 判定框按段 {len(HITBOX_SHEETS)} 段×3 条，ART-6）")
     if waived_solid:
         say(f"  单色帧按 ART-5 同一理由（下载件注定替换）放行 {len(waived_solid)} 帧："
             f"{'、'.join(waived_solid)} —— 自绘件与生成件一律不放行")

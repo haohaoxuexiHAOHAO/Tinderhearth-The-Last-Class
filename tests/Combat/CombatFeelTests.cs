@@ -79,27 +79,51 @@ public class CombatFeelTests
         Assert.InRange(distance, DepthBand.RowSpacingWorldPx, DepthBand.WidthWorldPx - 1);
     }
 
+    /// <summary>四段判定框的（宽, 高, 中心离脚底高）三元组：轻击三段 + 重击单招。</summary>
+    /// <remarks>各段的数由 <c>tools/import_role_sheets.py</c> 从精灵表量出、<c>tools/check_assets.py</c>
+    /// 逐段比对，这里只拿它们钉**段与段之间的关系**，不测某个数对不对。</remarks>
+    private static (int Width, int Height, int CenterY)[] HitboxSpecs() =>
+    [
+        (CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx, CombatFeel.Light1HitboxCenterYWorldPx),
+        (CombatFeel.Light2HitboxWidthWorldPx, CombatFeel.Light2HitboxHeightWorldPx, CombatFeel.Light2HitboxCenterYWorldPx),
+        (CombatFeel.Light3HitboxWidthWorldPx, CombatFeel.Light3HitboxHeightWorldPx, CombatFeel.Light3HitboxCenterYWorldPx),
+        (CombatFeel.HeavyHitboxWidthWorldPx, CombatFeel.HeavyHitboxHeightWorldPx, CombatFeel.HeavyHitboxCenterYWorldPx),
+    ];
+
     /// <summary>
-    /// 判定框轻重分开之后的关系守卫（`ART-6`）。**不测 18 与 22 这两个数对不对** —— 它们由
-    /// <c>tools/import_role_sheets.py</c> 从精灵表量出、由 <c>tools/check_assets.py</c> 逐条
-    /// 比对，那是守卫的活。这里只钉「重击必须比轻击伸得远」这条关系：它是本轮改动的**理由**，
-    /// 一旦谁把两个数改成相等或倒过来，画面与判定就又对不上了，而那不报错。
+    /// 判定框**按段**分开之后的关系守卫（`ART-6`，2026-09-11）。**不测各段那几个数对不对** ——
+    /// 它们由 <c>tools/import_role_sheets.py</c> 从精灵表量出、由 <c>tools/check_assets.py</c>
+    /// 逐段比对，那是守卫的活。这里只钉两条**关系**，它们是本轮改动的**理由**、改坏了不报错：
+    /// 重击必须比每一段轻击都伸得远；踢腿（第 3 段）必须比两段直拳都伸得远（作者「踢腿伸展比拳远」，
+    /// 正是三段分框的理由）。谁把它们改成相等或倒过来，画面与判定就又对不上了。
     /// </summary>
     [Fact]
-    public void 重击判定框比轻击伸得远_否则画面上打得更远却同框()
+    public void 重击比每段轻击都远且踢腿比直拳远_否则画面与判定对不上()
     {
-        Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > CombatFeel.LightHitboxWidthWorldPx);
+        int[] lightWidths =
+        [
+            CombatFeel.Light1HitboxWidthWorldPx,
+            CombatFeel.Light2HitboxWidthWorldPx,
+            CombatFeel.Light3HitboxWidthWorldPx,
+        ];
+        foreach (var width in lightWidths)
+        {
+            Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > width);
+        }
+        Assert.True(CombatFeel.Light3HitboxWidthWorldPx > CombatFeel.Light1HitboxWidthWorldPx);
+        Assert.True(CombatFeel.Light3HitboxWidthWorldPx > CombatFeel.Light2HitboxWidthWorldPx);
     }
 
     [Fact]
-    public void 判定框尺寸为正且中心落在角色本体高度内()
+    public void 每段判定框尺寸为正且中心落在角色本体高度内()
     {
-        Assert.True(CombatFeel.LightHitboxWidthWorldPx > 0);
-        Assert.True(CombatFeel.LightHitboxHeightWorldPx > 0);
-        Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > 0);
-        Assert.True(CombatFeel.HeavyHitboxHeightWorldPx > 0);
-        // 本体 ≤32px 高（正典「像素基准」），框心在脚底之上、不许高过头顶。
-        Assert.InRange(CombatFeel.HitboxCenterYWorldPx, 1, 32);
+        foreach (var (width, height, centerY) in HitboxSpecs())
+        {
+            Assert.True(width > 0);
+            Assert.True(height > 0);
+            // 本体 ≤32px 高（正典「像素基准」），框心在脚底之上、不许高过头顶。
+            Assert.InRange(centerY, 1, 32);
+        }
     }
 
     /// <summary>
@@ -115,12 +139,12 @@ public class CombatFeelTests
     }
 
     [Fact]
-    public void 判定框上下沿都落在角色本体高度内()
+    public void 每段判定框上下沿都落在角色本体高度内()
     {
-        foreach (var height in new[] { CombatFeel.LightHitboxHeightWorldPx, CombatFeel.HeavyHitboxHeightWorldPx })
+        foreach (var (_, height, centerY) in HitboxSpecs())
         {
-            Assert.True(CombatFeel.HitboxCenterYWorldPx - height / 2.0 >= 0);
-            Assert.True(CombatFeel.HitboxCenterYWorldPx + height / 2.0 <= 32);
+            Assert.True(centerY - height / 2.0 >= 0);
+            Assert.True(centerY + height / 2.0 <= 32);
         }
     }
 }
