@@ -40,6 +40,19 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     /// </remarks>
     internal const int BodyWidthFloorWorldPx = 18;
 
+    /// <summary>
+    /// 主角站立姿的本体高度，世界像素。实体碰撞框与受击框（`ENG-6` 修正）共用它，不各写一个数。
+    /// </summary>
+    /// <remarks>
+    /// 取登记表「角色本体」量出来的**站立姿 28px**（去掉地面参考线后量的）。原先受击框写死 32 —— 那
+    /// 是木桩柱子的高度，套到主角身上高出 4px，从头顶掠过的攻击照样命中且不报错。
+    ///
+    /// **各动作最高到 30px（`dodge`／`heavy`）刻意不取。** 作者 2026-09-12 定：宁可闪步那几帧头顶
+    /// 露出框外一点（那几帧本来就是主动闪避的姿态），也不要为了兜住最高姿态让站着的时候平白高 2px。
+    /// 按状态给不同高度是正确的长期形状，归 `GP-18`／`GP-6`。
+    /// </remarks>
+    internal const int BodyHeightWorldPx = 28;
+
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
     // 本轮接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`，2026-09-11），
@@ -178,7 +191,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
         // 底边落在节点原点 —— 原点即脚底，精灵偏移也对到同一处。
         AddChild(new CollisionShape2D
         {
-            Shape = new RectangleShape2D { Size = new Vector2(BodyWidthFloorWorldPx, 28) },
+            Shape = new RectangleShape2D { Size = new Vector2(BodyWidthFloorWorldPx, BodyHeightWorldPx) },
             Position = new Vector2(0, -14),
         });
         Sprite.SpriteFrames = new SpriteFrames();

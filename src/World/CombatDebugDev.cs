@@ -80,7 +80,7 @@ public partial class CombatDebugDev : Node2D
         _player.Controllers.Assign(_player.ActorId,
             new LocalPlayerController(_player.ActorId) { Router = _router });
         AddChild(_player);
-        var playerHurt = new Hurtbox { Actor = _player };
+        var playerHurt = new Hurtbox { Actor = _player, HeightWorldPx = PlayerActor.BodyHeightWorldPx };
         _player.AddChild(playerHurt);
         _hitbox = new Hitbox();
         _player.AddChild(_hitbox);
@@ -321,15 +321,28 @@ public partial class CombatDebugDev : Node2D
     }
 
     /// <summary>叠层的受击框 ≙ 角色实际几何：18×32、下沿贴脚底、以角色 X 居中。玩家与木桩各一个。</summary>
+    /// <summary>
+    /// 叠层的受击框 ≙ 角色实际几何：18 宽、下沿贴脚底、以角色 X 居中，**高度按角色各自的实测本体**。
+    /// </summary>
+    /// <remarks>
+    /// 高度**逐角色分别核**（2026-09-12）：主角取 <see cref="PlayerActor.BodyHeightWorldPx"/>（站立姿
+    /// 实测 28），木桩取它自己的柱子高（32）。原先两边共用一个写死的 32，主角因此高出 4px —— 从头顶
+    /// 掠过的攻击照样命中且不报错。判据跟着改成两个不同的期望值，**共用一个数就通不过**，于是「谁把
+    /// 它们又并成一个」会当场变红。
+    /// </remarks>
     private bool HurtboxVizOk()
     {
         var rects = _overlay.CurrentHurtboxesWorld().ToList();
-        return rects.Count == 2 && HurtOk(rects[0], _player) && HurtOk(rects[1], _dummy);
+        return rects.Count == 2
+            && HurtOk(rects[0], _player, PlayerActor.BodyHeightWorldPx)
+            && HurtOk(rects[1], _dummy, _dummy.Hurtbox.HeightWorldPx)
+            // 两个高度必须真的不同：相等就说明又回到「一个数套所有角色」，而画面上它们本来不一样高。
+            && PlayerActor.BodyHeightWorldPx != _dummy.Hurtbox.HeightWorldPx;
     }
 
-    private static bool HurtOk(Rect2 rect, Node2D actor) =>
+    private static bool HurtOk(Rect2 rect, Node2D actor, int expectHeight) =>
         Math.Abs(rect.Size.X - Hurtbox.WidthWorldPx) < 0.01f
-        && Math.Abs(rect.Size.Y - Hurtbox.HeightWorldPx) < 0.01f
+        && Math.Abs(rect.Size.Y - expectHeight) < 0.01f
         && Math.Abs(rect.Position.X + rect.Size.X / 2f - actor.GlobalPosition.X) < 0.01f
         && Math.Abs(rect.End.Y - actor.GlobalPosition.Y) < 0.01f;
 

@@ -22,6 +22,14 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     /// <summary>柱子宽度，世界像素。碰撞框、绘制与影子范围共用它，不各写一个 18。</summary>
     private const int PostWidthWorldPx = 18;
 
+    /// <summary>柱子高度，世界像素。碰撞框、绘制与受击框共用它，不各写一个 32（`ENG-6` 收口）。</summary>
+    /// <remarks>
+    /// 木桩的受击框**本来就该等于它自己的柱子**，而这个 32 原先在三处各写一遍（碰撞、绘制、受击框
+    /// 的默认值）。三份相等靠人记得，改柱子高度而漏改一处不报错 —— 表现是「看着这么高、打起来不是
+    /// 这么高」。收成一处之后，木桩看起来正好是因为它真的是 32，而不是碰巧。
+    /// </remarks>
+    private const int PostHeightWorldPx = 32;
+
     /// <summary>
     /// 纵深可视根（`ENG-15`）：木桩的两块几何挂在它下面，纵深偏移与影子都由它管。
     /// </summary>
@@ -58,10 +66,10 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
         CollisionMask = 1;
         AddChild(new CollisionShape2D
         {
-            Shape = new RectangleShape2D { Size = new Vector2(PostWidthWorldPx, 32) },
-            Position = new Vector2(0, -16),
+            Shape = new RectangleShape2D { Size = new Vector2(PostWidthWorldPx, PostHeightWorldPx) },
+            Position = new Vector2(0, -PostHeightWorldPx / 2),
         });
-        Hurtbox = new Hurtbox { Actor = this };
+        Hurtbox = new Hurtbox { Actor = this, HeightWorldPx = PostHeightWorldPx };
         AddChild(Hurtbox);
         Visual = new DepthVisual { Actor = this };
         AddChild(Visual);
@@ -70,7 +78,8 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
         const int half = PostWidthWorldPx / 2;
         _post = new Polygon2D
         {
-            Polygon = [new(-half, -32), new(half, -32), new(half, 0), new(-half, 0)],
+            Polygon = [new(-half, -PostHeightWorldPx), new(half, -PostHeightWorldPx),
+                       new(half, 0), new(-half, 0)],
             Color = PostColor,
         };
         _arm = new Polygon2D
