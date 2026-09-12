@@ -444,7 +444,7 @@ public class MotorStateTests
             Assert.Equal(depthAt, m.DepthWorldPx, 8);
         }
 
-        // 横向翻滚位移照旧给满，锁的只有纵深这一轴。
+        // 横向闪步位移照旧给满，锁的只有纵深这一轴。
         Assert.Equal((double)CombatFeel.DodgeSpeedPixelsPerSecond, m.HorizontalVelocity, 8);
     }
 

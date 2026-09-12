@@ -91,7 +91,9 @@ ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("walk", "walk", "行走（低速位移）", False),
     ("run", "run", "奔跑与冲刺", False),
     ("jump", "jump", "跳跃与滞空", False),
-    ("dodge", "dodge", "闪避翻滚", False),
+    # 是**闪步**（quickstep）不是翻滚：作者 2026-09-12 逐帧确认 —— 身体不绕轴翻转、头始终朝上，
+    # 短距突进后起身。原描述「闪避翻滚」说的是一个不存在的动作。
+    ("dodge", "dodge", "闪避（闪步，非翻滚）", False),
     ("fist_light_attack", "light", "轻拳第 1 段（直拳），独立动画与独立判定框", True),
     ("fist_light_attack2", "light2", "轻拳第 2 段，独立动画与独立判定框", True),
     ("fist_light_attack3", "light3", "轻拳第 3 段（踢腿，伸展更远），独立动画与独立判定框", True),

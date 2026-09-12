@@ -74,13 +74,13 @@ public static class CombatFeel
     /// </remarks>
     public const int DodgeDepthSpeedPixelsPerSecond = 90;
 
-    /// <summary>闪避总时长，帧。翻滚从起到收的全长。</summary>
+    /// <summary>闪避总时长，帧。闪步从起到收的全长。</summary>
     public const int DodgeDurationFrames = 18;
 
     /// <summary>无敌窗起始帧（含），从闪避第 0 帧算。起手有几帧是「甩出去」还没无敌。</summary>
     public const int DodgeInvulnStartFrame = 2;
 
-    /// <summary>无敌窗结束帧（不含）。收尾几帧无敌已过，此时被打到仍会中招 —— 翻滚尾端有风险是有意的。</summary>
+    /// <summary>无敌窗结束帧（不含）。收尾几帧无敌已过，此时被打到仍会中招 —— 闪步尾端有风险是有意的。</summary>
     public const int DodgeInvulnEndFrame = 13;
 
     /// <summary>冲刺速度，世界像素／秒。比闪避快、无无敌帧，是位移不是防御。</summary>
