@@ -89,7 +89,11 @@ REGISTRY_SECTION = "自绘素材"
 ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("idle", "idle", "待机", False),
     ("walk", "walk", "行走（低速位移）", False),
-    ("run", "run", "奔跑与冲刺", False),
+    # 收件箱目录叫 `run`（作者的命名），**进仓表名改叫 `dash`**（2026-09-12）：本作地面移动只有
+    # 两档 —— 行走（`MoveSpeedPixelsPerSecond`）与冲刺（`DashSpeedPixelsPerSecond`），**没有独立的
+    # 奔跑态**。这张表实际只在 `MotorPhase.Dash` 时播（见 `PlayerActor.UpdateVisual`），所以「奔跑」
+    # 与「冲刺」指的是同一件事，原描述「奔跑与冲刺」读起来像两个状态共用一组帧，那是不存在的第三态。
+    ("run", "dash", "冲刺（本作地面只有行走与冲刺两档，没有独立奔跑态）", False),
     ("jump", "jump", "跳跃与滞空", False),
     # 是**闪步**（quickstep）不是翻滚：作者 2026-09-12 逐帧确认 —— 身体不绕轴翻转、头始终朝上，
     # 短距突进后起身。原描述「闪避翻滚」说的是一个不存在的动作。
@@ -97,7 +101,9 @@ ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("fist_light_attack", "light", "轻拳第 1 段（直拳），独立动画与独立判定框", True),
     ("fist_light_attack2", "light2", "轻拳第 2 段，独立动画与独立判定框", True),
     ("fist_light_attack3", "light3", "轻拳第 3 段（踢腿，伸展更远），独立动画与独立判定框", True),
-    ("fist_heavy_attack", "heavy", "重拳，两段连段共用同一组帧（占位映射）", True),
+    # 重击是**单招**（`HeavyChainLength=1`，2026-09-11 定），不再是两段连段 —— 原描述「两段连段
+    # 共用同一组帧」是改单招之前的陈旧文案。
+    ("fist_heavy_attack", "heavy", "重拳（单招，不连段），独立判定框", True),
     ("light_hit", "light_hit", "轻受击。本轮未接进玩法，入仓备用", False),
     ("heavy_hit", "heavy_hit", "重受击。本轮未接进玩法，入仓备用", False),
     ("general_defense", "general_defense", "普通防御。本轮未接进玩法，入仓备用", False),

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://pg41mjxyc51s"
-path="res://.godot/imported/run.png-3f8fc8181cbcaf16ccdff486731791fb.ctex"
+uid="uid://bc5bn1g606nmj"
+path="res://.godot/imported/dash.png-fb757b409f3e89a2a05cbbc92683532d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/self-drawn/test-role/run.png"
-dest_files=["res://.godot/imported/run.png-3f8fc8181cbcaf16ccdff486731791fb.ctex"]
+source_file="res://assets/self-drawn/test-role/dash.png"
+dest_files=["res://.godot/imported/dash.png-fb757b409f3e89a2a05cbbc92683532d.ctex"]
 
 [params]
 

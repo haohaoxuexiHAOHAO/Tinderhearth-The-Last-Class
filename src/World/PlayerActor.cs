@@ -61,7 +61,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     // —— 受击、防御、失衡与死亡的玩法都还没有，载进来只会出现「有图没规则」的半成品状态。
     // `imbalance` 另有一层不确定：失衡与失衡恢复合在同一张 5 帧表里，帧号区间**作者尚未给出**，
     // 就算现在想接也没有可依据的切分点。
-    private static readonly string[] Sheets = ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy"];
+    private static readonly string[] Sheets = ["idle", "walk", "dash", "jump", "dodge", "light", "light2", "light3", "heavy"];
 
     // 攻击相位 → 精灵帧的映射。轻击三段现在**各有独立表**（`ART-6`，2026-09-11 接仓），重击单招
     // 一张表；每段的帧数不同（light 6、light2 5、light3 6、heavy 7），映射按当前表的 `count` 算，
@@ -273,7 +273,9 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
             ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
             : motor.Phase == MotorPhase.Dodge ? "dodge"
             : motor.Phase == MotorPhase.Airborne ? "jump"
-            : motor.Phase == MotorPhase.Dash ? "run"
+            // 表名 2026-09-12 由 `run` 改成 `dash`：地面只有行走与冲刺两档，没有独立的奔跑态，
+            // 这张表本来就只在 Dash 相位播 —— 叫 run 会让人以为还存在一个跑动状态。
+            : motor.Phase == MotorPhase.Dash ? "dash"
             // **两个轴都算「在走」**（`ENG-15` 修）。原来只看横向速度，于是纯纵深移动时动作是
             // idle —— 角色站着不动地在纵深上滑，而这件事不报错：位置在变、判据全绿、只有眼睛
             // 看得出来。走纵深复用侧面行走姿态，不需要新素材：belt-scroll 那一类作品都是这么
