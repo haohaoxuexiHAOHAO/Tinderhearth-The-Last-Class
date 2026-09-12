@@ -55,7 +55,7 @@ public partial class HitFeedbackDev : Node2D
     private int _tickSlips;
     private int _focusLost;
     private static readonly string[] PulseActions = [InputActions.Jump, InputActions.AttackLight, InputActions.AttackHeavy];
-    private string InputCaseName => _inputCase < 3 ? new[] { "jump", "attack-light", "attack-heavy" }[_inputCase] : "sprint";
+    private string InputCaseName => _inputCase < 3 ? new[] { "jump", "attack-light", "attack-heavy" }[_inputCase] : "dash";
 
     public override void _Ready()
     {
@@ -66,7 +66,10 @@ public partial class HitFeedbackDev : Node2D
         _player = new PlayerActor { ManualPhysics = true, Position = new Vector2(160, 140) };
         _player.Controllers.Assign(_player.ActorId, new LocalPlayerController(_player.ActorId) { Router = router });
         AddChild(_player);
-        _player.AddChild(new Hurtbox { Actor = _player });
+        _player.AddChild(new Hurtbox
+        {
+            Actor = _player, HeightWorldPx = PlayerActor.BodyHeightWorldPx,
+        });
         _hitbox = new Hitbox();
         _player.AddChild(_hitbox);
         _dummy = new TrainingDummy { Position = new Vector2(184, 140) };
@@ -118,7 +121,7 @@ public partial class HitFeedbackDev : Node2D
                 if (!_heavy && _frozen == 1)
                 {
                     Press(InputActions.Jump, true);
-                    Press(InputActions.Sprint, true);
+                    Press(InputActions.Dash, true);
                     if (!_flashSaved) SaveFlash();
                 }
                 if (!_heavy && _frozen == 2) Press(InputActions.Jump, false);
@@ -136,9 +139,9 @@ public partial class HitFeedbackDev : Node2D
             Check($"{Kind}-freeze", _freezeValid && _frozen == (_heavy ? 5 : 3));
             if (!_heavy)
             {
-                _inputHeld = _router.IsPressed(InputActions.Sprint);
+                _inputHeld = _router.IsPressed(InputActions.Dash);
                 Check("held-input-survives", _inputHeld);
-                Press(InputActions.Sprint, false);
+                Press(InputActions.Dash, false);
             }
             _frozen = 0;
         }
@@ -209,13 +212,13 @@ public partial class HitFeedbackDev : Node2D
             if (_inputFrozen == 1)
             {
                 Press(_inputCase < 3 ? PulseActions[_inputCase] : InputActions.MoveRight, true);
-                if (_inputCase == 3) Press(InputActions.Sprint, true);
+                if (_inputCase == 3) Press(InputActions.Dash, true);
             }
             if (_inputFrozen == 2)
             {
                 _sequenceValid &= _router.IsPressed(_inputCase < 3 ? PulseActions[_inputCase] : InputActions.MoveRight);
                 if (_inputCase < 3) Press(PulseActions[_inputCase], false);
-                else _sequenceValid &= _router.IsPressed(InputActions.Sprint);
+                else _sequenceValid &= _router.IsPressed(InputActions.Dash);
             }
             if (_inputFrozen >= 3 && _inputCase < 3)
                 _sequenceValid &= !_router.IsPressed(PulseActions[_inputCase]);
@@ -265,21 +268,21 @@ public partial class HitFeedbackDev : Node2D
                 && motor.DepthWorldPx == _sequenceDepth && motor.DepthVelocity == 0
                 && motor.Phase == (_inputTick <= 12 ? MotorPhase.Dash : MotorPhase.Grounded);
             _sequenceValid &= valid;
-            if (_inputTick == 1) Check("sprint-first-resume", valid);
+            if (_inputTick == 1) Check("dash-first-resume", valid);
             if (_inputTick == 12)
             {
-                Check("sprint-full-speed", _sequenceValid && _expectedSpeed == CombatFeel.DashSpeedPixelsPerSecond);
-                Press(InputActions.Sprint, false);
+                Check("dash-full-speed", _sequenceValid && _expectedSpeed == CombatFeel.DashSpeedPixelsPerSecond);
+                Press(InputActions.Dash, false);
             }
-            if (_inputTick == 13) Check("sprint-release-first", valid);
+            if (_inputTick == 13) Check("dash-release-first", valid);
             if (_inputTick == 17)
             {
-                Check("sprint-normal-motion", _sequenceValid && _expectedSpeed == CombatFeel.MoveSpeedPixelsPerSecond);
+                Check("dash-normal-motion", _sequenceValid && _expectedSpeed == CombatFeel.MoveSpeedPixelsPerSecond);
                 Press(InputActions.MoveRight, false);
             }
             if (_inputTick == 22)
             {
-                Check("sprint-direction-release", _sequenceValid && ReadyForInput);
+                Check("dash-direction-release", _sequenceValid && ReadyForInput);
                 BoundaryProbe();
             }
         }

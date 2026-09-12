@@ -26,6 +26,6 @@ public sealed class LocalPlayerController(string actorId) : ICombatController
         var move = router.MoveDirection();
         return new(Math.Sign(move.X), Math.Sign(move.Y), router.IsJustPressed(InputActions.Jump),
             router.IsJustPressed(InputActions.AttackLight), router.IsJustPressed(InputActions.AttackHeavy),
-            router.IsJustPressed(InputActions.Dodge), router.IsPressed(InputActions.Sprint));
+            router.IsJustPressed(InputActions.Dodge), router.IsPressed(InputActions.Dash));
     }
 }

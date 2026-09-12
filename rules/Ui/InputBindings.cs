@@ -132,7 +132,7 @@ public static class InputBindings
             // 冲刺：键鼠取 Shift（PC 上「按住加速」的通用位），手柄取左摇杆按压（业界的
             // 疾跑位，且它在本方案里空着）。两个设备都有绑定，不留「一边绑不到」的例外。
             // Shift 的自报名刻意没有 - Physical 后缀，修饰键在引擎里就是这么打的。
-            [InputActions.Sprint] =
+            [InputActions.Dash] =
             [
                 new(InputSymbol.KeyShift, "Shift"),
                 new(InputSymbol.PadStickLeftClick, "Joypad Button 7 (Left Stick, Sony L3, Xbox L/LS)"),

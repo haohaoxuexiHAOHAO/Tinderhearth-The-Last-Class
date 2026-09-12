@@ -109,8 +109,8 @@ public partial class PlayerDev : Node2D
         switch (_frame)
         {
             case 10: Check("floor", _player.IsOnFloor()); _startX = _player.Position.X; Press(InputActions.MoveRight, true); break;
-            case 20: Check("move", _player.Position.X > _startX + 10); Press(InputActions.Sprint, true); break;
-            case 25: Check("dash", _player.Combat.Motor.Phase == MotorPhase.Dash); Press(InputActions.Sprint, false); Press(InputActions.MoveRight, false); Press(InputActions.Jump, true); break;
+            case 20: Check("move", _player.Position.X > _startX + 10); Press(InputActions.Dash, true); break;
+            case 25: Check("dash", _player.Combat.Motor.Phase == MotorPhase.Dash); Press(InputActions.Dash, false); Press(InputActions.MoveRight, false); Press(InputActions.Jump, true); break;
             case 26: Check("jump", _player.Velocity.Y < 0); Press(InputActions.Jump, false); Press(InputActions.AttackLight, true); break;
             case 27: Check("air-attack", _player.Combat.Combo.IsAttacking); Press(InputActions.AttackLight, false); break;
             case 65: Check("land", _player.IsOnFloor() && !_player.Combat.Combo.IsAttacking); Press(InputActions.Dodge, true); break;

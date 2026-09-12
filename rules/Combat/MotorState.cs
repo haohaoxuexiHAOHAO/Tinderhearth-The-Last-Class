@@ -9,7 +9,12 @@ public enum MotorPhase
     /// <summary>离地（上升或下落）。</summary>
     Airborne,
 
-    /// <summary>闪避翻滚中，其间有无敌窗。</summary>
+    /// <summary>闪避（闪步）中，其间有无敌窗。</summary>
+    /// <remarks>
+    /// **是闪步（quickstep）不是翻滚**（作者 2026-09-12 逐帧确认美术）：身体不绕轴翻转、头始终朝上，
+    /// 短距突进后起身。此前多处注释与素材描述写「翻滚」，那描述的是一个不存在的动作 —— 标识符
+    /// <c>Dodge</c> 本身没错（它表达的是「带无敌窗的规避手段」这个玩法角色），错的只是文案。
+    /// </remarks>
     Dodge,
 
     /// <summary>冲刺中，无无敌帧。</summary>
@@ -35,10 +40,10 @@ public enum MotorPhase
 ///
 /// **离地期间纵深锁定**（`GP-15`）：一旦不在地面，纵深输入不生效、纵深速度为零，落地即自动解锁
 /// （<see cref="IsDepthAirLocked"/>）。空中还能挪纵深的话，「跳起来躲横扫」与「往里挪半步躲横扫」会
-/// 变成同一次输入里能一起做完的事，那两种对策就没有区别了。翻滚途中掉出平台也照锁。
+/// 变成同一次输入里能一起做完的事，那两种对策就没有区别了。闪步途中掉出平台也照锁。
 ///
 /// **闪避方向取按下瞬间的输入**（`GP-9`，`GP-15` 起是二维）：起手时把横向与纵深两个方向一起锁定，
-/// 翻滚途中改方向不影响。只按纵深不按横向时是一次纯纵深翻滚（横向速度为零、朝向不变）；两个方向
+/// 闪步途中改方向不影响。只按纵深不按横向时是一次纯纵深闪步（横向速度为零、朝向不变）；两个方向
 /// 都没按时才退回面朝方向。
 ///
 /// **出招时地面定身**：`attacking` 为真且在地面时**横向与纵深一起**归零，且不接受跳跃/闪避/冲刺
@@ -50,7 +55,7 @@ public enum MotorPhase
 /// <see cref="MotorPhase.Dash"/>。多一个「纵深冲刺速度」就多一个没有设计需求的未校准量。
 ///
 /// **闪避是排他且不可打断的**：一旦起手就走完 <see cref="CombatFeel.DodgeDurationFrames"/> 帧，期间
-/// 忽略其它输入 —— 翻滚中途可被打断的话无敌窗就不可信了。
+/// 忽略其它输入 —— 闪步中途可被打断的话无敌窗就不可信了。
 /// </remarks>
 public sealed class MotorState
 {
@@ -138,7 +143,7 @@ public sealed class MotorState
         // 起手闪避：地面、非出招。两个轴的方向此刻一起锁定（`GP-9`）。
         if (input.DodgePressed && isOnFloor && !attacking)
         {
-            // 只按纵深时横向为 0（纯纵深翻滚）；两个方向都没按才退回面朝方向。
+            // 只按纵深时横向为 0（纯纵深闪步）；两个方向都没按才退回面朝方向。
             _dodgeDirection = input.HasDirection ? dir : Facing;
             _dodgeDepthDirection = input.DepthDirection;
             _dodgeFrame = 0;
@@ -166,7 +171,7 @@ public sealed class MotorState
         }
 
         // 冲刺：地面、非出招、按住冲刺且有**横向**方向。纵深不冲刺，见类注释。
-        var dashing = grounded && !attacking && input.SprintHeld && dir != 0;
+        var dashing = grounded && !attacking && input.DashHeld && dir != 0;
 
         if (attacking && grounded)
         {
@@ -212,7 +217,7 @@ public sealed class MotorState
         HorizontalVelocity = _dodgeDirection * (double)CombatFeel.DodgeSpeedPixelsPerSecond;
         _verticalVelocity = isOnFloor ? 0.0
             : _verticalVelocity + CombatFeel.GravityPixelsPerSecondSquared * Dt;
-        // 翻滚不是纵深的豁免：离地（含途中掉出平台）照锁。
+        // 闪步不是纵深的豁免：离地（含途中掉出平台）照锁。
         IsDepthAirLocked = !isOnFloor;
         AdvanceDepth(isOnFloor
             ? _dodgeDepthDirection * (double)CombatFeel.DodgeDepthSpeedPixelsPerSecond

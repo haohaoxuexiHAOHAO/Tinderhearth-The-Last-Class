@@ -36,7 +36,12 @@ public static class InputActions
     /// 「按住持续高速移动」还是「单次突进」尚未裁定（归战斗系统）。**两种读法的绑定完全相同**，
     /// 所以本条不受阻塞。
     /// </remarks>
-    public const string Sprint = "sprint";
+    /// <remarks>
+    /// **2026-09-12 由 `Sprint` 改名 `Dash`**：同一件事此前跨层两个名字 —— 输入侧叫 sprint，运动侧
+    /// 叫 <c>MotorPhase.Dash</c>／<c>CombatFeel.DashSpeedPixelsPerSecond</c>，读代码要在脑子里换算。
+    /// 统一取 `Dash`，因为正典描述的是「无无敌帧的高速位移」＝突进（dash），不是长时间的疾跑。
+    /// </remarks>
+    public const string Dash = "dash";
 
     /// <summary>正典点名的六个战斗动作（冲刺另计，见上）。</summary>
     public const string AttackLight = "attack_light";
@@ -76,7 +81,7 @@ public static class InputActions
     public static readonly IReadOnlyList<string> All =
     [
         MoveLeft, MoveRight, MoveUp, MoveDown,
-        Sprint,
+        Dash,
         AttackLight, AttackHeavy, Guard, Dodge, Jump, Interact,
         SkillGroupLeft, SkillGroupRight,
         .. Skills,
