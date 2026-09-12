@@ -27,6 +27,9 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
     /// </summary>
     public DepthVisual Visual { get; private set; } = null!;
 
+    /// <summary>受击区域，供调试叠层（`ENG-6`）取几何画框。</summary>
+    public Hurtbox Hurtbox { get; private set; } = null!;
+
     /// <inheritdoc />
     /// <remarks>
     /// 木桩不建 <see cref="MotorState"/>（`SPEC` §3.2：不建无用的 Motor），所以纵深就存在这里，
@@ -58,7 +61,8 @@ public partial class TrainingDummy : CharacterBody2D, IDepthActor
             Shape = new RectangleShape2D { Size = new Vector2(PostWidthWorldPx, 32) },
             Position = new Vector2(0, -16),
         });
-        AddChild(new Hurtbox { Actor = this });
+        Hurtbox = new Hurtbox { Actor = this };
+        AddChild(Hurtbox);
         Visual = new DepthVisual { Actor = this };
         AddChild(Visual);
         // 身体从 `_Draw` 改成挂在可视根下的几何（`ENG-15`）：纵深偏移因此只有一处来源，

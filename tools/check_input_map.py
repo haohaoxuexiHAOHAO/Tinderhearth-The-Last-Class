@@ -68,7 +68,7 @@ POLLING_RE = re.compile(r"Input\.IsAction(?:Pressed|JustPressed|JustReleased)\b"
 #
 # 用**登记制**而不是只列黑名单：每个调试键都要写明用途，代码里多一个或少一个都判失败。
 # 光有黑名单挡不住下一个人挑另一个被编辑器吃掉的键 —— 登记制会逼着他在这里写一行。
-HARNESS_KEY_FILES = ("src/World/CameraHarness.cs",)
+HARNESS_KEY_FILES = ("src/World/CameraHarness.cs", "src/World/CombatDebugDev.cs")
 HARNESS_KEY_RE = re.compile(r"^\s*case Key\.(\w+):", re.MULTILINE)
 
 # 键 → 用途。改脚手架键位就改这里，两边对不上就判失败。
@@ -89,6 +89,9 @@ HARNESS_KEYS = {
     "F9": "放一段演出",
     "F10": "打印当前数值",
     "F11": "显示／隐藏调试文字",
+    "V": "调试叠层开关（ENG-6：判定框／受击框可视化）",
+    "P": "帧步进暂停／继续（ENG-6）",
+    "Period": "帧步进单帧前进（ENG-6，`.` 键）",
 }
 
 # 编辑器会抢走的键：押在这上面的调试键在编辑器里起工程时按不出效果，且失败方式**看起来像崩溃**。

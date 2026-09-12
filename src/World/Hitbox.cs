@@ -52,6 +52,13 @@ public partial class Hitbox : Area2D
     /// <summary>当前逻辑帧是否开放检测。</summary>
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// 当前 Active 帧判定框的本地矩形（中心在本节点原点，随 <see cref="Resolve"/> 每帧重定位）；
+    /// 非 Active 帧为 <c>null</c>。给 <c>CombatDebugOverlay</c>（`ENG-6`）画框用 —— 读的是与命中
+    /// 查询**同一份** <c>_shape</c>，所以叠层画出来的框就是命中真正用的那个，不会各算一份而漂移。
+    /// </summary>
+    public Rect2? ActiveBoxLocal => IsActive ? new Rect2(-_shape.Size / 2f, _shape.Size) : null;
+
     public override void _Ready()
     {
         CollisionLayer = 0;
