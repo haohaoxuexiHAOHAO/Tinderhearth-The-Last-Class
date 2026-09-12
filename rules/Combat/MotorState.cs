@@ -18,7 +18,7 @@ public enum MotorPhase
     Dodge,
 
     /// <summary>冲刺中，无无敌帧。</summary>
-    Dash,
+    Run,
 }
 
 /// <summary>
@@ -52,7 +52,7 @@ public enum MotorPhase
 ///
 /// **冲刺只加横向。** 它是沿横向轴的突进（正典：无无敌帧的高速位移），按住冲刺键只改
 /// <see cref="HorizontalVelocity"/> 的目标值；纵深仍走行走速度，也不进
-/// <see cref="MotorPhase.Dash"/>。多一个「纵深冲刺速度」就多一个没有设计需求的未校准量。
+/// <see cref="MotorPhase.Run"/>。多一个「纵深冲刺速度」就多一个没有设计需求的未校准量。
 ///
 /// **闪避是排他且不可打断的**：一旦起手就走完 <see cref="CombatFeel.DodgeDurationFrames"/> 帧，期间
 /// 忽略其它输入 —— 闪步中途可被打断的话无敌窗就不可信了。
@@ -171,7 +171,7 @@ public sealed class MotorState
         }
 
         // 冲刺：地面、非出招、按住冲刺且有**横向**方向。纵深不冲刺，见类注释。
-        var dashing = grounded && !attacking && input.DashHeld && dir != 0;
+        var dashing = grounded && !attacking && input.RunHeld && dir != 0;
 
         if (attacking && grounded)
         {
@@ -179,7 +179,7 @@ public sealed class MotorState
         }
         else
         {
-            var target = dir * (double)(dashing ? CombatFeel.DashSpeedPixelsPerSecond : CombatFeel.MoveSpeedPixelsPerSecond);
+            var target = dir * (double)(dashing ? CombatFeel.RunSpeedPixelsPerSecond : CombatFeel.MoveSpeedPixelsPerSecond);
             var braking = HorizontalVelocity * target < 0 || Math.Abs(target) < Math.Abs(HorizontalVelocity);
             var step = (braking ? CombatFeel.HorizontalDecelerationPixelsPerSecondSquared
                 : CombatFeel.HorizontalAccelerationPixelsPerSecondSquared) * Dt;
@@ -194,7 +194,7 @@ public sealed class MotorState
 
         Phase = !grounded
             ? MotorPhase.Airborne
-            : dashing ? MotorPhase.Dash : MotorPhase.Grounded;
+            : dashing ? MotorPhase.Run : MotorPhase.Grounded;
     }
 
     /// <summary>碰撞后校正竖速，避免撞顶后下一帧重新施加向上速度。</summary>

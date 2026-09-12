@@ -26,7 +26,7 @@ public class InputMappingTests
         foreach (var action in new[]
         {
             InputActions.AttackLight, InputActions.AttackHeavy, InputActions.Guard,
-            InputActions.Dodge, InputActions.Dash, InputActions.Jump, InputActions.Interact,
+            InputActions.Dodge, InputActions.Run, InputActions.Jump, InputActions.Interact,
         })
         {
             Assert.Contains(action, InputActions.All);
@@ -531,7 +531,7 @@ public class InputMappingTests
     {
         // 攻击、防御、冲刺不与任何 UI 内置键共享手柄物理位，不应被遮。
         foreach (var action in new[] { InputActions.AttackLight, InputActions.AttackHeavy,
-                                       InputActions.Guard, InputActions.Dash })
+                                       InputActions.Guard, InputActions.Run })
         {
             Assert.False(PanelInputBlock.ShouldBlock(action, panelOpen: true, InputDeviceKind.Gamepad),
                 $"{action} 不该被面板遮挡");

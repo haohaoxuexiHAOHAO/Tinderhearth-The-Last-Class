@@ -89,11 +89,11 @@ REGISTRY_SECTION = "自绘素材"
 ACTIONS: tuple[tuple[str, str, str, bool], ...] = (
     ("idle", "idle", "待机", False),
     ("walk", "walk", "行走（低速位移）", False),
-    # 收件箱目录叫 `run`（作者的命名），**进仓表名改叫 `dash`**（2026-09-12）：本作地面移动只有
-    # 两档 —— 行走（`MoveSpeedPixelsPerSecond`）与冲刺（`DashSpeedPixelsPerSecond`），**没有独立的
-    # 奔跑态**。这张表实际只在 `MotorPhase.Dash` 时播（见 `PlayerActor.UpdateVisual`），所以「奔跑」
-    # 与「冲刺」指的是同一件事，原描述「奔跑与冲刺」读起来像两个状态共用一组帧，那是不存在的第三态。
-    ("run", "dash", "冲刺（本作地面只有行走与冲刺两档，没有独立奔跑态）", False),
+    # 本作地面移动只有两档 —— 行走（`MoveSpeedPixelsPerSecond`）与奔跑（`RunSpeedPixelsPerSecond`，
+    # 设计文档里叫「冲刺」），**没有第三个状态**。这张表只在 `MotorPhase.Run` 时播（见
+    # `PlayerActor.UpdateVisual`），所以「奔跑」与「冲刺」指的是同一件事；原描述「奔跑与冲刺」读起来
+    # 像两个状态共用一组帧，那个第三态不存在（作者 2026-09-12 指出，代码核实后确认）。
+    ("run", "run", "奔跑（＝设计文档里的「冲刺」；地面只有行走与奔跑两档，没有第三个状态）", False),
     ("jump", "jump", "跳跃与滞空", False),
     # 是**闪步**（quickstep）不是翻滚：作者 2026-09-12 逐帧确认 —— 身体不绕轴翻转、头始终朝上，
     # 短距突进后起身。原描述「闪避翻滚」说的是一个不存在的动作。

@@ -12,8 +12,8 @@ EXPECTED = {f'{kind}-{name}' for kind in ('light', 'heavy') for name in
 
 EXPECTED |= {f'{action}-{check}' for action in ('jump', 'attack-light', 'attack-heavy')
              for check in ('ready', 'frozen-sequence', 'first-resume', 'no-replay', 'fresh-press')}
-EXPECTED |= {f'dash-{check}' for check in ('ready', 'frozen-sequence', 'first-resume',
-                                          'full-speed', 'release-first', 'normal-motion', 'direction-release')}
+EXPECTED |= {f'run-{check}' for check in ('ready', 'frozen-sequence', 'first-resume',
+                                         'full-speed', 'release-first', 'normal-motion', 'direction-release')}
 # ART-6：判定框按轻/重分开之后的行为级判据 —— 同一距离轻击打空、重击打到。
 # 再加**按段**分开的行为级判据（2026-09-11）：连段推到第 3 段，同一距离第 2 段直拳打空、第 3 段
 # 踢腿打到；前提判据钉那个距离由常量导出、且真的落在「第 2 段够不到、第 3 段够得到」的区间里。
@@ -54,7 +54,7 @@ def selfcheck():
            good.replace('PASS', 'FAIL', 1), good + '\n' + summary,
            good.replace(summary, '[GP13] Summary 0/0'), good + '\nERROR: injected',
            good + '\n[GP13] PASS extra', '\n'.join(lines), good + '\n[GP13] PASS malformed extra']
-    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'dash-'))} | REACH_SPLIT | DEPTH_TOLERANCE | PRECONDITIONS):
+    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'run-'))} | REACH_SPLIT | DEPTH_TOLERANCE | PRECONDITIONS):
         record = f'[GP13] PASS {name}'
         bad.extend((good.replace(record + '\n', ''), good.replace(record, f'[GP13] FAIL {name}')))
     assert valid_log(good, 0) and not valid_log(good, 1)

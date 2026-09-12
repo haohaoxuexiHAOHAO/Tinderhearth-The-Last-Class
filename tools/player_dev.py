@@ -21,14 +21,14 @@ from check_input_map import find_godot, ROOT
 # 门面的移动向量 Y 变成纵深输入、符号没写反、纵深没漏进引擎持有的 X／Y、离地锁住落地解锁。
 DEPTH = set('depth-front depth-back depth-air-lock depth-land-unlock depth-walk-visual'.split())
 
-EXPECTED = DEPTH | set('floor move dash jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
+EXPECTED = DEPTH | set('floor move run jump air-attack land dodge-exclusive heavy light-sprite startup-frame active-frame controller-replaced screenshot ceiling-hit ceiling-next-frame dodge-18-ticks dodge-ledge-fall dodge-ledge-collision ledge-landed frame-count foot-row body-height sprite-phase dodge-sprite tick-frame-1to1 focus-kept'.split()) | {
     f'{kind}-{step}-{phase}' for kind, count in (('light', 3), ('heavy', 1))
     for step in range(1, count + 1) for phase in ('startup', 'active', 'recovery')}
 
 REGISTRY = ROOT / 'tools' / 'asset-registry.json'
 # PlayerActor 本轮载入的表。轻击三段各有独立表 light/light2/light3（`ART-6`，2026-09-11）。
 # hit/defense/death 已入仓但刻意不载（有图没规则），所以不在这里。
-LOADED_SHEETS = ('idle', 'walk', 'dash', 'jump', 'dodge', 'light', 'light2', 'light3', 'heavy')
+LOADED_SHEETS = ('idle', 'walk', 'run', 'jump', 'dodge', 'light', 'light2', 'light3', 'heavy')
 SHEET_LINE = re.compile(r'^\[GP12\] Sheet (\w+)=(\d+)$', re.MULTILINE)
 
 

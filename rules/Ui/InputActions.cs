@@ -37,11 +37,13 @@ public static class InputActions
     /// 所以本条不受阻塞。
     /// </remarks>
     /// <remarks>
-    /// **2026-09-12 由 `Sprint` 改名 `Dash`**：同一件事此前跨层两个名字 —— 输入侧叫 sprint，运动侧
-    /// 叫 <c>MotorPhase.Dash</c>／<c>CombatFeel.DashSpeedPixelsPerSecond</c>，读代码要在脑子里换算。
-    /// 统一取 `Dash`，因为正典描述的是「无无敌帧的高速位移」＝突进（dash），不是长时间的疾跑。
+    /// **2026-09-12 统一为 `Run`**（当天先由 `Sprint` 改 `Dash`，作者随即指出概念本身弄错了、又改
+    /// 到 `Run`）。此前同一件事跨层两个名字：输入侧 sprint、运动侧 <c>MotorPhase</c>／速度常量 Dash。
+    /// **取 `Run` 而不是 `Dash` 是作者定的语义**：本作这个机制是「按住键持续加速移动」，那是奔跑；
+    /// dash 在动作游戏里通常指一次性的短距突进（有固定距离与时长），与这里不是一回事。地面移动
+    /// 因此只有两档 —— 行走与奔跑（＝设计文档里说的「冲刺」），**没有第三个状态**。
     /// </remarks>
-    public const string Dash = "dash";
+    public const string Run = "run";
 
     /// <summary>正典点名的六个战斗动作（冲刺另计，见上）。</summary>
     public const string AttackLight = "attack_light";
@@ -81,7 +83,7 @@ public static class InputActions
     public static readonly IReadOnlyList<string> All =
     [
         MoveLeft, MoveRight, MoveUp, MoveDown,
-        Dash,
+        Run,
         AttackLight, AttackHeavy, Guard, Dodge, Jump, Interact,
         SkillGroupLeft, SkillGroupRight,
         .. Skills,

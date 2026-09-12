@@ -15,7 +15,7 @@ public class MotorStateTests
 
     private static CombatInput Dodge(int dir) => new(dir, 0, false, false, false, true, false);
 
-    private static CombatInput Dash(int dir) => new(dir, 0, false, false, false, false, true);
+    private static CombatInput Run(int dir) => new(dir, 0, false, false, false, false, true);
 
     /// <summary>只按纵深，不按横向。+1 向前（靠近镜头）。</summary>
     private static CombatInput Depth(int depthDir) => new(0, depthDir, false, false, false, false, false);
@@ -95,10 +95,10 @@ public class MotorStateTests
     {
         var m = new MotorState();
         for (var frame = 0; frame < 11; frame++)
-            m.Tick(Dash(1), isOnFloor: true, attacking: false);
+            m.Tick(Run(1), isOnFloor: true, attacking: false);
 
-        Assert.Equal((double)CombatFeel.DashSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
-        Assert.Equal(MotorPhase.Dash, m.Phase);
+        Assert.Equal((double)CombatFeel.RunSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
+        Assert.Equal(MotorPhase.Run, m.Phase);
     }
 
     [Theory]
@@ -205,7 +205,7 @@ public class MotorStateTests
         m.Statuses.Apply(StatusKind.Invulnerable, 3);
         m.Statuses.Apply(StatusKind.Hitstun, 2);
         Assert.True(m.IsInvulnerable);
-        m.Tick(Dash(1), isOnFloor: true, attacking: false);
+        m.Tick(Run(1), isOnFloor: true, attacking: false);
         Assert.True(m.IsInvulnerable);
         Assert.Equal(2, m.Statuses.Get(StatusKind.Invulnerable).RemainingFrames);
         Assert.Equal(1, m.Statuses.Get(StatusKind.Hitstun).RemainingFrames);
@@ -329,9 +329,9 @@ public class MotorStateTests
         // 只按横向 + 冲刺：纵深一像素不动。
         for (var i = 0; i < 12; i++)
         {
-            m.Tick(Dash(1), isOnFloor: true, attacking: false);
+            m.Tick(Run(1), isOnFloor: true, attacking: false);
         }
-        Assert.Equal((double)CombatFeel.DashSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
+        Assert.Equal((double)CombatFeel.RunSpeedPixelsPerSecond, m.HorizontalVelocity, 3);
         Assert.Equal(DepthBand.CenterWorldPx, m.DepthWorldPx, 8);
 
         // 只按纵深：横向按减速曲线自己停下，竖向保持贴地，纵深照走。

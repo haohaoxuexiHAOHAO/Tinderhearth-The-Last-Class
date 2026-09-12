@@ -51,7 +51,7 @@ public partial class PlayerDev : Node2D
 
     /// <summary>
     /// 窗口失焦次数。Godot 在失焦时**释放全部按下的动作**，于是探针合成的「按住右移」会被
-    /// 悄悄松开 —— 表现是 `move`／`dash` 这类需要持续输入的判据失败，而失败信息指向运动学，
+    /// 悄悄松开 —— 表现是 `move`／`run` 这类需要持续输入的判据失败，而失败信息指向运动学，
     /// 与真实原因（有别的窗口抢了焦点）毫无关系。所以把它记成一条独立判据：这一轮到底能不能算。
     /// </summary>
     public override void _Notification(int what)
@@ -109,8 +109,8 @@ public partial class PlayerDev : Node2D
         switch (_frame)
         {
             case 10: Check("floor", _player.IsOnFloor()); _startX = _player.Position.X; Press(InputActions.MoveRight, true); break;
-            case 20: Check("move", _player.Position.X > _startX + 10); Press(InputActions.Dash, true); break;
-            case 25: Check("dash", _player.Combat.Motor.Phase == MotorPhase.Dash); Press(InputActions.Dash, false); Press(InputActions.MoveRight, false); Press(InputActions.Jump, true); break;
+            case 20: Check("move", _player.Position.X > _startX + 10); Press(InputActions.Run, true); break;
+            case 25: Check("run", _player.Combat.Motor.Phase == MotorPhase.Run); Press(InputActions.Run, false); Press(InputActions.MoveRight, false); Press(InputActions.Jump, true); break;
             case 26: Check("jump", _player.Velocity.Y < 0); Press(InputActions.Jump, false); Press(InputActions.AttackLight, true); break;
             case 27: Check("air-attack", _player.Combat.Combo.IsAttacking); Press(InputActions.AttackLight, false); break;
             case 65: Check("land", _player.IsOnFloor() && !_player.Combat.Combo.IsAttacking); Press(InputActions.Dodge, true); break;

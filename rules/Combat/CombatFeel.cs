@@ -84,7 +84,7 @@ public static class CombatFeel
     public const int DodgeInvulnEndFrame = 13;
 
     /// <summary>冲刺速度，世界像素／秒。比闪避快、无无敌帧，是位移不是防御。</summary>
-    public const int DashSpeedPixelsPerSecond = 176;
+    public const int RunSpeedPixelsPerSecond = 176;
 
     // ── 轻攻击连段 ──────────────────────────────────────────────────────
 

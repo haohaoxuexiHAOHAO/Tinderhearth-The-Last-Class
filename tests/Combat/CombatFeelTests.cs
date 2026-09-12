@@ -54,7 +54,7 @@ public class CombatFeelTests
     [Fact]
     public void 冲刺快于普通移动_它是位移手段而非常态()
     {
-        Assert.True(CombatFeel.DashSpeedPixelsPerSecond > CombatFeel.MoveSpeedPixelsPerSecond);
+        Assert.True(CombatFeel.RunSpeedPixelsPerSecond > CombatFeel.MoveSpeedPixelsPerSecond);
     }
 
     [Fact]
