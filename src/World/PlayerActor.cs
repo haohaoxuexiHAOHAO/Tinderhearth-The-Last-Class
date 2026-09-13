@@ -4,8 +4,8 @@ using Tinderhearth.Rules.Foundation.Actors;
 
 namespace Tinderhearth.World;
 
-/// <summary>GP-12 主角节点，位置归物理引擎、动作与速度归规则层。</summary>
-public partial class PlayerActor : CharacterBody2D, IDepthActor
+/// <summary>GP-12 主角节点，位置归物理引擎、动作与速度归规则层。也用作训练房的受击靶（`GP-14`）。</summary>
+public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
 {
     // ── 精灵表几何（`ART-6`）───────────────────────────────────────────
     // 三个数由 tools/import_role_sheets.py 从收件箱原件量出来，同时写进 tools/asset-registry.json
@@ -56,12 +56,14 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
     // 本轮接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`，2026-09-11），
-    // 由 <see cref="UpdateVisual"/> 按 <c>combo.Step</c> 选。另外六张已入仓（登记表里有）但**刻意
-    // 不载入**：`light_hit`、`heavy_hit`、`general_defense`、`precise_defense`、`imbalance`、`death`
-    // —— 受击、防御、失衡与死亡的玩法都还没有，载进来只会出现「有图没规则」的半成品状态。
-    // `imbalance` 另有一层不确定：失衡与失衡恢复合在同一张 5 帧表里，帧号区间**作者尚未给出**，
-    // 就算现在想接也没有可依据的切分点。
-    private static readonly string[] Sheets = ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy"];
+    // 由 <see cref="UpdateVisual"/> 按 <c>combo.Step</c> 选。受击表 `light_hit`／`heavy_hit`（`GP-14`，
+    // 2026-09-12 接入）：训练房把靶换成真角色后，命中要放受击帧作反馈（替代木桩那种晃眼闪白），于是
+    // 「受击」这条规则有了（<see cref="MotorPhase.Hurt"/> + <see cref="Receive"/>），图也就该载入了。
+    // 另外四张仍**刻意不载入**：`general_defense`、`precise_defense`、`imbalance`、`death` —— 防御、
+    // 失衡与死亡的玩法都还没有，载进来只会是「有图没规则」的半成品。`imbalance` 另有一层不确定：
+    // 失衡与失衡恢复合在同一张 5 帧表里，帧号区间**作者尚未给出**，就算现在想接也没有切分点。
+    private static readonly string[] Sheets =
+        ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy", "light_hit", "heavy_hit"];
 
     // 攻击相位 → 精灵帧的映射。轻击三段现在**各有独立表**（`ART-6`，2026-09-11 接仓），重击单招
     // 一张表；每段的帧数不同（light 6、light2 5、light3 6、heavy 7），映射按当前表的 `count` 算，
@@ -82,6 +84,9 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
     public AnimatedSprite2D Sprite { get; } = new();
     public string VisualAction { get; private set; } = "idle";
     private int _visualFrame;
+
+    /// <summary>最近一次受击是不是重击：决定受击相位放 `heavy_hit` 还是 `light_hit`（`GP-14`）。</summary>
+    private bool _hurtHeavy;
 
     /// <summary>
     /// 纵深可视根（`ENG-15`）：精灵挂在它下面，纵深偏移与影子都由它管。
@@ -265,11 +270,32 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
         UpdateVisual();
     }
 
+    /// <summary>
+    /// 接受一次命中（`GP-14` 把训练靶换成真角色时接入的 GP-18 一小片：受击表现）。实现 <see cref="IHittable"/>。
+    /// </summary>
+    /// <remarks>
+    /// 命中反应的分工：**顿帧与震屏在场景层**（命中回调里做，木桩与角色通用），**硬直与击退在这里**
+    /// 经 <see cref="MotorState.Stagger"/> 交给运动状态机，**受击帧在 <see cref="UpdateVisual"/>** —— 按
+    /// <see cref="MotorPhase.Hurt"/> 选 `light_hit`／`heavy_hit`。轻击击退为 0（`CombatFeel`），所以轻击
+    /// 命中是「定身 + 受击帧」没有位移，重击才推开，与木桩同一套数。
+    /// </remarks>
+    public void Receive(HitReaction reaction, int facing)
+    {
+        _hurtHeavy = reaction.IsHeavy;
+        // 把「硬直帧内走完 KnockbackWorldPx」折成速度：每帧位移 = 击退 ÷ 硬直，速度 = 每帧位移 × 帧率。
+        var knockbackVelocity = reaction.HitstunFrames > 0
+            ? facing * (double)reaction.KnockbackWorldPx / reaction.HitstunFrames * CombatFeel.PhysicsTicksPerSecond
+            : 0.0;
+        Combat.Motor.Stagger(reaction.HitstunFrames, knockbackVelocity);
+    }
+
     private void UpdateVisual()
     {
         var motor = Combat.Motor;
         var combo = Combat.Combo;
-        var action = combo.IsAttacking
+        var action = motor.Phase == MotorPhase.Hurt
+            ? _hurtHeavy ? "heavy_hit" : "light_hit"
+            : combo.IsAttacking
             ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
             : motor.Phase == MotorPhase.Dodge ? "dodge"
             : motor.Phase == MotorPhase.Airborne ? "jump"
@@ -291,7 +317,9 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor
             Sprite.Animation = action;
             var count = Sprite.SpriteFrames.GetFrameCount(action);
             // 攻击与闪避按**规则层相位**取帧，不许渲染时钟自己跑；其余动作才用渲染计数循环。
-            Sprite.Frame = combo.IsAttacking ? AttackFrame(combo, count)
+            Sprite.Frame = motor.Phase == MotorPhase.Hurt
+                    ? Math.Min(count - 1, _visualFrame / LoopTicks(action))   // 受击帧播一遍、停在末帧，不循环
+                : combo.IsAttacking ? AttackFrame(combo, count)
                 : motor.Phase == MotorPhase.Dodge ? PhaseFrame(_visualFrame, CombatFeel.DodgeDurationFrames, count)
                 : action == "jump" ? Math.Min(count - 1, _visualFrame / LoopTicks(action))
                 : (_visualFrame / LoopTicks(action)) % count;

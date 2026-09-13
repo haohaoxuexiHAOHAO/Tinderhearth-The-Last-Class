@@ -68,7 +68,8 @@ POLLING_RE = re.compile(r"Input\.IsAction(?:Pressed|JustPressed|JustReleased)\b"
 #
 # 用**登记制**而不是只列黑名单：每个调试键都要写明用途，代码里多一个或少一个都判失败。
 # 光有黑名单挡不住下一个人挑另一个被编辑器吃掉的键 —— 登记制会逼着他在这里写一行。
-HARNESS_KEY_FILES = ("src/World/CameraHarness.cs", "src/World/CombatDebugDev.cs")
+HARNESS_KEY_FILES = ("src/World/CameraHarness.cs", "src/World/CombatDebugDev.cs",
+                     "src/World/TrainingRoom.cs")
 HARNESS_KEY_RE = re.compile(r"^\s*case Key\.(\w+):", re.MULTILINE)
 
 # 键 → 用途。改脚手架键位就改这里，两边对不上就判失败。

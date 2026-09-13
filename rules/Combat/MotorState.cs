@@ -19,6 +19,9 @@ public enum MotorPhase
 
     /// <summary>冲刺中，无无敌帧。</summary>
     Run,
+
+    /// <summary>受击硬直（`GP-14` 接入的 GP-18 一小片）：不接受输入，只吃横向击退，纵深不动。</summary>
+    Hurt,
 }
 
 /// <summary>
@@ -65,6 +68,7 @@ public sealed class MotorState
     private int _dodgeFrame;
     private int _dodgeDirection = 1;
     private int _dodgeDepthDirection;
+    private double _knockbackVelocity;
 
     /// <summary>当前运动相位。</summary>
     public MotorPhase Phase { get; private set; } = MotorPhase.Grounded;
@@ -121,6 +125,22 @@ public sealed class MotorState
         DepthVelocity = 0.0;
     }
 
+    /// <summary>
+    /// 进入受击硬直（`GP-14` 接入的 GP-18 一小片）：<paramref name="hitstunFrames"/> 帧内不接受输入，
+    /// 横向吃 <paramref name="knockbackVelocity"/>（世界像素／秒，已含方向）的击退，纵深不动。
+    /// </summary>
+    /// <remarks>
+    /// 硬直经 <see cref="StatusEffects"/> 的 <see cref="StatusKind.Hitstun"/> 计时，与木桩同一套口径。
+    /// **只处理移动与相位**：受击帧、顿帧、震屏那些表现在引擎层；连段被命中打断归更完整的 `GP-18`，
+    /// 本轮的靶是被动的、本就不出招，所以那条现在不触发。
+    /// </remarks>
+    public void Stagger(int hitstunFrames, double knockbackVelocity)
+    {
+        Statuses.Apply(StatusKind.Hitstun, hitstunFrames);
+        _knockbackVelocity = knockbackVelocity;
+        Phase = MotorPhase.Hurt;
+    }
+
     /// <summary>推进一帧。</summary>
     /// <param name="input">本帧输入。</param>
     /// <param name="isOnFloor">引擎回报角色此刻是否踩在地面。</param>
@@ -128,6 +148,13 @@ public sealed class MotorState
     public void Tick(in CombatInput input, bool isOnFloor, bool attacking)
     {
         Statuses.Tick();
+        // 受击硬直（`GP-14`）优先于一切：挨打期间不接受输入、不能出招/闪避/冲刺，只吃横向击退。
+        // 放在闪避之前 —— 被打到就该从任何相位进入硬直（当前只有被动靶用到；闪避无敌窗内不会中招）。
+        if (Phase == MotorPhase.Hurt || Statuses.Has(StatusKind.Hitstun))
+        {
+            AdvanceHurt(isOnFloor);
+            return;
+        }
         if (Phase == MotorPhase.Dodge)
         {
             AdvanceDodge(isOnFloor);
@@ -239,6 +266,21 @@ public sealed class MotorState
             // 两轴都不多不少一帧 —— 单测按这个数钉住。
             Phase = isOnFloor ? MotorPhase.Grounded : MotorPhase.Airborne;
         }
+    }
+
+    /// <summary>受击硬直推进：只吃横向击退，纵深锁定、受重力；硬直结束即停下回到地面/空中相位。</summary>
+    private void AdvanceHurt(bool isOnFloor)
+    {
+        var stunned = Statuses.Has(StatusKind.Hitstun);
+        var grounded = isOnFloor && _verticalVelocity >= 0.0;
+        HorizontalVelocity = stunned ? _knockbackVelocity : 0.0;
+        _verticalVelocity = grounded ? 0.0
+            : _verticalVelocity + CombatFeel.GravityPixelsPerSecondSquared * Dt;
+        // 击退只沿横向（`GP-16`），纵深不动；离地照锁，与别处同一口径。
+        IsDepthAirLocked = !grounded;
+        DepthVelocity = 0.0;
+        // 硬直还在就停在 Hurt；结束了停下回到地面/空中，不尾滑（同木桩「到期不尾滑」）。
+        Phase = stunned ? MotorPhase.Hurt : grounded ? MotorPhase.Grounded : MotorPhase.Airborne;
     }
 
     /// <summary>纵深积分与钳制。**每个 Tick 恰好调一次**，两条路径（普通与闪避）各自调它。</summary>

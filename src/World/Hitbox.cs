@@ -101,9 +101,11 @@ public partial class Hitbox : Area2D
         foreach (var item in GetWorld2D().DirectSpaceState.IntersectShape(query))
         {
             if (item["collider"].AsGodotObject() is not Hurtbox hurt || hurt.Actor == player
-                || hurt.Actor is not TrainingDummy dummy
+                // 打任何可受击目标（`GP-14`）：木桩（探针）与角色（训练房、将来的敌人）各自实现受击反应。
+                // 纵深那一半要目标也是 IDepthActor —— 木桩与角色都是，编译器守着「新目标类型忘了给纵深」。
+                || hurt.Actor is not IHittable target || hurt.Actor is not IDepthActor depthTarget
                 // 查询把这个受击框返回给我们 ＝ 横向那一半成立；纵深那一半在下面这一句里，见 Connects。
-                || !Connects(horizontalOverlap: true, player, dummy)) continue;
+                || !Connects(horizontalOverlap: true, player, depthTarget)) continue;
             // **去重排在纵深判定之后**：打空不是打过。反过来的话，同一次挥击里先错开一排、再挪回
             // 同一排就永远打不中了 —— 而横向那一半本来就是这个口径（框外的候选压根不会出现在查询
             // 结果里，也就不会被登记）。两个轴的口径必须一致，否则纵深会多一条只在特定顺序下才看
@@ -114,7 +116,7 @@ public partial class Hitbox : Area2D
                 continue;
             }
             var reaction = HitResolution.Resolve(player.Combat.Combo.Kind);
-            dummy.Receive(reaction, player.Combat.Motor.Facing);
+            target.Receive(reaction, player.Combat.Motor.Facing);
             feedback(reaction);
             count++;
         }

@@ -3,8 +3,8 @@ using Tinderhearth.Rules.Combat;
 
 namespace Tinderhearth.World;
 
-/// <summary>不还手的受击木桩；唯一拥有其状态推进。</summary>
-public partial class TrainingDummy : CharacterBody2D, IDepthActor
+/// <summary>不还手的受击木桩；唯一拥有其状态推进。探针用它（几何 + 闪白）；训练房的靶改用真角色（`GP-14`）。</summary>
+public partial class TrainingDummy : CharacterBody2D, IDepthActor, IHittable
 {
     /// <summary>统一状态载体。</summary>
     public StatusEffects Statuses { get; } = new();

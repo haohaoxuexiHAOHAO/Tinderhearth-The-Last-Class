@@ -460,4 +460,71 @@ public class MotorStateTests
         Assert.Equal(DepthBand.BackWorldPx, m.DepthWorldPx, 8);
         Assert.Equal(0.0, m.DepthVelocity, 8);
     }
+
+    // ── `GP-14` 受击硬直（接入的 GP-18 一小片）────────────────────────────
+    //
+    // 失效同样不报错：挨打却还能被输入推着走（硬直没锁输入）、击退把纵深也带跑（`GP-16` 定只沿
+    // 横向）、硬直到期还在滑（尾滑）。训练房的靶用这条：命中经 <see cref="MotorState.Stagger"/> 进硬直。
+
+    [Fact]
+    public void 受击进入硬直相位且按硬直帧数计时()
+    {
+        var m = new MotorState();
+        m.Stagger(hitstunFrames: 5, knockbackVelocity: 100);
+
+        Assert.Equal(MotorPhase.Hurt, m.Phase);
+        Assert.Equal(5, m.Statuses.Get(StatusKind.Hitstun).RemainingFrames);
+    }
+
+    [Fact]
+    public void 硬直期间不接受输入只吃横向击退()
+    {
+        var m = new MotorState();
+        m.Stagger(hitstunFrames: 5, knockbackVelocity: 100);
+
+        // 按住反向移动 + 跳 + 闪避 + 冲刺：硬直期间一律无效，横向只有击退速度，也没被跳跃带起来。
+        var everything = new CombatInput(-1, 1, true, false, false, true, true);
+        m.Tick(everything, isOnFloor: true, attacking: false);
+
+        Assert.Equal(MotorPhase.Hurt, m.Phase);
+        Assert.Equal(100.0, m.HorizontalVelocity, 8);
+        Assert.Equal(0.0, m.VerticalVelocity, 8);
+    }
+
+    [Fact]
+    public void 受击击退只沿横向纵深不动()
+    {
+        var m = new MotorState();
+        var depthAt = m.DepthWorldPx;
+        m.Stagger(hitstunFrames: 4, knockbackVelocity: 100);
+
+        for (var i = 0; i < 4; i++)
+        {
+            m.Tick(Depth(1), isOnFloor: true, attacking: false);   // 硬直中按纵深也不动
+            Assert.Equal(depthAt, m.DepthWorldPx, 8);
+            Assert.Equal(0.0, m.DepthVelocity, 8);
+        }
+    }
+
+    [Fact]
+    public void 硬直到期停下并回到地面相位不尾滑()
+    {
+        var m = new MotorState();
+        m.Stagger(hitstunFrames: 3, knockbackVelocity: 100);
+
+        // 硬直帧内一直有击退速度、停在受击相位。
+        m.Tick(CombatInput.None, isOnFloor: true, attacking: false);
+        Assert.Equal(MotorPhase.Hurt, m.Phase);
+        Assert.Equal(100.0, m.HorizontalVelocity, 8);
+        m.Tick(CombatInput.None, isOnFloor: true, attacking: false);
+        Assert.Equal(MotorPhase.Hurt, m.Phase);
+        Assert.Equal(100.0, m.HorizontalVelocity, 8);
+
+        // 硬直过后：停下、回到地面、横速归零（不尾滑），恢复接受输入。
+        m.Tick(CombatInput.None, isOnFloor: true, attacking: false);
+        Assert.Equal(MotorPhase.Grounded, m.Phase);
+        Assert.Equal(0.0, m.HorizontalVelocity, 8);
+        m.Tick(Move(1), isOnFloor: true, attacking: false);
+        Assert.True(m.HorizontalVelocity > 0.0);
+    }
 }
