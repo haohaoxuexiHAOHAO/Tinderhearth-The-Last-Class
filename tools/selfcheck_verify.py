@@ -767,6 +767,76 @@ def case_font_shippable_by_field() -> tuple[bool, str]:
     return ok, "字体归可进包" if ok else f"**归类错**：{audit}"
 
 
+# ── 音频守卫（`GP-20`）──────────────────────────────────────────────
+# 三条都直接撞 `check_assets.check_audio`，不往仓库里塞一个真 .wav —— 与上面「未登记」那条同一
+# 理由。第一条守的方向最要紧：**在这个守卫上线之前，往 assets/ 丢一个音频是完全隐形的**，因为
+# 图像那套磁盘比对只 rglob("*.png")。那不是假想，那正是本轮加音频时先撞见的空子（踩坑记录 47：
+# 加一类新资源，先问现有判据会不会把它判成违规 —— 这里的答案是「它压根看不见」）。
+def _audio_entries() -> list[dict]:
+    import json
+    return json.loads(REGISTRY.read_text(encoding="utf-8")).get("音频", [])
+
+
+def case_audio_unregistered_caught() -> tuple[bool, str]:
+    """磁盘上有登记表没有的音频 → 判失败（`GP-20`）。"""
+    import check_assets
+    check_assets._FAILS.clear()
+    check_assets.check_audio([], {"downloaded/fists-of-fury/zz-ghost.wav"})
+    caught = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = len(caught) == 1 and "漏登记" in caught[0]
+    return ok, (f"未登记音频被拦：{caught[0][-58:]}" if ok
+                else f"拦下={caught or '（一条都没报）'}")
+
+
+def case_audio_bytes_mismatch_caught() -> tuple[bool, str]:
+    """音频字节数与登记不符要被拦，真条目要被放行（`GP-20`，两个方向都证）。
+
+    真实缺陷形状：换一份 wav（换来源、换剪辑、重新导出）在 git diff 里只有一行「二进制文件
+    有差异」。波形变了耳朵听得出来，而判据看不出来 —— 所以钉的是字节数与 SHA256。
+    """
+    import check_assets
+    entries = _audio_entries()
+    if not entries:
+        return False, "登记表「音频」一节是空的，没有可撞的条目"
+    on_disk = {e["path"] for e in entries}
+
+    check_assets._FAILS.clear()
+    check_assets.check_audio(entries, on_disk)
+    passed = not check_assets._FAILS
+
+    tampered = dict(entries[0])
+    tampered["字节数"] = tampered["字节数"] + 1
+    check_assets._FAILS.clear()
+    check_assets.check_audio([tampered], {tampered["path"]})
+    caught = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = passed and len(caught) == 1 and "字节" in caught[0]
+    return ok, (f"真条目放行、字节数改错被拦：{caught[0][-58:]}" if ok
+                else f"真条目放行={passed}；拦下={caught or '（一条都没报）'}")
+
+
+def case_audio_missing_license_caught() -> tuple[bool, str]:
+    """借件音频旁边没有授权原文 → 判失败（`GP-20`）。
+
+    借来的素材必须把授权原文一起进仓，否则「开发期能不能放心用」没有依据 —— 这批的授权状态
+    本来就是「MIT 覆盖代码、音频独立授权未逐一核实」，原文更不能丢。
+    """
+    import check_assets
+    entries = _audio_entries()
+    if not entries:
+        return False, "登记表「音频」一节是空的，没有可撞的条目"
+    tampered = dict(entries[0])
+    tampered["许可证文件"] = "downloaded/fists-of-fury/zz-no-such-license.txt"
+    check_assets._FAILS.clear()
+    check_assets.check_audio([tampered], {tampered["path"]})
+    caught = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = len(caught) == 1 and "授权原文" in caught[0]
+    return ok, (f"缺授权原文被拦：{caught[0][-58:]}" if ok
+                else f"拦下={caught or '（一条都没报）'}")
+
+
 DIRECT_CASES = (
     ("包格式没见过时报错而不是猜", "parse_pck", "踩坑记录 33 的反面：解析跑偏不能报干净",
      case_bad_pck_format),
@@ -798,6 +868,12 @@ DIRECT_CASES = (
      case_unregistered_in_pack),
     ("字体按可进发行包字段而非路径放行", "audit_release_assets",
      "ENG-12：按路径判会误杀 assets/fonts/ 下的永久依赖", case_font_shippable_by_field),
+    ("磁盘上未登记的音频被拦", "check_audio",
+     "GP-20：图像那套只扫 .png，音频不登记会完全隐形", case_audio_unregistered_caught),
+    ("音频字节数与登记不符时判失败", "check_audio",
+     "GP-20：换一份 wav 在 diff 里只有一行「二进制文件有差异」", case_audio_bytes_mismatch_caught),
+    ("借件音频缺授权原文时判失败", "check_audio",
+     "GP-20：这批音频的独立授权未核实，原文更不能丢", case_audio_missing_license_caught),
 )
 
 CASES = (
@@ -897,7 +973,7 @@ TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_
                       # 「step_assets 有用例」不等于「它调的每条判定都撞过」。
                       "check_alpha", "check_upscaled", "check_texture_filter",
                       "check_solid_frames", "check_frame_geometry_binding",
-                      "check_hitbox_binding")
+                      "check_hitbox_binding", "check_audio")
 
 
 def coverage(names: list[str]) -> tuple[list[str], list[str]]:

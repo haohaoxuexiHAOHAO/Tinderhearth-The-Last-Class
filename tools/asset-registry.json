@@ -20,6 +20,57 @@
       "渲染参数": "ADR-0008 的十项像素完美属性设在 assets/fonts/*.ttf.import 的 [params] 段，期望值在 rules/Ui/PixelFont.cs，引擎启动时读回实际值逐项比对（守卫 tools/check_hud.py）。本登记表刻意不再抄一份 —— 抄第三份必然漂移。"
     }
   ],
+  "音频维护": "手工维护，生成器不动。音频不是像素件，所以它**不走图像那套判据**（半透明、放大件、单色帧、纹理导入参数一条都不适用），按「字体」同一形状核：文件在、字节数与 SHA256 对得上、旁边有许可证。守卫是 tools/check_assets.py 的 check_audio，磁盘侧未登记的音频也会被拦（GP-20）。导入参数刻意不钉：占位件注定被替换，正式音频的采样率、压缩与总线归 ART-1，那时再定要不要钉。",
+  "音频": [
+    {
+      "path": "downloaded/fists-of-fury/hit-1.wav",
+      "用途": "打击音（占位，GP-20）：命中当帧播，与 hit-2 随机二选一、音高随机化避免机械感",
+      "字节数": 16090,
+      "sha256": "7cc1050fa21f26feed9492c11185b30a7a78ff0dd698eaee581dfe919cc9021c",
+      "许可证文件": "downloaded/fists-of-fury/LICENSE.txt",
+      "来源": "fists-of-fury 教学工程（作者 Nicolas Bize，本机 D:\\godot\\project\\fists-of-fury-course-main；作者 2026-09-13 指定复制作测试占位）",
+      "授权": "仓库为 MIT（Copyright 2025 Nicolas Bize）。MIT 覆盖仓库代码，其中音频素材的独立授权未逐一核实。原文随素材放在 assets/downloaded/fists-of-fury/LICENSE.txt",
+      "待替换": true,
+      "可进发行包": false,
+      "可进发行包依据": "借用素材，非作者自制 —— 作者 2026-08-31 定发行包只用自己画的素材；且素材独立授权未确认，更不能进包。开发期用来验打击感（顿帧要配同帧声音才读成力量），正式音效归 ART-1。"
+    },
+    {
+      "path": "downloaded/fists-of-fury/hit-2.wav",
+      "用途": "打击音变体（占位，GP-20）：与 hit-1 随机二选一，两个变体加音高随机化才不像机器在响",
+      "字节数": 12222,
+      "sha256": "ea55df9356c0753473b10b29b7118eff94d17c8abb296c8c023b770d56154e12",
+      "许可证文件": "downloaded/fists-of-fury/LICENSE.txt",
+      "来源": "fists-of-fury 教学工程（作者 Nicolas Bize，本机 D:\\godot\\project\\fists-of-fury-course-main；作者 2026-09-13 指定复制作测试占位）",
+      "授权": "仓库为 MIT（Copyright 2025 Nicolas Bize）。MIT 覆盖仓库代码，其中音频素材的独立授权未逐一核实。原文随素材放在 assets/downloaded/fists-of-fury/LICENSE.txt",
+      "待替换": true,
+      "可进发行包": false,
+      "可进发行包依据": "借用素材，非作者自制 —— 作者 2026-08-31 定发行包只用自己画的素材；且素材独立授权未确认，更不能进包。开发期用来验打击感（顿帧要配同帧声音才读成力量），正式音效归 ART-1。"
+    },
+    {
+      "path": "downloaded/fists-of-fury/grunt.wav",
+      "用途": "受击音（占位，GP-20）：受击方在命中当帧发声，与打击音同帧",
+      "字节数": 89656,
+      "sha256": "1fb5f3e17a444ae90b181b277872c6ef2279b25580f4ecaa3e4db5e1b954143f",
+      "许可证文件": "downloaded/fists-of-fury/LICENSE.txt",
+      "来源": "fists-of-fury 教学工程（作者 Nicolas Bize，本机 D:\\godot\\project\\fists-of-fury-course-main；作者 2026-09-13 指定复制作测试占位）",
+      "授权": "仓库为 MIT（Copyright 2025 Nicolas Bize）。MIT 覆盖仓库代码，其中音频素材的独立授权未逐一核实。原文随素材放在 assets/downloaded/fists-of-fury/LICENSE.txt",
+      "待替换": true,
+      "可进发行包": false,
+      "可进发行包依据": "借用素材，非作者自制 —— 作者 2026-08-31 定发行包只用自己画的素材；且素材独立授权未确认，更不能进包。开发期用来验打击感（顿帧要配同帧声音才读成力量），正式音效归 ART-1。"
+    },
+    {
+      "path": "downloaded/fists-of-fury/miss.wav",
+      "用途": "挥空音（占位，GP-20）：一次挥击的 Active 窗走完且零命中时播 —— 打空也该有反馈，否则玩家分不清「没打中」和「攻击没出去」",
+      "字节数": 2398,
+      "sha256": "4ee66abd06c6a0c0f92cdd794dbd419b641a4dabe82c032d36f23d2859bf205d",
+      "许可证文件": "downloaded/fists-of-fury/LICENSE.txt",
+      "来源": "fists-of-fury 教学工程（作者 Nicolas Bize，本机 D:\\godot\\project\\fists-of-fury-course-main；作者 2026-09-13 指定复制作测试占位）",
+      "授权": "仓库为 MIT（Copyright 2025 Nicolas Bize）。MIT 覆盖仓库代码，其中音频素材的独立授权未逐一核实。原文随素材放在 assets/downloaded/fists-of-fury/LICENSE.txt",
+      "待替换": true,
+      "可进发行包": false,
+      "可进发行包依据": "借用素材，非作者自制 —— 作者 2026-08-31 定发行包只用自己画的素材；且素材独立授权未确认，更不能进包。开发期用来验打击感（顿帧要配同帧声音才读成力量），正式音效归 ART-1。"
+    }
+  ],
   "生成槽位": [
     {
       "path": "placeholder/ui/panel.png",

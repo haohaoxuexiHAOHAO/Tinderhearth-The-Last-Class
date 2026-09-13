@@ -60,7 +60,14 @@ public partial class TrainingRoom : Node2D
     private Hitbox _hitbox = null!;
     private CombatDebugOverlay _overlay = null!;
     private GameCamera _camera = null!;
+    private CombatAudio _audio = null!;
     private readonly Hitstop _stop = new();
+
+    /// <summary>本次挥击到此为止命中了几个目标。挥空音要靠它判「这一挥全空」（`GP-20`）。</summary>
+    private int _swingHits;
+
+    /// <summary>上一帧判定框开着没有。用来认出 Active 窗的下降沿，也就是「这一挥结束了」。</summary>
+    private bool _wasHitActive;
 
     public override void _Ready()
     {
@@ -110,6 +117,10 @@ public partial class TrainingRoom : Node2D
         // 于是顿帧冻结战斗时相机仍在把这一下的屏幕震动放出来 —— 冻结 + 震动同时发生正是「打得实」。
         _camera = new GameCamera(CameraView.SideView) { FollowTarget = _player, Router = _router };
         AddChild(_camera);
+
+        // 声音（`GP-20` 占位借件）：命中当帧与顿帧/白闪/火花同一帧响，挥空另有一声。
+        _audio = new CombatAudio();
+        AddChild(_audio);
     }
 
     /// <summary>地面：碰撞面在带中线，视觉是一条 48px 厚的带（口径同 <see cref="DepthDev"/>）。</summary>
@@ -166,7 +177,20 @@ public partial class TrainingRoom : Node2D
             // **这一帧**就把受击帧显出来，随后的顿帧才冻在受击姿上。反过来（先推靶再结算）会让靶这一
             // 帧还是待机姿，顿帧冻在待机上、受击帧要等冻结结束才开始 —— 命中那一下看着像没反应，正是
             // 作者实机说的「打击感弱、受击一闪而过」。靶是被动的，位置不随这个顺序变，所以命中检测不受影响。
-            _hitbox.Resolve(_player, OnHit);
+            _swingHits += _hitbox.Resolve(_player, OnHit);
+            // 挥空音（`GP-20`）：认判定框的**下降沿** —— Active 窗刚走完而这一挥零命中，就是打空了。
+            // 判在场景层而不是规则层：规则层不认识声音，而「这一挥有没有碰到东西」正是命中检测的
+            // 返回值，本来就在手上。收招被落地打断时同样算空，那也确实没打着。
+            var hitActive = _player.Combat.Combo.IsHitActive;
+            if (_wasHitActive && !hitActive)
+            {
+                if (_swingHits == 0)
+                {
+                    _audio.PlayMiss();
+                }
+                _swingHits = 0;
+            }
+            _wasHitActive = hitActive;
             _target.AdvanceCombat();
             _layer.Sort();
         }
@@ -185,5 +209,9 @@ public partial class TrainingRoom : Node2D
         var spark = new HitSpark { Heavy = reaction.IsHeavy, ZIndex = SparkZ };
         AddChild(spark);
         spark.GlobalPosition = _hitbox.GlobalPosition;
+
+        // 打击音 + 受击音（`GP-20` 占位借件）。**放在这里就是为了同帧**：本方法由 `Hitbox.Resolve`
+        // 在命中当帧调，顿帧、震屏、火花、白闪（受击方 `Receive` 里）都落在这一帧，声音也必须。
+        _audio.PlayHit();
     }
 }

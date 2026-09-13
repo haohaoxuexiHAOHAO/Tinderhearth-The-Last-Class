@@ -379,6 +379,7 @@ public partial class HitFeedbackDev : Node2D
         await ReachSplitProbe();
         await DepthToleranceProbe();
         await HitFlashProbe();
+        await HitAudioProbe();
         Capture();
     }
 
@@ -649,6 +650,48 @@ public partial class HitFeedbackDev : Node2D
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         Check("sprite-flash-expired", !_player.HitFlashing && !_player.HitFlashUniform
             && _player.HitFlashFramesLeft == 0 && !IsWhite(SamplePlayerPixel()));
+    }
+
+    /// <summary>
+    /// `GP-20` 命中声音：采样真的加载到了、命中当帧真的播了、音高真的在抖。
+    /// </summary>
+    /// <remarks>
+    /// **机器判不了「好不好听」，也判不了「扬声器真的出声了」** —— 后者取决于跑这一轮的机器有没有
+    /// 音频设备，把它当判据会让门禁随环境变红。所以这里判的是能判的四件事：三类采样都载到（这一条
+    /// 顺带证明登记表里的路径与 <c>.import</c> 在运行时真的解析得出来）、命中当帧播放计数真的加一、
+    /// 音高落在登记的抖动幅度内、多次播放确实抖出了不同的值（否则「随机化」是句空话）。
+    ///
+    /// **载入失败不抛**是有意的（见 <see cref="CombatAudio"/>）：那批 wav 是「可进发行包=false」的
+    /// 借件，发行导出会排除它们，那时载不到是正常情形。所以这条判据在开发仓里要求「载到了」，而代码
+    /// 在载不到时要求「不响也不炸」—— 两件事不矛盾，前者守的是开发期素材没丢。
+    /// </remarks>
+    private async Task HitAudioProbe()
+    {
+        var audio = new CombatAudio();
+        AddChild(audio);
+        await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+
+        Check("audio-clips-loaded", audio.HitAvailable && audio.HurtAvailable && audio.MissAvailable);
+
+        var jitter = CombatFeel.AudioPitchJitterPercent / 100.0;
+        var pitches = new List<double>();
+        for (var i = 0; i < 8; i++)
+        {
+            audio.PlayHit();
+            pitches.Add(audio.LastPitch);
+        }
+        var inRange = pitches.TrueForAll(p => p >= 1.0 - jitter - 1e-9 && p <= 1.0 + jitter + 1e-9);
+        var distinct = pitches.Distinct().Count();
+        GD.Print($"[GP20] audio plays hit={audio.HitPlays} miss={audio.MissPlays}"
+            + $" pitches={string.Join(",", pitches.Select(p => p.ToString("F3")))}"
+            + $" distinct={distinct} inRange={inRange} playing={audio.HitPlaying}");
+        Check("audio-hit-plays", audio.HitPlays == 8);
+        // 8 次同一个值就说明「随机化」没生效 —— 那正是借件工程要靠音高抖动躲开的机器味。
+        Check("audio-pitch-jitter", inRange && distinct > 1);
+
+        audio.PlayMiss();
+        Check("audio-miss-plays", audio.MissPlays == 1);
+        audio.QueueFree();
     }
 
     /// <summary>取主角躯干中心那一点此刻在屏幕上的颜色。手法同 <see cref="SaveFlash"/>，取样点换成主角。</summary>

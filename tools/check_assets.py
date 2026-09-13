@@ -287,6 +287,61 @@ def check_fonts(entries: list[dict]) -> int:
     return checked
 
 
+# 音频文件的扩展名。**磁盘侧要按它扫**，否则未登记的音频完全隐形（`GP-20`）：图像那套
+# 比对只 rglob("*.png")，于是往 assets/ 里丢一个 .wav 既不会被登记、也不会被任何判据拦。
+AUDIO_SUFFIXES = (".wav", ".ogg", ".mp3")
+
+
+def check_audio(entries: list[dict], on_disk: set[str]) -> int:
+    """核音频：文件在、内容与登记的 SHA256 一致、旁边有许可证；磁盘上未登记的音频要被拦。
+
+    **音频不走图像那套判据。** 半透明像素、放大件、单色帧、纹理导入参数一条都不适用于波形，
+    硬套只会得到无意义的失败。所以它按「字体」同一形状核 —— 两者的共同点是「二进制、换一份
+    在 diff 里只有一行『二进制文件有差异』」，而钉住字节数与 SHA256 才让「这就是审过的那份」
+    指向一份确定的文件。
+
+    **导入参数刻意不核**（与纹理相反）。纹理那三项要钉是因为压缩会当场毁掉像素（`ENG-10`）；
+    音频这几件是注定被替换的占位件，采样率、压缩与总线归 `ART-1`，那时再定要不要钉。这是一个
+    有意的空白，不是漏检 —— 写在这里免得下一个人以为已经查过了。
+
+    **许可证按条目自己声明的路径核**，不写死在代码里：借件与自制件的许可证不在同一处，写死会
+    让「换一批来源」变成改代码。
+    """
+    registered = {e["path"] for e in entries}
+    for extra in sorted(on_disk - registered):
+        fail(f"{extra}：音频文件在但登记表「音频」一节里没有 —— 漏登记等于绕过守卫（GP-20）")
+
+    checked = 0
+    for entry in entries:
+        rel = entry["path"]
+        path = ASSETS / rel
+        checked += 1
+        if not path.is_file():
+            fail(f"{rel}：登记表里有但文件不在")
+            continue
+
+        data = path.read_bytes()
+        if len(data) != entry["字节数"]:
+            fail(f"{rel}：{len(data)} 字节与登记 {entry['字节数']} 不符 —— 换了一份音频，"
+                 f"而波形换了在 diff 里看不出来；确认来源后更新登记表的字节数与 sha256")
+            continue
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != entry["sha256"]:
+            fail(f"{rel}：sha256 {digest[:16]}… 与登记 {entry['sha256'][:16]}… 不符")
+            continue
+
+        license_rel = entry["许可证文件"]
+        if not (ASSETS / license_rel).is_file():
+            fail(f"{license_rel}：不在 —— 借来的素材必须把授权原文一起放进仓，"
+                 f"否则「开发期能不能放心用」没有依据")
+            continue
+
+        say(f"  {rel}｜{len(data)} 字节｜许可证 {license_rel}"
+            f"｜{'待替换' if entry.get('待替换') else '正式'}"
+            f"｜{'可进包' if entry.get('可进发行包') else '不得进包'}")
+    return checked
+
+
 def check_import(name: str, rel: str) -> bool:
     """纹理导入参数。没有 .import 说明还没导入过，**不算通过**。"""
     imp = ASSETS / (rel + ".import")
@@ -486,12 +541,13 @@ def run_checks(list_only: bool = False) -> int:
     downloaded = data.get("下载素材", [])
     self_drawn = data.get("自绘素材", [])
     fonts = data.get("字体", [])
+    audio = data.get("音频", [])
     # 出处取**分节**，不取「可进发行包」字段：§9 的软 alpha 例外只对下载件（`ART-5`），
     # 而自绘的占位件也登记成不得进包，两者按字段判会混成一类，例外就漏到自绘件上去了。
     entries = {e["path"]: e for e in generated + downloaded + self_drawn}
     from_download = {e["path"] for e in downloaded}
     say(f"登记表：生成槽位 {len(generated)} 条、下载素材 {len(downloaded)} 条、"
-        f"自绘素材 {len(self_drawn)} 条、字体 {len(fonts)} 条")
+        f"自绘素材 {len(self_drawn)} 条、字体 {len(fonts)} 条、音频 {len(audio)} 条")
 
     if list_only:
         for e in generated + downloaded + self_drawn:
@@ -533,6 +589,11 @@ def run_checks(list_only: bool = False) -> int:
     say("\n字体：")
     font_count = check_fonts(fonts)
 
+    say("\n音频（GP-20）：")
+    audio_on_disk = {p.relative_to(ASSETS).as_posix() for p in ASSETS.rglob("*")
+                     if p.suffix.lower() in AUDIO_SUFFIXES} if ASSETS.is_dir() else set()
+    audio_count = check_audio(audio, audio_on_disk)
+
     # ENG-13：texture_filter 覆盖 —— 场景资源全库 + src/rules 的 C#。
     tf_files = texture_filter_targets()
     for p in tf_files:
@@ -544,6 +605,8 @@ def run_checks(list_only: bool = False) -> int:
         f"实际逐像素扫过 {scanned} 个、共 {frame_total} 帧；每个查了 5 类"
         f"（半透明、放大件、尺寸与帧数、单色帧、导入参数）；"
         f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）；"
+        f"另核音频 {audio_count} 份（同上三项，磁盘 {len(audio_on_disk)} 个音频文件，"
+        f"导入参数按 ART-1 有意不核）；"
         f"另扫 {len(tf_files)} 份场景资源与 C# 的 texture_filter 覆盖（ENG-13）；"
         f"另核常量与登记表绑定 {binding} 条判据"
         f"（帧框 4 条 + 判定框按段 {len(HITBOX_SHEETS)} 段×3 条，ART-6）")
@@ -564,7 +627,7 @@ def run_checks(list_only: bool = False) -> int:
         say(f"[FAIL] 共 {len(_FAILS)} 条不成立")
         return 1
     say("[OK] 半透明像素 0、放大件 0、单色帧 0、登记表与磁盘一致、导入参数全对、"
-        "字体内容与登记一致、无 texture_filter 覆盖、帧框与判定框常量与登记表一致")
+        "字体与音频内容与登记一致、无 texture_filter 覆盖、帧框与判定框常量与登记表一致")
     return 0
 
 

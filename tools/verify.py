@@ -651,11 +651,12 @@ def load_asset_registry() -> dict[str, dict]:
     assets/<它>.import 去掉两头。读不出就抛异常 —— 审不了素材必须判失败，不能当没这回事。
 
     **新增分节必须加进这张清单。** 漏加不会静默：那一节的素材在包里会被审成「未登记」而判
-    失败（`ENG-12`），所以少一节是响的、不是哑的。2026-09-08 加了「自绘素材」一节。
+    失败（`ENG-12`），所以少一节是响的、不是哑的。2026-09-08 加了「自绘素材」一节，
+    2026-09-13 加了「音频」一节（`GP-20` 的占位打击音，同样是「可进发行包=false」的借件）。
     """
     raw = json.loads(ASSET_REGISTRY.read_text(encoding="utf-8"))
     out: dict[str, dict] = {}
-    for section in ("生成槽位", "下载素材", "自绘素材", "字体"):
+    for section in ("生成槽位", "下载素材", "自绘素材", "字体", "音频"):
         for entry in raw.get(section, []):
             if "path" in entry:
                 out[entry["path"]] = entry
