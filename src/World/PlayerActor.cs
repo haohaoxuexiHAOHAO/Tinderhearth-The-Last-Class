@@ -293,36 +293,45 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     {
         var motor = Combat.Motor;
         var combo = Combat.Combo;
-        var action = motor.Phase == MotorPhase.Hurt
-            ? _hurtHeavy ? "heavy_hit" : "light_hit"
-            : combo.IsAttacking
-            ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
-            : motor.Phase == MotorPhase.Dodge ? "dodge"
-            : motor.Phase == MotorPhase.Airborne ? "jump"
+        var action = motor.Phase switch
+        {
+            MotorPhase.Hurt => _hurtHeavy ? "heavy_hit" : "light_hit",
+            _ when combo.IsAttacking => combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step),
+            MotorPhase.Dodge => "dodge",
+            MotorPhase.Airborne => "jump",
             // 地面只有行走与奔跑两档（`MotorPhase.Run` 即设计文档里的「冲刺」），这张表只在奔跑相位播。
-            : motor.Phase == MotorPhase.Run ? "run"
+            MotorPhase.Run => "run",
             // **两个轴都算「在走」**（`ENG-15` 修）。原来只看横向速度，于是纯纵深移动时动作是
             // idle —— 角色站着不动地在纵深上滑，而这件事不报错：位置在变、判据全绿、只有眼睛
             // 看得出来。走纵深复用侧面行走姿态，不需要新素材：belt-scroll 那一类作品都是这么
             // 做的（没有「往里走」的专用动画），而正典也定了角色不因远近缩放、朝向只有左右两面。
-            : Math.Abs(motor.HorizontalVelocity) > 0 || Math.Abs(motor.DepthVelocity) > 0
-                ? "walk" : "idle";
+            _ when Math.Abs(motor.HorizontalVelocity) > 0 || Math.Abs(motor.DepthVelocity) > 0 => "walk",
+            _ => "idle",
+        };
         _visualFrame = action == VisualAction ? _visualFrame + 1 : 0;
         VisualAction = action;
         Sprite.Visible = Sprite.SpriteFrames.HasAnimation(action);
         Sprite.FlipH = motor.Facing < 0;
-        Sprite.Modulate = motor.IsInvulnerable ? Colors.Cyan : motor.Phase == MotorPhase.Run ? Colors.Yellow : Colors.White;
+        Sprite.Modulate = motor switch
+        {
+            { IsInvulnerable: true } => Colors.Cyan,
+            { Phase: MotorPhase.Run } => Colors.Yellow,
+            _ => Colors.White,
+        };
         if (Sprite.Visible)
         {
             Sprite.Animation = action;
             var count = Sprite.SpriteFrames.GetFrameCount(action);
             // 攻击与闪避按**规则层相位**取帧，不许渲染时钟自己跑；其余动作才用渲染计数循环。
-            Sprite.Frame = motor.Phase == MotorPhase.Hurt
-                    ? Math.Min(count - 1, _visualFrame / LoopTicks(action))   // 受击帧播一遍、停在末帧，不循环
-                : combo.IsAttacking ? AttackFrame(combo, count)
-                : motor.Phase == MotorPhase.Dodge ? PhaseFrame(_visualFrame, CombatFeel.DodgeDurationFrames, count)
-                : action == "jump" ? Math.Min(count - 1, _visualFrame / LoopTicks(action))
-                : (_visualFrame / LoopTicks(action)) % count;
+            Sprite.Frame = motor.Phase switch
+            {
+                // 受击帧播一遍、停在末帧，不循环
+                MotorPhase.Hurt => Math.Min(count - 1, _visualFrame / LoopTicks(action)),
+                _ when combo.IsAttacking => AttackFrame(combo, count),
+                MotorPhase.Dodge => PhaseFrame(_visualFrame, CombatFeel.DodgeDurationFrames, count),
+                _ when action == "jump" => Math.Min(count - 1, _visualFrame / LoopTicks(action)),
+                _ => (_visualFrame / LoopTicks(action)) % count,
+            };
         }
         QueueRedraw();
     }

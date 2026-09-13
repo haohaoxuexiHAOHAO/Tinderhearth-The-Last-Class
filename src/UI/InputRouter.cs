@@ -113,7 +113,7 @@ public partial class InputRouter : Node
         // 而被它驱动的技能位永远收不到松开 —— 表现是一个技能卡在按下不放。
         if (what is (int)NotificationApplicationFocusOut or (int)NotificationWMWindowFocusOut)
         {
-            var before = _modifiers.Active;
+            SkillGroup before = _modifiers.Active;
             foreach (var stuck in _modifiers.ReleaseAll())
             {
                 EmitAction(stuck, pressed: false);
@@ -149,7 +149,7 @@ public partial class InputRouter : Node
     /// <summary>更新修饰键的按住状态。按下与松开都要管，否则修饰键会卡住。</summary>
     private void TrackModifiers(InputEvent @event)
     {
-        var before = _modifiers.Active;
+        SkillGroup before = _modifiers.Active;
 
         foreach (var action in (string[])[InputActions.SkillGroupLeft, InputActions.SkillGroupRight])
         {

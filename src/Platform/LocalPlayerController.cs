@@ -1,3 +1,4 @@
+using Godot;
 using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Combat;
 using Tinderhearth.Rules.Ui;
@@ -23,9 +24,14 @@ public sealed class LocalPlayerController(string actorId) : ICombatController
     public CombatInput ReadCombatInput(in ActorView view)
     {
         var router = Router ?? throw new InvalidOperationException("Combat controller requires InputRouter");
-        var move = router.MoveDirection();
-        return new(Math.Sign(move.X), Math.Sign(move.Y), router.IsJustPressed(InputActions.Jump),
-            router.IsJustPressed(InputActions.AttackLight), router.IsJustPressed(InputActions.AttackHeavy),
-            router.IsJustPressed(InputActions.Dodge), router.IsPressed(InputActions.Run));
+        Vector2 move = router.MoveDirection();
+        return new(
+            HorizontalSign: Math.Sign(move.X),
+            DepthSign: Math.Sign(move.Y),
+            JumpPressed: router.IsJustPressed(InputActions.Jump),
+            LightPressed: router.IsJustPressed(InputActions.AttackLight),
+            HeavyPressed: router.IsJustPressed(InputActions.AttackHeavy),
+            DodgePressed: router.IsJustPressed(InputActions.Dodge),
+            RunHeld: router.IsPressed(InputActions.Run));
     }
 }

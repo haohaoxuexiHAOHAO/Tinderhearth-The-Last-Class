@@ -58,6 +58,33 @@ public int GetCount() => _count;
 需要在访问器里加验证逻辑（用 C# 14 的 `field` 关键字，不新开 `_backing`），
 或者字段被多个属性共用。
 
+## 局部变量与 `var`
+
+局部变量在**右侧类型一眼可知**时用 `var`；类型不显然时写全类型名。`var` 省的是重复，不是信息。
+
+右侧是 `new T(...)`、字面量、或名字已说清返回什么的方法时，类型就在眼前，`var` 去掉一次复述：
+
+```csharp
+// 对：右侧已经写了类型
+var rig = new CameraRig(view);
+for (var i = 0; i < count; i++) { ... }
+```
+
+右侧是**裸属性或裸方法**、返回类型看不出来时，`var` 把类型藏了——读者得跳去看定义才知道后面能拿它做什么：
+
+```csharp
+// 错：SkillGroup？Vector2？得跳去看定义才知道
+var before = _modifiers.Active;
+var move = router.MoveDirection();
+
+// 对：类型写出来，就近可读
+SkillGroup before = _modifiers.Active;
+Vector2 move = router.MoveDirection();
+```
+
+这是**就近可读性**，不是禁用 `var`：判据是「读者能不能在本行看出类型」，而不是「有没有用 `var`」。
+成串构造对象的探针与脚手架里 `var x = new Xxx()` 仍照旧——那里类型全在右边。
+
 ## 表达式体成员
 
 单行的取值、转发与简单计算用 `=>`，不写 `{ return ...; }`。
@@ -70,6 +97,38 @@ public static TalentDef? Get(string id) => _all.Find(t => t.Id == id);
 
 超过一行、有副作用、或有早返回时写完整方法体。
 
+## 三元与多路分派
+
+三元 `?:` 只用**一层**。条件里、或真分支里再套一个 `?:`（嵌套三元）不许——分支与条件的对应关系
+得靠数缩进才读得对。三个以上分支、或按枚举／状态选值，用 `switch` 表达式，一行一个「情形 → 结果」：
+
+```csharp
+// 错：嵌套三元，哪个 : 配哪个 ? 要数着看
+var action = motor.Phase == MotorPhase.Hurt
+    ? _hurtHeavy ? "heavy_hit" : "light_hit"
+    : combo.IsAttacking
+    ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
+    : motor.Phase == MotorPhase.Dodge ? "dodge" : ...;
+
+// 对：switch 表达式，情形与结果对齐；分支内仍可用单层三元
+var action = motor.Phase switch
+{
+    MotorPhase.Hurt => _hurtHeavy ? "heavy_hit" : "light_hit",
+    _ when combo.IsAttacking => combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step),
+    MotorPhase.Dodge => "dodge",
+    _ => "idle",
+};
+```
+
+**单层**三元（`a ? x : y`）是「取值版 if/else」，仍然首选，不要为它写四行 `if`：
+
+```csharp
+public UiSurface? Top => _stack.Count > 0 ? _stack[^1] : null;
+```
+
+带 `when` 守卫的 `switch` 表达式**保序**：情形自上而下匹配、第一个成立的赢，与原来的 `?:` 链一致——
+把嵌套三元改成 `switch` 时照原顺序摆臂，行为不变。
+
 ## 记录类型
 
 轻量的数据载体优先用 `record` 或 `record struct`。
@@ -79,6 +138,36 @@ public static TalentDef? Get(string id) => _all.Find(t => t.Id == id);
 - **内部实现细节**（只在一个类里用的小数据包）：`private sealed record`（如 `GaugeRow`、`SkillCell`）
 
 `sealed` 对内部 record 是强制的——它们不是设计为扩展点的类型，明说出来，读者就不会试着去继承。
+
+## 构造与 `new`
+
+目标类型 `new`（写 `new(...)`、省掉类型名）用在**类型可还原**处：左边有显式类型、或在有返回类型的
+`return`／表达式体成员里。**不要在 `var` 后面用**——那样等号两头都没有类型：
+
+```csharp
+private readonly SkillModifierState _modifiers = new();       // 类型在左边
+public ActorIntent Decide(in ActorView view) => new("idle");  // 返回类型在签名里
+```
+
+构造**参数 ≥4 个、或有多个同类型参数**时用具名实参。位置一多，`new(1, 0, true, false, true, false, true)`
+里每个值是谁全靠数位置，而且改了记录字段顺序还不报错：
+
+```csharp
+// 错：五个 bool 靠位置区分，读的人得对着定义数
+return new(Math.Sign(move.X), Math.Sign(move.Y),
+    router.IsJustPressed(InputActions.Jump), router.IsJustPressed(InputActions.AttackLight), ...);
+
+// 对：具名实参，每个值标着自己是谁
+return new(
+    HorizontalSign: Math.Sign(move.X),
+    DepthSign: Math.Sign(move.Y),
+    JumpPressed: router.IsJustPressed(InputActions.Jump),
+    LightPressed: router.IsJustPressed(InputActions.AttackLight),
+    ...);
+```
+
+全默认值的构造（如 `CombatInput.None => new(0, 0, false, false, false, false, false)`）没有可混淆的信息，
+位置写法可留。
 
 ## 可空引用类型
 
