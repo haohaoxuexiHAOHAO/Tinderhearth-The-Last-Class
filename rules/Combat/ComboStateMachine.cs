@@ -47,6 +47,8 @@ public sealed class ComboStateMachine
     private int _frameInPhase;
     private bool _startedAirborne;
     private bool _hitLanded;
+    private int _lightBuffer;
+    private int _heavyBuffer;
 
     /// <summary>当前连段类型，待机时为 <see cref="ComboKind.None"/>。</summary>
     public ComboKind Kind { get; private set; } = ComboKind.None;
@@ -84,6 +86,13 @@ public sealed class ComboStateMachine
     /// <param name="isOnFloor">角色此刻是否在地面（引擎给）。</param>
     public void Tick(bool lightPressed, bool heavyPressed, bool isOnFloor)
     {
+        // 输入缓冲（`GP-14` 阶段 1 实机补）：记住最近的攻击边沿几帧。续段窗只在后摇末尾开着几帧，
+        // 狂点时按键很难正好落在窗内 —— 没有缓冲就表现为「一直第一段、偶尔才连上第二段」。缓冲让
+        // 「窗开前一点按下的」也算数。**只用于续段、不用于起手**（起手仍认当帧边沿，Begin 会清缓冲），
+        // 所以上一段的残留按键不会在回到待机时凭空起一段，单次点击也不会被缓冲误连到第二段。
+        _lightBuffer = lightPressed ? CombatFeel.InputBufferFrames : Math.Max(0, _lightBuffer - 1);
+        _heavyBuffer = heavyPressed ? CombatFeel.InputBufferFrames : Math.Max(0, _heavyBuffer - 1);
+
         if (Kind == ComboKind.None)
         {
             // 两键同帧按下时轻攻击优先 —— 轻是基本招，起手更快，更贴近玩家「先戳一下」的预期。
@@ -126,13 +135,17 @@ public sealed class ComboStateMachine
                 break;
 
             case AttackPhase.Recovery:
-                var samePress = Kind == ComboKind.Light ? lightPressed : heavyPressed;
+                // 认缓冲而不只认当帧边沿：窗开前几帧内按过同键就算（见 Tick 顶部的输入缓冲）。
+                var samePress = Kind == ComboKind.Light ? _lightBuffer > 0 : _heavyBuffer > 0;
                 // 续段要命中确认（`GP-10` 方案 b，轻重都适用）：本段打空则续段窗按了也不续，走完
                 // 后摇。命中检测在引擎层，命中经 RegisterHit 回传。（重击当前 ChainLength=1、无续段，
                 // 这条门对它现在不触发；后续加重击连段时即生效。）
                 var hitConfirmed = _hitLanded;
                 if (samePress && IsComboWindowOpen && hitConfirmed)
                 {
+                    // 续段消费掉缓冲，下一段从零重新攒 —— 否则一次按键可能连推两段。
+                    _lightBuffer = 0;
+                    _heavyBuffer = 0;
                     _step++;
                     EnterPhase(AttackPhase.Startup);
                 }
@@ -165,6 +178,9 @@ public sealed class ComboStateMachine
         Kind = kind;
         _step = 0;
         _startedAirborne = !isOnFloor;
+        // 起手这一下不留缓冲：否则它会一路撑到续段窗，把「点一下」变成「自动连到第二段」。
+        _lightBuffer = 0;
+        _heavyBuffer = 0;
         EnterPhase(AttackPhase.Startup);
     }
 
@@ -184,6 +200,8 @@ public sealed class ComboStateMachine
         _frameInPhase = 0;
         _startedAirborne = false;
         _hitLanded = false;
+        _lightBuffer = 0;
+        _heavyBuffer = 0;
     }
 
     private bool HasNextStep => _step + 1 < ChainLength;

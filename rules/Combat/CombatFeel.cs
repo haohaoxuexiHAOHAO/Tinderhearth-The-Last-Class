@@ -120,6 +120,16 @@ public static class CombatFeel
     /// <summary>重攻击连段的段数。**作者 2026-09-11 定为 1：重击当前是单招、不连段**，后续可能再加连段。</summary>
     public const int HeavyChainLength = 1;
 
+    /// <summary>攻击输入缓冲帧（`GP-14` 阶段 1 实机补，未校准初值，归 `GP-6`）。</summary>
+    /// <remarks>
+    /// 续段窗只在后摇末尾开着 <see cref="LightComboWindowFrames"/> 帧，玩家狂点时按键很难正好落在
+    /// 窗内 —— 没有缓冲就表现为「一直第一段、偶尔才连上第二段」（`GP-14` 阶段 1 实机发现）。缓冲
+    /// 记住最近这么多帧内的攻击边沿，续段窗一开就消费；起手那一下不留缓冲（<see cref="ComboStateMachine"/>
+    /// 的 <c>Begin</c> 清掉），所以单次点击不会被缓冲误连到第二段。取 6：约一个续段窗宽，够覆盖常见
+    /// 狂点节奏，实机收敛归 `GP-6`。
+    /// </remarks>
+    public const int InputBufferFrames = 6;
+
     /// <summary>轻击击退距离，世界像素。**作者 2026-09-11 实机定为 0**：轻击有击退会把敌人推出连段射程、只能平 A 一下就够不到，归 0 让轻击连段留在射程里。重击照旧击退。</summary>
     public const int LightKnockbackWorldPx = 0;
 

@@ -171,6 +171,76 @@ public class ComboStateMachineTests
     }
 
     [Fact]
+    public void 续段窗开前按下的轻攻击被缓冲到窗内续段()
+    {
+        // `GP-14` 阶段 1 实机：狂点轻攻击一直停在第一段。根因是续段只认「续段窗那几帧内的当帧边沿」，
+        // 窗开前一点按下的会丢。加了输入缓冲后，窗开前几帧内按下的同键应被带进窗内续段。
+        var m = StartLight();
+        m.RegisterHit();
+        var guard = 0;
+        while (m.Phase != AttackPhase.Recovery && guard++ < 200)
+        {
+            m.Tick(false, false, true);
+        }
+
+        Assert.False(m.IsComboWindowOpen);   // 刚进后摇，续段窗还没开
+
+        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        Assert.Equal(0, m.Step);   // 窗未开，当帧不续 —— 这一下要被缓冲住
+
+        // 之后不按任何键：缓冲应把上面那次按下带进随后开启的续段窗。
+        for (var i = 0; i < CombatFeel.LightComboWindowFrames && m.Step == 0 && m.IsAttacking; i++)
+        {
+            m.Tick(false, false, true);
+        }
+
+        Assert.Equal(1, m.Step);
+    }
+
+    [Fact]
+    public void 缓冲的续段仍需命中确认()
+    {
+        // 缓冲只解决时机，不绕过命中确认（方案 b）：本段打空，窗开前按下的键被缓冲住也不续段。
+        var m = StartLight();   // 不调 RegisterHit：本段打空
+        var guard = 0;
+        while (m.Phase != AttackPhase.Recovery && guard++ < 200)
+        {
+            m.Tick(false, false, true);
+        }
+
+        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);   // 窗开前按下，缓冲住
+
+        for (var i = 0; i < 80 && m.IsAttacking; i++)
+        {
+            m.Tick(false, false, true);
+        }
+
+        Assert.Equal(0, m.Step);          // 打空：缓冲不绕过命中确认
+        Assert.False(m.IsAttacking);      // 走完后摇回到待机
+    }
+
+    [Fact]
+    public void 单次点击命中后不因缓冲误续段()
+    {
+        // 起手那一下不该被缓冲带进续段窗，否则「点一下」会自动连到第二段。Begin 清缓冲守着这条。
+        var m = StartLight();
+        m.RegisterHit();
+
+        var continued = false;
+        for (var i = 0; i < 80 && m.IsAttacking; i++)
+        {
+            m.Tick(false, false, true);   // 起手后不再按任何键
+            if (m.Step > 0)
+            {
+                continued = true;
+            }
+        }
+
+        Assert.False(continued);       // 单次点击只出一段
+        Assert.False(m.IsAttacking);   // 走完回到待机
+    }
+
+    [Fact]
     public void 重击是单招从不开续段窗()
     {
         var m = new ComboStateMachine();
