@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Tinderhearth.Rules.Combat;
 
 namespace Tinderhearth.World;
 
@@ -64,7 +65,7 @@ public partial class CombatDebugOverlay : Node2D
 
     /// <summary>当前要画的判定框（世界矩形）；非 Active 帧或没接判定框时为 <c>null</c>。</summary>
     public Rect2? CurrentHitboxWorld => Hitbox?.ActiveBoxLocal is Rect2 local
-        ? new Rect2(Hitbox.ToGlobal(local.Position), local.Size)
+        ? new Rect2(Hitbox.ToGlobal(local.Position) + VisualDepthOffset(Hitbox.GetParent()), local.Size)
         : null;
 
     /// <summary>当前要画的受击框（世界矩形）逐个。几何取自各受击区域自己的 <see cref="World.Hurtbox.BoxLocal"/>。</summary>
@@ -73,9 +74,24 @@ public partial class CombatDebugOverlay : Node2D
         foreach (var hurt in Hurtboxes)
         {
             var local = hurt.BoxLocal;
-            yield return new Rect2(hurt.ToGlobal(local.Position), local.Size);
+            yield return new Rect2(hurt.ToGlobal(local.Position) + VisualDepthOffset(hurt.Actor), local.Size);
         }
     }
+
+    /// <summary>
+    /// 框要跟着角色精灵的纵深绘制偏移一起挪（`ENG-15`／`GP-14` 阶段 1 实机）。
+    /// </summary>
+    /// <remarks>
+    /// 判定框与受击框的**碰撞形状留在物理位置**——命中判定在物理位置算、纵深靠容差补判（`GP-16`），
+    /// 不掺绘制偏移。但角色精灵经 <see cref="DepthVisual"/> 按纵深上下偏移，框若只画在物理位置，角色
+    /// 一往纵深里走框就与画面上的身体错开（实机发现：纵深不在带中线时受击框飘在头顶）。所以**只有
+    /// 叠层显示时**把框补上同一段偏移，与看得见的精灵对齐；物理位置那份一点不动。带中线（默认纵深）
+    /// 偏移为零，所以在带中线上验收的 `ENG-6` 探针不受影响。
+    /// </remarks>
+    private static Vector2 VisualDepthOffset(Node? owner) =>
+        owner is IDepthActor actor
+            ? new Vector2(0, (float)DepthRendering.DrawOffsetWorldPx(actor.DepthWorldPx))
+            : Vector2.Zero;
 
     public override void _Ready() => Visible = Enabled;
 

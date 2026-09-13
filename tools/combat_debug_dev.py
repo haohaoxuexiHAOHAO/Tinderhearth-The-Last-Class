@@ -12,9 +12,10 @@ import time
 from check_input_map import find_godot, ROOT
 
 # 可视化那一半：默认关、Active 帧判定框 ≙ 独立按 SpecFor 重算的框、非 Active 不画判定框、
-# 受击框 ≙ 角色实际几何（18×32、贴脚底、居中）。
+# 受击框 ≙ 角色实际几何（18×32、贴脚底、居中）、受击框跟着纵深绘制偏移挪（GP-14 阶段 1 实机）。
 VIZ = set('overlay-default-off hitbox-viz-hidden-inactive '
-          'hitbox-viz-matches-active hurtbox-viz-matches'.split())
+          'hitbox-viz-matches-active hurtbox-viz-matches '
+          'hurtbox-viz-follows-depth'.split())
 # 帧步进那一半：暂停冻住进行中的攻击、单步恰好推一帧且不自行连推、单步跑的是同一份结算
 # （命中木桩、硬直帧数与规则层一致）——这条就是 `FR-19` 的「帧步进不改结算」的行为级证明。
 FRAMESTEP = set('paused-freezes-combat step-advances-exactly-one '

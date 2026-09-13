@@ -191,6 +191,7 @@ public partial class CombatDebugDev : Node2D
                     Check("overlay-default-off", !_overlay.Enabled && _overlay.ShouldAdvance());
                     _overlay.Enabled = true;
                     _dummy.Position = new Vector2(PlayerX + FarX, GroundY);
+                    CheckHurtboxFollowsDepth();
                 }
 
                 TryAdvance();
@@ -318,6 +319,33 @@ public partial class CombatDebugDev : Node2D
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// 叠层的受击框跟着角色精灵的纵深绘制偏移一起挪（`GP-14` 阶段 1 实机发现的 bug 的执行体）。
+    /// </summary>
+    /// <remarks>
+    /// 别的判据都在带中线（默认纵深）验，那里绘制偏移恰好为零、验不出这条 —— 作者正是把主角往纵深里
+    /// 走之后才看见受击框飘在头顶。所以这里专门把主角摆到带前沿（偏移非零），核受击框下沿跟着精灵偏
+    /// 移了同样一段；用真实缺陷形状反证：叠层若不补偏移（改动前的写法），框停在物理脚底、这条当场变红。
+    /// 检查完立刻还原纵深，不影响后面帧步进那几个阶段（它们要在带中线上跑）。
+    /// </remarks>
+    private void CheckHurtboxFollowsDepth()
+    {
+        var restore = _player.Combat.Motor.DepthWorldPx;
+        _player.Combat.Motor.PlaceDepth(DepthBand.FrontWorldPx);
+        _player.Visual.Sync();
+
+        var offset = DepthRendering.DrawOffsetWorldPx(DepthBand.FrontWorldPx);
+        var rect = _overlay.CurrentHurtboxesWorld().First();
+        // 期望：受击框下沿 = 主角物理脚底 + 纵深绘制偏移（精灵也偏了同样一段）；高度仍是本体 28。
+        Check("hurtbox-viz-follows-depth",
+            Math.Abs(offset) > 0.001                                        // 前沿偏移确非零，否则空验
+            && Math.Abs(rect.End.Y - (_player.GlobalPosition.Y + offset)) < 0.01f
+            && Math.Abs(rect.Size.Y - PlayerActor.BodyHeightWorldPx) < 0.01f);
+
+        _player.Combat.Motor.PlaceDepth(restore);
+        _player.Visual.Sync();
     }
 
     /// <summary>叠层的受击框 ≙ 角色实际几何：18×32、下沿贴脚底、以角色 X 居中。玩家与木桩各一个。</summary>
