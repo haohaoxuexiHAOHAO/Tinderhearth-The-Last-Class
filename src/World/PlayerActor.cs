@@ -88,6 +88,81 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     /// <summary>最近一次受击是不是重击：决定受击相位放 `heavy_hit` 还是 `light_hit`（`GP-14`）。</summary>
     private bool _hurtHeavy;
 
+    /// <summary>着色器里那个白闪开关的名字。写一次，读写两处都引它。</summary>
+    private static readonly StringName FlashParam = "flash";
+
+    /// <summary>
+    /// 命中白闪的着色器（`GP-20`）。**全项目第一个着色器，刻意不落 <c>.gdshader</c> 文件。**
+    /// </summary>
+    /// <remarks>
+    /// **为什么必须是着色器**：<c>modulate</c> 是乘法，白色乘彩色贴图等于原样，精灵不会变白（`GP-13`
+    /// 那轮实测踩过，踩坑记录里记着）。木桩能靠换 <c>Polygon2D.Color</c> 变白，是因为它本来就是几何。
+    ///
+    /// **为什么闪白不能由美术给**：`ART-6` 定了「闪白由代码持有、进仓表禁单色帧」。这不是偏好 ——
+    /// `tools/check_assets.py` 里记着实测：下载素材 <c>samurai/hurt.png</c> 第 1 帧就是整张白的，
+    /// 「受击表塞一张闪白」在第三方素材里是常见做法，而那让闪白时长被烧进图、代码调不了。
+    ///
+    /// **为什么用代码字符串而不是资源文件**：落一个 <c>.gdshader</c> 就多一类进 `res://` 的资源，
+    /// 要过登记表与发行包清单两道守卫（`check_assets.py` 的磁盘比对只扫 <c>.png</c>，于是它既不会
+    /// 被登记、也不会被拦 —— 一个查不出来的空子），而这段着色器只有三行、没有可替换的美术内容。
+    /// 写在代码里正好落实「闪白由代码持有」那句话，也不需要 `.import` 与纹理过滤那套东西。
+    ///
+    /// **只改 RGB、不动 alpha**：项目规则是像素只允许全透明或全不透明（`ENG-10` 逐像素扫），动
+    /// alpha 会造出半透明边。不闪时**一个字都不写** <c>COLOR</c>，于是默认采样与 <c>modulate</c>
+    /// （无敌青、奔跑黄）照旧生效，两个通道不抢。
+    /// </remarks>
+    private static readonly Shader FlashShader = new()
+    {
+        Code = """
+            shader_type canvas_item;
+
+            uniform bool flash = false;
+
+            void fragment()
+            {
+                if (flash)
+                {
+                    COLOR.rgb = vec3(1.0);
+                }
+            }
+            """,
+    };
+
+    /// <summary>本角色自己的一份着色器材质：着色器共享，开关各自一份。</summary>
+    private readonly ShaderMaterial _flashMaterial = new() { Shader = FlashShader };
+
+    /// <summary>白闪结束的物理帧号（不含）。<c>0</c> 表示从没闪过。</summary>
+    private ulong _flashUntilFrame;
+
+    /// <summary>
+    /// 此刻在不在白闪。**按物理帧号算，不按谁调了几次递减**（`GP-20`）。
+    /// </summary>
+    /// <remarks>
+    /// 用帧号而不是「每帧减一的计数器」，是为了躲开一个顺序依赖：命中当帧里 <see cref="Receive"/>
+    /// （由场景的命中结算调）与本节点自己的 <see cref="_PhysicsProcess"/> 都会跑，而两者的先后取决于
+    /// 树的顺序（父在子前）。计数器版本会因此在「命中当帧就被减掉一次」与「没被减掉」之间摇摆，白闪
+    /// 到底亮 1 帧还是 2 帧变成树结构的函数 —— 那正是踩坑记录第 38 条那一类，改一次挂载点就悄悄变。
+    /// 帧号版本与调用顺序、调用次数都无关。
+    ///
+    /// 顿帧不影响它：物理帧号照常走，而战斗推进被 gate 停住 —— 这就是「真实帧」，理由见
+    /// <see cref="CombatFeel.HitFlashFrames"/>。
+    /// </remarks>
+    public bool HitFlashing => Engine.GetPhysicsFrames() < _flashUntilFrame;
+
+    /// <summary>白闪还剩几个真实帧，给探针当量具。</summary>
+    public int HitFlashFramesLeft =>
+        (int)Math.Max(0L, (long)_flashUntilFrame - (long)Engine.GetPhysicsFrames());
+
+    /// <summary>
+    /// 材质里那个开关**此刻的实际值**，从材质读回而不是复述意图。
+    /// </summary>
+    /// <remarks>
+    /// 判据要取运行时实际值（踩坑记录第 41 条那一类：改了配置却跑着旧产物，两者长得一样）。
+    /// <see cref="HitFlashing"/> 说的是「按帧号算此刻该不该闪」，本属性说的是「开关真的送到材质了
+    /// 吗」—— 两者都绿才说明这条链是通的；只看前者，漏掉 <c>SetShaderParameter</c> 也照样全绿。
+    /// </remarks>
+    public bool HitFlashUniform => _flashMaterial.GetShaderParameter(FlashParam).AsBool();
+
     /// <summary>
     /// 纵深可视根（`ENG-15`）：精灵挂在它下面，纵深偏移与影子都由它管。
     /// </summary>
@@ -202,6 +277,8 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
         Sprite.SpriteFrames = new SpriteFrames();
         // 把帧内地面行对到节点原点：帧居中绘制，行 r 的上沿在精灵局部 y = r - 帧高/2。
         Sprite.Position = new Vector2(0, -(GroundRow - FrameHeight / 2));
+        // 命中白闪走材质，不走 modulate（乘法对彩色贴图无效），理由见 FlashShader。
+        Sprite.Material = _flashMaterial;
         foreach (var name in Sheets)
         {
             var texture = GD.Load<Texture2D>($"{SheetDir}/{name}.png");
@@ -252,6 +329,10 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
 
     public override void _PhysicsProcess(double delta)
     {
+        // 白闪开关每帧同步一次。**这一句在 `ManualPhysics` 分支之外**：白闪按真实帧走，顿帧或帧步进
+        // 冻住战斗推进时它仍要自己走完（见 <see cref="HitFlashing"/>）。写成「变了才设」会多一份要
+        // 跟着对的状态，而这是一次 uniform 赋值，不值当。
+        _flashMaterial.SetShaderParameter(FlashParam, HitFlashing);
         if (!ManualPhysics) AdvanceCombat();
     }
 
@@ -282,6 +363,11 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     public void Receive(HitReaction reaction, int facing)
     {
         _hurtHeavy = reaction.IsHeavy;
+        // 命中白闪（`GP-20`）：在**命中当帧**打戳。这一句跑在顿帧开始之前 —— `Hitbox.Resolve` 里
+        // 先 `target.Receive`、后 `feedback`（那里才 `Hitstop.Begin`），所以白闪、受击帧、顿帧、
+        // 震屏与打击火花全部落在同一个物理帧上，这正是「爆点」而不是「延迟」的条件。
+        _flashUntilFrame = Engine.GetPhysicsFrames() + (ulong)CombatFeel.HitFlashFrames;
+        _flashMaterial.SetShaderParameter(FlashParam, true);
         // 把「硬直帧内走完 KnockbackWorldPx」折成速度：每帧位移 = 击退 ÷ 硬直，速度 = 每帧位移 × 帧率。
         var knockbackVelocity = reaction.HitstunFrames > 0
             ? facing * (double)reaction.KnockbackWorldPx / reaction.HitstunFrames * CombatFeel.PhysicsTicksPerSecond

@@ -378,6 +378,7 @@ public partial class HitFeedbackDev : Node2D
         wall.QueueFree();
         await ReachSplitProbe();
         await DepthToleranceProbe();
+        await HitFlashProbe();
         Capture();
     }
 
@@ -597,6 +598,71 @@ public partial class HitFeedbackDev : Node2D
             && !_dummy.Statuses.Has(StatusKind.Hitstun)
             && DepthOverlap.SeparationWorldPx(motor.DepthWorldPx, _dummy.DepthWorldPx) == 0.0);
     }
+
+    /// <summary>
+    /// `GP-20` 命中白闪：**精灵真的白了**、按真实帧自己灭、开关真的送到了材质。
+    /// </summary>
+    /// <remarks>
+    /// 为什么这条要单独一段、且拿**主角**当受击方：本场景的靶是 <see cref="TrainingDummy"/>（几何），
+    /// 它变白靠换 <c>Polygon2D.Color</c>，与精灵那条链完全是两回事（`flash-pixel` 判的是它）。精灵
+    /// 白闪要 <c>modulate</c> 之外的手段（乘白无效），所以它必须由一个**精灵**受击方来验，而这个场景
+    /// 里唯一的精灵角色是主角。训练房（`GP-14`）的靶正是精灵角色，那里才是它真正上场的地方。
+    ///
+    /// **带反证**：命中前先在同一取样点取一次色并要求它**不是白的**。缺了这一步，「精灵白了」在
+    /// 取样点恰好落在浅色像素或背景上时会假绿（踩坑记录第 52 条那一类：判据要能在特性不存在时变红）。
+    ///
+    /// 排在全部玩法判据之后：<see cref="PlayerActor.Receive"/> 会让主角进硬直，那会干扰前面依赖主角
+    /// 姿态的判据。之后只剩 <see cref="Capture"/>，而它取的是木桩的像素，不受影响。
+    /// </remarks>
+    private async Task HitFlashProbe()
+    {
+        // 先把主角推到待机：取样点落在哪个像素取决于当前动画帧，基线与白闪两次取样必须是同一帧。
+        _player.AdvanceCombat();
+        _player.AdvanceCombat();
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var baseline = SamplePlayerPixel();
+        Check("sprite-flash-baseline", !IsWhite(baseline) && !_player.HitFlashing
+            && !_player.HitFlashUniform);
+
+        // 命中当帧：打戳 + 开关立即置位（不等下一帧，否则命中那一帧看不到白）。
+        _player.Receive(HitResolution.Resolve(ComboKind.Heavy), 1);
+        Check("sprite-flash-armed", _player.HitFlashing && _player.HitFlashUniform
+            && _player.HitFlashFramesLeft == CombatFeel.HitFlashFrames);
+
+        // **刻意不推进主角**：推进会把动画换成受击帧，取样点就换了像素，与基线不可比。
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        var lit = SamplePlayerPixel();
+        GD.Print($"[GP20] hitflash baseline={baseline.R:F2},{baseline.G:F2},{baseline.B:F2}"
+            + $" lit={lit.R:F2},{lit.G:F2},{lit.B:F2}"
+            + $" flashing={_player.HitFlashing} left={_player.HitFlashFramesLeft}"
+            + $" frames={CombatFeel.HitFlashFrames}");
+        // 把「此刻仍该在闪」一起判：万一取样与帧号赛跑输了，失败信息直接指出是赛跑而不是没变白。
+        Check("sprite-flash-pixel", IsWhite(lit) && _player.HitFlashing);
+
+        // 按真实帧灭：等够 HitFlashFrames 个物理帧就该灭。**这中间没有任何战斗推进**，所以它证明的
+        // 是「白闪不靠谁来 Tick 它」——顿帧冻住战斗时它同样会自己走完。
+        for (var i = 0; i < CombatFeel.HitFlashFrames; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.PhysicsFrame);
+        }
+
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        Check("sprite-flash-expired", !_player.HitFlashing && !_player.HitFlashUniform
+            && _player.HitFlashFramesLeft == 0 && !IsWhite(SamplePlayerPixel()));
+    }
+
+    /// <summary>取主角躯干中心那一点此刻在屏幕上的颜色。手法同 <see cref="SaveFlash"/>，取样点换成主角。</summary>
+    private Color SamplePlayerPixel()
+    {
+        var image = GetViewport().GetTexture().GetImage();
+        var at = _player.GetGlobalTransformWithCanvas()
+            * new Vector2(0, -PlayerActor.BodyHeightWorldPx / 2);
+        var scale = new Vector2(image.GetWidth(), image.GetHeight()) / GetViewport().GetVisibleRect().Size;
+        return image.GetPixel((int)(at.X * scale.X), (int)(at.Y * scale.Y));
+    }
+
+    /// <summary>判据用的「白」：三通道都到顶。阈值同 <c>flash-pixel</c>，不另立一套。</summary>
+    private static bool IsWhite(Color pixel) => pixel.R > 0.99f && pixel.G > 0.99f && pixel.B > 0.99f;
 
     private async void SaveFlash()
     {

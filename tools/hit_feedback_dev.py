@@ -31,6 +31,13 @@ DEPTH_TOLERANCE = {'probe-depth-rows-derived', 'depth-probe-fresh-swing', 'depth
                    'depth-realign-hits-same-swing', 'depth-tolerance-edge-hit',
                    'knockback-horizontal-only', 'depth-probe-restored'}
 EXPECTED |= DEPTH_TOLERANCE
+# GP-20：精灵角色的命中白闪。既有的 flash-pixel 判的是**木桩几何**（换 Polygon2D 颜色），精灵那条
+# 链完全不同（modulate 乘白无效，要着色器），所以另立四条：命中前不是白的（反证，缺了它取样点落在
+# 浅色处会假绿）、命中当帧开关到位、屏幕上真的白了、按真实帧自己灭（中间不推进战斗，于是它同时
+# 证明白闪不被顿帧拉长）。
+HIT_FLASH = {'sprite-flash-baseline', 'sprite-flash-armed', 'sprite-flash-pixel',
+             'sprite-flash-expired'}
+EXPECTED |= HIT_FLASH
 # 前提判据：这一轮的测量条件成立吗（物理帧与渲染帧 1:1、窗口没失焦）。它们不测玩法。
 PRECONDITIONS = {'tick-frame-1to1', 'focus-kept'}
 EXPECTED |= PRECONDITIONS
@@ -54,7 +61,7 @@ def selfcheck():
            good.replace('PASS', 'FAIL', 1), good + '\n' + summary,
            good.replace(summary, '[GP13] Summary 0/0'), good + '\nERROR: injected',
            good + '\n[GP13] PASS extra', '\n'.join(lines), good + '\n[GP13] PASS malformed extra']
-    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'run-'))} | REACH_SPLIT | DEPTH_TOLERANCE | PRECONDITIONS):
+    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'run-'))} | REACH_SPLIT | DEPTH_TOLERANCE | HIT_FLASH | PRECONDITIONS):
         record = f'[GP13] PASS {name}'
         bad.extend((good.replace(record + '\n', ''), good.replace(record, f'[GP13] FAIL {name}')))
     assert valid_log(good, 0) and not valid_log(good, 1)

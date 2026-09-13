@@ -39,7 +39,7 @@ public partial class HitSpark : Node2D
 
         var frames = new SpriteFrames();
         frames.AddAnimation("spark");
-        frames.SetAnimationLoop("spark", false);
+        frames.SetAnimationLoopMode("spark", SpriteFrames.LoopMode.None);
         frames.SetAnimationSpeed("spark", Fps);
         for (var i = 0; i < Frames; i++)
         {
