@@ -777,16 +777,39 @@ def _audio_entries() -> list[dict]:
     return json.loads(REGISTRY.read_text(encoding="utf-8")).get("音频", [])
 
 
-def case_audio_unregistered_caught() -> tuple[bool, str]:
-    """磁盘上有登记表没有的音频 → 判失败（`GP-20`）。"""
+def case_unregistered_file_caught() -> tuple[bool, str]:
+    """`assets/` 下任何未登记的文件都要被拦，**且不限扩展名**（`GP-20` 的根治）。
+
+    撞的正是旧实现的盲区形状：磁盘侧原先只 `rglob("*.png")`，于是下面这三种类型全是瞎的 ——
+    音频、着色器、源图。按扩展名补白名单只能补一格，所以判据改成「全部文件默认必须登记」。
+    """
     import check_assets
+    strays = {"downloaded/x/zz.wav", "shaders/zz.gdshader", "self-drawn/zz.psd"}
     check_assets._FAILS.clear()
-    check_assets.check_audio([], {"downloaded/fists-of-fury/zz-ghost.wav"})
+    guarded, waived = check_assets.check_registered(strays, set())
     caught = list(check_assets._FAILS)
     check_assets._FAILS.clear()
-    ok = len(caught) == 1 and "漏登记" in caught[0]
-    return ok, (f"未登记音频被拦：{caught[0][-58:]}" if ok
-                else f"拦下={caught or '（一条都没报）'}")
+    ok = len(caught) == 3 and guarded == 3 and waived == 0
+    return ok, (f"三种未登记类型全被拦（核 {guarded} 个、免登记 {waived} 个）" if ok
+                else f"拦下 {len(caught)} 条（期望 3）；核={guarded} 免={waived}")
+
+
+def case_sidecar_and_license_waived() -> tuple[bool, str]:
+    """`.import` 侧车与 `LICENSE*.txt` 免登记 —— 误判它们会让门禁在干净仓库上直接变红。
+
+    这是上一条的**反方向**：一条「默认全要登记」的规则，最容易坏的方式是把本来就不该登记的
+    东西也拦下来。真仓库里侧车比素材还多（本轮 52 : 49），误判一次就是整片红。
+    """
+    import check_assets
+    files = {"placeholder/ui/panel.png.import", "fonts/LICENSE-OFL.txt",
+             "downloaded/fists-of-fury/LICENSE.txt"}
+    check_assets._FAILS.clear()
+    guarded, waived = check_assets.check_registered(files, set())
+    caught = list(check_assets._FAILS)
+    check_assets._FAILS.clear()
+    ok = not caught and guarded == 0 and waived == 3
+    return ok, (f"侧车与许可证被免登记（核 {guarded} 个、免登记 {waived} 个）" if ok
+                else f"误拦={caught}；核={guarded} 免={waived}")
 
 
 def case_audio_bytes_mismatch_caught() -> tuple[bool, str]:
@@ -799,16 +822,14 @@ def case_audio_bytes_mismatch_caught() -> tuple[bool, str]:
     entries = _audio_entries()
     if not entries:
         return False, "登记表「音频」一节是空的，没有可撞的条目"
-    on_disk = {e["path"] for e in entries}
-
     check_assets._FAILS.clear()
-    check_assets.check_audio(entries, on_disk)
+    check_assets.check_audio(entries)
     passed = not check_assets._FAILS
 
     tampered = dict(entries[0])
     tampered["字节数"] = tampered["字节数"] + 1
     check_assets._FAILS.clear()
-    check_assets.check_audio([tampered], {tampered["path"]})
+    check_assets.check_audio([tampered])
     caught = list(check_assets._FAILS)
     check_assets._FAILS.clear()
     ok = passed and len(caught) == 1 and "字节" in caught[0]
@@ -829,7 +850,7 @@ def case_audio_missing_license_caught() -> tuple[bool, str]:
     tampered = dict(entries[0])
     tampered["许可证文件"] = "downloaded/fists-of-fury/zz-no-such-license.txt"
     check_assets._FAILS.clear()
-    check_assets.check_audio([tampered], {tampered["path"]})
+    check_assets.check_audio([tampered])
     caught = list(check_assets._FAILS)
     check_assets._FAILS.clear()
     ok = len(caught) == 1 and "授权原文" in caught[0]
@@ -868,8 +889,10 @@ DIRECT_CASES = (
      case_unregistered_in_pack),
     ("字体按可进发行包字段而非路径放行", "audit_release_assets",
      "ENG-12：按路径判会误杀 assets/fonts/ 下的永久依赖", case_font_shippable_by_field),
-    ("磁盘上未登记的音频被拦", "check_audio",
-     "GP-20：图像那套只扫 .png，音频不登记会完全隐形", case_audio_unregistered_caught),
+    ("未登记的文件被拦且不限扩展名", "check_registered",
+     "GP-20 根治：旧实现只扫 .png，新类型默认隐形", case_unregistered_file_caught),
+    ("侧车与许可证不被误判成未登记", "check_registered",
+     "反方向：误判会让干净仓库整片红（侧车比素材还多）", case_sidecar_and_license_waived),
     ("音频字节数与登记不符时判失败", "check_audio",
      "GP-20：换一份 wav 在 diff 里只有一行「二进制文件有差异」", case_audio_bytes_mismatch_caught),
     ("借件音频缺授权原文时判失败", "check_audio",
@@ -902,9 +925,12 @@ CASES = (
     Case("素材有半透明像素时判失败", "step_assets", "像素绘制原则 §9 的绝对规则",
          inject_semi_transparent, restore_semi_transparent,
          ["--upto", "assets"], "半透明像素"),
+    # 期望字样取「漏登记」这个**语义锚点**，不取消息里的某句措辞：2026-09-13 把完整性判据从
+    # 「只扫 .png」改成「扫全部文件」时，消息措辞变了而语义没变，原先钉在措辞上的这条当场变红
+    # （踩坑记录 53 那一族：自证硬引用被测对象的字面内容，对象一改它就跟着坏）。
     Case("素材漏登记时判失败", "step_assets", "漏登记等于绕过守卫",
          inject_unregistered_asset, restore_unregistered_asset,
-         ["--upto", "assets"], "登记表里没有"),
+         ["--upto", "assets"], "漏登记"),
     Case("精灵表帧数与登记不符时判失败", "step_assets", "切帧算错，动画会错位",
          inject_wrong_frame_count, restore_registry,
          ["--upto", "assets"], "帧"),
@@ -973,7 +999,7 @@ TRACKED_JUDGEMENTS = ("parse_pck", "check_root", "locate_godot", "expected_test_
                       # 「step_assets 有用例」不等于「它调的每条判定都撞过」。
                       "check_alpha", "check_upscaled", "check_texture_filter",
                       "check_solid_frames", "check_frame_geometry_binding",
-                      "check_hitbox_binding", "check_audio")
+                      "check_hitbox_binding", "check_audio", "check_registered")
 
 
 def coverage(names: list[str]) -> tuple[list[str], list[str]]:

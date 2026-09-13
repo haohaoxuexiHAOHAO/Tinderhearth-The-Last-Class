@@ -287,12 +287,40 @@ def check_fonts(entries: list[dict]) -> int:
     return checked
 
 
-# 音频文件的扩展名。**磁盘侧要按它扫**，否则未登记的音频完全隐形（`GP-20`）：图像那套
-# 比对只 rglob("*.png")，于是往 assets/ 里丢一个 .wav 既不会被登记、也不会被任何判据拦。
-AUDIO_SUFFIXES = (".wav", ".ogg", ".mp3")
+# 免登记的两类文件。**这是一份「不必登记」的白名单，而不是「要检查什么」的白名单** ——
+# 方向很要紧，见 check_registered 的注释。
+#   1. `.import`：Godot 给每个被导入的资源生成的侧车，内容由引擎维护、不是我们要审的素材；
+#      它已经被 `check_import` 按素材逐条核过（有没有、参数对不对）。
+#   2. `LICENSE*.txt`：借来的素材必须把授权原文一起进仓（`ART-3`／`ART-5`），它是素材的
+#      随身文件而不是素材本身；登记表反过来用「许可证文件」字段指向它。
+SIDECAR_SUFFIX = ".import"
+LICENSE_RE = re.compile(r"(?:^|/)LICENSE[^/]*\.txt$", re.IGNORECASE)
 
 
-def check_audio(entries: list[dict], on_disk: set[str]) -> int:
+def check_registered(all_on_disk: set[str], registered: set[str]) -> tuple[int, int]:
+    """`assets/` 下每个文件都必须被登记表某一节收录（除侧车与许可证原文）。
+
+    **这一条是「默认响」的那个方向。** 原先磁盘侧只 `rglob("*.png")`，于是「要检查哪些扩展名」
+    是一份白名单，**白名单之外的一切默认隐形** —— 往 `assets/` 丢一个 `.wav`／`.gdshader`／
+    第二份 `.ttf`／一张 `.psd` 源图，既不会被登记、也不会被任何判据拦，而漏登记等于绕过守卫。
+    2026-09-13 接 `GP-20` 的占位音效时当场撞上了这个空子（那轮先按扩展名补了音频一类，
+    但那只是把白名单加长一格，同类问题照旧会在下一个新类型上再发生一次）。
+
+    所以这里把默认反过来：**扫全部文件，未被任何一节登记的一律判失败**。新增一类资源时它是响的，
+    而「响」正是我们要的 —— 那时按类型加分节与对应判据，是一个明确的动作，不是一次静默的遗漏。
+
+    返回（核过的文件数, 免登记的文件数），两个数都要自报：**只说「全登记了」看不出扫了多少**。
+    """
+    waived = {rel for rel in all_on_disk
+              if rel.endswith(SIDECAR_SUFFIX) or LICENSE_RE.search(rel)}
+    for stray in sorted(all_on_disk - waived - registered):
+        fail(f"{stray}：文件在 assets/ 下，但登记表**任何一节**都没有它 —— 漏登记等于绕过守卫。"
+             f"按它的类型加进「生成槽位／下载素材／自绘素材／字体／音频」之一；"
+             f"新出现的资源类型还要同时给它一条判据（否则登记了也没人查）")
+    return len(all_on_disk - waived), len(waived)
+
+
+def check_audio(entries: list[dict]) -> int:
     """核音频：文件在、内容与登记的 SHA256 一致、旁边有许可证；磁盘上未登记的音频要被拦。
 
     **音频不走图像那套判据。** 半透明像素、放大件、单色帧、纹理导入参数一条都不适用于波形，
@@ -306,11 +334,10 @@ def check_audio(entries: list[dict], on_disk: set[str]) -> int:
 
     **许可证按条目自己声明的路径核**，不写死在代码里：借件与自制件的许可证不在同一处，写死会
     让「换一批来源」变成改代码。
-    """
-    registered = {e["path"] for e in entries}
-    for extra in sorted(on_disk - registered):
-        fail(f"{extra}：音频文件在但登记表「音频」一节里没有 —— 漏登记等于绕过守卫（GP-20）")
 
+    **「磁盘上有未登记音频」不在这里判**，由 `check_registered` 统一管 —— 那条按「全部文件」判
+    而不是按扩展名，所以它对新出现的音频格式（`.flac` 之类）也成立。
+    """
     checked = 0
     for entry in entries:
         rel = entry["path"]
@@ -562,10 +589,15 @@ def run_checks(list_only: bool = False) -> int:
 
     on_disk = {p.relative_to(ASSETS).as_posix() for p in ASSETS.rglob("*.png")} \
         if ASSETS.is_dir() else set()
-    for extra in sorted(on_disk - set(entries)):
-        fail(f"{extra}：文件在但登记表里没有 —— 漏登记等于绕过守卫")
+    # 反方向（登记了却没有文件）仍按节判，好给出该类型自己的提示语。
     for gone in sorted(set(entries) - on_disk):
         fail(f"{gone}：登记表里有但文件不在")
+
+    # 完整性只有这一处判据，且按**全部文件**判，不按扩展名 —— 理由见 check_registered。
+    all_on_disk = {p.relative_to(ASSETS).as_posix() for p in ASSETS.rglob("*") if p.is_file()} \
+        if ASSETS.is_dir() else set()
+    registered_all = set(entries) | {e["path"] for e in fonts} | {e["path"] for e in audio}
+    guarded_files, waived_files = check_registered(all_on_disk, registered_all)
 
     scanned = 0
     no_import = []
@@ -590,9 +622,7 @@ def run_checks(list_only: bool = False) -> int:
     font_count = check_fonts(fonts)
 
     say("\n音频（GP-20）：")
-    audio_on_disk = {p.relative_to(ASSETS).as_posix() for p in ASSETS.rglob("*")
-                     if p.suffix.lower() in AUDIO_SUFFIXES} if ASSETS.is_dir() else set()
-    audio_count = check_audio(audio, audio_on_disk)
+    audio_count = check_audio(audio)
 
     # ENG-13：texture_filter 覆盖 —— 场景资源全库 + src/rules 的 C#。
     tf_files = texture_filter_targets()
@@ -605,8 +635,9 @@ def run_checks(list_only: bool = False) -> int:
         f"实际逐像素扫过 {scanned} 个、共 {frame_total} 帧；每个查了 5 类"
         f"（半透明、放大件、尺寸与帧数、单色帧、导入参数）；"
         f"另核字体 {font_count} 份（字节数、SHA256、旁边有许可证）；"
-        f"另核音频 {audio_count} 份（同上三项，磁盘 {len(audio_on_disk)} 个音频文件，"
-        f"导入参数按 ART-1 有意不核）；"
+        f"另核音频 {audio_count} 份（同上三项，导入参数按 ART-1 有意不核）；"
+        f"另核 assets/ 下**全部** {guarded_files} 个文件都被某一节登记"
+        f"（另有 {waived_files} 个 .import 侧车与许可证原文免登记）；"
         f"另扫 {len(tf_files)} 份场景资源与 C# 的 texture_filter 覆盖（ENG-13）；"
         f"另核常量与登记表绑定 {binding} 条判据"
         f"（帧框 4 条 + 判定框按段 {len(HITBOX_SHEETS)} 段×3 条，ART-6）")
