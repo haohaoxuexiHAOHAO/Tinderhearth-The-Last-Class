@@ -55,6 +55,38 @@ public static class CameraFeel
     /// </remarks>
     public const double ShakeSeconds = 0.12;
 
+    /// <summary>轻击命中的**微震**幅度，屏幕像素（`GP-20`）。</summary>
+    /// <remarks>
+    /// **为什么轻击也震。** 原先只有重击震（正典写的是「重击与特定事件」），于是轻击命中在镜头上
+    /// 毫无反应 —— 而作者 2026-09-12 实机的反馈正是「轻击打上去就一下」。业界那条口径是顿帧必须配
+    /// 同帧的视觉与声音才读成力量，镜头是其中一路；给轻击一点点震是补这一路，**不是**把它拉到重击
+    /// 那么重。轻重的区分由幅度与时长承担，不靠「有没有震」。
+    ///
+    /// 取 2：正好是 <see cref="ShakeAmplitudeScreenPx"/> 那条注释里写的**下限** —— 一个世界像素
+    /// 乘侧视缩放，比这更小的位移在整数网格上表达不出来。也就是说这是「能表达的最小一抖」，
+    /// 而重击是它的两倍。
+    /// </remarks>
+    public const int LightHitShakeAmplitudeScreenPx = 2;
+
+    /// <summary>轻击微震的时长，秒（`GP-20`）。比重击短 —— 轻击连段要流畅，镜头不能挂在上一下。</summary>
+    /// <remarks>
+    /// 取 0.08：比 <see cref="ShakeSeconds"/> 短三分之一，同时仍满足「时长内装得下一个完整震动
+    /// 周期」（<see cref="ShakeHertz"/> 30Hz ⇒ 下限 0.067 秒）。**不取更短**是因为那条下限有理由：
+    /// 装不下一个周期时玩家看到的是一次跳动而不是震动。若实机觉得轻击该是「一下顿挫」而不是「一段
+    /// 抖动」，那要连同那条下限的理由一起重议，归 `GP-6`／`UI-12`，不是单独把这个数调小。
+    /// </remarks>
+    public const double LightHitShakeSeconds = 0.08;
+
+    /// <summary>一次命中该震多大、多久：重击用默认那一组，轻击用微震那一组（`GP-20`）。</summary>
+    /// <remarks>
+    /// **映射只有这一处。** 训练房与打击反馈探针都调它，所以「轻震重震各是多少」不会在两处各写
+    /// 一份而漂移 —— 那正是探针与实际玩法悄悄测不同东西的经典形状。
+    /// </remarks>
+    public static (int AmplitudeScreenPx, double Seconds) HitShake(bool heavy) =>
+        heavy
+            ? (ShakeAmplitudeScreenPx, ShakeSeconds)
+            : (LightHitShakeAmplitudeScreenPx, LightHitShakeSeconds);
+
     /// <summary>震动换向频率，赫兹。不跟帧率绑 —— 帧率变化不该改变震动的读感。</summary>
     public const int ShakeHertz = 30;
 

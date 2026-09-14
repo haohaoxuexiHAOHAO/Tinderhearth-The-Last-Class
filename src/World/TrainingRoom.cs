@@ -200,10 +200,11 @@ public partial class TrainingRoom : Node2D
     private void OnHit(HitReaction reaction)
     {
         _stop.Begin(reaction.HitstopFrames);
-        if (reaction.IsHeavy)
-        {
-            _camera.Rig.Shake();
-        }
+        // 震屏轻重各一组（`GP-20`）：**轻击也震，只是微震** —— 原先轻击命中镜头毫无反应，正是作者
+        // 说的「轻击就一下」。顿帧长度不动（轻 3／重 5 帧）：拉长顿帧只会更像延迟，爆点该由同帧的
+        // 火花、白闪、声音与这一抖去承担。相机不受顿帧 gate 冻结，所以这一抖在冻结帧里就放出来了。
+        var (shakeAmplitude, shakeSeconds) = CameraFeel.HitShake(reaction.IsHeavy);
+        _camera.Rig.Shake(shakeAmplitude, shakeSeconds);
 
         // 命中点爆一个打击特效（`GP-20` 占位）：命中点取判定框此刻的世界中心，压在角色之上、播完自消。
         var spark = new HitSpark { Heavy = reaction.IsHeavy, ZIndex = SparkZ };

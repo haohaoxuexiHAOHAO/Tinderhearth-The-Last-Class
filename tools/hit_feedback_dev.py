@@ -43,6 +43,10 @@ EXPECTED |= HIT_FLASH
 # .import 在运行时解析得出来）、命中当帧播放计数真的加一、音高落在登记幅度内且确实抖出了不同值。
 HIT_AUDIO = {'audio-clips-loaded', 'audio-hit-plays', 'audio-pitch-jitter', 'audio-miss-plays'}
 EXPECTED |= HIT_AUDIO
+# GP-20：顿帧/震屏协同。轻击起也震（微震），所以 {kind}-shake 不再按轻重分、只按开关分；轻重的
+# 区分改由这条**强度对比**承担。关掉震屏那一轮（--no-shake）它要求两段都恒零，即 FR-15 的另一半。
+HITSTOP_SHAKE = {'shake-heavier-than-light'}
+EXPECTED |= HITSTOP_SHAKE
 # 前提判据：这一轮的测量条件成立吗（物理帧与渲染帧 1:1、窗口没失焦）。它们不测玩法。
 PRECONDITIONS = {'tick-frame-1to1', 'focus-kept'}
 EXPECTED |= PRECONDITIONS
@@ -66,7 +70,7 @@ def selfcheck():
            good.replace('PASS', 'FAIL', 1), good + '\n' + summary,
            good.replace(summary, '[GP13] Summary 0/0'), good + '\nERROR: injected',
            good + '\n[GP13] PASS extra', '\n'.join(lines), good + '\n[GP13] PASS malformed extra']
-    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'run-'))} | REACH_SPLIT | DEPTH_TOLERANCE | HIT_FLASH | HIT_AUDIO | PRECONDITIONS):
+    for name in sorted({n for n in EXPECTED if n.startswith(('jump-', 'attack-light-', 'attack-heavy-', 'run-'))} | REACH_SPLIT | DEPTH_TOLERANCE | HIT_FLASH | HIT_AUDIO | HITSTOP_SHAKE | PRECONDITIONS):
         record = f'[GP13] PASS {name}'
         bad.extend((good.replace(record + '\n', ''), good.replace(record, f'[GP13] FAIL {name}')))
     assert valid_log(good, 0) and not valid_log(good, 1)

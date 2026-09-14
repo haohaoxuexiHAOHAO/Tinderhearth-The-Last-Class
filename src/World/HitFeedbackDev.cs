@@ -42,6 +42,12 @@ public partial class HitFeedbackDev : Node2D
     private const int FarX = NearX + 100;
     private bool _sawShake;
     private bool _shakeEnabled;
+
+    /// <summary>本段（轻或重）见过的最大震屏位移，世界像素。用来判「重击真的比轻击震得凶」（`GP-20`）。</summary>
+    private int _peakShake;
+
+    /// <summary>轻击那一段的峰值，留到重击那一段收尾时做对比；<c>-1</c> 表示还没量到。</summary>
+    private int _lightPeakShake = -1;
     private bool _flashSaved;
     private InputRouter _router = null!;
     private bool _inputHeld;
@@ -163,21 +169,38 @@ public partial class HitFeedbackDev : Node2D
             _stun = _dummy.Statuses.Get(StatusKind.Hitstun).RemainingFrames;
         }
         _sawShake |= _camera.Offset != Vector2.Zero;
+        // 峰值取两轴绝对值的较大者：震屏两轴换向速率差一倍，任一轴的峰都代表这一下的强度。
+        _peakShake = Math.Max(_peakShake,
+            (int)Math.Max(Math.Abs(_camera.Offset.X), Math.Abs(_camera.Offset.Y)));
         if (_frame == 38 || _frame == 90)
         {
             Check($"{Kind}-distance", Math.Abs(_dummy.Position.X - _hitX - (_heavy ? CombatFeel.HeavyKnockbackWorldPx : CombatFeel.LightKnockbackWorldPx)) < 0.002);
             Check($"{Kind}-expired", !_dummy.Statuses.Has(StatusKind.Hitstun) && _dummy.FlashRemaining == 0);
             Check($"{Kind}-dedup", _dummy.HitCount == (_heavy ? 2 : 1));
-            Check($"{Kind}-shake", _heavy && _shakeEnabled ? _sawShake : !_sawShake);
+            // `GP-20` 起**轻重都震**（轻击微震），所以这条不再按轻重分 —— 只按开关分。
+            // 关掉时仍必须**恒零位移**（`FR-15`，正典要求震屏可关），那一半由 --no-shake 那一轮跑。
+            Check($"{Kind}-shake", _shakeEnabled ? _sawShake : !_sawShake);
+            GD.Print($"[GP20] shake kind={Kind} enabled={_shakeEnabled} peak={_peakShake}"
+                + $" lightPeak={_lightPeakShake} amp={CameraFeel.HitShake(_heavy).AmplitudeScreenPx}");
             Check($"{Kind}-input-no-replay", _player.IsOnFloor());
             Check($"{Kind}-inactive", !_hitbox.IsActive);
             if (!_heavy)
             {
+                _lightPeakShake = _peakShake;
+                _peakShake = 0;                 // 下一段（重击）自己量一份，别把轻击那一下算进去
                 _heavy = true;
                 _dummy.Position = new Vector2(184, 140);
                 Press(InputActions.AttackHeavy, true);
             }
-            else BeginInputProbe();
+            else
+            {
+                // `GP-20` 的口径：轻重靠**强度**分，不靠「有没有震」。两段都量过峰值才判得了这条。
+                // 关掉震屏时两段都必须恒零 —— 那是 `FR-15`，也是这条判据的另一半。
+                Check("shake-heavier-than-light", _shakeEnabled
+                    ? _lightPeakShake > 0 && _peakShake > _lightPeakShake
+                    : _lightPeakShake == 0 && _peakShake == 0);
+                BeginInputProbe();
+            }
         }
         if (_frame == 39) Press(InputActions.AttackHeavy, false);
         if (_frame > 120) { Check("timeout", false); Capture(); }
@@ -293,7 +316,10 @@ public partial class HitFeedbackDev : Node2D
     private void Feedback(HitReaction reaction)
     {
         _stop.Begin(reaction.HitstopFrames);
-        if (reaction.IsHeavy) _camera.Rig.Shake();
+        // 轻重各取自己那一组（`GP-20`），映射在 CameraFeel.HitShake 一处 —— 探针与训练房调同一个，
+        // 否则「探针测的震屏」与「玩起来的震屏」会是两回事。
+        var (shakeAmplitude, shakeSeconds) = CameraFeel.HitShake(reaction.IsHeavy);
+        _camera.Rig.Shake(shakeAmplitude, shakeSeconds);
     }
 
     private static void Press(string action, bool pressed) => Callable.From(() => Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = pressed })).CallDeferred();
