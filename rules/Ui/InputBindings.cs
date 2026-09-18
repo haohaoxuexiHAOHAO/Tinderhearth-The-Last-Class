@@ -31,7 +31,7 @@ public enum InputSymbol
     Digit1, Digit2, Digit3, Digit4, Digit5, Digit6,
 
     // 鼠标键刻意不在这里：本作侧视战斗**没有瞄准**，鼠标提供不了它擅长的精确指向，
-    // 却要占住右手不让它分担按键（作者 2026-08-30 定，轻重攻击改 J／K）。
+    // 却要占住右手不让它分担按键，所以轻重攻击取 J／K。
     // 将来建造界面用鼠标点格子、或者改键界面要给鼠标当选项时再加回来 —— 那时是加几行的事。
 
     // ── 手柄按钮 ──
@@ -53,17 +53,17 @@ public enum InputSymbol
 /// 引擎为这个位自报的名字**全文**，例如 <c>Joypad Button 10 (Right Shoulder, Sony R1, Xbox RB)</c>。
 /// </param>
 /// <remarks>
-/// <paramref name="EngineText"/> 是给守卫用的**第二个量具**：`tools/check_input_map.py` 起真引擎、
-/// 把绑定灌进 `InputMap`、再读回每条事件的 `as_text()` 与这里逐条**全等**比对。这样「符号翻译成了
-/// 错的引擎枚举」这种错有人管 —— 光看代码是看不出 `PadTriggerRight` 成了轴 4 还是轴 5 的。
+/// <paramref name="EngineText"/> 是**第二个量具**：拿引擎读回的 `as_text()` 与这里逐条**全等**比对，
+/// 「符号翻译成了错的引擎枚举」这种错才有人管 —— 光看代码是看不出 `PadTriggerRight` 成了轴 4 还是
+/// 轴 5 的。原先由 `check_input_map.py` 起真引擎做这件事，那个守卫随 `ADR-0009` 删除；**现在按键
+/// 绑错的验法是作者实机按一遍**，按下去没反应或触发了别的动作是立刻能发现的。
 ///
 /// 取全文而不是片段是有意的：片段太弱。`"A"` 这种片段会在同一个动作的另一条事件文本里蒙对
 /// （`Left Stick X-Axis` 里就有 A），于是绑错了也照样通过。全等比对还顺带钉住两件事：键盘绑的是
 /// **物理键位**（文本带 <c>- Physical</c>），以及摇杆的**方向**（文本带 <c>Value -1.00</c>）。
 ///
-/// 代价是升引擎时引擎改了措辞会让守卫失败。这个代价是**要的** —— 按键的显示名变了，本来就该有人
-/// 看一眼；失败信息会把期望与实际并排打出来，改一行就完。这些取值 2026-08-30 由 Godot 4.7.2
-/// 自报得到，不是照文档抄的。
+/// 这些取值由 Godot 4.7.2 自报得到，不是照文档抄的。升引擎时引擎若改了措辞，这一列
+/// 就会与实际对不上 —— 以前那会让守卫当场失败，现在没有东西会提醒，所以**升引擎后请按一遍手柄**。
 /// </remarks>
 public sealed record InputBinding(InputSymbol Symbol, string EngineText)
 {
@@ -79,13 +79,14 @@ public sealed record InputBinding(InputSymbol Symbol, string EngineText)
 /// <remarks>
 /// **不写进 `project.godot` 的 `[input]` 段**，理由两条：两份来源必然漂移；而手柄的修饰键组合
 /// 本来就写不进那一段（实测：`InputEventJoypadButton` 没有修饰键字段）。代价是编辑器的 Input Map
-/// 面板会是空的，由 `tools/check_input_map.py` 补执行体 —— 它核对实际 `InputMap` 与本表一致，
-/// 并且**发现 `project.godot` 冒出 `[input]` 段就判失败**，免得有人在编辑器里手加动作造出第二份来源。
+/// 面板会是空的 —— 原先由 `check_input_map.py` 补执行体（核对实际 `InputMap` 与本表一致、并在
+/// `project.godot` 冒出 `[input]` 段时判失败），那个守卫随 `ADR-0009` 删除。**于是这里剩一条纪律**：
+/// 不要在编辑器的 Input Map 面板里手加动作，那会造出第二份来源，而两份来源必然漂移。
 ///
 /// **键盘取物理键位**（`physical_keycode`）而不是字符键位：AZERTY 键盘上 WASD 的物理位置是
 /// ZQSD，按字符绑会让那批玩家的移动键散开。物理位在任何布局下都是同四个键。
 ///
-/// 改键将来覆盖的就是本表（正典设置里那一组）。**本轮只落默认值，不做持久化** —— 设置存储归
+/// 改键将来覆盖的就是本表（正典设置里那一组）。**只有默认值，没有持久化** —— 设置存储归
 /// 设置系统，现在定格式就是猜一套将来要改的格式。
 /// </remarks>
 public static class InputBindings
@@ -139,7 +140,7 @@ public static class InputBindings
             ],
 
             // ── 战斗六动作 ──
-            // 轻重攻击给 J 与 K（作者 2026-08-30 定，原为鼠标左右键）。两条理由：侧视战斗没有
+            // 轻重攻击给 J 与 K，不用鼠标左右键。两条理由：侧视战斗没有
             // 瞄准，鼠标的长处用不上却占着右手；而 J 与 K 相邻且都是手指静止位，满足「连段要求
             // 轻重攻击相邻且都快」。这是 2D 横版动作游戏的通行布局，玩这类游戏的人有肌肉记忆。
             [InputActions.AttackLight] =
@@ -155,7 +156,7 @@ public static class InputBindings
                     "Joypad Button 3 (Top Action, Sony Triangle, Xbox Y, Nintendo X)"),
             ],
             // 防御给数字肩键而不是扳机：正典的精准防御要求帧级准确，扳机有行程，
-            // 触发点不一致。这正是修饰键让给扳机的原因（作者 2026-08-30 定）。
+            // 触发点不一致。这正是修饰键让给扳机的原因。
             [InputActions.Guard] =
             [
                 new(InputSymbol.KeyQ, "Q - Physical"),
@@ -211,7 +212,7 @@ public static class InputBindings
     /// 补给引擎内置界面动作的手柄绑定。**不是重定义，是补齐引擎默认值缺的那一半。**
     /// </summary>
     /// <remarks>
-    /// 2026-08-30 从引擎自报的清单实测：Godot 4.7.2 的默认 `InputMap` 给
+    /// 从引擎自报的清单实测：Godot 4.7.2 的默认 `InputMap` 给
     /// `ui_up`／`ui_down`／`ui_left`／`ui_right` **各有两条手柄事件**（D-pad 加左摇杆），但
     /// `ui_accept` 只有 Enter／小键盘 Enter／Space，`ui_cancel` 只有 Escape —— **手柄上一条都没有**。
     ///

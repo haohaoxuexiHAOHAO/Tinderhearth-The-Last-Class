@@ -15,7 +15,7 @@ namespace Tinderhearth.Rules.Tests.Ui;
 /// 「某个键应该是哪个」—— 所以改键位时该失败的是关系被破坏的那一条，而不是全部。
 ///
 /// 引擎那一侧（符号翻译成对的引擎枚举、组合真的过了事件流）测不到，规则层不引用 Godot。
-/// 那一半由 `tools/check_input_map.py` 起真引擎核，判据打在启动日志里。
+/// 那一半原先由 `check_input_map.py` 起真引擎核，守卫随 `ADR-0009` 删除 —— **现在靠实机按一遍**。
 /// </remarks>
 public class InputMappingTests
 {
@@ -164,7 +164,7 @@ public class InputMappingTests
     public void 轻重攻击在键鼠上相邻且都是手指静止位()
     {
         // 正典的连段是固定连段加空中连击，要求轻重攻击能快速交替，所以两者必须相邻。
-        // J 与 K 分别是右手食指与中指的静止位（作者 2026-08-30 定，原为鼠标左右键）。
+        // J 与 K 分别是右手食指与中指的静止位，不用鼠标左右键。
         Assert.Equal(InputSymbol.KeyJ,
             InputBindings.For(InputActions.AttackLight, InputDeviceKind.KeyboardMouse)[0].Symbol);
         Assert.Equal(InputSymbol.KeyK,
@@ -231,7 +231,7 @@ public class InputMappingTests
     [Fact]
     public void 两个修饰键绑的是扳机而不是肩键()
     {
-        // 肩键留给防御与交互：正典的精准防御要求帧级准确，而扳机有行程（作者 2026-08-30 定）。
+        // 肩键留给防御与交互：正典的精准防御要求帧级准确，而扳机有行程。
         Assert.Equal(InputSymbol.PadTriggerLeft,
             InputBindings.For(InputActions.SkillGroupLeft, InputDeviceKind.Gamepad)[0].Symbol);
         Assert.Equal(InputSymbol.PadTriggerRight,

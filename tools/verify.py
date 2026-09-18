@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""代码仓验收总入口：构建 → 测试 → 导出 → 跑产物，四步串成一条命令。
+"""代码仓验收总入口：行尾 → 构建 → 测试 → 导出 → 跑产物，五步串成一条命令。
 
-为什么存在（`ENG-3`）：这四步此前是四条各自独立的命令，人工串有三种漏法 —— 漏跑一步、
+**范围由 `ADR-0009` 定死**：只保留「与编辑器里配什么无关」的那几步。素材守卫、代码形状守卫
+（界面无字面量、单一相机类型、整数缩放、世界空间 UI、输入不直接轮询）与五个图形探针都已删除
+—— 场景、碰撞区域、素材与参数归作者在 Godot 里配，画面上的事由他实机看。这里留下的是三类
+**实机看不出来**的东西：编译错、规则层逻辑回归、以及发行包里混进源码或产物压根启动不了。
+
+为什么存在（`ENG-3`）：这几步此前是各自独立的命令，人工串有三种漏法 —— 漏跑一步、
 跑在旧产物上、**看退出码就当过了**。后一种本项目已经撞过两次，都记在设计仓
 `reference/踩坑记录.md`：
 
@@ -24,8 +29,9 @@
     python tools/verify.py --manifest    # 不跑任何步骤，只把现有 .pck 的包内清单打出来
     python tools/verify.py --manifest <某个.pck>   # 看指定的包
 
-改了本脚本就跑 `python tools/selfcheck_verify.py` 自证（WORKFLOW §6）：它逐条注入真实
-缺陷形状、确认拦得住、还原后复验，并自报覆盖了哪几步。
+**本脚本不再有自证入口**（`selfcheck_verify.py` 随 `ADR-0009` 一起删了，「改了守卫必须自证」
+那条纪律同时取消）。代价写明：本入口自己坏了没有东西能发现，只能靠改它的人复核 —— 这是
+那次决定明知并接受的代价之一。
 
 输出约定（与设计仓 `tools/check_docs.py` 一致）：固定 UTF-8；标准输出**每步只有一行**，
 逐步的完整日志落盘到 `logs/verify/<时间戳>/`，同目录写一份带起止时间戳的 `summary.md`；
@@ -64,8 +70,6 @@ EXPORT_EXE = EXPORT_DIR / "Tinderhearth-The-Last-Class.exe"
 EXPORT_PCK = EXPORT_DIR / "Tinderhearth-The-Last-Class.pck"
 TESTS_DIR = ROOT / "tests"
 MAIN_SCAFFOLD = ROOT / "src" / "Main.cs"
-# 素材登记表（`ART-4`）。`ENG-12` 的发行守卫按它的「可进发行包」字段判素材能不能进包。
-ASSET_REGISTRY = ROOT / "tools" / "asset-registry.json"
 
 # 落点自检要看到的文件。两仓各有一个 tools/，靠名字区分不够可靠 —— 让入口自己拒绝
 # 在错的位置跑，才是能自动检出的执行体。
@@ -143,9 +147,8 @@ SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 
-STEPS = ("assets", "eol", "build", "test", "export", "smoke")
+STEPS = ("eol", "build", "test", "export", "smoke")
 STEP_TITLES = {
-    "assets": "素材",
     "eol": "行尾",
     "build": "构建",
     "test": "测试",
@@ -161,7 +164,7 @@ def ensure_logs_hidden_from_godot() -> None:
     为什么这条不能省：`logs/` 长在 `res://` 里面，Godot 的资源扫描会看见它。踩坑记录 33
     就是「`res://` 下的子目录被扫进发行包」，本入口自己往仓库里加目录，不能反倒成为
     下一次泄漏的来源。`logs/` 不入库（`.gitignore` 忽略），所以这个 `.gdignore` 只能现场
-    补，不能靠提交 —— `selfcheck_verify.py` 写日志时也调它。
+    补，不能靠提交 —— 任何往 `logs/` 写东西的入口都得先调它。
     """
     LOG_ROOT.parent.mkdir(parents=True, exist_ok=True)
     guard = LOG_ROOT.parent / ".gdignore"
@@ -324,39 +327,11 @@ def locate_godot() -> tuple[Path | None, str]:
     return None, why
 
 
-# ── 步骤 0：素材（`ENG-10`。它排在构建之前，见 step_assets 的注释）────
+# ── 构建输出的形状 ────────────────────────────────────────────────────
 BUILD_OK_RE = re.compile(r"Build succeeded|生成成功")
 BUILD_BAD_RE = re.compile(r"Build FAILED|生成失败")
 BUILD_COUNT_RE = re.compile(r"^\s*(\d+)\s+(Warning|Error)\(s\)\s*$", re.MULTILINE)
 DIAG_RE = re.compile(r"\b(error|warning) [A-Z]{2}\d{4}\b")
-
-
-def step_assets(rep: Report) -> StepResult:
-    """素材守卫（`ENG-10`）：半透明像素、放大件、登记表比对、纹理导入参数。
-
-    为什么排在最前面：它最快（纯 Python，没有编译与引擎启动），而且**坏素材不该有机会被
-    打进包** —— 放在导出之后才查，等于每次都先花十几秒造一个已知有问题的产物。
-
-    判定不只看退出码：认不出 `check_assets.py` 的输出形状同样拒绝判过（WORKFLOW §7）。
-    """
-    started = time.perf_counter()
-    code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_assets.py")],
-                         ROOT, timeout=600)
-    rep.write_log("0-assets.log", f"# 编码 {enc}\n# 退出码 {code}\n\n{out}")
-    cost = time.perf_counter() - started
-
-    gauge = next((ln for ln in out.splitlines() if ln.startswith("覆盖量：")), "")
-    if code != 0:
-        first = next((ln for ln in out.splitlines() if ln.startswith("[FAIL]")), "详见日志")
-        return StepResult("assets", False, f"失败：{first.removeprefix('[FAIL] ')}",
-                          cost, log_names=["0-assets.log"],
-                          details=[gauge] if gauge else [])
-    if not gauge:
-        return StepResult("assets", False, "认不出 check_assets.py 的输出形状，拒绝判过",
-                          cost, log_names=["0-assets.log"])
-    return StepResult("assets", True, gauge.removeprefix("覆盖量："), cost,
-                      log_names=["0-assets.log"],
-                      details=[f"命令 tools/check_assets.py（输出编码 {enc}）"])
 
 
 # ── 步骤 1：行尾（`ENG-11`）──────────────────────────────────────────
@@ -524,7 +499,7 @@ def parse_pck(path: Path) -> tuple[list[PackEntry], dict[str, int]]:
     为什么要自己解而不是看导出日志：日志的详细程度跟引擎版本和开关有关，而清单是**产物
     本身**。踩坑记录 33 那次泄漏没有任何报错，唯一能证明包干净的东西就是包里到底有什么。
 
-    2026-08-30 用 Godot 4.7.2 的导出产物实测出的布局（格式版本 4）：
+    用 Godot 4.7.2 的导出产物实测出的布局（格式版本 4）：
 
         u32  magic = "GDPC"
         u32  包格式版本（本机是 4）
@@ -641,62 +616,46 @@ def classify_leak(entry: PackEntry) -> str | None:
 
 
 # ── 发行素材守卫（`ENG-12`）──────────────────────────────────────────
-# 落点在这一步而不是新开一条门禁：这里本来就解包看清单（`ENG-3`），加一条按登记表审素材即可。
-# 判据取登记表的「可进发行包」字段，**不按路径**判 —— 字体在 assets/fonts/ 下却是永久依赖
-# （可进发行包=true），按「在不在 placeholder/ 或 downloaded/」判会把字体一起误杀（`ENG-12`）。
-def load_asset_registry() -> dict[str, dict]:
-    """读素材登记表（`ART-4`），四节合并成 {登记路径: 条目}。
-
-    登记路径是相对 assets/ 的（如 placeholder/ui/panel.png），正好等于包里
-    assets/<它>.import 去掉两头。读不出就抛异常 —— 审不了素材必须判失败，不能当没这回事。
-
-    **新增分节必须加进这张清单。** 漏加不会静默：那一节的素材在包里会被审成「未登记」而判
-    失败（`ENG-12`），所以少一节是响的、不是哑的。2026-09-08 加了「自绘素材」一节，
-    2026-09-13 加了「音频」一节（`GP-20` 的占位打击音，同样是「可进发行包=false」的借件）。
-    """
-    raw = json.loads(ASSET_REGISTRY.read_text(encoding="utf-8"))
-    out: dict[str, dict] = {}
-    for section in ("生成槽位", "下载素材", "自绘素材", "字体", "音频"):
-        for entry in raw.get(section, []):
-            if "path" in entry:
-                out[entry["path"]] = entry
-    return out
+# 落点在这一步而不是新开一条门禁：这里本来就解包看清单（`ENG-3`）。它守的是**授权**，与
+# 字体许可证那条同一性质 —— 借来的素材混进发行包是实机看不出来的，上架之后才是问题。
+#
+# **分类改看目录，不再看登记表**（`ADR-0009`）：素材登记表 `asset-registry.json` 连同它的双向
+# 比对一起删了 —— 裁切与导入归作者在 Godot 里做，再维护一份登记表只会天天跟他打架。而目录
+# 本身已经编码了这件事，且是作者往哪个文件夹放图时自然决定的，不需要第二处登记：
+#
+#     assets/downloaded/**   借来的素材，发行前必须替换 → 不许进发行包
+#     assets/placeholder/**  生成的占位件，同上         → 不许进发行包
+#     assets/self-drawn/**   自绘件                     → 可进
+#     assets/fonts/**        永久依赖（授权另由 audit_fonts.py 核）→ 可进
+#
+# 原先刻意「不按路径判」的理由是「字体在 assets/fonts/ 下却可进包，按路径会误杀它」。那条顾虑
+# 在这个写法下不成立：判的是**黑名单那两个目录**，不是「凡不在 self-drawn 下就杀」，字体不受影响。
+NOT_SHIPPABLE_DIRS = ("downloaded/", "placeholder/")
 
 
 @dataclass
 class AssetAudit:
-    total: int                      # 包里 assets/ 下的 .import 数，即登记域内的源素材数
-    registered: int
-    unregistered: list[str]         # 包里有、登记表没有 —— 漏登记等于绕过守卫
-    replaceable: list[str]          # 登记为「可进发行包=false」：占位件与下载件
-    shippable: list[str]            # 登记为「可进发行包=true」：字体这类永久依赖
+    total: int                      # 包里 assets/ 下的 .import 数，即源素材数
+    shippable: list[str]            # 可进发行包：自绘件与字体
+    replaceable: list[str]          # 不许进发行包：借件与占位件
 
 
-def audit_release_assets(entries: list[PackEntry], registry: dict[str, dict]) -> AssetAudit:
-    """按登记表审包里的美术素材（`ENG-12`）。
+def audit_release_assets(entries: list[PackEntry]) -> AssetAudit:
+    """按目录审包里的素材（`ENG-12`）。
 
-    映射：包里每条 `assets/**.import` 就是一个源素材，去掉 `assets/` 前缀与 `.import`
-    后缀正好是登记表的 path。只认 assets/ 下的 —— 根目录的 icon.svg.import 是应用图标、
-    不在登记域内（另见 issue 待确认）。分类只看登记表的「可进发行包」字段，不看路径。
+    映射：包里每条 `assets/**.import` 就是一个源素材。只认 assets/ 下的 —— 根目录的
+    `icon.svg.import` 是应用图标，不在这个域内。
     """
-    unregistered: list[str] = []
-    replaceable: list[str] = []
     shippable: list[str] = []
+    replaceable: list[str] = []
     total = 0
     for e in entries:
         if not (e.path.startswith("assets/") and e.path.endswith(".import")):
             continue
         total += 1
-        reg_path = e.path.removeprefix("assets/").removesuffix(".import")
-        entry = registry.get(reg_path)
-        if entry is None:
-            unregistered.append(reg_path)
-        elif entry.get("可进发行包") is True:
-            shippable.append(reg_path)
-        else:
-            replaceable.append(reg_path)
-    return AssetAudit(total, len(shippable) + len(replaceable),
-                      sorted(unregistered), sorted(replaceable), sorted(shippable))
+        rel = e.path.removeprefix("assets/").removesuffix(".import")
+        (replaceable if rel.startswith(NOT_SHIPPABLE_DIRS) else shippable).append(rel)
+    return AssetAudit(total, sorted(shippable), sorted(replaceable))
 
 
 def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], list[str]]:
@@ -759,31 +718,16 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
                         f"OFL 第 2 条要求每份拷贝都带许可证与版权声明（ART-3）。"
                         f"补法：把它加进 export_presets.cfg 的 include_filter")
 
-    # `ENG-12`：按登记表审美术素材。日常放行占位件（只报数），--release 一律不许非自绘。
-    registry_err: str | None = None
-    try:
-        registry = load_asset_registry()
-    except (OSError, ValueError) as exc:
-        registry, registry_err = {}, f"读不出素材登记表 {ASSET_REGISTRY.name}：{exc}"
-    audit = audit_release_assets(entries, registry)
+    # `ENG-12`：按目录审素材。日常放行借件与占位件（只报数），--release 一律不许它们进包。
+    audit = audit_release_assets(entries)
     mode_label = "发行（--release）" if release else "日常"
-    lines += ["", f"# 登记域素材（{mode_label}）{audit.total} 条：命中 {audit.registered}、"
-                  f"未登记 {len(audit.unregistered)}、待替换 {len(audit.replaceable)}、"
-                  f"可进包 {len(audit.shippable)}"]
-    if audit.unregistered:
-        lines.append(f"# 未登记：{audit.unregistered}")
+    lines += ["", f"# 包内素材（{mode_label}）{audit.total} 条：可进包 {len(audit.shippable)}、"
+                  f"待替换 {len(audit.replaceable)}"]
     if audit.replaceable:
-        lines.append(f"# 待替换（可进发行包=false）：{audit.replaceable}")
+        lines.append(f"# 待替换（downloaded/ 与 placeholder/ 下的）：{audit.replaceable}")
     notes.append(
-        f"登记域素材 {audit.total}：命中 {audit.registered}、未登记 "
-        f"{len(audit.unregistered)}、待替换 {len(audit.replaceable)}"
+        f"包内素材 {audit.total}：可进包 {len(audit.shippable)}、待替换 {len(audit.replaceable)}"
         + (f"（还有 {len(audit.replaceable)} 个待替换成自绘件）" if audit.replaceable else ""))
-    if registry_err:
-        problems.append(f"{registry_err} —— 审不了发行素材，判失败（ENG-12）")
-    if audit.unregistered:
-        problems.append(
-            f"包里有 {len(audit.unregistered)} 个未登记素材：{audit.unregistered[:5]}"
-            f"{' …' if len(audit.unregistered) > 5 else ''} —— 漏登记等于绕过守卫（ENG-12）")
     if release and audit.replaceable:
         problems.append(
             f"发行包（--release）含 {len(audit.replaceable)} 个非自绘素材："
@@ -831,7 +775,7 @@ def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
         # 这一步的退出码本来就不可信，所以先信文件系统。
         # 顺带点名最常见的那个原因：`tools/run_local_check.py` 把 APPDATA 换成了工作区 temp 下
         # 的空目录，导出模板没跟着复制过去时，Godot 产不出东西而报的错与模板无关。
-        # 2026-09-08 实测撞过：selfcheck_verify.py 当时不在那份清单里，四条用例一起挂。
+            # 实测撞过一次，表现是多条用例一起挂而报错与真因无关。
         why = f"退出码 {code}，但产物缺 {missing_files}（本轮 export/ 只有 {produced}）"
         appdata = os.environ.get("APPDATA")
         if appdata and not (Path(appdata) / "Godot" / "export_templates").is_dir():
@@ -1039,9 +983,7 @@ def main() -> int:
         if stopped:
             rep.finish_step(StepResult(name, False, "前一步失败，未执行", skipped=True))
             continue
-        if name == "assets":
-            result = step_assets(rep)
-        elif name == "eol":
+        if name == "eol":
             result = step_eol(rep)
         elif name == "build":
             result = step_build(rep)

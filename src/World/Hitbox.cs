@@ -25,14 +25,14 @@ public partial class Hitbox : Area2D
     /// <remarks>
     /// **这是给判据当量具用的。** 「没打中」有三个来源：横向查询里压根没这个候选、纵深超差、
     /// 本次挥击已经打过它。三者都让 <see cref="Resolve"/> 返回 0，于是一条只看返回值的判据说不清
-    /// 自己测到的是哪一个 —— 2026-09-11 实测踩过：探针没让判定框看见非 Active 帧，去重集合是上一
+    /// 自己测到的是哪一个 —— 实测踩过：调用方没让判定框看见非 Active 帧，去重集合是上一
     /// 阶段留下的脏值，「纵深错开打空」那条判据因此假绿。要判「是纵深挡的」，就得同时说明不是它挡的。
     /// </remarks>
     public int RejectedAsAlreadyHit { get; private set; }
 
     /// <summary>一段攻击判定框的尺寸与中心高度，世界像素。轻击按段（<c>combo.Step</c>）取，重击单招。取值依据见 <see cref="CombatFeel"/>。</summary>
     /// <remarks>
-    /// **轻击三段各有一份**（`ART-6`，2026-09-11）：第 1/2/3 段分别对应 <c>light</c>／<c>light2</c>／
+    /// **轻击三段各有一份**（`ART-6`）：第 1/2/3 段分别对应 <c>light</c>／<c>light2</c>／
     /// <c>light3</c> 精灵表，尺寸与中心都从各自 Active 帧的实测伸展导出（见 <see cref="CombatFeel"/>）。
     /// 踢腿（第 3 段）伸得更远、更低，所以它的框既比拳宽、中心也更靠脚底 —— 三段共用一个框就会
     /// 让画面上那一脚与判定停在两处。重击忽略 <paramref name="step"/>（单招，`HeavyChainLength=1`）。
@@ -75,10 +75,10 @@ public partial class Hitbox : Area2D
     /// （只在 Active 帧调、跨挥击不调）会让集合停在上一次挥击的内容里，表现是**攻击静默不生效**：
     /// 返回 0、无报错、看起来像判定框或纵深出了问题。顿帧期间不调是安全的，那几帧连段也没推进。
     ///
-    /// 手动驱动连段的探针必须自己让本机看见一个非 Active 帧（`HitFeedbackDev` 的
-    /// <c>depth-probe-fresh-swing</c> 就是这条的执行体）。想不依赖节奏，得由挥击的拥有者显式告知
+    /// 手动驱动连段的调用方（例如训练房自己推进物理的那条循环）必须让本机看见一个非 Active 帧，
+    /// 否则就会撞上这个静默。想不依赖节奏，得由挥击的拥有者显式告知
     /// 「新挥击开始了」而不是在这里推断 —— 那是改动连段机接口的事，记在设计仓 `issue-GP-16` 的
-    /// 遗留里，本轮不做。<see cref="RejectedAsAlreadyHit"/> 让违反这条契约变成查得出来的。
+    /// 遗留里，现在不做。<see cref="RejectedAsAlreadyHit"/> 让违反这条契约变成查得出来的。
     /// </remarks>
     public int Resolve(PlayerActor player, Action<HitReaction> feedback)
     {

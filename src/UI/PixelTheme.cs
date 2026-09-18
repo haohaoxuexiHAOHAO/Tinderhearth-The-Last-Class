@@ -10,8 +10,8 @@ namespace Tinderhearth.UI;
 /// 为什么核而不是设：真正生效的设置在 <c>assets/fonts/…zh_hans.ttf.import</c> 的
 /// <c>[params]</c> 段（导入器消费它、烘出 <c>.fontdata</c>），期望值在
 /// <see cref="PixelFont"/>。两者分在两处才互为量具 —— 同源的守卫等于没有守卫，改错设置时判据
-/// 会跟着一起改掉。这里的职责就是把引擎自己报的实际值与期望值逐项比对并打进日志，
-/// `tools/check_hud.py` 读回来判。
+/// 会跟着一起改掉。这里的职责就是把引擎自己报的实际值与期望值逐项比对并**打进启动日志**。
+/// 原先有守卫读那份日志判失败，随 `ADR-0009` 删除；比对与日志行都还在，只是没人自动看了。
 ///
 /// 十项里每一项的失效方式都是静默的：抗锯齿一开，12px 中文多出一圈半透明脏边；
 /// <c>allow_system_fallback</c> 一开，缺字悄悄换成系统中文字体，**而且每台机器表现不同** ——
@@ -54,7 +54,7 @@ public static class PixelTheme
             DefaultFontSize = UiMetrics.FontSize,
         };
 
-        // 只设本轮真用到的几项。**不预设一整套** —— 没有界面在用的主题项是猜出来的，
+        // 只设当前真用到的几项。**不预设一整套** —— 没有界面在用的主题项是猜出来的，
         // 而猜错的默认值会在将来某个界面上表现成「颜色不知道从哪来的」。
         theme.SetColor("font_color", "Label", Ink);
         theme.SetColor("font_color", "Button", Ink);

@@ -22,7 +22,8 @@
     python tools/check_eol.py --fix  # 把行尾改回 .gitattributes 声明的样子
 
 接进门禁：`verify.py` 的 `step_eol` 调本脚本作为子进程，认「覆盖量：」前缀判过。
-改了本脚本就跑 `python tools/selfcheck_verify.py` 自证（它会撞行尾步骤）。
+自证入口随 `ADR-0009` 删除，改了本脚本只能靠改的人自己复核 —— 最省事的复核办法是
+临时把某个文件的行尾改反，确认它真的报出来，然后改回去。
 """
 
 from __future__ import annotations

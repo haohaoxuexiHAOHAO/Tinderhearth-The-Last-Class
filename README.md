@@ -19,7 +19,7 @@
 python tools/verify.py
 ```
 
-**门禁只调这一条。** 它把素材 → 行尾 → 构建 → 测试 → 导出 → 跑产物六步串起来，逐步日志落到
+**门禁只调这一条。** 它把行尾 → 构建 → 测试 → 导出 → 跑产物五步串起来，逐步日志落到
 `logs/verify/<时间戳>/`（不入库），同目录写一份带起止时间戳的 `summary.md`。失败即停 ——
 后一步依赖前一步的产物，硬跑下去只会产出误导性的失败。
 
@@ -31,119 +31,75 @@ python tools/verify.py
 `project.godot` 与 `.sln`，不在就拒绝执行 —— 两仓各有一个 `tools/`，靠命名区分依赖记性，
 靠落点自检才能自动检出。
 
-重点不在省几次敲键盘，在于**每步都另找一个量具核对产物**，因为这六步的退出码都骗过人：
+重点不在省几次敲键盘，在于**每步都另找一个量具核对产物**，因为这五步的退出码都骗过人：
 
 | 步骤 | 除退出码之外还核对什么 |
 | --- | --- |
-| 素材 | 逐像素扫半透明像素与整图放大件；登记表与磁盘双向比对；核纹理导入参数。扫到 0 个文件判失败（`ENG-10`） |
 | 行尾 | git 管的文本文件行尾必须符合 `.gitattributes`。认不出 `check_eol.py` 输出形状就判失败（`ENG-11`） |
 | 构建 | 自己数错误行；认不出 `dotnet build` 的输出形状就判失败，不闭眼签字 |
 | 测试 | 运行器报的条数**等于**从测试源码静态数出来的条数，两个来源互相独立（踩坑记录 29） |
 | 导出 | 先清空 `export/` 再导，于是「文件存在」＝「本轮生成」；再**解开 `.pck` 逐条看清单**查泄漏（踩坑记录 33） |
 | 跑产物 | 真启动导出的 exe，从引擎 `--log-file` 的日志确认 C# 侧跑到了内容载入完成 |
 
-**素材那一步排在最前面**：它最快（纯 Python，不编译不起引擎），而且坏素材不该有机会被打进
-包 —— 放在导出之后才查，等于每次都先花十几秒造一个已知有问题的产物。
+**行尾那一步排在最前面**：它最快（纯 Python，不编译不起引擎），坏行尾不该有机会被带进包。
 
-两个附带用法：`--upto assets|eol|build|test|export` 只跑到某步（前置步骤一定跟着跑，所以跑不出旧
+两个附带用法：`--upto eol|build|test|export` 只跑到某步（前置步骤一定跟着跑，所以跑不出旧
 产物；范围不完整时摘要会写明「不能当一次验收」）；`--manifest [某个.pck]` 不跑任何步骤，
 只把包内清单打出来。
 
-改了 `verify.py` 就跑 `python tools/selfcheck_verify.py`：它逐条注入真实缺陷形状、确认
-拦得住、还原后复验，并自报覆盖了哪几步。**一个什么都不检的脚本也会全绿**，所以「跑过一次
-全绿」不能当作它可信的证据。
+**本脚本没有自证入口了**（`selfcheck_verify.py` 随 `ADR-0009` 一起删除，「改了守卫必须自证」那条
+纪律同时取消）。代价要写明：**一个什么都不检的脚本也会全绿**，所以它坏了没有东西能发现，只能靠
+改它的人自己复核。复核的省事办法是临时弄坏一样东西（改反一个文件的行尾、往包里塞一个 `.cs`），
+确认它真的报出来再改回去。
 
-### 门禁之外的四个专项守卫
+### 曾经有过的一批专项守卫，已经全删
 
-这四条**不在 `verify.py` 里**，因为它们都要另起一次引擎，而门禁已经起过一次了；改了对应的东西
-再单独跑。
+`ADR-0009`（设计仓 `decisions/`）把表现层的验证交还给作者在 Godot 里实机看，于是这些入口
+连同它们的自证一起删除了：`check_scaling`／`check_camera`／`check_hud`／`check_worldui`／
+`check_input_map`／`check_assets`／`gen_placeholders`／`import_role_sheets`／`inspect_art_inbox`／
+`harness_shot`、素材登记表 `asset-registry.json`、五个图形探针（`player_dev`／`hit_feedback_dev`／
+`depth_dev`／`combat_debug_dev`／`blocking_dev`）与它们的 dev 场景，以及全部 `selfcheck_*`。
 
-| 命令 | 守什么 | 自证 |
-| --- | --- | --- |
-| `python tools/check_scaling.py` | 逻辑分辨率整数放大到窗口（`UI-3`）。四档窗口从引擎日志读回实际缩放倍数 | 无（它是量具不是守卫，判据全来自引擎自己写的日志） |
-| `python tools/check_input_map.py` | 输入映射（`UI-7`）。绑定逐条与引擎自报名全等比对、扳机死区、内置 `ui_*` 的手柄绑定、`project.godot` 无 `[input]` 段、`src/` 无直接轮询、启动自检的实机判据 | `python tools/selfcheck_input_map.py` |
-| `python tools/check_camera.py` | 相机五项行为（`UI-5`）。只有一个 `sealed` 的 `Camera2D` 派生类型、规则层相机类型登记比对、场景里没有绕过它的相机、可建造区尺寸不是字面量、两种视角判据名字集合全等、缩放与视野对正典、装进相机的可建造区对配置、像素块实测含反证 | `python tools/selfcheck_camera.py` |
-| `python tools/check_hud.py` | 关卡 HUD 的排版与数据来源（`UI-8`）。静态核扫界面源码（无位置类 API、无逻辑分辨率常量、无 `TextureFilter` 覆盖、除 0 与 1 外无数字字面量）；行为核读启动日志（块的实际矩形对规则层预测、撑开逻辑宽度后锚点行为、灌不同的量看条长跟不跟着变、字体十项属性、两套放置候选判据名字集合全等） | `python tools/selfcheck_hud.py` |
-| `python tools/check_worldui.py` | 世界空间 UI（`UI-9`）。静态核：读条圆环／精英血条／伤害数字挂 `UiLayer.WorldSpace` 不碰别的层；行为核（可 `--headless`）：读启动日志 `[世界UI]` 判据零 FAIL、自报条数一致、判据标签集合与登记逐条对上 | `python tools/selfcheck_worldui.py` |
+**写在这里是为了让下一次「这条规则的执行体在哪」有个答案。** 它们守过的约定（界面不写死坐标、
+输入只走 `InputRouter`、两种视角共用一份相机、世界空间 UI 不挂到 Hud 层、不覆盖 `TextureFilter`、
+像素不用半透明）**规则全部仍然有效**，见 `CONVENTIONS.md` 与 `ARCHITECTURE.md`；变的是它们现在
+**只有约定、没有门禁** —— 违反的表现是画面上看得出来的东西，由作者实机验收。
 
-后四条各守着一条**看不见的约定**。
-
-输入那条：玩法代码必须通过 `src/UI/InputRouter.cs` 问输入，不许直接调 `Input.IsActionPressed`。
-理由是实测结果 —— 在 `_Input` 里 `SetInputAsHandled` 之后轮询状态**仍然是按下**，所以直接轮询的
-代码会在玩家按住扳机挑技能时照旧打出一次轻攻击，而这件事不报错。守卫会扫 `src/` 下除门面之外的
-调用并判失败。
-
-相机那条：**两种视角必须共用同一份相机实现**。正典点名了这条会怎么烂掉——「行为不定下来，两种
-视角会各写一套」，而各写一套不报错，只表现为「侧视手感和俯视不太一样」。守卫从两头拦：静态核
-「派生 `Camera2D` 的类型恰好一个且 `sealed`」，行为核「启动自检的每条判据在两种视角下各出现
-一次、名字集合完全相同」。后者拦的是更隐蔽的形态 —— 类只有一个，但某个行为只在一种视角下跑过。
-它**不带 `--headless`**：其中的像素块实测要真截图。
-
-HUD 那条守着两条 `UI-8` 的验收标准，两条都会静默退化：**界面里没有绝对像素坐标**（`aspect="expand"`
-下逻辑宽度是变量，写死坐标的界面**在 640 宽的窗口上看起来完全正常**，只在宽窗口上错位）、
-**显示的数值全部由视图模型传入**（图省事写个 100 当 HP 上限，代码照样跑，等数值模型真接进来才发现
-有两份互相矛盾的事实）。**一条规则两道核**：静态核证明「没写死」，行为核证明「真的读了传进来那份」——
-只有静态核的话，界面完全可以拿视图模型当摆设、画一根固定长度的条。它同样**不带 `--headless`**：
-headless 下改窗口尺寸不会让拉伸重算，撑开那一段会**假过**，所以引擎侧遇到 headless 会显式打
-「量 跳过」，而守卫把跳过判成失败。
-
-世界空间那条守着 `UI-9` 的一条约定：**读条圆环、精英血条、伤害数字挂在世界空间层
-（`UiLayer.WorldSpace`），不是屏幕空间的 Hud 层**。那层开了 `FollowViewportEnabled`，子节点用世界
-坐标自动跟相机变换与 2 倍缩放；一旦被改挂到 Hud，读条就画到界面角落、不再跟角色走 —— 正典明确
-否掉这个放法，而改动一行报错都没有。静态核扫 `src/UI/WorldSpaceUi.cs` 盯住挂载点是 `WorldSpace`、
-代码不碰别的层；行为核读启动日志 `[世界UI]` 判据。与前两条不同，它**可带 `--headless`**：全是逻辑与
-节点关系检查、不截图，探针因此排在相机之前跑（恒等变换下测「圆环位置等于目标世界坐标」）。
-
-### 两个辅助入口，不是守卫
-
-它们不判对错，只把「看一眼」这件事落成能复核的文件 —— 所以不进门禁，也没有自证。
-
-| 命令 | 干什么 |
-| --- | --- |
-| `python tools/harness_shot.py` | 跑一次验收脚手架（`src/World/CameraHarness.cs`），两种视角各存一张图到 `logs/art/`，并把引擎报错一起报出来。**排界面时靠它复核**：看不见屏幕的人需要一个能落成文件的形式。存图前会把 15 个剪影收拢到视野里，好让「同屏 10–15 个敌人时 HUD 挡不挡人」那条在图上看得出来 |
-| `python tools/inspect_art_inbox.py` | 量 `temp/art-inbox/` 里的 PNG：画布、色数、能整除的格子尺寸候选，加半透明像素与放大件两条判据。**那两条直接调 `check_assets.py` 的实现**，同一条规则不写第二份 |
-
-脚手架本身是 `UI-5` 的实机确认与 `UI-12` 的手感校准工具，`UI-8` 的 HUD 加在它上面，
-`UI-10` 的端到端测试会替换它。`--headless` 下它刻意不建 —— 没有窗口可看，还白占跑产物那一步的时间。
+判断一个新入口该不该存在，用同一把尺子：**它判的东西在 Godot 里看不看得出来。** 看得出来的交给
+作者，看不出来的（规则层逻辑、发行包泄漏、字体授权、数值平衡）才写成入口。
 
 ### 工具链依赖
 
-`verify.py`、`selfcheck_verify.py`、`check_eol.py`、`check_scaling.py`、`check_input_map.py`、
-`selfcheck_input_map.py`、`check_camera.py`、`selfcheck_camera.py`、`harness_shot.py` 与
-`gen_placeholders.py` 都是**纯标准库**，
-clone 完直接能跑。唯一的第三方依赖是读素材图用的 Pillow，装法：
+现存四个入口（`verify.py`、`check_eol.py`、`loglib.py`、`run_local_check.py`）全是**纯标准库**，
+clone 完直接能跑，不装任何东西就能验收。
 
-```
-python -m pip install -r tools/requirements.txt
-```
+`tools/requirements.txt` 里钉着 Pillow，但**当前没有使用者** —— 需要它的是「读别人的 PNG」那一类
+素材守卫，那条链已删。先留着不删的理由写在那个文件里（下次真要读图时会撞上同一个坑）。
 
-为什么只在这一处破例、以及为什么不用它改写写 PNG 那半，理由写在 `tools/requirements.txt` 里。
-**依赖缺失的守卫必须报错退出，不许跳过检查** —— 会静默跳过的守卫比没有守卫更坏。
-
-下面四节是构建、测试、导出与行尾四步各自的原始命令，单独调试时用得上。素材那一步的原始命令是
-`python tools/check_assets.py`（生成占位件与写登记表是另一条：`python tools/gen_placeholders.py`）；
-行尾那一步是 `python tools/check_eol.py`（修复行尾：`python tools/check_eol.py --fix`）。
+下面四节是构建、测试、导出与行尾四步各自的原始命令，单独调试时用得上。行尾那一步是
+`python tools/check_eol.py`（修复行尾：`python tools/check_eol.py --fix`）。
 
 ## 像素字体怎么进来的
 
 主字体是 [ADR-0008] 选定的**缝合像素字体 12px 比例模式 简体版**，落在
-`assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf`，版本与内容都钉死（登记在
-`tools/asset-registry.json` 的「字体」一节，`check_assets.py` 逐次核 SHA256）。
-旁边的 `LICENSE-OFL.txt` 必须随发行 —— OFL 第 2 条要求每份拷贝都带许可证与版权声明，
-执行体是 `verify.py` 解包时那条「包里有字体数据就必须有许可证」（`ART-3`）。
+`assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf`。原先有登记表逐次核 SHA256，
+那条链随 `ADR-0009` 删除；**授权侧仍有两道执行体**：设计仓 `python tools/audit_fonts.py`
+核授权原文与上游来源，代码仓 `verify.py` 解包时核「包里有字体数据就必须有许可证」（`ART-3`）。
+旁边的 `LICENSE-OFL.txt` 必须随发行 —— OFL 第 2 条要求每份拷贝都带许可证与版权声明。
+这两条留着的理由是**法律合规在实机里看不出来**。
 
 **换版本是三步，刻意不做成一条命令** —— 它一年也不会跑第二次，而每次都必须重读 ADR：
 
 1. 设计仓 `python tools/audit_fonts.py --only fusion-12px`：下载、核授权原文与上游七环、
    量字形覆盖与度量。下载物落 `temp/font-audit/`。
-2. 把 `.ttf` 与 `LICENSE-OFL` 复制进 `assets/fonts/`，并把新的字节数与 SHA256 填进登记表。
-3. 跑一次 `<Godot> --headless --path . --import` 让 `.ttf.import` 的参数生效，再跑
-   `python tools/check_hud.py` 核那十项渲染属性。
+2. 把 `.ttf` 与 `LICENSE-OFL` 复制进 `assets/fonts/`。
+3. 在 Godot 里重新导入这个 `.ttf`（或跑一次 `<Godot> --headless --path . --import`），
+   让 `.ttf.import` 的参数真的生效，然后**实机看一眼中文有没有脏边**。
 
 **第 3 步不能省。** 2026-08-31 实测：改了 `.ttf.import` 的 `[params]` 却没重新导入，
 游戏读到的还是上一次烘出来的 `.fontdata` —— 抗锯齿仍是灰度，12px 中文多一圈半透明脏边，
-**一句报错都没有**。那十项属性的期望值在 `rules/Ui/PixelFont.cs`，实际值由引擎自己报，
-`check_hud.py` 逐项比对。
+**一句报错都没有**。那十项渲染属性的期望值在 `rules/Ui/PixelFont.cs`；原先有守卫拿引擎自报值
+逐项比对，守卫已删，现在靠这一步的实机确认 —— 脏边是肉眼看得见的东西。
 
 ## 怎么构建
 
@@ -205,7 +161,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口、`selfcheck_verify.py` 它的自证，`check_eol.py` 行尾守卫（`ENG-11`），缩放／输入／相机／HUD 四个专项守卫（素材与行尾已接进门禁），三个专项图形探针（`player_dev.py` 主角、`hit_feedback_dev.py` 打击反馈、`depth_dev.py` 纵深排序与影子；判据名与条数登记在各自入口里，不进门禁），加两个辅助入口（脚手架存图、素材收件箱测量） |
+| `tools/` | 本仓的 Python 入口，共四个：`verify.py` 验收总入口（五步）、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 

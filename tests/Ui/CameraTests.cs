@@ -378,7 +378,7 @@ public class CameraTests
     [Fact]
     public void 建造靠滚动与推镜而不是缩放()
     {
-        // 作者 2026-08-30 定：建造不做缩放。所以除演出接管之外没有任何改缩放的入口 ——
+        // 建造不做缩放。所以除演出接管之外没有任何改缩放的入口 ——
         // 这条测的是接口形状：不握凭据就改不了缩放。
         var rig = Rig(CameraView.TopDown);
         Assert.Equal(1, rig.Zoom);

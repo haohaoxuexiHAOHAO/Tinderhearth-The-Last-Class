@@ -1,6 +1,7 @@
 本目录的占位素材（spark.png，命中打击特效）复制自 fists-of-fury 教学工程
 （本机 D:\godot\project\fists-of-fury-course-main），经作者 2026-09-12 许可复制，
-仅作开发期测试占位（见待办 GP-20），登记为「可进发行包=false、待替换」，不进发行包。
+仅作开发期测试占位。它在 assets/downloaded/ 下，按目录即判「不得进发行包」
+（verify.py 的 --release 会拦下），发行前替换。
 发行前替换为正式像素特效。
 
 该工程仓库以 MIT 许可证发布，原文如下。注意：MIT 覆盖的是仓库**代码**，其中美术/音频

@@ -80,8 +80,7 @@ public class CombatFeelTests
     }
 
     /// <summary>四段判定框的（宽, 高, 中心离脚底高）三元组：轻击三段 + 重击单招。</summary>
-    /// <remarks>各段的数由 <c>tools/import_role_sheets.py</c> 从精灵表量出、<c>tools/check_assets.py</c>
-    /// 逐段比对，这里只拿它们钉**段与段之间的关系**，不测某个数对不对。</remarks>
+    /// <remarks>各段的数是从精灵表量出来的，这里只拿它们钉**段与段之间的关系**，不测某个数对不对。</remarks>
     private static (int Width, int Height, int CenterY)[] HitboxSpecs() =>
     [
         (CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx, CombatFeel.Light1HitboxCenterYWorldPx),
@@ -91,9 +90,9 @@ public class CombatFeelTests
     ];
 
     /// <summary>
-    /// 判定框**按段**分开之后的关系守卫（`ART-6`，2026-09-11）。**不测各段那几个数对不对** ——
-    /// 它们由 <c>tools/import_role_sheets.py</c> 从精灵表量出、由 <c>tools/check_assets.py</c>
-    /// 逐段比对，那是守卫的活。这里只钉两条**关系**，它们是本轮改动的**理由**、改坏了不报错：
+    /// 判定框**按段**分开之后的关系守卫（`ART-6`）。**不测各段那几个数对不对** ——
+    /// 它们是从精灵表量出来的，「框贴不贴那只拳脚」只能看画面（原先绑登记表的守卫已随 `ADR-0009`
+    /// 删除）。这里只钉两条**关系**，它们是分段那次改动的**理由**、改坏了不报错：
     /// 重击必须比每一段轻击都伸得远；踢腿（第 3 段）必须比两段直拳都伸得远（作者「踢腿伸展比拳远」，
     /// 正是三段分框的理由）。谁把它们改成相等或倒过来，画面与判定就又对不上了。
     /// </summary>

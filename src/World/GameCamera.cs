@@ -14,14 +14,15 @@ namespace Tinderhearth.World;
 /// <c>Camera2D</c>、把输入经 <see cref="InputRouter"/> 翻成滚动方向。
 ///
 /// **为什么 <c>sealed</c>。** 正典点名「行为不定下来，两种视角会各写一套」，而「各写一套」最自然
-/// 的形态就是给这个类派两个子类。封起来让那条路在编译期就走不通；`tools/check_camera.py` 另有
-/// 一条静态判据核「引擎层只有一个 <c>Camera2D</c> 派生类型」，两道一起才拦得住新建一个平级类。
+/// 的形态就是给这个类派两个子类。封起来让那条路在编译期就走不通。原先另有静态判据核「引擎层只有
+/// 一个 <c>Camera2D</c> 派生类型」来拦「新建一个平级类」，那个守卫随 `ADR-0009` 删除 —— `sealed`
+/// 只拦得住派生，拦不住平级，所以**再加相机类型前先想清楚为什么不能复用这一个**。
 ///
 /// **刻意不用引擎内置的 <c>Limit*</c> 钳制。** 两个理由：一是它不启引擎就测不了，而钳制少一边
 /// 的表现是「地图边上偶尔露白」，属于要凑巧遇到才看见的那类失效；二是 `aspect="expand"` 会撑出
 /// 「视野比地图还宽」的局面，内置钳制在那时会把镜头顶到一边、白边全挤到另一侧，而规则层那份
-/// 显式改成居中。<c>Limit*</c> 因此保持默认值，`check_camera.py` 会核它们没被启用 ——
-/// 两份钳制同时生效会互相拉扯。
+/// 显式改成居中。<c>Limit*</c> 因此必须保持默认值 —— 两份钳制同时生效会互相拉扯。
+/// 原先有守卫核它们没被启用，守卫已删；**在编辑器里给相机节点填 Limit 会静默破坏钳制**，别填。
 ///
 /// **不碰 <c>TextureFilter</c>。** 它可逐节点覆盖并向下继承，而 `canvas_items` 下 12px 中文
 /// 清晰唯一依靠项目级的最近邻过滤（`UI-4` 实测）。相机是所有世界内容的祖先，在这里手滑等于
@@ -45,7 +46,7 @@ public sealed partial class GameCamera : Camera2D
     /// 建造模式：跟随换成「手动滚动 + 角色靠近可建造区边缘时推镜」。
     /// </summary>
     /// <remarks>
-    /// 作者 2026-08-30 定建造**不做缩放**，所以这里没有任何改缩放的分支。**基地场景与建造界面
+    /// 建造**不做缩放**，所以这里没有任何改缩放的分支。**基地场景与建造界面
     /// 本身不在 `UI-5`** —— 本类只交出滚动与推镜这两项能力，以及可建造区尺寸从配置读这件事。
     /// </remarks>
     public bool BuildMode { get; set; }
@@ -55,14 +56,14 @@ public sealed partial class GameCamera : Camera2D
     /// </summary>
     /// <remarks>
     /// `UI-7` 实测：`SetInputAsHandled` 之后引擎的轮询状态**没有**被清掉，所以直接轮询的相机会在
-    /// 玩家按住扳机挑技能时照旧滚动。`tools/check_input_map.py` 会扫 `src/` 判失败。
+    /// 玩家按住扳机挑技能时照旧滚动。因此相机也走 <see cref="InputRouter"/>，不自己轮询。
     /// </remarks>
     public InputRouter? Router { get; set; }
 
     public override void _Ready()
     {
         // 位置平滑必须关：它会算出分数位置，而分数位置下最近邻采样把像素块切成宽窄不一的条
-        // （`UI-5` 实测，判据在 CameraProbe 里）。要软化镜头请由演出脚本驱动。
+        // （`UI-5` 实测：像素块被切成宽窄不一的条）。要软化镜头请由演出脚本驱动。
         PositionSmoothingEnabled = false;
         RotationSmoothingEnabled = false;
         IgnoreRotation = true;

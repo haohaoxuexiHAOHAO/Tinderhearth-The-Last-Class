@@ -14,11 +14,12 @@ namespace Tinderhearth.UI;
 /// - **没有绝对像素坐标。** 位置一律走 <see cref="Control.SetAnchorsAndOffsetsPreset"/>，
 ///   本文件不出现 <c>Position</c>。`aspect="expand"` 下逻辑宽度是变量（`UI-3` 实测
 ///   3840×2130 的窗口得到 649×360），写死横向坐标的界面在宽窗口上会错位，而**窄窗口上看不出来**。
-/// - **数值全部由视图模型传入。** 于是「代码里没有写死的数字」可以机器扫：除 0 与 1 之外的
-///   数字字面量出现在本文件就判失败（`tools/check_hud.py`）。0 与 1 留着是因为它们是结构量
-///   （第一个元素、间距为零、加一取编号），不是玩法数值。
+/// - **数值全部由视图模型传入。** 本文件里除 0 与 1 之外不出现数字字面量（0 与 1 留着是因为它们
+///   是结构量：第一个元素、间距为零、加一取编号，不是玩法数值）。
 ///
-/// 两条都由 `tools/check_hud.py` 守着，静态扫加行为核两头拦，理由见那个文件。
+/// 这两条原先由静态扫描加行为核两头拦，守卫随 `ADR-0009` 删除，现在是 `CONVENTIONS.md` 里的约定。
+/// **它们的失效形状值得记住**：写死坐标在 640 宽窗口上完全正常、只在宽窗口错位；写死数值则要等
+/// 真数值接进来才发现有两份矛盾的事实。所以实机验 HUD 时拉一下窗口宽度，并确认数字真的在变。
 ///
 /// **世界空间那一半不在这里。** 读条、精英血条与伤害数字归 `UI-9`，挂
 /// <see cref="UiLayer.WorldSpace"/> —— 正典明确否掉「读条画在界面角落」，要求画在执行者身上。
@@ -67,7 +68,7 @@ public sealed partial class LevelHud : Control
         }
     }
 
-    /// <summary>某一块现在占屏幕的哪个矩形。给 `HudProbe` 读回来与规则层的预测比对。</summary>
+    /// <summary>某一块现在占屏幕的哪个矩形。可与 <see cref="HudLayout.RectOf"/> 的预测比对。</summary>
     public Rect2 RectOf(HudBlock block) => _roots[block].GetGlobalRect();
 
     /// <summary>
@@ -75,7 +76,7 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <remarks>
     /// 它必须铺满视口，否则贴下边与贴右边的块会按一个错的父矩形算偏移、落到屏幕外去 ——
-    /// 2026-08-31 实测踩过一次，见 <see cref="_Ready"/> 里那段注释。所以它自己也是一条判据。
+    /// 实测踩过一次，见 <see cref="_Ready"/> 里那段注释。所以它自己也是一条判据。
     /// </remarks>
     public Rect2 RootRect => GetGlobalRect();
 
@@ -88,12 +89,12 @@ public sealed partial class LevelHud : Control
     /// <remarks>
     /// 它是「排版算式与实现漂移」那条的**病根级判据**。只比实际矩形与预测矩形不够：贴上边的块
     /// 算式偏大时只会往下多长几像素、位置一点不变，于是两边照样对得上，漂移看不出来
-    /// （2026-08-31 自证时撞出来的）。而容器要多少是它自己按间距与内边距算的 —— 拿它与
+    /// （实测撞出来的）。而容器要多少是它自己按间距与内边距算的 —— 拿它与
     /// <see cref="HudLayout.SizeOf"/> 比，任何一块的算式与实现分叉都逃不掉，与贴哪个角无关。
     /// </remarks>
     public Vector2 ContentMinOf(HudBlock block) => _roots[block].GetMinimumSize();
 
-    // ── 下面几个只给 HudProbe 读，好让「屏幕上到底显示了什么」变成可判定的东西 ──
+    // ── 下面几个把「屏幕上到底显示了什么」暴露成可读的值（原先给启动探针读，探针已删）──
 
     /// <summary>目标进度那一行现在显示的字。</summary>
     public string ObjectiveText => _objective.Text;
@@ -118,7 +119,7 @@ public sealed partial class LevelHud : Control
     {
         // HUD 铺满所属层，块靠锚点各自贴边。**不吃鼠标** —— 它是常驻显示，不是可操作面板。
         //
-        // **必须用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`。** 2026-08-31 实测：
+        // **必须用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`。** 实测：
         // 对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，引擎会把偏移改写成
         // −640,−360 以保住当前那个 0×0 的矩形 —— 锚点确实变成了 0,0,1,1，尺寸却还是 0×0。
         // 那个 `keepOffsets` 参数的含义与名字给人的印象相反：`false` 是「改写偏移、保住视觉位置」，
@@ -133,7 +134,7 @@ public sealed partial class LevelHud : Control
         BuildSkills();
         BuildTeammates();
 
-        // **必须等自己的尺寸定下来再摆块。** 2026-08-31 实测踩到的：`_Ready` 里 HUD 根节点的
+        // **必须等自己的尺寸定下来再摆块。** 实测踩到的：`_Ready` 里 HUD 根节点的
         // 尺寸还是 0×0（那一刻视口的拉伸尚未算完，与 `Main.PrintDisplayMetrics` 那条「读早了」
         // 是同一件事），而块的锚点偏移是拿**当时的父矩形**算的 —— 于是贴下边与贴右边的三块全落到
         // 负坐标上，画在屏幕外，只有贴左上角那块看起来是对的。**这种错在存图里只表现为「少了三块」，
@@ -227,7 +228,7 @@ public sealed partial class LevelHud : Control
     /// 6 个技能位：**一行横排**，两组之间空一个栅格，每组前面一个修饰键记号。
     /// </summary>
     /// <remarks>
-    /// 横排由作者 2026-08-31 定（此前是两行三列）。`FR-17` 靠两样东西成立：按住修饰键时**那一组
+    /// 技能位横排一行。`FR-17` 靠两样东西成立：按住修饰键时**那一组
     /// 三个连着高亮**（横排下是连续的三格，比两行更像「一组」），以及每组前面的记号列
     /// 「L」「R」告诉玩家没按住时哪三个归哪个扳机。
     ///
@@ -365,8 +366,8 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <remarks>
     /// 用引擎自己的锚点预设 API，尺寸取每块的最小尺寸、边距取安全边距。**这里没有一个坐标** ——
-    /// 于是逻辑宽度撑开时右侧那两块自动跟着走，而这件事由 `HudProbe` 在两种宽高比下各量一遍来
-    /// 证明，不靠「看代码觉得没问题」。
+    /// 于是逻辑宽度撑开时右侧那两块自动跟着走。原先由启动探针在两种宽高比下各量一遍来证明，
+    /// 探针已删：**验法是实机把窗口拉宽**，右侧两块该跟着贴住右边。
     /// </remarks>
     private void AnchorBlocks()
     {
@@ -430,7 +431,7 @@ public sealed partial class LevelHud : Control
     /// `FR-17` 的落点。记号从 <see cref="InputHints"/> 推，而它又从绑定表推 —— 改键位时提示
     /// 自动跟着改，不会一直教玩家按错的键。
     ///
-    /// **键鼠不画记号**（作者 2026-08-31 实机定）：数字键 1–6 与六个槽位从左到右一一对应，
+    /// **键鼠不画记号**：数字键 1–6 与六个槽位从左到右一一对应，
     /// 再在每个槽下画一遍数字，只是给屏幕底边添一行字，而冷却中的槽记号为空还会让这一行看起来
     /// 像「1 3 4」这种断号。手柄不同，`LT`／`RT` 加面键推不出来，那个记号照画。
     /// 数字绑定仍由绑定表持有，改键位后手柄提示与实际按键照样同源。
@@ -497,8 +498,8 @@ public sealed partial class LevelHud : Control
     /// 行距。**必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致** —— 两边不一致时块会比
     /// 预测的矮或高几像素，而 <c>set_offsets_preset</c> 是按**内容最小尺寸**算偏移、实际尺寸却按
     /// 「内容最小与 <c>CustomMinimumSize</c> 取大」定的，于是块会整体偏出安全边距几像素。
-    /// 2026-08-31 实测撞过一次（技能块行距写 0、算式按一个间距，块低了 4px），由 `HudProbe` 的
-    /// 「实际矩形与预测逐块一致」当场抓出来。
+    /// 实测撞过一次（技能块行距写 0、算式按一个间距，块低了 4px），当时由启动探针的
+    /// 「实际矩形与预测逐块一致」抓出来；探针已删，改这个数时请实机看一眼块有没有偏出边距。
     /// </param>
     private VBoxContainer Column(HudBlock block, int separation)
     {
@@ -563,7 +564,7 @@ public sealed partial class LevelHud : Control
     private static Texture2D Art(string path) =>
         ResourceLoader.Exists(path)
             ? GD.Load<Texture2D>(path)
-            : throw new FileNotFoundException($"HUD 缺素材：{path}（登记表在 tools/asset-registry.json）");
+            : throw new FileNotFoundException($"HUD 缺素材：{path}（在 Godot 里确认这个文件已导入）");
 
     private sealed record GaugeRow(Label Label, NinePatchRect Fill);
 

@@ -22,7 +22,7 @@ namespace Tinderhearth.Rules.Combat;
 /// <param name="LightPressed">本帧刚按下轻攻击。</param>
 /// <param name="HeavyPressed">本帧刚按下重攻击。</param>
 /// <param name="DodgePressed">本帧刚按下闪避。</param>
-/// <param name="RunHeld">冲刺键是否按住（2026-09-12 由 <c>SprintHeld</c> 改名，见 <c>InputActions.Dash</c>）。</param>
+/// <param name="RunHeld">奔跑键是否按住（设计文档里的「冲刺」指同一件事，见 <c>InputActions.Run</c>）。</param>
 public readonly record struct CombatInput(
     int HorizontalSign,
     int DepthSign,

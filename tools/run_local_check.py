@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # 为什么是一张显式清单而不是「一律复制」：绝大多数入口不导出，为它们复制 2 GB 是白花的。
 # 为什么不怕漏加：漏了会让整轮验收在导出那一步失败，是响的不是哑的；而且 verify.py 的失败
 # 信息里现在会直接点出「隔离出来的 APPDATA 里没有导出模板」（见 step_export）。
-NEEDS_EXPORT_TEMPLATES = {"verify.py", "selfcheck_verify.py"}
+NEEDS_EXPORT_TEMPLATES = {"verify.py"}
 
 
 def main() -> int:

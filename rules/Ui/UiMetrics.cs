@@ -12,7 +12,7 @@ namespace Tinderhearth.Rules.Ui;
 /// mod 能改排版，那会让所有界面在未知边距下重排。
 ///
 /// 依据链：基础单位 16px 与精灵格 32×32 来自[玩法定位 · 像素基准]；字号 12px、行高 16px
-/// 来自 [ADR-0008]；逻辑分辨率 640×360 由作者 2026-08-30 定。交付 `DOC-2` 的就是这一组。
+/// 来自 [ADR-0008]；逻辑分辨率 640×360。交付 `DOC-2` 的就是这一组。
 /// </remarks>
 public static class UiMetrics
 {

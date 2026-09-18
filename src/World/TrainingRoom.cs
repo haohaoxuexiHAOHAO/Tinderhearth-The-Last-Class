@@ -1,6 +1,7 @@
 using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.Rules.Combat;
+using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Ui;
 using Tinderhearth.UI;
 
@@ -10,39 +11,42 @@ namespace Tinderhearth.World;
 /// `GP-14` 训练房：第一个把 A1 战斗的所有部件组装成一个能玩的侧视场景。**不是探针，是给作者玩的。**
 /// </summary>
 /// <remarks>
-/// 此前每个部件各有一个独立 dev 场景（`PlayerDev`／`HitFeedbackDev`／`DepthDev`／`CombatDebugDev`），
-/// 各自只摆出验它那一条所需的最小布景。它们证明了「每个部件单独拿出来是对的」，但没有任何地方证明
-/// **把它们摆在一起还成立** —— 三轴移动、按段判定框、纵深感知命中、排序与影子、四件套打击反馈、帧
-/// 步进叠层，同时在一个场景里跑起来是什么手感。这就是本场景存在的理由。
+/// 它存在的理由是：各部件单独看都对，但没有任何地方证明**把它们摆在一起还成立** —— 三轴移动、按段
+/// 判定框、纵深感知命中、排序与影子、打击反馈、帧步进叠层，同时跑起来是什么手感。这只能实机看。
 ///
-/// **不动 <c>Main.tscn</c>。** 那条启动探针链是 `UI-1` 的验收执行体（`verify.py` 跑产物与
-/// `check_camera`／`check_hud`／`check_input_map` 都读它），本场景是**另一个** `res://` 场景，
-/// 各走各的。
+/// **本文件正在等一次重写，别照它现在的样子加东西。** 按 `ADR-0009` 的分工，场景该由作者在 Godot
+/// 里搭（地面、主角、碰撞区域、沙包、障碍物、参数），脚本只负责读节点与接线；而现在这里是反的 ——
+/// 整个场景在 <c>_Ready()</c> 里 <c>AddChild</c> 出来，编辑器里打开只看得到一个空 <c>Node2D</c>。
+/// 改造归 `GP-14`（训练房先行）与 `ENG-21`（其余场景跟上）。
 ///
-/// **组装口径沿用 dev 场景，不新造：**
+/// **组装口径**（这些数原本抄自已删除的各个 dev 场景，现在这里是唯一的一份）：
 /// <list type="bullet">
-/// <item>地面按纵深带画成 48px 厚的带（口径同 <see cref="DepthDev"/>）：碰撞面在带中线，视觉带上下
-/// 各 24px，于是角色在带内前后走时脚不离开画出来的地面。</item>
-/// <item>主角 <c>ManualPhysics=true</c>，推进由本场景循环调（口径同 <see cref="CombatDebugDev"/>）——
-/// 帧步进要自己掌控节奏，交给引擎默认回调就没法在暂停时停住。</item>
+/// <item>地面按纵深带画成 48px 厚的带：碰撞面在带中线，视觉带上下各 24px，于是角色在带内前后走时脚
+/// 不离开画出来的地面。48px 够不够归 `ENG-16`。</item>
+/// <item>主角 <c>ManualPhysics=true</c>，推进由本场景循环调 —— 帧步进要自己掌控节奏，交给引擎默认
+/// 回调就没法在暂停时停住。</item>
 /// <item>推进走 <see cref="CombatDebugOverlay.ShouldAdvance"/> 与 <see cref="Hitstop"/> 同一个 gate：
 /// 暂停或顿帧时当帧不推进，连排序也一起冻住（<see cref="DepthSortedLayer"/> 的调用契约）。</item>
 /// </list>
 ///
-/// **叠层默认关**（`GP-14` 验收）：进场看到的是干净画面，按 <c>V</c> 才开框。这与 `CombatDebugDev`
-/// 那个「进场就开框」的调试展示相反 —— 那里开框是因为它整个存在就是为了看框；这里是训练房，框是
-/// 需要时才叫出来的工具。
+/// **叠层默认关**：进场看到的是干净画面，按 <c>V</c> 才开框 —— 这是训练房，框是需要时才叫出来的工具。
 /// </remarks>
 public partial class TrainingRoom : Node2D
 {
-    /// <summary>碰撞地面的世界 Y。视觉带以它为中线上下各 24px（同 <see cref="DepthDev"/>）。</summary>
+    /// <summary>碰撞地面的世界 Y。视觉带以它为中线上下各 24px。</summary>
     private const int GroundY = 200;
 
-    /// <summary>主角出生 X。木桩摆在它右前方一段距离，走过去就能打到。</summary>
+    /// <summary>主角出生 X。沙包摆在它右前方一段距离，走过去就能打到。</summary>
     private const int PlayerX = 0;
 
-    /// <summary>受击靶离主角的横向距离：够近，走两步就到；又留出接近的余地。</summary>
-    private const int TargetOffsetX = 64;
+    /// <summary>我方沙包离主角的横向距离：够近，走两步就到；又留出接近的余地。</summary>
+    private const int AllyTargetOffsetX = 64;
+
+    /// <summary>
+    /// 敌方沙包再往右一段。**两个沙包分开站**，于是走一趟就能连着撞出两种结果（`GP-17`）：
+    /// 我方那个穿得过去，敌方那个挡住、得往纵深挪半步才绕得过。
+    /// </summary>
+    private const int EnemyTargetOffsetX = 144;
 
     /// <summary>可跑动地面的半宽，世界像素。给足横向奔跑的余地。</summary>
     private const int GroundHalfWidth = 1500;
@@ -56,7 +60,9 @@ public partial class TrainingRoom : Node2D
     private InputRouter _router = null!;
     private DepthSortedLayer _layer = null!;
     private PlayerActor _player = null!;
-    private PlayerActor _target = null!;
+    private PlayerActor _targetAlly = null!;
+    private PlayerActor _targetEnemy = null!;
+    private readonly DepthBlocker _blocker = new();
     private Hitbox _hitbox = null!;
     private CombatDebugOverlay _overlay = null!;
     private GameCamera _camera = null!;
@@ -83,32 +89,33 @@ public partial class TrainingRoom : Node2D
         _player.Controllers.Assign(_player.ActorId,
             new LocalPlayerController(_player.ActorId) { Router = _router });
         _layer.AddChild(_player);
-        var playerHurt = new Hurtbox { Actor = _player, HeightWorldPx = PlayerActor.BodyHeightWorldPx };
-        _player.AddChild(playerHurt);
+        var playerHurt = AddHurtbox(_player);
         _hitbox = new Hitbox();
         _player.AddChild(_hitbox);
 
-        // 受击靶：一个被动的测试角色（`GP-14`）。不再用木桩几何 —— 靶是真角色，命中放受击帧作反馈
-        // （替代木桩那种晃眼闪白）。ActorId 与主角区分开（各自一份 Controllers，本不冲突，区分只为清楚）。
-        _target = new PlayerActor
-        {
-            ManualPhysics = true, ActorId = "target", Position = new Vector2(PlayerX + TargetOffsetX, GroundY),
-        };
-        _target.Controllers.Assign(_target.ActorId, new StationaryController());
-        _layer.AddChild(_target);
-        var targetHurt = new Hurtbox { Actor = _target, HeightWorldPx = PlayerActor.BodyHeightWorldPx };
-        _target.AddChild(targetHurt);
-        // 主角与靶互不实体碰撞:靶只跟地面碰。否则同层会互相挡,且是**不看纵深**地挡(比穿过去更糟,归
-        // `GP-17`);而挨打时靶做 MoveAndSlide 又会把叠在一起的两者挤开 —— 正是作者实机撞到的「打一下靶
-        // 弹到身前」。碰撞豁免后两者互不干涉,靶挪多少只由击退决定,不由脱离接触的挤出决定。
-        _target.AddCollisionExceptionWith(_player);
-        _player.AddCollisionExceptionWith(_target);
+        // 两个受击沙包：一个我方、一个敌方（`GP-17` 的实机口径）。**两种阵营结果
+        // 一趟就能试到** —— 走到我方那个身上穿得过去，走到敌方那个跟前被挡住。靶仍是真角色而不是木桩
+        // 几何（`GP-14`）：命中放受击帧作反馈，替代木桩那种晃眼闪白。ActorId 各自区分（各有一份
+        // Controllers，本不冲突，区分只为日志里认得出谁是谁）。
+        _targetAlly = AddTarget("target-ally", AllyTargetOffsetX, CombatSide.Ally);
+        _targetEnemy = AddTarget("target-enemy", EnemyTargetOffsetX, CombatSide.Enemy);
+        var allyHurt = AddHurtbox(_targetAlly);
+        var enemyHurt = AddHurtbox(_targetEnemy);
+
+        // 实体阻挡（`GP-17`）：**豁免改由纵深与阵营逐帧决定，这里不再写死一条。**
+        // 原先主角与靶是无条件互免碰撞，那行注释记着两个理由，现在两条都由判定本身兑现：
+        // 「不看纵深地挡比穿过去更糟」→ 敌对那一对只在纵深同排时才挡，不同排不会互相卡住；
+        // 「挨打时 MoveAndSlide 把叠在一起的两者挤开」（作者实机撞到的「打一下靶弹到身前」）→
+        // 同阵营那一对永远豁免，而敌对那一对挡住之后两者本来就不会叠在一起，也就没有可挤的重叠。
+        _blocker.Add(_player);
+        _blocker.Add(_targetAlly);
+        _blocker.Add(_targetEnemy);
 
         // 叠层默认关（`GP-14`）：读的是命中查询与碰撞形状的同一份几何，不自己重算（`ENG-6`）。
         _overlay = new CombatDebugOverlay
         {
             Hitbox = _hitbox,
-            Hurtboxes = [playerHurt, targetHurt],
+            Hurtboxes = [playerHurt, allyHurt, enemyHurt],
             ZIndex = OverlayZ,
         };
         AddChild(_overlay);
@@ -123,7 +130,30 @@ public partial class TrainingRoom : Node2D
         AddChild(_audio);
     }
 
-    /// <summary>地面：碰撞面在带中线，视觉是一条 48px 厚的带（口径同 <see cref="DepthDev"/>）。</summary>
+    /// <summary>造一个被动的受击沙包并接进排序层。立场由调用方给（`GP-17`）。</summary>
+    private PlayerActor AddTarget(string actorId, int offsetX, CombatSide side)
+    {
+        var target = new PlayerActor
+        {
+            ManualPhysics = true,
+            ActorId = actorId,
+            Side = side,
+            Position = new Vector2(PlayerX + offsetX, GroundY),
+        };
+        target.Controllers.Assign(actorId, new StationaryController());
+        _layer.AddChild(target);
+        return target;
+    }
+
+    /// <summary>受击框按角色实测本体建（`GP-19`：高度必填、不许沿用木桩那个 32）。</summary>
+    private static Hurtbox AddHurtbox(PlayerActor actor)
+    {
+        var hurtbox = new Hurtbox { Actor = actor, HeightWorldPx = PlayerActor.BodyHeightWorldPx };
+        actor.AddChild(hurtbox);
+        return hurtbox;
+    }
+
+    /// <summary>地面：碰撞面在带中线，视觉是一条 48px 厚的带。</summary>
     private void BuildTerrain()
     {
         var ground = new StaticBody2D { Position = new Vector2(PlayerX, GroundY) };
@@ -149,8 +179,9 @@ public partial class TrainingRoom : Node2D
     }
 
     /// <summary>
-    /// 帧调优叠层的交互键。**不过 InputMap**，登记在 `check_input_map.py` 的 `HARNESS_KEYS`
-    /// 与 `HARNESS_KEY_FILES`（键与 `CombatDebugDev` 相同，共用那三个已登记的键位）。
+    /// 帧调优叠层的交互键。**刻意不过 InputMap** —— 它们是调试工具的键，不是玩法绑定，混进 InputMap
+    /// 会让「玩家能重绑的键」这份清单里多出三个玩家根本不该看见的条目。原先登记在
+    /// `check_input_map.py` 里，那个守卫已随 `ADR-0009` 删除，现在这里是唯一的一份。
     /// </summary>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
@@ -172,6 +203,11 @@ public partial class TrainingRoom : Node2D
         // 暂停（帧步进）或顿帧时当帧不推进；连排序一起冻住，绘制前后关系不在冻结帧里跳动。
         if (_overlay.ShouldAdvance() && !_stop.Tick())
         {
+            // **阻挡排在所有推进之前**（`GP-17`）：豁免要在这一帧的 MoveAndSlide 之前就位，否则挡开
+            // 会晚一帧 —— 表现是贴着敌人时能插进去一格再被弹回来。代价是它用的是上一帧的纵深，60Hz
+            // 下纵深每帧最多走 1px，相对 8px 的阈值是 1px 误差，理由见 <see cref="DepthBlocker"/>。
+            // 冻结帧不调：那几帧没人移动，豁免表也就不必变。
+            _blocker.Resolve();
             _player.AdvanceCombat();
             // **命中结算排在靶推进之前**（`GP-14` 阶段 1 实机修）：命中让靶进入受击相位，靶必须在
             // **这一帧**就把受击帧显出来，随后的顿帧才冻在受击姿上。反过来（先推靶再结算）会让靶这一
@@ -191,7 +227,8 @@ public partial class TrainingRoom : Node2D
                 _swingHits = 0;
             }
             _wasHitActive = hitActive;
-            _target.AdvanceCombat();
+            _targetAlly.AdvanceCombat();
+            _targetEnemy.AdvanceCombat();
             _layer.Sort();
         }
     }

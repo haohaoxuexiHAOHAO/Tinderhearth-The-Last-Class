@@ -11,7 +11,8 @@ namespace Tinderhearth.UI;
 /// 核心约束：正典要求[读条画在执行者身上而不是界面角落]。世界空间层开了 <c>FollowViewportEnabled</c>
 /// （见 <see cref="UiRoot"/>），于是这层的子节点用世界坐标、自动跟相机变换与 2 倍缩放 —— 元素只要
 /// 把 <see cref="Node2D.Position"/> 设成目标的 <see cref="Node2D.GlobalPosition"/> 就对齐了，不必手算
-/// 世界到屏幕的投影（`check_worldui.py` 静态核会盯住这层的挂载点不被改成 Hud）。
+/// 世界到屏幕的投影。**挂载点必须是世界空间层、不能改成 Hud 层** —— 改了不报错，表现是读条跑到
+/// 界面角落、不再跟着角色走。原先有静态守卫盯这一点，随 `ADR-0009` 删除，现在是一条约定。
 ///
 /// 尺寸与偏移全取自 <see cref="WorldUiLayout"/>，值取自视图模型（<see cref="CastState"/> 等）——
 /// 与 <see cref="LevelHud"/> 同一分层纪律：这里不写玩法数字（读条时长、血量上限归各玩法实现）。
@@ -140,7 +141,7 @@ public sealed partial class WorldSpaceUi : Node
         ResourceLoader.Exists(path)
             ? GD.Load<Texture2D>(path)
             : throw new FileNotFoundException(
-                $"世界空间 UI 缺素材：{path}（登记表在 tools/asset-registry.json）");
+                $"世界空间 UI 缺素材：{path}（在 Godot 里确认这个文件已导入）");
 }
 
 /// <summary>读条圆环：底环是占位件 <c>cast-ring.png</c>，进度弧由代码画在环上，跟执行者走。</summary>

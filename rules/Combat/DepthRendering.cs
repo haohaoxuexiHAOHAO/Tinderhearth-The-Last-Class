@@ -6,7 +6,7 @@ namespace Tinderhearth.Rules.Combat;
 /// <remarks>
 /// 影子要的是**范围**而不只是宽度。只给宽度、把椭圆恒画在脚底锚点上，出拳时就会错开：那一帧
 /// 的本体从锚点向右伸出去很远、向左只有小半个身子，而对称的椭圆在拳这一侧不够长、在后腿这一侧
-/// 又盖过头。作者 2026-09-09 实机一眼看出来了（「攻击的时候左侧影子没有了」）。
+/// 又盖过头。实机一眼就看得出来：攻击时左侧影子会消失。
 /// </remarks>
 /// <param name="Left">左边界，相对脚底锚点。</param>
 /// <param name="Right">右边界，相对脚底锚点。</param>
@@ -100,7 +100,7 @@ public static class DepthRendering
     /// 是颜色不是位置，位移会让它们量错地方并报出与颜色无关的失败。
     ///
     /// 代价写明：地形也得画成一条 48px 厚的带子，否则角色在带内前后走时脚会离开那条画出来的
-    /// 地面线。开发场景里的地面因此按带宽画，见 `PlayerDev`。
+    /// 地面线。训练房的地面因此按带宽画（`TrainingRoom` 的 `AddGround`）。
     /// </remarks>
     public static double DrawOffsetWorldPx(double depthWorldPx) =>
         DepthBand.Clamp(depthWorldPx) - DepthBand.CenterWorldPx;

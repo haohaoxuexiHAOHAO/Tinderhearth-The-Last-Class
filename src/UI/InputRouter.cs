@@ -8,11 +8,12 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// **玩法代码必须通过本类问输入，不许直接调 <c>Input.IsActionPressed</c>。** 这不是风格偏好，是
-/// 2026-08-30 实测出来的硬约束：在 <c>_Input</c> 里对面键事件调 <c>SetInputAsHandled</c> 之后，
+/// 实测出来的硬约束：在 <c>_Input</c> 里对面键事件调 <c>SetInputAsHandled</c> 之后，
 /// <c>Input.IsActionPressed</c> 与 <c>IsActionJustPressed</c> **仍然返回 true**。也就是说「拦下事件」
 /// 只挡住了事件流，挡不住轮询 —— 任何直接轮询的代码都会在玩家按住扳机挑技能时照旧看到轻攻击被
-/// 按下，打出一次没打算打的攻击。这种失效不报错，所以要有执行体：`tools/check_input_map.py` 会扫
-/// `src/` 里除本文件之外的 <c>Input.IsActionPressed</c> 调用并判失败。
+/// 按下，打出一次没打算打的攻击。**这种失效不报错。** 原先有守卫扫 `src/` 里除本文件之外的
+/// <c>Input.IsActionPressed</c> 调用并判失败，它随 `ADR-0009` 删除 —— 现在这条只是
+/// `CONVENTIONS.md` 里的一条约定：**玩法代码一律通过本类问输入，不直接轮询。**
 ///
 /// 分工与 `UI-6` 一致：**判定在规则层，节点在这里。** 「哪一组生效」「这个面键现在是哪个技能」
 /// 「先按住的赢」「松开时该松哪个技能」都由 <see cref="SkillModifierState"/> 判，有单元测试盯着；
@@ -175,7 +176,7 @@ public partial class InputRouter : Node
     /// 修饰键按住时，把面键的按下与松开翻译成技能位的按下与松开。
     /// </summary>
     /// <remarks>
-    /// 用 <c>InputEventAction</c> 合成技能位的按下（2026-08-30 实测：合成后
+    /// 用 <c>InputEventAction</c> 合成技能位的按下（实测：合成后
     /// <c>Input.IsActionPressed</c> 与 <c>IsActionJustPressed</c> 都为 true，且 <c>_Input</c> 收到
     /// 该事件一次）。这样技能位对下游而言就是个普通动作，下游不必知道它是组合出来的。
     ///

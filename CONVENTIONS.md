@@ -239,14 +239,18 @@ row.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
 **规则层（`rules/`）不引用 GodotSharp。** 这条由编译器强制——`rules/` 的 `.csproj`
 不引用 `GodotSharp` 程序集。违反时编译失败，而不是运行时崩溃。
 
+下面三条原先各有一个静态扫描守卫（`check_input_map.py`／`check_hud.py`），
+守卫随设计仓 `ADR-0009` 删除，**规则本身不变，但现在只有约定、没有门禁**。
+写的时候自己守，评审时按 `review-it` 固定问一遍。
+
 **引擎层（`src/`）查询输入必须通过 `InputRouter`**，不许直接调 `Input.IsActionPressed`。
-`check_input_map.py` 静态扫 `src/` 下的直接轮询，发现即门禁失败。
+理由是绕过门面会让「面板打开时屏蔽玩法动作」这类门控在某一处失效，且**不报错**。
 
 **界面里除 0 与 1 之外无数字字面量。** 排版量从 `UiMetrics` 和 `HudLayout` 取，
-颜色从 `HudPalette` 取，字体参数从 `PixelFont` 取。`check_hud.py` 静态扫这一点。
+颜色从 `HudPalette` 取，字体参数从 `PixelFont` 取。
 
 **不覆盖 `TextureFilter`。** 项目级最近邻纹理过滤在 `project.godot` 里统一设置，
-代码和场景里不许覆盖它（`ENG-13`）。`check_hud.py` 与 `check_texture_filter` 静态扫。
+代码和场景里不许覆盖它（`ENG-13`）——覆盖成线性过滤会让像素糊掉，这一条作者实机看得出来。
 
 ## 事件订阅
 
@@ -275,6 +279,6 @@ public override void _ExitTree()
 
 用 `[Fact]` 标注单条测试，用 `[InlineData]` 标注参数化测试。**不用 `[MemberData]`**——
 `verify.py` 静态数测试条数的方式不能数出 `[MemberData]` 的用例，会导致门禁报「条数对不上」
-（踩坑记录 29）。如果数据量大到需要 `[MemberData]`，在 `selfcheck_verify.py` 里显式登记条数。
+（踩坑记录 29）。
 
 每加一条新测试，先跑 `dotnet run --project tests` 确认条数多了那一条。

@@ -5,24 +5,20 @@ using Tinderhearth.Rules.Foundation.Actors;
 namespace Tinderhearth.World;
 
 /// <summary>GP-12 主角节点，位置归物理引擎、动作与速度归规则层。也用作训练房的受击靶（`GP-14`）。</summary>
-public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
+public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
 {
     // ── 精灵表几何（`ART-6`）───────────────────────────────────────────
-    // 三个数由 tools/import_role_sheets.py 从收件箱原件量出来，同时写进 tools/asset-registry.json
-    // 的「自绘素材」一节（帧宽／帧高／帧内锚点列／帧内地面行四项）。**这里不重新推导，只做一致性
+    // 三个数是从收件箱原件量出来的帧框（帧宽／帧高／帧内地面行）。**这里不重新推导，只做一致性
     // 校验**：载入时按纹理实测尺寸核（高必须等于帧高、宽必须是帧宽的整数倍），对不上就当缺图走
     // 占位分支。于是「表重新生成后帧框变了而代码没跟着改」不会静默错位 —— 它会当场退回占位并打日志。
     //
-    // 但纹理自校验有个洞：**它管得住宽高，管不住地面行**。GroundRow 只影响精灵往上抬多少，改错
-    // 一像素的表现是「脚底离地」或「陷进地面」，纹理尺寸照样对得上、日志照样干净。所以这三个数
-    // 与登记表的相等由守卫盯着：`tools/check_assets.py` 的 `check_frame_geometry_binding`
-    // 逐条比对，两个方向都撞过真实缺陷形状（`tools/selfcheck_verify.py`）。
+    // 但纹理自校验有个洞要写明：**它管得住宽高，管不住地面行**。GroundRow 只影响精灵往上抬多少，
+    // 改错一像素的表现是「脚底离地」或「陷进地面」，纹理尺寸照样对得上、日志照样干净。原先由素材
+    // 登记表加守卫逐条比对盯着这一项，那条链已随 `ADR-0009` 删除 —— **现在它只能靠作者实机看**，
+    // 脚底有没有贴地是一眼的事。改这三个数时请连带在 Godot 里跑一次训练房确认脚底。
     //
-    // 为什么不让引擎直接读登记表、彻底免掉这份重复：`tools/` 带 `.gdignore`，登记表不进发行包，
-    // 导出后的产物在运行时拿不到它。把它搬进 `res://data/` 能读，但那等于把一份**开发期量具**
-    // 变成随发行分发的内容数据，还要跟着 mod 与联机的外置口径走 —— 代价比一条守卫大。
-    // 三个数对开发探针可见（`internal`）：`PlayerDev` 拿它们逐像素核脚底行与本体高度，
-    // 而不是在探针里再抄一遍数字 —— 抄第二遍就又多了一处会漂的地方。
+    // 这三个数是 `internal` 而不是 `private`：规则层测试要拿它们核本体高度，避免在测试里再抄一遍
+    // 数字 —— 抄第二遍就又多了一处会漂的地方。
     internal const int FrameWidth = 44;
     internal const int FrameHeight = 32;
 
@@ -47,7 +43,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     /// 取登记表「角色本体」量出来的**站立姿 28px**（去掉地面参考线后量的）。原先受击框写死 32 —— 那
     /// 是木桩柱子的高度，套到主角身上高出 4px，从头顶掠过的攻击照样命中且不报错。
     ///
-    /// **各动作最高到 30px（`dodge`／`heavy`）刻意不取。** 作者 2026-09-12 定：宁可闪步那几帧头顶
+    /// **各动作最高到 30px（`dodge`／`heavy`）刻意不取。** 宁可闪步那几帧头顶
     /// 露出框外一点（那几帧本来就是主动闪避的姿态），也不要为了兜住最高姿态让站着的时候平白高 2px。
     /// 按状态给不同高度是正确的长期形状，归 `GP-18`／`GP-6`。
     /// </remarks>
@@ -55,9 +51,9 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
 
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
-    // 本轮接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`，2026-09-11），
+    // 接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`），
     // 由 <see cref="UpdateVisual"/> 按 <c>combo.Step</c> 选。受击表 `light_hit`／`heavy_hit`（`GP-14`，
-    // 2026-09-12 接入）：训练房把靶换成真角色后，命中要放受击帧作反馈（替代木桩那种晃眼闪白），于是
+    // 已接入）：训练房把靶换成真角色后，命中要放受击帧作反馈（替代木桩那种晃眼闪白），于是
     // 「受击」这条规则有了（<see cref="MotorPhase.Hurt"/> + <see cref="Receive"/>），图也就该载入了。
     // 另外四张仍**刻意不载入**：`general_defense`、`precise_defense`、`imbalance`、`death` —— 防御、
     // 失衡与死亡的玩法都还没有，载进来只会是「有图没规则」的半成品。`imbalance` 另有一层不确定：
@@ -65,7 +61,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     private static readonly string[] Sheets =
         ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy", "light_hit", "heavy_hit"];
 
-    // 攻击相位 → 精灵帧的映射。轻击三段现在**各有独立表**（`ART-6`，2026-09-11 接仓），重击单招
+    // 攻击相位 → 精灵帧的映射。轻击三段**各有独立表**（`ART-6`），重击单招
     // 一张表；每段的帧数不同（light 6、light2 5、light3 6、heavy 7），映射按当前表的 `count` 算，
     // 不写死。唯一的硬约束在这里：**前摇只准用第 0 帧，Active 只准用第 1–2 帧**。作者每段的第 1 帧
     // （0 基第 0 帧）是静止起手姿、第 2–3 帧（0 基 1–2）才是拳脚伸出的命中姿；判定框的取值也正是
@@ -79,6 +75,15 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     internal const int AttackActiveSpan = 2;
 
     public string ActorId { get; init; } = "player";
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 默认我方（`GP-17`）：主角与训练房那个我方沙包都取它，敌方由场景显式给。**与谁驱动这个角色
+    /// 无关** —— 立场是 <see cref="CombatSide"/>，驱动是 <see cref="Controllers"/>，`ENG-5` 要求这
+    /// 两件事不许互相推断（一个由 AI 驱动的队友仍然是我方）。
+    /// </remarks>
+    public CombatSide Side { get; init; } = CombatSide.Ally;
+
     public ActorControllerRegistry Controllers { get; init; } = new();
     public ActorCombatState Combat { get; } = new();
     public AnimatedSprite2D Sprite { get; } = new();
@@ -99,15 +104,14 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     /// 那轮实测踩过，踩坑记录里记着）。木桩能靠换 <c>Polygon2D.Color</c> 变白，是因为它本来就是几何。
     ///
     /// **为什么闪白不能由美术给**：`ART-6` 定了「闪白由代码持有、进仓表禁单色帧」。这不是偏好 ——
-    /// `tools/check_assets.py` 里记着实测：下载素材 <c>samurai/hurt.png</c> 第 1 帧就是整张白的，
-    /// 「受击表塞一张闪白」在第三方素材里是常见做法，而那让闪白时长被烧进图、代码调不了。
+    /// 实测过下载素材 <c>samurai/hurt.png</c> 第 1 帧就是整张白的，「受击表塞一张闪白」在第三方素材
+    /// 里是常见做法，而那让闪白时长被烧进图、代码调不了。**所以裁图时别把闪白帧切进来。**
     ///
-    /// **为什么用代码字符串而不是资源文件**：落一个 <c>.gdshader</c> 就多一类进 `res://` 的资源，
-    /// 要过登记表与发行包清单两道守卫（`check_assets.py` 的磁盘比对只扫 <c>.png</c>，于是它既不会
-    /// 被登记、也不会被拦 —— 一个查不出来的空子），而这段着色器只有三行、没有可替换的美术内容。
-    /// 写在代码里正好落实「闪白由代码持有」那句话，也不需要 `.import` 与纹理过滤那套东西。
+    /// **为什么用代码字符串而不是 <c>.gdshader</c> 文件**：这段着色器只有三行、没有可替换的美术
+    /// 内容，落成资源文件只是多一类要管的东西（还要 `.import` 与纹理过滤那套）。写在代码里正好
+    /// 落实「闪白由代码持有」那句话。
     ///
-    /// **只改 RGB、不动 alpha**：项目规则是像素只允许全透明或全不透明（`ENG-10` 逐像素扫），动
+    /// **只改 RGB、不动 alpha**：项目规则是像素只允许全透明或全不透明（像素规范 §9），动
     /// alpha 会造出半透明边。不闪时**一个字都不写** <c>COLOR</c>，于是默认采样与 <c>modulate</c>
     /// （无敌青、奔跑黄）照旧生效，两个通道不抢。
     /// </remarks>
@@ -173,6 +177,18 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     public double DepthWorldPx => Combat.Motor.DepthWorldPx;
 
     /// <inheritdoc />
+    /// <remarks>
+    /// 同样只是转发：写入口仍然唯一（<c>MotorState.PlaceDepth</c>），本类不自己存一份纵深
+    /// （`ARCHITECTURE.md`「引擎层绝不许自己再积分一遍纵深速度」）。
+    ///
+    /// <c>PlaceDepth</c> 会把纵深速度清零，而这里**不需要**为此另开一个保速度的写法：纵深速度每帧都
+    /// 由输入重算（<c>MotorState.AdvanceDepth</c> 的入参），而本方法由 <see cref="DepthBlocker"/> 在角色
+    /// 推进**之前**调 —— 清掉的那个值在同一帧里就会被重新算出来，动画那条「两个轴都算在走」照旧成立
+    /// （否则顶着障碍物挪纵深时角色会显示待机，与顶着墙横向走时显示行走不一致）。
+    /// </remarks>
+    public void PlaceDepth(double depthWorldPx) => Combat.Motor.PlaceDepth(depthWorldPx);
+
+    /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
     /// <summary>各动作**逐帧**的本体左右边界（帧内像素索引）。指向下面那份按表共享的缓存。</summary>
@@ -221,11 +237,9 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
     /// 逐帧量本体的左右边界（帧内像素索引）：扫每一帧不透明像素的最左与最右列。
     /// </summary>
     /// <remarks>
-    /// **为什么运行时重算而不是读登记表**：`tools/asset-registry.json` 的「角色本体」一项有同类
-    /// 数据（导入器从收件箱原件量的），但 `tools/` 带 `.gdignore`、不进发行包，导出后的产物在运行
-    /// 时拿不到它 —— 与类顶部那段「三个数为什么要重复一份」同一条理由。**两边算出来的对得上**：
-    /// 2026-09-09 实测七张表的逐帧最大值是 19／20／25／20／27／29／36，与登记表的「角色本体 最宽」
-    /// 逐个相同，两套独立实现（Python 导入器与这里的 C#）互为量具。
+    /// **为什么运行时重算而不是预先存一份**：存下来的那份必须跟着素材改，而它不会自动跟 —— 运行时
+    /// 从纹理直接扫，素材一换结果就跟着变，没有第二个会过期的家。实测七张表的逐帧最大值是
+    /// 19／20／25／20／27／29／36，与另一套独立实现算出的结果逐个相同。
     ///
     /// 代价可忽略：七张表共 54 帧、约 7.6 万像素，只在 <c>_Ready</c> 扫一次。
     /// </remarks>
@@ -308,10 +322,8 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
                     + $"[{string.Join(",", bounds.Select(b => $"{b.Left}:{b.Right}"))}]");
             }
             _bodyBounds[name] = bounds;
-            // **这一行的格式是与 `tools/player_dev.py` 的契约**：它用 `^\[GP12\] Sheet (\w+)=(\d+)$`
-            // 把引擎自报的帧数与登记表比对（引擎读不到登记表）。行尾是锚定的，**在后面追加任何东西
-            // 都会让那条比对静默读不到帧数**（2026-09-09 实测踩过：把本体宽度接在这行后面，46 项
-            // 判据全过而入口判失败）。新信息另起一行，不动这行。
+            // 这一行把每张表的帧数打进启动日志，方便对照精灵表确认切图没切错。原先有探针按
+            // `^\[GP12\] Sheet (\w+)=(\d+)$` 解析它，探针已随 `ADR-0009` 删除，格式不再是契约。
             GD.Print($"[GP12] Sheet {name}={count}");
         }
         GD.Print(_missing.Count == 0
@@ -422,7 +434,7 @@ public partial class PlayerActor : CharacterBody2D, IDepthActor, IHittable
         QueueRedraw();
     }
 
-    /// <summary>轻击每段的精灵表名（`ART-6`，2026-09-11）：第 1/2/3 段 → light/light2/light3。</summary>
+    /// <summary>轻击每段的精灵表名（`ART-6`）：第 1/2/3 段 → light/light2/light3。</summary>
     /// <remarks>
     /// 段号超出（理论上不会，`LightChainLength=3`）落到第 3 段，与 <see cref="Hitbox.SpecFor"/> 的
     /// 兜底方向一致 —— 两处对「未知段」的处理必须同向，否则动画与判定框会各选一段。

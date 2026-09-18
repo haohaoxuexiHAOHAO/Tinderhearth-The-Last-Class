@@ -8,8 +8,8 @@ namespace Tinderhearth.Rules.Tests.Ui;
 /// 而不是各自单测通过但组合失效。
 /// </summary>
 /// <remarks>
-/// 测试边界：规则层。引擎层（节点摆放、实际渲染、窗口缩放）由 `HudProbe`、`CameraProbe`
-/// 与 `WorldSpaceProbe` 在启动时验；这里测的是「规则层的合约能不能撑起那条链路」。
+/// 测试边界：规则层。引擎层（节点摆放、实际渲染、窗口缩放）原先由启动探针验，探针随 `ADR-0009`
+/// 删除、改由作者实机看；这里测的是「规则层的合约能不能撑起那条链路」。
 ///
 /// 风格照 <see cref="HudTests"/> 与 <see cref="UiSkeletonTests"/>：钉住关系、坏值反证、
 /// 边界钳制，不含任何玩法数值。
@@ -111,7 +111,7 @@ public class E2ETests
     [Fact]
     public void 主路径_HUD四块与世界空间层都落在正确的UiLayer层级()
     {
-        // 层级约束是本轮全部 UI 条目的基础；合起来验一次
+        // 层级约束是全部 UI 条目的基础；合起来验一次
         Assert.True(UiLayer.World < UiLayer.WorldSpace);
         Assert.True(UiLayer.WorldSpace < UiLayer.Hud);
         Assert.True(UiLayer.Hud < UiLayer.Panel);
@@ -146,7 +146,7 @@ public class E2ETests
     public void 失败路径_窗口小于逻辑分辨率时布局不抛()
     {
         // 小窗口下块可能跑出屏幕，但不该崩溃 ——
-        // 如果这里抛了，HudProbe 在小窗口下就会带走整轮测试结果
+        // 如果这里抛了，小窗口下的 HUD 排版就会整块失效
         const int tiny = 320;
         const int tinyH = 180;
         var rects = HudLayout.RectsOf(tiny, tinyH);

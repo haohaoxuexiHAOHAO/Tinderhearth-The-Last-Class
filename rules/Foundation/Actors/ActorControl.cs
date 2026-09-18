@@ -14,8 +14,8 @@ public enum ActorControllerKind
 
 /// <summary>规则层看到的角色现状快照。</summary>
 /// <remarks>
-/// 字段刻意只有身份：**具体要看到什么由战斗与经营系统的实现需求决定**，玩法数值仍未设计
-/// （`GP-2`），现在往里塞字段就是凭手感猜。这个类型会长大，但它的位置不会变。
+/// 字段刻意只有身份：**具体要看到什么由战斗与经营系统的实现需求决定**，现在往里塞字段就是凭
+/// 手感猜。这个类型会长大，但它的位置不会变。
 /// </remarks>
 /// <param name="ActorId">角色的稳定标识，与角色定义数据里的 <c>id</c> 一致。</param>
 public readonly record struct ActorView(string ActorId);

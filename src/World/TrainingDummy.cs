@@ -1,11 +1,20 @@
 using Godot;
 using Tinderhearth.Rules.Combat;
+using Tinderhearth.Rules.Foundation.Actors;
 
 namespace Tinderhearth.World;
 
 /// <summary>不还手的受击木桩；唯一拥有其状态推进。探针用它（几何 + 闪白）；训练房的靶改用真角色（`GP-14`）。</summary>
-public partial class TrainingDummy : CharacterBody2D, IDepthActor, IHittable
+public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
 {
+    /// <inheritdoc />
+    /// <remarks>
+    /// 木桩是**中立**的（`GP-17`）：它是一根立在那儿的桩子，不站边，所以对谁都挡。这不影响现有的
+    /// 三个探针 —— 它们不装阻挡组件，木桩与主角之间仍是原来那套单向碰撞（<c>Layer=4</c>／
+    /// <c>Mask=1</c>：木桩被击退时被主角挡住，`GP-13` 的 <c>wall-block</c> 盯着那条）。
+    /// </remarks>
+    public CombatSide Side { get; init; } = CombatSide.Neutral;
+
     /// <summary>统一状态载体。</summary>
     public StatusEffects Statuses { get; } = new();
     /// <summary>剩余闪白逻辑帧。</summary>

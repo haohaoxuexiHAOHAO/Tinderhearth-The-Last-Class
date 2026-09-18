@@ -87,14 +87,14 @@ public class HudTests
     [Fact]
     public void 六个技能位排成一行且两组之间空一个栅格()
     {
-        // 横排由作者 2026-08-31 定。块高只占一个单元，宽度是两组加中间那道分界。
+        // 技能位一行横排。块高只占一个单元，宽度是两组加中间那道分界。
         var content = HudLayout.ContentSizeOf(HudBlock.Skills);
         Assert.Equal(HudLayout.SkillCellHeight, content.Height);
         Assert.Equal((HudLayout.SkillGroupCount * HudLayout.SkillGroupWidth)
                      + ((HudLayout.SkillGroupCount - 1) * UiMetrics.Grid), content.Width);
 
         // 槽框本身分隔同组三格，组内不留空；两组之间仍由上面的栅格明确分开。
-        // 不再有「L」「R」记号列（作者 2026-08-31 去掉）：一组就是三个紧邻的图标格。
+        // 没有「L」「R」记号列：一组就是三个紧邻的图标格。
         Assert.Equal(HudLayout.SkillsPerGroup * UiMetrics.IconSmall, HudLayout.SkillGroupWidth);
     }
 
@@ -177,7 +177,7 @@ public class HudTests
     public void 没有居中锚点所以横坐标不会落在半格上()
     {
         // 立项时另一套候选把技能条摆在底边居中，奇数逻辑宽度下它落在 .5 上（649 宽时实测 −35.5）。
-        // 作者 2026-08-31 选了四角，那套删掉了。**这条挡的是「有人把居中加回来」** ——
+        // 选定的是四角，居中那套删掉了。**这条挡的是「有人把居中加回来」** ——
         // 加回来会让它失败，逼人先读 HudAnchor 的注释（那里写明要先补一次 ×3 缩放下的测量）。
         Assert.DoesNotContain("Center", string.Join(",", Enum.GetNames<HudAnchor>()));
 
@@ -207,7 +207,7 @@ public class HudTests
     [Fact]
     public void 四块贴四个不同的角()
     {
-        // 四角贴边：目标左上、队友右上、资源左下、技能右下（作者 2026-08-31 定）。
+        // 四角贴边：目标左上、队友右上、资源左下、技能右下。
         Assert.Equal(HudAnchor.TopLeft, HudLayout.AnchorOf(HudBlock.Objective));
         Assert.Equal(HudAnchor.TopRight, HudLayout.AnchorOf(HudBlock.Teammates));
         Assert.Equal(HudAnchor.BottomLeft, HudLayout.AnchorOf(HudBlock.Resources));

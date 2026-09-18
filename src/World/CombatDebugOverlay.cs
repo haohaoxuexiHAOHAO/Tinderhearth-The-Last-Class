@@ -12,8 +12,7 @@ namespace Tinderhearth.World;
 /// **世界空间 `Node2D`，不走 `CanvasLayer`。** 它要显示的正是「命中查询实际用的那个框在世界哪个
 /// 位置」，所以画在世界坐标系里、直接对上角色与判定框的真实位置最不会错；屏幕空间画反而要多一次
 /// world→screen 变换，而那一维恰是这工具存在的意义（`SPEC` §2.2 把它记成 `CanvasLayer` 是早期的
-/// 节点类型猜测，dev 场景是纯 `Node2D` 世界、不建 `UiRoot`，见 `DepthDev`）。不派生 `Camera2D`、
-/// 不引用 `UiLayer`，因此不被 `check_camera`／`check_worldui` 管到。
+/// 节点类型猜测，训练房是纯 `Node2D` 世界、不建 `UiRoot`）。它不派生 `Camera2D`、不引用 `UiLayer`。
 ///
 /// **框从单一真相取，不各算一份。** 判定框读 <see cref="World.Hitbox.ActiveBoxLocal"/>（命中查询用
 /// 的同一份 `_shape`），受击框读 <see cref="World.Hurtbox.BoxLocal"/>（碰撞形状用的同一份）。叠层

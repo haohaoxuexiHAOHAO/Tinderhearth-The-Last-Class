@@ -74,7 +74,7 @@ public partial class UiRoot : Node
     /// 3840×2130 的窗口得到逻辑 649×360），写死坐标的界面在宽窗口上会错位。
     ///
     /// **铺满用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`，且顺序无关。**
-    /// 2026-08-31 在 `UI-8` 实测出来的：对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，
+    /// 实测出来的：对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，
     /// 引擎会把偏移改写成负的视口尺寸以保住当前那个 0×0 矩形 —— 锚点对了，尺寸还是 0×0，
     /// 而且不报错。原先这行写在 `AddChild` 之前，碰巧躲过了（不在树里时那段改写不执行），
     /// 于是它的正确性依赖两行代码的先后顺序。改成显式设偏移之后就不依赖了。

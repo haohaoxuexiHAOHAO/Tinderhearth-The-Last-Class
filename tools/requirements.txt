@@ -1,15 +1,15 @@
 # 本仓 tools/ 下 Python 入口的第三方依赖。装法：
 #     python -m pip install -r tools/requirements.txt
 #
-# **默认原则仍是标准库优先。** 现有入口里 verify.py、selfcheck_verify.py、check_scaling.py
-# 与 gen_placeholders.py 都是纯标准库，不受本文影响 —— 一台干净机器上 clone 完就能跑。
+# **默认原则是标准库优先。** 现存四个入口（verify.py、check_eol.py、loglib.py、
+# run_local_check.py）全是纯标准库 —— 一台干净机器上 clone 完就能跑，不装本文件也能验收。
 #
-# 唯一的例外是「读别人的 PNG」。写 PNG 用标准库很划算（gen_placeholders.py 用 zlib 手写，
-# 约 40 行，输出还逐字节确定）；但下载来的素材可能是调色板、16 位、灰度带 alpha 或隔行扫描，
-# 手写解码器只认 RGBA8，遇到认不出的文件会**静默跳过** —— 而素材守卫的全部价值就是不漏检。
-# 会静默跳过的守卫比没有守卫更坏。这跟 ADR-0007「不要重复造轮子命中的是通用件」同一条理由。
+# **2026-09-18 起 pillow 实际上没有使用者了**：唯一需要它的是「读别人的 PNG」那一类素材守卫，
+# 那条链已随 ADR-0009 删除（素材由作者在 Godot 里裁切导入）。本文件先留着不删，因为下一次真要
+# 读图时还会撞上同一个理由：手写 PNG 解码器只认 RGBA8，遇到调色板／16 位／灰度带 alpha／隔行
+# 扫描会**静默跳过**，而会静默跳过的检查比没有检查更坏。
 #
-# 版本钉死，不用范围：升级要人为决定并重跑守卫的自证。
+# 版本钉死，不用范围：升级要人为决定。
 # 许可证 MIT-CMU（读自本机 pillow-11.3.0.dist-info/licenses/LICENSE 原文），宽松，
 # 不影响发行物 —— 它只在开发期的工具链里，不进游戏。
 pillow==11.3.0

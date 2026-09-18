@@ -8,16 +8,16 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// 为什么默认值走代码而不是 `project.godot` 的 `[input]` 段：两份来源必然漂移，而且手柄的修饰键
-/// 组合本来就写不进那一段 —— 2026-08-30 实测 `InputEventJoypadButton` 与 `InputEventJoypadMotion`
+/// 组合本来就写不进那一段 —— 实测 `InputEventJoypadButton` 与 `InputEventJoypadMotion`
 /// 直接继承 `InputEvent`，一个修饰键字段都没有（`InputEventKey` 有四个）。
 ///
-/// 代价是编辑器的 Input Map 面板会是空的，执行体是 `tools/check_input_map.py`：它起真引擎核对
-/// `InputMap` 实际内容与本表一致，并且**发现 `project.godot` 冒出 `[input]` 段就判失败** ——
-/// 有人在编辑器里手加一个动作就是造出了第二份来源，而那种漂移不会报错。
+/// 代价是编辑器的 Input Map 面板会是空的。原先由 `check_input_map.py` 起真引擎核对 `InputMap`
+/// 实际内容与本表一致、并在 `project.godot` 冒出 `[input]` 段时判失败，那个守卫随 `ADR-0009`
+/// 删除。**留下的纪律**：不要在编辑器里手加动作 —— 那是造出第二份来源，而那种漂移不会报错。
 ///
 /// <see cref="ToEvent"/> 是**编译期受保护的那一半**：符号是枚举，翻译写错枚举名编不过。它翻译得
 /// 对不对（`PadTriggerRight` 到底成了轴 4 还是轴 5）编译器管不了，所以每条绑定带一个引擎自报名的
-/// 片段，由守卫读回 `as_text()` 比对。
+/// 片段备查；现在没有守卫替你比对了，改绑定后请实机按一遍。
 /// </remarks>
 public static class InputMapInstaller
 {
@@ -119,7 +119,7 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
-        // 面键用引擎的布局中立编号：0 是下、1 是右、2 是左、3 是上（2026-08-30 从 as_text() 读回）。
+        // 面键用引擎的布局中立编号：0 是下、1 是右、2 是左、3 是上（从 as_text() 读回）。
         InputSymbol.PadFaceBottom => Pad(JoyButton.A),
         InputSymbol.PadFaceRight => Pad(JoyButton.B),
         InputSymbol.PadFaceLeft => Pad(JoyButton.X),
