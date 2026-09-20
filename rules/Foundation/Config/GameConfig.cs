@@ -18,7 +18,7 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 0 格可建造区表现为「相机钳制退化、建造区不存在」—— 两者都不报错，只是游戏不对。
 /// </remarks>
 /// <param name="RosterCapacity">
-/// 名册容量。玩法正典说第一版九名学员陆续到齐，但**容量必须从配置读而不是写死 9** ——
+/// 名册容量。玩法正典说第一版九名学生陆续到齐，但**容量必须从配置读而不是写死 9** ——
 /// 它是 mod 与未来联机的共同地基：mod 加角色、联机加玩家，都会撞这个数。
 /// </param>
 /// <param name="BuildableWidthCells">

@@ -143,7 +143,7 @@ public class Eng5ReservationTests
         registry.Assign(protagonistId, new StubController(ActorControllerKind.Ai));
         Assert.Equal(ActorControllerKind.Ai, registry.Require(protagonistId).Kind);
 
-        // 反过来：学员也能交给本地玩家驱动，联机时玩家用自定义角色靠的就是这条。
+        // 反过来：学生也能交给本地玩家驱动，联机时玩家用自定义角色靠的就是这条。
         registry.Assign("student-a", new StubController(ActorControllerKind.LocalPlayer));
         Assert.Equal(ActorControllerKind.LocalPlayer, registry.Require("student-a").Kind);
     }

@@ -12,7 +12,7 @@ public enum HudBlock
     /// <summary>6 个技能位，含冷却表现与当前修饰键组的提示。</summary>
     Skills,
 
-    /// <summary>队友状态，容纳编队上限 4 名学员；为 0 时整块收起。</summary>
+    /// <summary>队友状态，容纳编队上限 4 名学生；为 0 时整块收起。</summary>
     Teammates,
 }
 
@@ -78,7 +78,7 @@ public readonly record struct HudRect(int X, int Y, int Width, int Height)
 /// </remarks>
 public static class HudLayout
 {
-    /// <summary>编队上限。正典：常规出征编队是主角 + 1 至 4 名学员。</summary>
+    /// <summary>编队上限。正典：常规出征编队是主角 + 1 至 4 名学生。</summary>
     public const int MaxTeammates = 4;
 
     /// <summary>资源条的条数：HP、SP、MP、体力。正典那张资源表三条，加日体力一条。</summary>

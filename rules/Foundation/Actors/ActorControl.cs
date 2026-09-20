@@ -3,7 +3,7 @@ namespace Tinderhearth.Rules.Foundation.Actors;
 /// <summary>谁在驱动这个角色。</summary>
 /// <remarks>
 /// <c>Remote</c> 现在没有实现，**但枚举值先占位**：联机尚未立项，玩法正典写明届时玩家使用
-/// 自定义角色、不扮演主角也不扮演学员。留这个值的成本是一行，事后补要翻遍调用点（`ENG-5`）。
+/// 自定义角色、不扮演主角也不扮演学生。留这个值的成本是一行，事后补要翻遍调用点（`ENG-5`）。
 /// </remarks>
 public enum ActorControllerKind
 {

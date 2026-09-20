@@ -105,7 +105,7 @@ public class HudTests
         var expected = (HudLayout.MaxTeammates * HudLayout.PortraitSize)
                        + ((HudLayout.MaxTeammates - 1) * UiMetrics.ItemGap);
         Assert.Equal(expected, content.Width);
-        Assert.Equal(4, HudLayout.MaxTeammates);        // 正典：主角 + 1 至 4 名学员
+        Assert.Equal(4, HudLayout.MaxTeammates);        // 正典：主角 + 1 至 4 名学生
     }
 
     [Fact]
