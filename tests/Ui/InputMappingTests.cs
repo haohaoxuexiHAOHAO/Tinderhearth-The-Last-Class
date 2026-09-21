@@ -469,73 +469,20 @@ public class InputMappingTests
     [Fact]
     public void 内置补丁用的面键与玩法动作的重叠是已知的()
     {
-        // 下面键同时是跳跃、右面键同时是闪避。这条重叠是有意接受的（面板里由拿到焦点的控件消费
-        // ui_accept），但轮询不受消费影响，所以「不暂停的面板打开时该不该屏蔽玩法动作」另记 UI-11。
-        // 这条测试的作用是：有人改了面键分配时，这里会失败并把人领到那段说明。
+        // 下面键同时是跳跃、右面键同时是闪避。这条重叠是有意接受的：面板打开时世界暂停（正典
+        // 「弹界面接管输入就暂停世界」），玩法节点不在跑，所以「按下去到底是哪个」不构成歧义。
+        // 这条测试的作用是：有人改了面键分配时，这里会失败并把人领到这段说明。
         Assert.Equal(InputSymbol.PadFaceBottom,
             InputBindings.For(InputActions.Jump, InputDeviceKind.Gamepad)[0].Symbol);
         Assert.Equal(InputSymbol.PadFaceRight,
             InputBindings.For(InputActions.Dodge, InputDeviceKind.Gamepad)[0].Symbol);
     }
 
-    // ── UI-11：面板打开时的玩法动作遮挡 ─────────────────────────────────
-
     [Fact]
-    public void 面板打开时手柄跳跃与闪避被遮()
+    public void 闪避不被修饰键遮()
     {
-        // 重叠的两个：下面键=跳跃=ui_accept，右面键=闪避=ui_cancel。
-        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: true,  InputDeviceKind.Gamepad));
-        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true,  InputDeviceKind.Gamepad));
-    }
-
-    [Fact]
-    public void 面板未打开时手柄动作不被遮()
-    {
-        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: false, InputDeviceKind.Gamepad));
-        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: false, InputDeviceKind.Gamepad));
-    }
-
-    [Fact]
-    public void 键鼠不受面板遮挡影响()
-    {
-        // 键鼠确认与返回用 Enter／Escape，没有绑玩法动作，所以不需要屏蔽。
-        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Jump,  panelOpen: true, InputDeviceKind.KeyboardMouse));
-        Assert.False(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true, InputDeviceKind.KeyboardMouse));
-    }
-
-    [Fact]
-    public void 被遮清单与内置补丁的重叠面键完全对应()
-    {
-        // 内置补丁补的两个面键绑的正是被遮的两个动作 —— 这条把两张表钉在一起，任何一边改了这里会先失败。
-        var patchedActions = InputBindings.BuiltinUiPatches
-            .SelectMany(kv => kv.Value.Select(b => b.Symbol))
-            .ToHashSet();
-
-        foreach (var action in PanelInputBlock.BlockedByOpenPanel)
-        {
-            var padSymbol = InputBindings.For(action, InputDeviceKind.Gamepad)[0].Symbol;
-            Assert.Contains(padSymbol, patchedActions);
-        }
-    }
-
-    [Fact]
-    public void 闪避不在被修饰键遮但在面板打开时被遮()
-    {
-        // 闪避：修饰键不遮（逃生窗口），但面板+手柄下确认与返回共用同一键，所以面板开时遮。
+        // 逃生窗口要随时能用，所以修饰键不遮闪避。**面板那一侧不需要遮**：世界暂停，玩法节点不跑。
         Assert.False(new SkillModifierState().ShouldSuppress(InputActions.Dodge));
-        Assert.True(PanelInputBlock.ShouldBlock(InputActions.Dodge, panelOpen: true, InputDeviceKind.Gamepad));
-    }
-
-    [Fact]
-    public void 其他战斗动作面板打开时也不被遮()
-    {
-        // 攻击、防御、冲刺不与任何 UI 内置键共享手柄物理位，不应被遮。
-        foreach (var action in new[] { InputActions.AttackLight, InputActions.AttackHeavy,
-                                       InputActions.Guard, InputActions.Run })
-        {
-            Assert.False(PanelInputBlock.ShouldBlock(action, panelOpen: true, InputDeviceKind.Gamepad),
-                $"{action} 不该被面板遮挡");
-        }
     }
 
     [Fact]

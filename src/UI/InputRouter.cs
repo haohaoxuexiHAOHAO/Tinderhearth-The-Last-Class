@@ -26,16 +26,6 @@ public partial class InputRouter : Node
 {
     private readonly SkillModifierState _modifiers = new();
     private readonly InputDeviceTracker _devices = new();
-    private NavigationStack _nav = new();
-
-    /// <summary>
-    /// 注入 <see cref="UiRoot"/> 拥有的导航栈，让遮挡判定能知道面板是否打开。
-    /// 不注入时用自己的空栈（Depth 永远为 0，即不遮挡），与旧行为兼容。
-    /// </summary>
-    public NavigationStack Nav
-    {
-        set => _nav = value;
-    }
 
     /// <summary>最后使用的设备族变了。按键提示图标照它换（显示归 `UI-8`）。</summary>
     public event Action<InputDeviceKind>? DeviceChanged;
@@ -69,19 +59,20 @@ public partial class InputRouter : Node
     /// 这个动作现在是不是按着。
     /// </summary>
     /// <remarks>
-    /// 两层遮挡，顺序检查：
-    /// 1. 修饰键按住时被遮的动作（<see cref="SkillModifierState.ShouldSuppress"/>）。
-    /// 2. 面板打开且当前是手柄时，与 UI 键共享物理位的玩法动作（<see cref="PanelInputBlock"/>，`UI-11`）。
+    /// 只有一层遮挡：修饰键按住时被遮的动作（<see cref="SkillModifierState.ShouldSuppress"/>）。
+    ///
+    /// **面板打开时不需要在这里遮任何东西。** 正典裁定「弹界面接管输入就暂停世界」，所以面板开
+    /// 着的时候玩法节点根本不在跑（本类的 <c>ProcessMode</c> 是 <c>Always</c>，玩法节点不是），
+    /// 手柄上「下面键＝跳跃＝ui_accept」那个共用物理位的歧义因此不存在。原先为它写的 `UI-11`
+    /// 遮挡层已随裁定作废删除。
     /// </remarks>
     public bool IsPressed(string action) =>
         !_modifiers.ShouldSuppress(action)
-        && !PanelInputBlock.ShouldBlock(action, _nav.Depth > 0, _devices.Current)
         && Input.IsActionPressed(action);
 
-    /// <summary>这一帧这个动作是不是刚按下。同样受两层遮挡影响。</summary>
+    /// <summary>这一帧这个动作是不是刚按下。同样受修饰键遮挡影响。</summary>
     public bool IsJustPressed(string action) =>
         !_modifiers.ShouldSuppress(action)
-        && !PanelInputBlock.ShouldBlock(action, _nav.Depth > 0, _devices.Current)
         && Input.IsActionJustPressed(action);
 
     /// <summary>这一帧这个动作是不是刚松开。</summary>

@@ -131,8 +131,8 @@ public partial class UiRoot : Node
             control.Visible = _nav.Surfaces.Any(s => s.Id == id);
         }
 
-        // 暂停由栈整体决定，不由某个面板自己设 —— 散落着设迟早有人顺手给背包加一句暂停，
-        // 而正典明确要求关卡内背包操作不暂停。
+        // 暂停由栈整体决定，不由某个面板自己设。正典的判据是「弹界面接管输入就暂停世界」，
+        // 所以栈里有层就暂停 —— 判定在 NavigationStack，本类只负责翻译成 SceneTree.Paused。
         GetTree().Paused = _nav.WorldShouldPause;
     }
 }

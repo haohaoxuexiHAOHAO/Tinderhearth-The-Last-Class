@@ -17,13 +17,13 @@ namespace Tinderhearth.Rules.Tests.Ui;
 public class UiSkeletonTests
 {
     private static readonly UiSurface Backpack =
-        new("backpack", UiLayer.Panel, PausesWorld: false, SurfaceKind.Carried);
+        new("backpack", UiLayer.Panel, SurfaceKind.Carried);
 
     private static readonly UiSurface Roster =
-        new("roster", UiLayer.Panel, PausesWorld: false, SurfaceKind.Manage);
+        new("roster", UiLayer.Panel, SurfaceKind.Manage);
 
     private static readonly UiSurface Confirm =
-        new("confirm", UiLayer.Dialog, PausesWorld: true, SurfaceKind.View);
+        new("confirm", UiLayer.Dialog, SurfaceKind.View);
 
     [Fact]
     public void 层级自下而上的顺序固定()
@@ -79,18 +79,24 @@ public class UiSkeletonTests
     }
 
     [Fact]
-    public void 背包打开时不暂停世界()
+    public void 栈里有任何一层就暂停世界_全关才恢复()
     {
-        // 正典：关卡内允许背包操作且不暂停 —— 随时能暂停整理等于给玩家一个免费的思考窗口。
+        // 正典判据：任何弹出界面并接管输入的东西一律暂停世界。进了导航栈的按定义就是这样的东西，
+        // 所以不再按面板逐个声明「要不要暂停」—— 那个恒为真的开关已删（原 UI-11 的前提）。
         var nav = new NavigationStack();
+        Assert.False(nav.WorldShouldPause);   // 空栈：世界在跑
+
         nav.Push(Backpack);
-        Assert.False(nav.WorldShouldPause);
+        Assert.True(nav.WorldShouldPause);    // 背包也暂停
 
-        nav.Push(Confirm);                  // 弹窗要求暂停
-        Assert.True(nav.WorldShouldPause);
+        nav.Push(Confirm);
+        Assert.True(nav.WorldShouldPause);    // 叠一层仍然暂停
 
-        nav.Pop();                          // 弹窗关掉后恢复不暂停
-        Assert.False(nav.WorldShouldPause);
+        nav.Pop();
+        Assert.True(nav.WorldShouldPause);    // 底下还有背包，不许恢复
+
+        nav.Pop();
+        Assert.False(nav.WorldShouldPause);   // 全关才恢复
     }
 
     [Fact]

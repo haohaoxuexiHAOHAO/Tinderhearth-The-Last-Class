@@ -29,27 +29,27 @@ public class E2ETests
                                  .Select(_ => new HudTeammate(FakeMax, FakeMax, Down: false))]);
 
     private static readonly UiSurface Backpack =
-        new("backpack", UiLayer.Panel, PausesWorld: false, SurfaceKind.Carried);
+        new("backpack", UiLayer.Panel, SurfaceKind.Carried);
 
     private static readonly UiSurface Wristband_ = Wristband.Surface;
 
     private static readonly UiSurface Confirm =
-        new("confirm", UiLayer.Dialog, PausesWorld: true, SurfaceKind.View);
+        new("confirm", UiLayer.Dialog, SurfaceKind.View);
 
     // ── 主路径：完整链路 ────────────────────────────────────────────
     [Fact]
     public void 主路径_背包打开后手环可叠加导航栈并逐层返回()
     {
-        // 进入侧视场景，HUD 就绪，打开背包（不暂停），再开手环
+        // 进入侧视场景，HUD 就绪，打开背包（世界暂停），再开手环
         var nav = new NavigationStack();
         var hud = MakeHud();
 
         nav.Push(Backpack);
-        Assert.False(nav.WorldShouldPause);    // 背包不暂停 —— 正典约束
+        Assert.True(nav.WorldShouldPause);     // 弹界面接管输入就暂停 —— 正典判据
 
         nav.Push(Wristband_);
         Assert.Equal(2, nav.Depth);
-        Assert.False(nav.WorldShouldPause);    // 手环本身也不暂停
+        Assert.True(nav.WorldShouldPause);     // 叠一层仍然暂停
 
         // 逐层返回
         Assert.True(nav.HandleBack());         // 关手环
@@ -71,15 +71,16 @@ public class E2ETests
         nav.Push(Backpack);
         nav.Push(Confirm);
 
-        Assert.True(nav.WorldShouldPause);     // Confirm 要求暂停
+        Assert.True(nav.WorldShouldPause);
         Assert.Equal(2, nav.Depth);
 
         nav.Pop();                             // 关弹窗
-        Assert.False(nav.WorldShouldPause);    // 背包恢复不暂停
+        Assert.True(nav.WorldShouldPause);     // 底下还有背包，不许恢复
         Assert.Equal(Backpack, nav.Top);
 
         nav.Pop();
         Assert.Null(nav.Top);
+        Assert.False(nav.WorldShouldPause);     // 全关才恢复
     }
 
     [Fact]

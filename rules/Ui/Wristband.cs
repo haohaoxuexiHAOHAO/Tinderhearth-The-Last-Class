@@ -17,9 +17,9 @@ namespace Tinderhearth.Rules.Ui;
 /// </remarks>
 public static class Wristband
 {
-    /// <summary>手环容器本身。它是一个面板，不暂停世界。</summary>
+    /// <summary>手环容器本身。它是一个面板，所以打开时世界暂停。</summary>
     public static readonly UiSurface Surface =
-        new("wristband", UiLayer.Panel, PausesWorld: false, SurfaceKind.View);
+        new("wristband", UiLayer.Panel, SurfaceKind.View);
 
     /// <summary>标签页，顺序即显示顺序。查看类在前，操作类在后。</summary>
     public static readonly IReadOnlyList<WristbandTab> Tabs =

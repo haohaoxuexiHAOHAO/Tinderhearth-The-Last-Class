@@ -129,9 +129,8 @@ public partial class Main : Node2D
     /// <summary>建输入门面（`UI-7`）。引擎层查询输入一律经它，不直接轮询 <c>Input</c>。</summary>
     private void BuildInputRouter()
     {
+        // 不给它注入导航栈：面板打开时世界暂停，玩法节点不在跑，所以门面不需要知道面板开没开。
         _router = new InputRouter { Name = "InputRouter" };
-        // UI-11：把 UiRoot 的导航栈注入门面，让遮挡判定能感知面板是否打开。
-        _router.Nav = _ui.Navigation;
         AddChild(_router);
     }
 

@@ -25,14 +25,18 @@ public sealed class NavigationStack
     public IReadOnlyList<UiSurface> Surfaces => _stack;
 
     /// <summary>
-    /// 世界现在该不该暂停：栈里**任何一层**要求暂停就暂停。
+    /// 世界现在该不该暂停：**栈里有任何一层就暂停**。
     /// </summary>
     /// <remarks>
-    /// 背包刻意不要求暂停（[时间与经营 · 背包与仓库]：关卡内允许背包操作且不暂停游戏，
-    /// 因为随时能暂停整理等于给玩家一个免费的思考窗口）。这条用 <see cref="UiSurface"/> 上的
-    /// 声明表达，而不是散落在各个面板的打开逻辑里 —— 散落的话迟早有人顺手加一句暂停。
+    /// 正典的判据是「任何弹出界面并接管输入的东西一律暂停世界」（[玩法定位 · 弹界面接管输入就
+    /// 暂停世界，世界里的动作不暂停]），而进了这个栈的东西按定义就是这样的东西 —— 所以这里直接
+    /// 读栈深，不去问各层「你要不要暂停」。
+    ///
+    /// **判据落在「界面接管输入」上，不落在「玩家操作不了」上。** 硬直、失衡、被击倒同样让玩家
+    /// 操作不了，它们绝不暂停 —— 那是战斗本身，不进这个栈。发生在世界里的动作（喝药、用道具、
+    /// 采集、技能）同理：它们走各自的读条与后摇，不是界面。
     /// </remarks>
-    public bool WorldShouldPause => _stack.Any(s => s.PausesWorld);
+    public bool WorldShouldPause => _stack.Count > 0;
 
     /// <summary>压入一层。已经在栈里的层会被提到栈顶，不重复压。</summary>
     public void Push(UiSurface surface)
