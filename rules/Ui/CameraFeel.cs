@@ -102,9 +102,12 @@ public static class CameraFeel
 
     /// <summary>建造时手动滚动的速度，世界像素／秒。</summary>
     /// <remarks>
-    /// 判据是「横穿可建造区不该久到让人不耐烦」：640px 宽的可建造区按这个速度走完 2.5 秒。
+    /// 判据是「横穿可建造区不该久到让人不耐烦」。可建造区现在 80×60 格 = 1280×960 世界像素
+    /// （`data/config/game.json`），按这个速度横穿 3.3 秒、纵穿 2.5 秒 —— 与原来那版 640px 宽
+    /// 走 2.5 秒是同一个量级。**判据里的宽度不是常量**：画布改了这个值要跟着重算，否则注释里
+    /// 那笔账会静默过期。手感归 `UI-12`，作者实机调。
     /// </remarks>
-    public const int ScrollPixelsPerSecond = 256;
+    public const int ScrollPixelsPerSecond = 384;
 
     /// <summary>边缘推镜触发余量换算成世界像素。</summary>
     public static int EdgePushMarginPixels => EdgePushMarginCells * UiMetrics.BaseUnit;

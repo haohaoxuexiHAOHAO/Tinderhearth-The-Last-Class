@@ -22,7 +22,7 @@ public class Eng5ReservationTests
 {
     /// <summary>配置里除被测字段之外的其余字段，用合法值填满 —— 缺字段现在会当场抛。</summary>
     private static string ConfigJson(
-        int rosterCapacity = 9, int buildableWidth = 40, int buildableHeight = 30) =>
+        int rosterCapacity = 9, int buildableWidth = 80, int buildableHeight = 60) =>
         $$"""
         {
           "rosterCapacity": {{rosterCapacity}},
@@ -44,11 +44,12 @@ public class Eng5ReservationTests
     [Fact]
     public void 可建造区尺寸来自配置而不是写死的四十乘三十()
     {
-        // PRD 的 FR-24。正典定 40×30，但代码里不许出现这两个数 —— 是否扩大已记 GP-8，
-        // 那件事该是改一行 JSON 加延伸地图，不是改代码。
+        // PRD 的 FR-24。正典现在定 80×60（画布从 40×30 扩过一次，见 GP-25），而代码里不许
+        // 出现这两个数 —— 改画布该是改一行 JSON 加延伸地图，不是改代码。**这条测试正是那句话的执行体**：
+        // 它比对的是「配置给什么，读出来就是什么」，所以下次再改画布只需改这里的期望值。
         var canon = GameConfig.Parse(ConfigJson());
-        Assert.Equal(40, canon.BuildableWidthCells);
-        Assert.Equal(30, canon.BuildableHeightCells);
+        Assert.Equal(80, canon.BuildableWidthCells);
+        Assert.Equal(60, canon.BuildableHeightCells);
 
         var widened = GameConfig.Parse(ConfigJson(buildableWidth: 64, buildableHeight: 48));
         Assert.Equal(64, widened.BuildableWidthCells);
