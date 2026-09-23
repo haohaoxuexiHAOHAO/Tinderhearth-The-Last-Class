@@ -6,7 +6,7 @@ public enum HudBlock
     /// <summary>目标进度。正典要求**始终可见**，为 0 或已达成时也不隐藏。</summary>
     Objective,
 
-    /// <summary>主角资源：HP／SP／MP 与体力。</summary>
+    /// <summary>主角资源：HP、体力、MP 与精力。</summary>
     Resources,
 
     /// <summary>6 个技能位，含冷却表现与当前修饰键组的提示。</summary>
@@ -81,16 +81,19 @@ public static class HudLayout
     /// <summary>编队上限。正典：常规出征编队是主角 + 1 至 4 名学生。</summary>
     public const int MaxTeammates = 4;
 
-    /// <summary>资源条的条数：HP、SP、MP、体力。正典那张资源表三条，加日体力一条。</summary>
+    /// <summary>资源条的条数：HP、体力、MP、精力。正典那张资源表三条，加经营侧的当日预算一条。</summary>
     public const int GaugeCount = 4;
 
     /// <summary>
-    /// 资源条标签占几个全宽汉字。取 2 —— 最长的标签是「体力」。
+    /// 资源条标签占几个全宽汉字。取 2 —— 最长的标签是「体力」与「精力」，都是两个字。
     /// </summary>
     /// <remarks>
-    /// HP／SP／MP 刻意沿用正典的缩写而不是另起中文名：给资源起中文名是文案的事（`DOC-2` 与
-    /// 叙事侧），本条不顺手定。西文在这款字体里宽 8px，两个字母 16px，比「体力」的 24px 窄，
-    /// 所以标签列按汉字算就够宽。
+    /// 中文名已经定下来（`DOC-18`）：战斗那条资源叫**体力**（缩写仍是 SP，参数键仍是 `sp`），
+    /// 经营那条当日预算叫**精力**，派生它们上限的属性叫**体质**。三个词互不为前缀，所以
+    /// 「体力上限」只会指战斗那条。HP 与 MP 沿用正典的缩写。
+    ///
+    /// 西文在这款字体里宽 8px，两个字母 16px，比两个汉字的 24px 窄，所以标签列按汉字算就够宽 ——
+    /// 改名前最长标签也是两个汉字，宽度因此没变。
     /// </remarks>
     public const int GaugeLabelChars = 2;
 

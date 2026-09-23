@@ -77,13 +77,13 @@ public static class HudPalette
     /// <summary>HP。暗红，四条里明度最低（实测 0.34）。</summary>
     public static PixelColor Health => PixelColor.FromHex(0x9E3A32);
 
-    /// <summary>日体力。灰绿，明度第二档（0.47）。它是经营侧的量，不该抢注意力。</summary>
+    /// <summary>精力。灰绿，明度第二档（0.47）。它是经营侧的当日预算，不该抢注意力。</summary>
     public static PixelColor DailyVigor => PixelColor.FromHex(0x6E8158);
 
     /// <summary>MP。青蓝，明度第三档（0.58）。</summary>
     public static PixelColor Mana => PixelColor.FromHex(0x5AA6CE);
 
-    /// <summary>SP。土黄，四条里最亮（0.78）—— 它变化最频繁，最需要余光看得见。</summary>
+    /// <summary>体力（SP）。土黄，四条里最亮（0.78）—— 它变化最频繁，最需要余光看得见。</summary>
     public static PixelColor Stamina => PixelColor.FromHex(0xE5C866);
 
     /// <summary>某条资源用哪个色。</summary>
@@ -101,7 +101,7 @@ public static class HudPalette
     /// </summary>
     /// <remarks>
     /// 取 ITU-R BT.601 的亮度系数（0.299／0.587／0.114）。为什么要算它：色觉差异最常见的是
-    /// 红绿难分，而 HP 是红、日体力是绿 —— 如果它俩明度也一样，那对一部分玩家来说这两条条
+    /// 红绿难分，而 HP 是红、精力是绿 —— 如果它俩明度也一样，那对一部分玩家来说这两条条
     /// 就是同一根。有测试盯着四条明度两两之间的最小差。
     /// </remarks>
     public static double LuminanceOf(PixelColor color) =>

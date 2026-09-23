@@ -6,13 +6,16 @@ public enum HudGaugeKind
     /// <summary>HP。正典：生命。</summary>
     Health,
 
-    /// <summary>SP。正典：冲刺、闪避、跳跃与普通防御的消耗，关卡内自回。</summary>
+    /// <summary>
+    /// 体力（缩写 SP）。正典：冲刺、闪避、跳跃与普通防御的消耗，关卡内自回。
+    /// **与下面的 <see cref="DailyVigor"/> 是两条不共用预算的资源**，中文名见 `DOC-18`。
+    /// </summary>
     Stamina,
 
     /// <summary>MP。正典：施放技能，普攻命中回复。</summary>
     Mana,
 
-    /// <summary>日体力。经营侧的量，关卡内不变 —— 摆在这里是为了让玩家出征前后都看得见同一个数。</summary>
+    /// <summary>精力。经营侧当日一切行动的共同预算，关卡内不变 —— 摆在这里是为了让玩家出征前后都看得见同一个数。</summary>
     DailyVigor,
 }
 

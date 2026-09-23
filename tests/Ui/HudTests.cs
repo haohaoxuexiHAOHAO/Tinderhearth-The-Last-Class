@@ -414,7 +414,7 @@ public class HudTests
     [Fact]
     public void 四条资源色的明度两两分得开()
     {
-        // 色觉差异最常见的是红绿难分，而 HP 是红、日体力是绿。明度也一样的话，
+        // 色觉差异最常见的是红绿难分，而 HP 是红、精力是绿。明度也一样的话，
         // 对一部分玩家来说这两条就是同一根。
         var lums = Enum.GetValues<HudGaugeKind>()
             .Select(k => HudPalette.LuminanceOf(HudPalette.ColorOf(k)))
