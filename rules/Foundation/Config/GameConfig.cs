@@ -22,9 +22,9 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 它是 mod 与未来联机的共同地基：mod 加角色、联机加玩家，都会撞这个数。
 /// </param>
 /// <param name="BuildableWidthCells">
-/// 基地可建造区的列数。正典定 40×30 格（640×480px，见[时间与经营 · 建造]），**不得写死**
-/// （PRD 的 `FR-24`）：相机的滚动范围与边缘推镜都按它算，而是否扩大已记 `GP-8` ——
-/// 将来扩大就该是改这个数加延伸地图，不是改代码。
+/// 基地可建造区的列数。**格数的家是正典**（见[时间与经营 · 建造]），这里不复述那个数、也
+/// **不得写死**（PRD 的 `FR-24`）：相机的滚动范围与边缘推镜都按它算 —— 改画布就该是改这个
+/// 配置值加延伸地图，不是改代码。
 /// </param>
 /// <param name="BuildableHeightCells">基地可建造区的行数。理由同上。</param>
 public sealed record GameConfig(

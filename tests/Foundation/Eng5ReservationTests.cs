@@ -42,11 +42,11 @@ public class Eng5ReservationTests
     }
 
     [Fact]
-    public void 可建造区尺寸来自配置而不是写死的四十乘三十()
+    public void 可建造区尺寸来自配置而不是写死在代码里()
     {
-        // PRD 的 FR-24。正典现在定 80×60（画布从 40×30 扩过一次，见 GP-25），而代码里不许
-        // 出现这两个数 —— 改画布该是改一行 JSON 加延伸地图，不是改代码。**这条测试正是那句话的执行体**：
-        // 它比对的是「配置给什么，读出来就是什么」，所以下次再改画布只需改这里的期望值。
+        // PRD 的 FR-24：格数的家是正典，代码里不许出现那两个数 —— 改画布该是改一行 JSON 加
+        // 延伸地图，不是改代码。**这条测试正是那句话的执行体**：它比对的是「配置给什么，读出来
+        // 就是什么」，所以改画布只需改下面那两个期望值。
         var canon = GameConfig.Parse(ConfigJson());
         Assert.Equal(80, canon.BuildableWidthCells);
         Assert.Equal(60, canon.BuildableHeightCells);
