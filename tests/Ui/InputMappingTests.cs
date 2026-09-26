@@ -197,7 +197,7 @@ public class InputMappingTests
     [Fact]
     public void 闪避不在被遮之列()
     {
-        // 正典把闪避定为唯一带无敌帧的脱身手段，还专门为失衡结束设了逃生窗口 ——
+        // 正典把闪避定为唯一带无敌帧的脱身手段，还专门为被击倒后起身设了逃生窗口 ——
         // 它是最不能在任何窗口里失效的动作，所以占第四个面键。
         Assert.DoesNotContain(InputActions.Dodge, InputActions.ShadowedByModifier);
         Assert.False(new SkillModifierState().ShouldSuppress(InputActions.Dodge));
