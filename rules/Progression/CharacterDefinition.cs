@@ -17,7 +17,7 @@ namespace Tinderhearth.Rules.Progression;
 /// </remarks>
 /// <param name="Id">稳定标识，同时是名册与控制器登记表里的键。</param>
 /// <param name="DisplayNameKey">显示名在文本表里的键。</param>
-/// <param name="TraitIds">出生特质的标识列表；正典说特质上限 8 条，具体校验归特质系统。</param>
+/// <param name="TraitIds">出生特质的标识列表；正典**不设条数上限**，限制靠互斥组（同组最多一条），具体校验归特质系统。</param>
 public sealed record CharacterDefinition(
     string Id,
     string DisplayNameKey,
