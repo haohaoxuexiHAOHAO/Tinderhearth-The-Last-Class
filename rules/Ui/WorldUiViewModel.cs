@@ -79,8 +79,11 @@ public sealed record EliteHealth
 /// </summary>
 /// <remarks>
 /// 这是表现规则、不是玩法数值：照 <see cref="CameraFeel"/> 先例留在规则层，既不进 `game.json`
-/// （那是 mod 可改的内容，mod 不该改表现），也不进 `design/数值模型`。现在由脚手架注入，
-/// 将来由设置系统注入 —— 项目暂无设置系统（`src/Main.cs` 里已注明它待建）。
+/// （那是 mod 可改的内容，mod 不该改表现），也不进 `design/数值模型`。
+///
+/// **它的归属是玩家级偏好**，家在设计仓 `design/存档系统.md` 的「玩家级偏好：第三样东西，不是
+/// 分片」那一节：跨存档位、不进任何存档分片、缺字段补默认值。**全库不会有一份「设置系统」** ——
+/// 偏好那一层的机制归存档那一份，界面归界面那一份。值由调用方注入。
 /// </remarks>
 public sealed record WorldUiOptions(bool ShowDamageNumbers = false)
 {
