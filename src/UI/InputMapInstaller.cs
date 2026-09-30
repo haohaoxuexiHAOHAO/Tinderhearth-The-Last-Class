@@ -112,6 +112,16 @@ public static class InputMapInstaller
         InputSymbol.KeySpace => Key(Godot.Key.Space),
         // 左右 Shift 都算：绑成通用 Shift 而不是限定左键，玩家用哪只手都行。
         InputSymbol.KeyShift => Key(Godot.Key.Shift),
+
+        // 六个技能键。顺序即技能位编号，见 InputSymbol 那一段图。
+        InputSymbol.KeyH => Key(Godot.Key.H),
+        InputSymbol.KeyY => Key(Godot.Key.Y),
+        InputSymbol.KeyU => Key(Godot.Key.U),
+        InputSymbol.KeyI => Key(Godot.Key.I),
+        InputSymbol.KeyO => Key(Godot.Key.O),
+        InputSymbol.KeyL => Key(Godot.Key.L),
+
+        // 数字键那一排，六个随身栏格子各一个（`UI-34`）。
         InputSymbol.Digit1 => Key(Godot.Key.Key1),
         InputSymbol.Digit2 => Key(Godot.Key.Key2),
         InputSymbol.Digit3 => Key(Godot.Key.Key3),
@@ -119,9 +129,10 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
-        // 鼠标左键走另一种事件类型，所以它不经 Key()。**它没有「物理位」这回事** ——
-        // 键盘那条物理键位的讲究是为了 AZERTY 之类的布局，而鼠标左键在任何布局下都是左键。
+        // 两个鼠标键走另一种事件类型，所以它们不经 Key()。**鼠标没有「物理位」这回事** ——
+        // 键盘那条物理键位的讲究是为了 AZERTY 之类的布局，而左键在任何布局下都是左键。
         InputSymbol.MouseLeft => Mouse(MouseButton.Left),
+        InputSymbol.MouseRight => Mouse(MouseButton.Right),
 
         // 面键用引擎的布局中立编号：0 是下、1 是右、2 是左、3 是上（从 as_text() 读回）。
         InputSymbol.PadFaceBottom => Pad(JoyButton.A),
@@ -131,6 +142,8 @@ public static class InputMapInstaller
         InputSymbol.PadShoulderLeft => Pad(JoyButton.LeftShoulder),
         InputSymbol.PadShoulderRight => Pad(JoyButton.RightShoulder),
         InputSymbol.PadStickLeftClick => Pad(JoyButton.LeftStick),
+        InputSymbol.PadDpadLeft => Pad(JoyButton.DpadLeft),
+        InputSymbol.PadDpadRight => Pad(JoyButton.DpadRight),
 
         InputSymbol.PadStickLeftXMinus => Axis(JoyAxis.LeftX, -1f),
         InputSymbol.PadStickLeftXPlus => Axis(JoyAxis.LeftX, 1f),

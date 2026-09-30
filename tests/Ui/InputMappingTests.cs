@@ -136,7 +136,8 @@ public class InputMappingTests
         {
             foreach (var binding in bindings)
             {
-                if (binding.Symbol is InputSymbol.KeyShift or InputSymbol.MouseLeft
+                if (binding.Symbol is InputSymbol.KeyShift
+                        or InputSymbol.MouseLeft or InputSymbol.MouseRight
                     || binding.Device == InputDeviceKind.Gamepad)
                 {
                     continue;
@@ -171,13 +172,61 @@ public class InputMappingTests
     }
 
     [Fact]
+    public void 进出室内在键鼠上只绑鼠标右键()
+    {
+        // `ADR-0027`：进出建筑室内是「点一下门」。键鼠上刻意**不用左键** —— 左键已经是逐格动作的
+        // 执行位，把门塞进同一次点击就要回答「这一格既是门又是一格地时点的是哪个」。
+        var keys = InputBindings.For(InputActions.EnterInterior, InputDeviceKind.KeyboardMouse);
+        Assert.Single(keys);
+        Assert.Equal(InputSymbol.MouseRight, keys[0].Symbol);
+    }
+
+    [Fact]
+    public void 鼠标右键也只有一个主人且不是交互()
+    {
+        // 与左键那条对称。**两个键各只有一个主人**是「左键对格子、右键对门」这条分工的机器形态；
+        // 任何一边多一个主人，都会让一次点击同时干两件事而只有一件是玩家想要的。
+        var owners = InputBindings.Table
+            .Where(entry => entry.Value.Any(b => b.Symbol == InputSymbol.MouseRight))
+            .Select(entry => entry.Key)
+            .ToList();
+        Assert.Single(owners);
+        Assert.Equal(InputActions.EnterInterior, owners[0]);
+        Assert.NotEqual(InputActions.Interact, owners[0]);
+    }
+
+    [Fact]
+    public void 进出室内在手柄上是登记过的豁免而不是漏绑()
+    {
+        // `ADR-0027` 的承重项：手柄**没有指针**，所以它分不出「点格子」与「点门」——
+        // 它靠站位与朝向决定对象，一个交互键就够。键鼠要分两个键正是因为指针指得到两种东西。
+        //
+        // 这条钉住的是「故意不绑」有理由可查，而不是有人忘了绑手柄。
+        Assert.Empty(InputBindings.For(InputActions.EnterInterior, InputDeviceKind.Gamepad));
+        Assert.True(InputBindings.Exemptions.TryGetValue(
+            (InputActions.EnterInterior, InputDeviceKind.Gamepad), out var why));
+        Assert.Contains("指针", why);
+    }
+
+    [Fact]
+    public void 进出是同一个动作不分两个()
+    {
+        // 分成「进」与「出」两个动作就要回答「两者不一致时听谁的」，而方向本来是算得出来的
+        // （人现在在里面还是外面）。所以动作清单里只有这一个。
+        Assert.Contains(InputActions.EnterInterior, InputActions.All);
+        Assert.Single(InputActions.All, a => a == InputActions.EnterInterior);
+    }
+
+    [Fact]
     public void 设备族由符号推出且键鼠与手柄分得开()
     {
         // 边界就在键盘段的最后一个与手柄段的第一个之间，所以两端各取一个盯住。
         Assert.Equal(InputDeviceKind.KeyboardMouse, new InputBinding(InputSymbol.KeyQ, "Q").Device);
         Assert.Equal(InputDeviceKind.KeyboardMouse, new InputBinding(InputSymbol.KeyJ, "J").Device);
         Assert.Equal(InputDeviceKind.KeyboardMouse,
-            new InputBinding(InputSymbol.Digit6, "6").Device);
+            new InputBinding(InputSymbol.KeyL, "L").Device);
+        Assert.Equal(InputDeviceKind.KeyboardMouse,
+            new InputBinding(InputSymbol.MouseRight, "Right Mouse Button").Device);
         Assert.Equal(InputDeviceKind.Gamepad,
             new InputBinding(InputSymbol.PadFaceBottom, "Xbox A").Device);
         Assert.Equal(InputDeviceKind.Gamepad,
@@ -205,11 +254,14 @@ public class InputMappingTests
         // 经营侧那些逐格动作），而经营侧的当前操作格本来就取「指针所在那一格」。「占住右手」
         // 那个顾虑对它不成立 —— 采集不发生在连段中间，而经营侧没有连段。
         //
+        // **进出室内是第二个例外，同样是经营侧的**（`ADR-0027`）：它在键鼠上只有鼠标右键。
+        // 两个例外的共同点是「它们都不发生在连段中间」，而那正是「占住右手」这个顾虑的全部内容。
+        //
         // 这条原先遍历**全部**动作，与它的名字不一致；现在按名字判。**排除法而不是列举法**：
         // 往后加的动作默认受这条检查，漏加清单不会让保护静默失效。
         foreach (var (action, bindings) in InputBindings.Table)
         {
-            if (action == InputActions.Interact)
+            if (action is InputActions.Interact or InputActions.EnterInterior)
             {
                 continue;
             }
@@ -291,12 +343,17 @@ public class InputMappingTests
     }
 
     [Fact]
-    public void 键鼠六个技能位是数字键1到6()
+    public void 键鼠六个技能位落在右手那六个键上且编号按键盘从左到右()
     {
+        // 原先它们在数字键 1–6，而那一排在 WASD 手位下要抬手才够得到 —— 于是「边走边放技能」
+        // 要么做不到、要么放掉移动。挪到 H Y U I O L 之后六个键全在 J／K 一手之内。
+        //
+        // **顺序就是这条测试的全部内容**：编号跟着键盘从左到右走，所以界面上技能栏的顺序与键盘
+        // 顺序一致，玩家零记忆负担。按「哪个键好按」重排会让这条断掉。
         var expected = new[]
         {
-            InputSymbol.Digit1, InputSymbol.Digit2, InputSymbol.Digit3,
-            InputSymbol.Digit4, InputSymbol.Digit5, InputSymbol.Digit6,
+            InputSymbol.KeyH, InputSymbol.KeyY, InputSymbol.KeyU,
+            InputSymbol.KeyI, InputSymbol.KeyO, InputSymbol.KeyL,
         };
         for (var i = 0; i < InputActions.Skills.Count; i++)
         {
@@ -305,6 +362,28 @@ public class InputMappingTests
             Assert.Equal(expected[i], keys[0].Symbol);
         }
     }
+
+    [Fact]
+    public void 数字键那一排只归随身栏()
+    {
+        // `UI-14` 把技能位挪到右手时腾空了这一排，而那份提案写明它「刻意不补，留给将来真要一条
+        // 快捷道具栏」。`UI-34` 就是那条道具栏 —— 所以这一排现在有主人了，而且**只有它一个主人**。
+        //
+        // 这条钉住的是「别的动作不许再往这一排里塞」：塞了就与换随身那一格抢同一个键，
+        // 而抢键的表现是「按一下同时干两件事」。
+        var owners = InputBindings.Table
+            .Where(entry => entry.Value.Any(
+                b => b.Device == InputDeviceKind.KeyboardMouse
+                     && char.IsAsciiDigit(b.EngineText[0])))
+            .Select(entry => entry.Key)
+            .ToList();
+
+        Assert.Equal(InputActions.CarrySlots.Count, owners.Count);
+        Assert.All(owners, action => Assert.Contains(action, InputActions.CarrySlots));
+    }
+
+    // **「六个键在 J／K 一手之内」刻意没有测试。** 那是键盘几何，规则层手上没有任何键位坐标 ——
+    // 拿枚举顺序去断言它只是长得像守卫，实际上什么都没判。这一条归作者实机按（`UI-14`）。
 
     [Fact]
     public void 修饰键按住时面键映到对应的技能位()

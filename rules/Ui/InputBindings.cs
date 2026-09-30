@@ -28,6 +28,29 @@ public enum InputSymbol
     KeyQ, KeyE, KeyF,
     KeyJ, KeyK,
     KeySpace, KeyShift,
+
+    // 六个技能键。**顺序即技能位编号**（第 1 个到第 6 个），而编号按**键盘从左到右**排：
+    //
+    //     上排          Y   U   I   O
+    //     中排        H   J   K   L
+    //                     ↑   ↑
+    //                   轻击 重击
+    //
+    // 编号跟着键盘走而不是跟着「哪个键好按」走，理由是它把「哪个位好按」这个判断留给玩家 ——
+    // 技能位只是一个格子，玩家会自己把最常用的技能装到手顺的那一格。界面上技能栏从左到右、
+    // 键也从左到右，看一眼就知道按哪个，零记忆负担。按「哪个键好按」重排编号等于先替他假设了
+    // 「技能位 1 最常用」，而那条假设没有依据。
+    //
+    KeyH, KeyY, KeyU, KeyI, KeyO, KeyL,
+
+    // 数字键那一排，六个随身栏格子各一个（`UI-34`）。
+    //
+    // **它们是先被删掉、再回来的。** 技能位挪到右手时（`UI-14`）这六个符号连同绑定一起删了，
+    // 理由是「留着等于留六个看起来可绑的位」；而那份提案同时写明这一排**刻意空着、留给将来真要
+    // 一条快捷道具栏**。随身栏就是那条道具栏，所以它们按那句话回来了。
+    //
+    // **它们在这里不再是「要抬手才够得到」那个缺点。** 那个缺点是对技能说的 —— 技能每几秒就要
+    // 按一次，还要在按住 WASD 的时候按。换随身的那一格是低频动作，抬一次手是它付得起的价。
     Digit1, Digit2, Digit3, Digit4, Digit5, Digit6,
 
     // 鼠标左键：**经营侧那些逐格动作用它执行**（锄、播、浇、收，将来还有建造摆位）。
@@ -38,10 +61,27 @@ public enum InputSymbol
     // 不让它分担按键，所以轻重攻击照旧取 J／K。经营侧不存在这个顾虑——那里没有连段。
     MouseLeft,
 
+    // 鼠标右键：**点一下建筑的门，进或出它的室内**（`ADR-0027`）。
+    // 它为什么不跟左键挤在一个动作里：左键已经是逐格动作的执行位，把门塞进同一次点击就要回答
+    // 「这一格既是门又是一格地时点的是哪个」，而那个问题没有好答案。**于是经营侧两件最常做的事
+    // 各占一个鼠标键**：左键对格子、右键对门，两只手一次都不用换位。
+    MouseRight,
+
     // ── 手柄按钮 ──
     PadFaceBottom, PadFaceRight, PadFaceLeft, PadFaceTop,
     PadShoulderLeft, PadShoulderRight,
     PadStickLeftClick,
+
+    // D-pad 左右：**挪随身栏的选中位**（`UI-34`）。
+    //
+    // ⚠️ **这一对与一条还没落地的预定重叠**：移动那一段的注释与那份键位提案都写着「D-pad 留给
+    // 正典的队友三指令（集火／撤退／待命）」。那三条指令现在**一个动作名都没有、一条绑定都没有**，
+    // 所以今天不冲突；但它们落地时（`GP-36`）四个方向装不下「三条指令加两个挪位」，必须有人让一步。
+    // **那一天不会静默过去**：绑定表有一条测试钉着「同一个物理位不被两个动作抢」。
+    // 记账见待办台账 `UI-36`。
+    //
+    // **上下两向刻意不加符号**：随身栏只要两个方向，加了就是留两个看起来可绑的位（同数字键那条理由）。
+    PadDpadLeft, PadDpadRight,
 
     // ── 手柄轴。左摇杆四向 + 两个扳机 ──
     PadStickLeftXMinus, PadStickLeftXPlus,
@@ -191,6 +231,12 @@ public static class InputBindings
                 new(InputSymbol.PadShoulderRight,
                     "Joypad Button 10 (Right Shoulder, Sony R1, Xbox RB)"),
             ],
+            // 进出建筑室内：**键鼠上只有鼠标右键**（`ADR-0027`）。手柄那一侧故意不绑，理由在下面
+            // 的豁免登记 —— 它没有指针，一个交互键就够，对象靠站位与朝向消歧。
+            [InputActions.EnterInterior] =
+            [
+                new(InputSymbol.MouseRight, "Right Mouse Button"),
+            ],
 
             // ── 两个修饰键。只有手柄需要 ──
             // 注意扳机的自报名里带着 Joystick 2 X／Y-Axis —— 引擎把两个扳机当成第三根摇杆的
@@ -208,13 +254,44 @@ public static class InputBindings
                     + " with Value 1.00"),
             ],
 
-            // ── 6 个技能位。键鼠数字键直接对应；手柄由组合解算发出，见下面的豁免登记 ──
-            [InputActions.Skills[0]] = [new(InputSymbol.Digit1, "1 - Physical")],
-            [InputActions.Skills[1]] = [new(InputSymbol.Digit2, "2 - Physical")],
-            [InputActions.Skills[2]] = [new(InputSymbol.Digit3, "3 - Physical")],
-            [InputActions.Skills[3]] = [new(InputSymbol.Digit4, "4 - Physical")],
-            [InputActions.Skills[4]] = [new(InputSymbol.Digit5, "5 - Physical")],
-            [InputActions.Skills[5]] = [new(InputSymbol.Digit6, "6 - Physical")],
+            // ── 随身栏那六格。键鼠是数字键 1–6 一一对应；手柄靠下面两个挪位键，见豁免登记 ──
+            //
+            // 数字键这一排是 `UI-14` 把技能位挪到右手之后腾出来的，而那份提案写明它「刻意不补，
+            // 留给将来真要一条快捷道具栏」—— 这就是那条道具栏。
+            [InputActions.CarrySlots[0]] = [new(InputSymbol.Digit1, "1 - Physical")],
+            [InputActions.CarrySlots[1]] = [new(InputSymbol.Digit2, "2 - Physical")],
+            [InputActions.CarrySlots[2]] = [new(InputSymbol.Digit3, "3 - Physical")],
+            [InputActions.CarrySlots[3]] = [new(InputSymbol.Digit4, "4 - Physical")],
+            [InputActions.CarrySlots[4]] = [new(InputSymbol.Digit5, "5 - Physical")],
+            [InputActions.CarrySlots[5]] = [new(InputSymbol.Digit6, "6 - Physical")],
+
+            // 挪选中位：**只有手柄需要**。键鼠那边六个数字键直接对应，不用挪。
+            // 绕回而不是钳住，所以两个键就够遍历六格（规则在 `CarrySlotBar.SelectNext`）。
+            [InputActions.CarryPrev] =
+            [
+                new(InputSymbol.PadDpadLeft, "Joypad Button 13 (D-pad Left)"),
+            ],
+            [InputActions.CarryNext] =
+            [
+                new(InputSymbol.PadDpadRight, "Joypad Button 14 (D-pad Right)"),
+            ],
+
+            // ── 6 个技能位。**键鼠上六个键与六个槽位从左到右一一对应，没有修饰键这一层**；
+            // 手柄由组合解算发出，见下面的豁免登记 ──
+            //
+            // 六个键全在 J（轻击）与 K（重击）**一手之内**，右手不离位就按得到。挪过来的理由是
+            // 原先那一排数字键在 WASD 手位下要抬手：左手五个指头全占在移动与冲刺上，要放技能就得
+            // 让食指或中指离开 WASD，而战斗里那一瞬间正是要躲的时候。
+            //
+            // ⚠️ **食指要同时管轻击 J 与三个技能键**（H、Y、U），所以连段里插技能会抢食指 ——
+            // 中指（K 与 I）与无名指（L 与 O）各只管两个，压力小得多。这一条几何上看得出来，
+            // 手感上看不出来，所以它是作者实机按那一遍的重点。
+            [InputActions.Skills[0]] = [new(InputSymbol.KeyH, "H - Physical")],
+            [InputActions.Skills[1]] = [new(InputSymbol.KeyY, "Y - Physical")],
+            [InputActions.Skills[2]] = [new(InputSymbol.KeyU, "U - Physical")],
+            [InputActions.Skills[3]] = [new(InputSymbol.KeyI, "I - Physical")],
+            [InputActions.Skills[4]] = [new(InputSymbol.KeyO, "O - Physical")],
+            [InputActions.Skills[5]] = [new(InputSymbol.KeyL, "L - Physical")],
         };
 
     /// <summary>
@@ -276,11 +353,32 @@ public static class InputBindings
             [(InputActions.Skills[3], InputDeviceKind.Gamepad)] = "手柄上由 RT + 面键组合解算发出",
             [(InputActions.Skills[4], InputDeviceKind.Gamepad)] = "手柄上由 RT + 面键组合解算发出",
             [(InputActions.Skills[5], InputDeviceKind.Gamepad)] = "手柄上由 RT + 面键组合解算发出",
+            // 键鼠上六个技能位各有自己的键（H Y U I O L），所以不需要修饰键这一层。
+            // 手柄上要修饰键是因为面键只有四个、铺不下六个位。
             [(InputActions.SkillGroupLeft, InputDeviceKind.KeyboardMouse)] =
-                "键鼠上数字键直接对应六个技能位，不需要修饰键",
+                "键鼠上六个技能键一一对应六个技能位，不需要修饰键",
             [(InputActions.SkillGroupRight, InputDeviceKind.KeyboardMouse)] =
-                "键鼠上数字键直接对应六个技能位，不需要修饰键",
+                "键鼠上六个技能键一一对应六个技能位，不需要修饰键",
+            [(InputActions.EnterInterior, InputDeviceKind.Gamepad)] =
+                "手柄没有指针，进门与其余交互点共用交互键，对象靠站位与朝向消歧（ADR-0027）",
+
+            // 随身栏两侧各缺一半，理由相反：键鼠有六个空键所以直选，手柄没有所以挪位。
+            [(InputActions.CarrySlots[0], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarrySlots[1], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarrySlots[2], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarrySlots[3], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarrySlots[4], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarrySlots[5], InputDeviceKind.Gamepad)] = CarryPadWhy,
+            [(InputActions.CarryPrev, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
+            [(InputActions.CarryNext, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
         };
+
+    /// <summary>手柄上随身栏各格为什么没有直选键。</summary>
+    private const string CarryPadWhy =
+        "手柄上凑不出六个空位（扳机当修饰键、四个面键与两个肩键都有归属），改用 D-pad 左右挪选中位";
+
+    /// <summary>键鼠上为什么不需要挪位键。</summary>
+    private const string CarryKeyWhy = "键鼠上六个数字键直接对应六格，不需要挪";
 
     /// <summary>取某个动作在某个设备族上的绑定。</summary>
     public static IReadOnlyList<InputBinding> For(string action, InputDeviceKind device) =>

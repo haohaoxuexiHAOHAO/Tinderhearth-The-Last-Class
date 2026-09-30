@@ -9,8 +9,26 @@ public enum HudBlock
     /// <summary>主角资源：HP、体力、MP 与精力。</summary>
     Resources,
 
-    /// <summary>6 个技能位，含冷却表现与当前修饰键组的提示。</summary>
-    Skills,
+    /// <summary>
+    /// 底边右侧那条**六格横排**。装什么由场景决定，尺寸与锚点两边完全一样。
+    /// </summary>
+    /// <remarks>
+    /// **关卡里装六个技能位**（含冷却表现与当前修饰键组的提示）；**经营场景里装随身栏那六格**
+    /// （`UI-34`，图标加件数）—— 俯视场景没有技能位，所以那一块在那里正好空着给它。
+    ///
+    /// **两种内容共用这一块，不是两块。** 它们的格数同源（<see cref="CarrySlotBar.SlotCount"/>
+    /// 取的就是 <see cref="InputActions.Skills"/> 的条数），所以「同宽」这件事**由算式保证** ——
+    /// 不是两处各写一个常量再指望它们一直相等。因此 <see cref="BlocksOverActorBand"/> 那条硬判据
+    /// 的输入一个字没变，随身栏进来时不用重跑一次占屏账。
+    ///
+    /// **它原先叫 `Skills`。** 改名是因为那个名字会让「经营场景里这一块装什么」读不出来，
+    /// 而取值个数一个没变 —— 随身栏**没有新开 HUD 块**。
+    ///
+    /// ⚠️ **关卡里两行并存的那一天要重跑那笔账。** 正典那条「用道具不暂停」在关卡里落地就得让
+    /// 随身栏与技能位同时在场（上行技能、下行随身），而那会改这一块的高度。**现在刻意不做** ——
+    /// 关卡里一个道具都还没有，为一个没有内容的场合排版是白排。
+    /// </remarks>
+    ActionBar,
 
     /// <summary>队友状态，容纳编队上限 4 名学生；为 0 时整块收起。</summary>
     Teammates,
@@ -138,6 +156,24 @@ public static class HudLayout
     public static int SkillCellHeight => UiMetrics.IconSmall;
 
     /// <summary>
+    /// 随身栏有几格（`UI-34`）。**与技能位同一个数**，所以两种内容同宽由算式保证。
+    /// </summary>
+    /// <remarks>
+    /// 它读 <see cref="CarrySlotBar.SlotCount"/>，而那个又读 <see cref="InputActions.Skills"/>
+    /// 的条数 —— **一条链到底，中间一处都没有抄出来的 6**。抄一个 6 的后果是将来改格数时
+    /// 两块宽度悄悄分叉，而分叉只在拉宽窗口时看得出来。
+    /// </remarks>
+    public static int CarrySlotCount => CarrySlotBar.SlotCount;
+
+    /// <summary>随身栏六格紧邻横排占的宽。**它不含两组之间那道分界** —— 随身栏没有组。</summary>
+    /// <remarks>
+    /// 所以它比 <see cref="HudBlock.ActionBar"/> 那一块的内容宽**窄一个栅格**：随身栏沿用同一个
+    /// 框，多出来的那一格空隙留在中间，与技能位那道分界对齐。这样两种内容的格子落在同一批
+    /// 横坐标上，换场景时格位不跳。
+    /// </remarks>
+    public static int CarryRowWidth => CarrySlotCount * UiMetrics.IconSmall;
+
+    /// <summary>
     /// 一组技能位横排占的宽：三个紧邻的图标格。
     /// </summary>
     /// <remarks>
@@ -172,8 +208,10 @@ public static class HudLayout
             Width: GaugeLabelWidth + UiMetrics.ItemGap + GaugeBarWidth,
             Height: GaugeCount * GaugeRowHeight),
 
-        // 六个位一行横排，两组之间空一个栅格。每组前面留一个记号列（手柄上是「L」「R」两个扳机）。
-        HudBlock.Skills => new HudRect(
+        // 六个格一行横排，两组之间空一个栅格。关卡里那道空隙是「这三个归左扳机、那三个归右扳机」
+        // 的视觉分界；经营侧的随身栏没有组，但它**沿用同一个框**（`UI-34`）—— 两种内容长得像
+        // 同一条栏，玩家换场景时不用重新学它是什么。
+        HudBlock.ActionBar => new HudRect(
             X: 0, Y: 0,
             Width: (SkillGroupCount * SkillGroupWidth)
                    + ((SkillGroupCount - 1) * UiMetrics.Grid),
@@ -214,8 +252,9 @@ public static class HudLayout
         // 资源在左下：手放在键盘左手区，眼睛往左下扫最短。
         HudBlock.Resources => HudAnchor.BottomLeft,
 
-        // 技能位在右下：与资源同在底边，两者构成「我还有多少／我能放什么」这一对。
-        HudBlock.Skills => HudAnchor.BottomRight,
+        // 那条六格横排在右下：与资源同在底边，两者构成「我还有多少／我能用什么」这一对。
+        // 关卡里是技能、经营侧是随身栏，两边同一个角 —— 换场景时眼睛不用换地方找。
+        HudBlock.ActionBar => HudAnchor.BottomRight,
 
         _ => throw new ArgumentOutOfRangeException(nameof(block), $"没有这一块：{block}"),
     };

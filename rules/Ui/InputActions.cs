@@ -14,6 +14,9 @@ namespace Tinderhearth.Rules.Ui;
 /// 移动不在正典的按键清单里，但显然要绑，所以在这里补齐四向：俯视的基地与城区要四向，侧视
 /// 关卡只用左右。四个动作而不是一个二维量，是因为 `InputMap` 的单位就是动作。
 ///
+/// **<see cref="EnterInterior"/> 也不在那份战斗清单里** —— 它是经营侧的，来源是 [ADR-0027]
+/// （进出建筑室内改成点一下门）。那份清单管的是侧视战斗，所以经营侧新增一个动作不算破例。
+///
 /// **界面动作刻意不在这里。** 返回、确认与焦点移动用引擎内置的 `ui_*`（`UiRoot` 已经在用
 /// `ui_cancel`），重复定义一套只会多一份要维护的东西。打开手环／背包的动作也不在本条范围。
 /// </remarks>
@@ -52,13 +55,60 @@ public static class InputActions
     public const string Jump = "jump";
     public const string Interact = "interact";
 
-    /// <summary>技能位的两个修饰键。手柄上是左右扳机，键鼠上不用（数字键直接对应）。</summary>
+    /// <summary>点一下建筑的门，进或出它的室内场景。</summary>
+    /// <remarks>
+    /// **进与出是同一个动作**，方向由「现在人在里面还是外面」推出来，不存第二个动作 ——
+    /// 存了就要回答「两者不一致时听谁的」。
+    ///
+    /// **为什么它不复用 <see cref="Interact"/>**（[ADR-0027]）：键鼠上 `Interact` 的第一条绑定是
+    /// 鼠标左键，而左键是经营侧那些逐格动作的执行位。把门塞进同一次点击就要回答「这一格既是门
+    /// 又是一格地时点的是哪个」，而那个问题没有好答案。所以键鼠上门另给一个键（鼠标右键）。
+    ///
+    /// **手柄上没有它的绑定，那是登记过的豁免不是漏绑**（见 <see cref="InputBindings.Exemptions"/>）：
+    /// 手柄没有指针，它靠站位与朝向决定对象，所以一个交互键就够。键鼠要分两个键，是因为指针指
+    /// 得到两种不同的东西。
+    ///
+    /// **它不带读条、不加动作机姿态。** 基地里没有打断源，读条在那里只剩纯等待。
+    /// </remarks>
+    public const string EnterInterior = "enter_interior";
+
+    /// <summary>技能位的两个修饰键。手柄上是左右扳机，键鼠上不用（六个键一一对应）。</summary>
     public const string SkillGroupLeft = "skill_group_left";
     public const string SkillGroupRight = "skill_group_right";
 
     /// <summary>6 个技能位，顺序即编号。</summary>
     public static readonly IReadOnlyList<string> Skills =
         ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5", "skill_6"];
+
+    /// <summary>
+    /// 随身栏那几格，顺序即编号（`UI-34`）。**格数与技能位同一个数**，理由在
+    /// <see cref="CarrySlotBar.SlotCount"/>。
+    /// </summary>
+    /// <remarks>
+    /// 键鼠上它们就是数字键 `1`–`6` —— 那一排正是 `UI-14` 把技能位挪走之后腾出来的，
+    /// 而那份提案当时写明「刻意不补，留给将来真要一条快捷道具栏」。这就是那条道具栏。
+    ///
+    /// **手柄上它们一个都没有绑定**，那是登记过的豁免（见 <see cref="InputBindings.Exemptions"/>）：
+    /// 手柄上的键已经很紧，改用 <see cref="CarryPrev"/> 与 <see cref="CarryNext"/> 挪选中位。
+    /// </remarks>
+    public static readonly IReadOnlyList<string> CarrySlots =
+        ["carry_1", "carry_2", "carry_3", "carry_4", "carry_5", "carry_6"];
+
+    /// <summary>
+    /// 把随身栏的选中位往前、往后挪一格（`UI-34`）。**手柄那一侧用这两个。**
+    /// </summary>
+    /// <remarks>
+    /// **为什么手柄不给六格各一个键**：两个扳机已经当了技能位的修饰键，四个面键、两个肩键与
+    /// 左摇杆按压也都有归属 —— 手柄上凑不出六个空位。挪选中位只要两个键，代价是切到最远那一格
+    /// 要按几下（绕一圈，见 <see cref="CarrySlotBar.SelectNext"/>），而经营侧不赶时间。
+    ///
+    /// **被放弃的两条**：按住某个键加右摇杆直选（六格映射八方向要留两个空位，而空位按下去没反应）、
+    /// 加一个第三个扳机态（「我在哪一态」要常驻提示，又占屏）。
+    ///
+    /// **键鼠上这两个动作没有绑定**，那是登记过的豁免：那边六个数字键直接对应，不需要挪。
+    /// </remarks>
+    public const string CarryPrev = "carry_prev";
+    public const string CarryNext = "carry_next";
 
     /// <summary>一组修饰键覆盖几个技能位。3 面键 × 2 修饰键 ＝ 6，正好铺满。</summary>
     public const int SkillsPerGroup = 3;
@@ -84,8 +134,11 @@ public static class InputActions
         MoveLeft, MoveRight, MoveUp, MoveDown,
         Run,
         AttackLight, AttackHeavy, Guard, Dodge, Jump, Interact,
+        EnterInterior,
         SkillGroupLeft, SkillGroupRight,
         .. Skills,
+        .. CarrySlots,
+        CarryPrev, CarryNext,
     ];
 
     /// <summary>某个动作是不是技能位。</summary>

@@ -87,8 +87,8 @@ public class HudTests
     [Fact]
     public void 六个技能位排成一行且两组之间空一个栅格()
     {
-        // 技能位一行横排。块高只占一个单元，宽度是两组加中间那道分界。
-        var content = HudLayout.ContentSizeOf(HudBlock.Skills);
+        // 那条六格横排。块高只占一个单元，宽度是两组加中间那道分界。
+        var content = HudLayout.ContentSizeOf(HudBlock.ActionBar);
         Assert.Equal(HudLayout.SkillCellHeight, content.Height);
         Assert.Equal((HudLayout.SkillGroupCount * HudLayout.SkillGroupWidth)
                      + ((HudLayout.SkillGroupCount - 1) * UiMetrics.Grid), content.Width);
@@ -211,7 +211,7 @@ public class HudTests
         Assert.Equal(HudAnchor.TopLeft, HudLayout.AnchorOf(HudBlock.Objective));
         Assert.Equal(HudAnchor.TopRight, HudLayout.AnchorOf(HudBlock.Teammates));
         Assert.Equal(HudAnchor.BottomLeft, HudLayout.AnchorOf(HudBlock.Resources));
-        Assert.Equal(HudAnchor.BottomRight, HudLayout.AnchorOf(HudBlock.Skills));
+        Assert.Equal(HudAnchor.BottomRight, HudLayout.AnchorOf(HudBlock.ActionBar));
 
         // 四个角各一块，没有两块抢同一个角。
         var anchors = Enum.GetValues<HudBlock>().Select(HudLayout.AnchorOf).ToList();
@@ -341,7 +341,7 @@ public class HudTests
     // ── 按键提示 ────────────────────────────────────────────────────
 
     [Fact]
-    public void 键鼠的技能提示取该技能位自己的数字键绑定()
+    public void 键鼠的技能提示取该技能位自己的按键绑定()
     {
         for (var i = 0; i < InputActions.Skills.Count; i++)
         {
@@ -386,8 +386,8 @@ public class HudTests
                      + InputHints.SkillLabel(InputActions.Skills[0], InputDeviceKind.Gamepad),
                      combo);
 
-        // 键鼠上没有修饰键，所以就是一个数字键。
-        Assert.Equal("1", InputHints.SkillCombo(InputActions.Skills[0],
+        // 键鼠上没有修饰键，所以就是那一个技能键（第 1 个技能位在 H 上）。
+        Assert.Equal("H", InputHints.SkillCombo(InputActions.Skills[0],
                                                 InputDeviceKind.KeyboardMouse));
     }
 

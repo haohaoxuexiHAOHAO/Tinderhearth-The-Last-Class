@@ -24,12 +24,13 @@ public static class InputHints
     /// <summary>一个物理位的短记号。</summary>
     public static string LabelOf(InputSymbol symbol) => symbol switch
     {
-        InputSymbol.Digit1 => "1",
-        InputSymbol.Digit2 => "2",
-        InputSymbol.Digit3 => "3",
-        InputSymbol.Digit4 => "4",
-        InputSymbol.Digit5 => "5",
-        InputSymbol.Digit6 => "6",
+        // 六个技能键。记号就是键面上那个字母，顺序即技能位编号。
+        InputSymbol.KeyH => "H",
+        InputSymbol.KeyY => "Y",
+        InputSymbol.KeyU => "U",
+        InputSymbol.KeyI => "I",
+        InputSymbol.KeyO => "O",
+        InputSymbol.KeyL => "L",
 
         // 面键取方位，不取字母 —— 见类注释。
         InputSymbol.PadFaceBottom => "下",
@@ -65,7 +66,7 @@ public static class InputHints
     /// 某个技能位在某个设备族上该显示什么记号。
     /// </summary>
     /// <remarks>
-    /// 键鼠：数字键直接对应，取该技能位自己的绑定。
+    /// 键鼠：六个技能键一一对应，取该技能位自己的绑定。
     /// 手柄：技能位没有自己的绑定（<see cref="InputBindings.Exemptions"/> 登记了理由 —— 它由
     /// 修饰键组合解算发出），所以取**它对应的那个面键**的绑定。
     /// </remarks>
@@ -84,7 +85,7 @@ public static class InputHints
     }
 
     /// <summary>
-    /// 手柄上完整的一句提示：修饰键 + 面键。键鼠上就是那个数字键。
+    /// 手柄上完整的一句提示：修饰键 + 面键。键鼠上就是那个技能键。
     /// </summary>
     /// <remarks>
     /// 这是 `FR-17`「修饰键按下时 HUD 显示当前那一组对应哪三个技能」在文字上的形态 —— 玩家看到
