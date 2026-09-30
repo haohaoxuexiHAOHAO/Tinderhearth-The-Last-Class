@@ -38,7 +38,7 @@ public partial class Main : Node2D
         GD.Print("[启动] mod 目录 ", ModPaths.ResolveUserPath(ModPaths.ModsRoot));
         GD.Print("[启动] 存档目录 ", ModPaths.ResolveUserPath(ModPaths.SaveRoot));
 
-        var catalog = BuildContentCatalog();
+        var catalog = ContentBootstrap.BuildCatalog();
         GD.Print("[启动] 内容来源 ", string.Join(" → ", catalog.Sources.Select(s => s.Name)));
 
         var config = LoadConfig(catalog);
@@ -188,20 +188,6 @@ public partial class Main : Node2D
                  ProjectSettings.GetSetting("rendering/textures/canvas_textures/default_texture_filter"));
     }
 
-    /// <summary>基础内容在前，已安装的 mod 依次叠在后面 —— 后者覆盖前者。</summary>
-    private static ContentCatalog BuildContentCatalog()
-    {
-        var catalog = new ContentCatalog();
-        catalog.AddSource(new GodotContentSource("base", ModPaths.BaseContentRoot));
-
-        foreach (var mod in ModPaths.InstalledMods())
-        {
-            catalog.AddSource(new GodotContentSource($"mod:{mod}", $"{ModPaths.ModsRoot}/{mod}"));
-        }
-
-        return catalog;
-    }
-
     private static GameConfig LoadConfig(ContentCatalog catalog)
     {
         var entries = catalog.Resolve("config");
@@ -215,7 +201,8 @@ public partial class Main : Node2D
     /// </summary>
     private static TextCatalog LoadText(ContentCatalog catalog)
     {
-        // 语言选择归设置系统，本条固定读简体中文，够走通链路。
+        // 语言选择是一项**玩家级偏好**（设计仓 `design/存档系统.md` 的「玩家级偏好：第三样东西，
+        // 不是分片」）—— 它跨存档位，所以不进任何存档分片。本条固定读简体中文，够走通链路。
         const string wanted = "text/zh-CN.json";
         var tables = catalog.ResolveAll("text")
             .Where(e => e.RelativePath == wanted)
