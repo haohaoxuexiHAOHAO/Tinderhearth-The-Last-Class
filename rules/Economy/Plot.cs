@@ -265,13 +265,13 @@ public sealed class Plot
         DaysInStage++;
         DaysThisCrop++;
 
-        while (Stage < CropDefinition.RipeStage && DaysInStage >= crop.StageDays[Stage])
+        while (Stage < crop.RipeStage && DaysInStage >= crop.StageDays[Stage])
         {
             DaysInStage -= crop.StageDays[Stage];
             Stage++;
         }
 
-        if (Stage >= CropDefinition.RipeStage)
+        if (Stage >= crop.RipeStage)
         {
             State = PlotState.Harvestable;
         }

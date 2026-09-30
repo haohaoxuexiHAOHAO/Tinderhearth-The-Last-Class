@@ -105,12 +105,32 @@ public class PlotTests
 
         plot.AdvanceDay(crop, FallowDays);
         Assert.Equal(PlotState.Harvestable, plot.State);
-        Assert.Equal(CropDefinition.RipeStage, plot.Stage);
+        Assert.Equal(crop.RipeStage, plot.Stage);
 
         plot.AdvanceDay(crop, FallowDays);
         plot.AdvanceDay(crop, FallowDays);
         Assert.Equal(PlotState.Harvestable, plot.State);
-        Assert.Equal(CropDefinition.RipeStage, plot.Stage);
+        Assert.Equal(crop.RipeStage, plot.Stage);
+    }
+
+    /// <summary>
+    /// **阶段数由作物自己声明**，所以只有种子与成熟两个阶段的速生作物一天就待收。
+    /// 这一条钉住推进那个循环读的是**这一条作物自己的成熟序号**，而不是一个全局常量 ——
+    /// 缺了它，把成熟序号写死成一个数的实现照旧能让上面那条用例通过。
+    /// </summary>
+    [Fact]
+    public void 两阶段的速生作物一天就待收()
+    {
+        var crop = Crop(stageDays: [1]);
+        var plot = Planted(crop);
+
+        Assert.Equal(1, crop.DaysToFirstRipe);
+        Assert.Equal(PlotState.Planted, plot.State);
+
+        plot.AdvanceDay(crop, FallowDays);
+
+        Assert.Equal(PlotState.Harvestable, plot.State);
+        Assert.Equal(crop.RipeStage, plot.Stage);
     }
 
     /// <summary>

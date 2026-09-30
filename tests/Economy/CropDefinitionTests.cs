@@ -70,15 +70,32 @@ public class CropDefinitionTests
     /// 天数的项数必须恰好等于要计时的阶段数。**成熟那一阶段不带天数** —— 它是终态，到了就一直
     /// 待收。多给一项会多出一个没有任何东西读它的字段，而那种字段填错了不报错。
     /// </summary>
+    /// <summary>
+    /// 计时阶段一个都没有就被拒 —— 那样的作物播下去当天就待收。
+    /// </summary>
+    [Fact]
+    public void 计时阶段一个都没有就被拒()
+    {
+        Assert.Throws<ArgumentException>(() => Crop(stageDays: []));
+    }
+
+    /// <summary>
+    /// **阶段数由每条作物自己声明**，所以项数多少都成立，最少一项（种子 → 成熟两个阶段）。
+    /// 这一条与上面那条一起，钉住判的是「至少一项」而不是「恰好几项」。
+    /// </summary>
     [Theory]
     [InlineData(1)]
-    [InlineData(3)]
-    [InlineData(5)]
+    [InlineData(2)]
+    [InlineData(4)]
     [InlineData(8)]
-    public void 阶段天数的项数不对就被拒(int count)
+    public void 阶段数由作物自己声明(int timedStages)
     {
-        Assert.NotEqual(CropDefinition.TimedStageCount, count);
-        Assert.Throws<ArgumentException>(() => Crop(stageDays: [.. Enumerable.Repeat(1, count)]));
+        var crop = Crop(stageDays: [.. Enumerable.Repeat(1, timedStages)]);
+
+        Assert.Equal(timedStages, crop.StageDays.Count);
+        Assert.Equal(timedStages, crop.RipeStage);
+        Assert.Equal(timedStages + 1, crop.StageCount);
+        Assert.Equal(timedStages, crop.DaysToFirstRipe);
     }
 
     /// <summary>
@@ -105,16 +122,59 @@ public class CropDefinitionTests
         Assert.Throws<ArgumentException>(() => Crop(seasons: []));
     }
 
+    /// <summary>负的退回阶段被拒 —— 生长会往回走。这一条不跨字段，所以属性赋值时就判得到。</summary>
+    [Fact]
+    public void 退回的阶段为负就被拒()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Crop(regrowFromStage: -1));
+    }
+
     /// <summary>
-    /// **退回成熟那一阶段被拒**：退回去之后立刻又是待收，一次收获就能无限收下去。负数同拒。
+    /// **退回成熟那一阶段或更后被拒**：退回去之后立刻又是待收，一次收获就能无限收下去。
+    /// 上界要读 <c>RipeStage</c>，而它由阶段数算出来 —— 跨字段的校验落在 <c>Parse</c> 上，
+    /// 所以这一条走 JSON 而不是对象初始化器。
     /// </summary>
     [Theory]
-    [InlineData(CropDefinition.RipeStage)]
-    [InlineData(CropDefinition.RipeStage + 1)]
-    [InlineData(-1)]
-    public void 退回的阶段超出范围就被拒(int stage)
+    [InlineData(2, 2)]
+    [InlineData(2, 3)]
+    [InlineData(4, 4)]
+    public void 退回成熟那一阶段或更后就被拒(int timedStages, int regrowFrom)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Crop(regrowFromStage: stage));
+        var days = string.Join(", ", Enumerable.Repeat(1, timedStages));
+        var json = $$"""
+            {
+              "id": "turnip",
+              "stageDays": [{{days}}],
+              "regrowFromStage": {{regrowFrom}},
+              "seasons": ["Spring"],
+              "yieldItemId": "item_turnip"
+            }
+            """;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CropDefinition.Parse(json, "turnip.json"));
+    }
+
+    /// <summary>
+    /// **退回成熟之前的阶段照旧成立** —— 反向反证，缺了它就分不出上面那条判的是「上界」
+    /// 还是「凡是循环收获都拒」。
+    /// </summary>
+    [Fact]
+    public void 退回成熟之前的阶段照旧成立()
+    {
+        var json = """
+            {
+              "id": "turnip",
+              "stageDays": [1, 1],
+              "regrowFromStage": 1,
+              "seasons": ["Spring"],
+              "yieldItemId": "item_turnip"
+            }
+            """;
+
+        var crop = CropDefinition.Parse(json, "turnip.json");
+
+        Assert.True(crop.Regrows);
+        Assert.Equal(1, crop.RegrowFromStage);
     }
 
     /// <summary>空白标识被拒 —— 它同时是查定义与入库时的键，空了之后两处都找不到东西。</summary>

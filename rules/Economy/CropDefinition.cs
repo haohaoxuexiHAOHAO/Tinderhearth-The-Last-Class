@@ -6,7 +6,7 @@ namespace Tinderhearth.Rules.Economy;
 /// <remarks>
 /// 字段表与每条的理由在设计仓 `design/地块系统.md`，本类不复述。
 ///
-/// **素材那一行不在这里。** 六张图（五个生长阶段各一张，加一张枯死）由作者在 Godot 里配，
+/// **素材那一行不在这里。** 那几张图（每个阶段各一张，加一张枯死，所以张数按它声明的阶段数算）由作者在 Godot 里配，
 /// 与角色逐帧素材同一个分工（`ADR-0009`）。所以「缺哪张报错」是引擎层的载入校验，
 /// 规则层看不见任何路径。
 ///
@@ -24,20 +24,12 @@ public sealed record CropDefinition
 {
     public const string ContentDirectory = "crops";
 
-    /// <summary>生长阶段的个数：种子、出苗、幼株、成株、成熟。**素材张数是它加一张枯死。**</summary>
-    public const int StageCount = 5;
-
-    /// <summary>成熟那一阶段的序号（0 起）。到了它这一格就是待收。</summary>
-    public const int RipeStage = StageCount - 1;
-
-    /// <summary>
-    /// 要声明天数的阶段有几个。**它比 <see cref="StageCount"/> 少一个**，因为成熟是终态：
-    /// 到了它就一直待收，等玩家来收或者换季枯死，没有「持续几天」这回事。
-    /// </summary>
+    /// <summary>一种作物至少要有几个计时阶段。</summary>
     /// <remarks>
-    /// 给成熟那一阶段也留一个天数会多出一个**没有任何东西读它**的字段，而那种字段填错了不报错。
+    /// 阶段序列是「声明的那几个计时阶段 ＋ 成熟」，**第一个必须是种子、最后一个必须是成熟**，
+    /// 所以最少两个阶段：种子 → 成熟。计时阶段一个都没有的声明被拒 —— 那样的作物播下去当天就待收。
     /// </remarks>
-    public const int TimedStageCount = RipeStage;
+    public const int MinTimedStages = 1;
 
     /// <summary>稳定标识。</summary>
     public required string Id
@@ -47,21 +39,36 @@ public sealed record CropDefinition
     }
 
     /// <summary>
-    /// 种子、出苗、幼株、成株各持续几天，顺序即生长顺序，**各至少 1 天**；
-    /// 成熟那一阶段不在其内（见 <see cref="TimedStageCount"/>）。
-    /// 由此最短生长周期就是 <see cref="TimedStageCount"/> 天。
+    /// 每个计时阶段各持续几天，顺序即生长顺序，**各至少 1 天**；
+    /// 项数就是这一条作物有几个计时阶段，**由它自己声明**（至少 <see cref="MinTimedStages"/> 项）。
+    /// 成熟那一阶段不在其内 —— 它是终态、不带天数。
     /// </summary>
+    /// <remarks>
+    /// 项数不写死，所以三天成熟的速生菜与慢熟的药草各按自己的阶段数声明；
+    /// 一条作物最快几天成熟由它自己的这一项算出来（<see cref="DaysToFirstRipe"/>），
+    /// **没有一个全局的「最短生长周期」** —— 那个数只会被抄到别处去然后抄错。
+    /// </remarks>
     public required IReadOnlyList<int> StageDays
     {
         get;
         init => field = CheckStageDays(value);
     }
 
+    /// <summary>成熟那一阶段的序号（0 起）。**它由这一条作物自己的阶段数算出来**，不是全局常量。</summary>
+    /// <remarks>阶段序列是「计时阶段 ＋ 成熟」，所以成熟的序号就等于计时阶段的个数。</remarks>
+    public int RipeStage => StageDays.Count;
+
+    /// <summary>这一条作物一共有几个阶段。**素材张数是它加一张枯死。**</summary>
+    public int StageCount => StageDays.Count + 1;
+
     /// <summary>
     /// 收获后退回第几阶段（0 起）；<c>null</c> 表示**一次性作物**，收完地就空了。
     /// </summary>
     /// <remarks>
-    /// **不许填成熟那一阶段**：退回去之后立刻又是待收，等于一次收获就能无限收下去。
+    /// **不许填成熟那一阶段或更后**：退回去之后立刻又是待收，等于一次收获就能无限收下去。
+    /// 那条上界要读 <see cref="RipeStage"/>，而它由 <see cref="StageDays"/> 算出来 ——
+    /// **跨字段的校验在 <c>init</c> 里做不到**（属性赋值顺序不保证），所以它落在 <see cref="Parse"/>。
+    /// 内容一律从数据文件来（`ENG-5`），那里是唯一的真实入口；直接 <c>new</c> 只出现在测试里。
     ///
     /// **再生间隔没有单独的字段**：退回阶段 N 之后照 <see cref="StageDays"/> 里第 N 项往前走，
     /// 而那一项的含义本来就是「从这一阶段到下一阶段要几天」。
@@ -69,7 +76,7 @@ public sealed record CropDefinition
     public required int? RegrowFromStage
     {
         get;
-        init => field = CheckRegrow(value);
+        init => field = CheckRegrowNonNegative(value);
     }
 
     /// <summary>它属于哪几个季节。**换季那天新季节不在其中就枯死。**</summary>
@@ -101,8 +108,24 @@ public sealed record CropDefinition
     public int? DaysToRegrow =>
         RegrowFromStage is int back ? StageDays.Skip(back).Sum() : null;
 
-    public static CropDefinition Parse(string json, string whatForDiagnostics) =>
-        ContentJson.Parse<CropDefinition>(json, whatForDiagnostics);
+    public static CropDefinition Parse(string json, string whatForDiagnostics)
+    {
+        var crop = ContentJson.Parse<CropDefinition>(json, whatForDiagnostics);
+        crop.CheckRegrowBelowRipe();
+        return crop;
+    }
+
+    /// <summary>跨字段校验：退回的那一阶段要落在成熟之前。理由见 <see cref="RegrowFromStage"/>。</summary>
+    private void CheckRegrowBelowRipe()
+    {
+        if (RegrowFromStage is int back && back >= RipeStage)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(RegrowFromStage),
+                $"作物定义 {Id} 的 {nameof(RegrowFromStage)} 是 {back}，而成熟那一阶段是 {RipeStage}"
+                    + "：退回成熟或更后等于一次收获就能无限收下去");
+        }
+    }
 
     private static string NonEmpty(string value, string field) =>
         string.IsNullOrWhiteSpace(value)
@@ -111,10 +134,10 @@ public sealed record CropDefinition
 
     private static IReadOnlyList<int> CheckStageDays(IReadOnlyList<int> value)
     {
-        if (value is null || value.Count != TimedStageCount)
+        if (value is null || value.Count < MinTimedStages)
         {
             throw new ArgumentException(
-                $"作物定义的 {nameof(StageDays)} 必须恰好 {TimedStageCount} 项"
+                $"作物定义的 {nameof(StageDays)} 至少要有 {MinTimedStages} 项"
                     + $"（成熟那一阶段是终态、不带天数），实际 {value?.Count.ToString() ?? "缺失"}",
                 nameof(StageDays));
         }
@@ -127,14 +150,12 @@ public sealed record CropDefinition
                 $"作物定义的 {nameof(StageDays)} 第 {bad} 项必须至少 1 天，实际 {value[bad]}");
     }
 
-    private static int? CheckRegrow(int? value) => value switch
+    private static int? CheckRegrowNonNegative(int? value) => value switch
     {
-        null => null,
-        >= 0 and < RipeStage => value,
+        null or >= 0 => value,
         _ => throw new ArgumentOutOfRangeException(
             nameof(RegrowFromStage),
-            $"作物定义的 {nameof(RegrowFromStage)} 要么是 null（一次性），"
-                + $"要么落在 0 到 {RipeStage - 1} 之间（退回成熟那一阶段等于无限收获），实际 {value}"),
+            $"作物定义的 {nameof(RegrowFromStage)} 要么是 null（一次性），要么不为负，实际 {value}"),
     };
 
     private static IReadOnlyList<Season> CheckSeasons(IReadOnlyList<Season> value) =>
