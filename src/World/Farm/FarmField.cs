@@ -1,4 +1,5 @@
 using Godot;
+using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Ui;
@@ -20,10 +21,13 @@ namespace Tinderhearth.World.Farm;
 /// 路径 —— 玩家没有办法主动选一个不该用的动作。那条拒绝路径由规则层单测守着
 /// （`tests/Economy/PlotTests.cs`），实机要试到它得等工具栏（`GP-23` 与 `UI-13`）。
 ///
-/// **播哪一种作物现在是检查器里填一个标识，这是脚手架。** 正式的选法要玩家手上有东西可选，
-/// 而**「玩家怎么选一个逐格动作」在全库还没有编号持有** —— 那是一处已知的设计空白，不是这里
-/// 漏做的一件事。最近的两个是 `GP-23`（背包与仓库，堆与随身物那一层）与 `UI-27`（当前操作格，
-/// 它只答「作用在哪一格」、不答「作用是什么」）。
+/// **播哪一种作物取随身栏选中那一格**（`GP-128`）。原先它是检查器里填死的一个标识，那个脚手架
+/// 已经删掉 —— **不留两条路并存**。判在规则层（<see cref="Planting.TryPlant"/>），那三条被拒路径
+/// （手上是空格、手上不是种子、这一格不许播）**各说得出是哪一种**。
+///
+/// **格子里先装什么仍然是脚手架**：现在由本类把已载入的作物按标识排序塞进随身栏
+/// （<see cref="FillCarryBarWithSeeds"/>），而正式来源是背包（`GP-23`），换来源归 `UI-35`。
+/// **换来源不改本类的任何行为** —— 它读的是「选中那一格是什么」，不是「那一格是从哪来的」。
 ///
 /// 按 `ADR-0009`：节点树与全部参数值归作者，本类不自己建场景树、不留能用的默认值，缺一样当场
 /// 报错说清缺谁。**作物精灵是例外，也只是表面上的例外** —— 它按格动态生成，容器节点仍然是作者
@@ -133,14 +137,21 @@ public partial class FarmField : Node
     [Export]
     public Godot.Collections.Array<CropArt> CropArts { get; set; } = [];
 
-    /// <summary>按下播种时播哪一种作物。**脚手架**，见类注释。</summary>
+    /// <summary>随身栏那条六格。**播种取它选中那一格**（`GP-128`）。</summary>
+    /// <remarks>
+    /// 它替掉了原先那个在检查器里填死一个作物标识的脚手架 —— 那个属性已经删掉，**不留两条路并存**。
+    ///
+    /// 缺了当场报错：没有随身栏就没有「玩家手上是什么」这个读口，而那时播种只能回到写死一种作物，
+    /// 也就是回到那个脚手架。
+    /// </remarks>
     [Export]
-    public string PlantingCropId { get; set; } = "";
+    public CarrySlotBarView? CarryBar { get; set; }
 
     private TileMapLayer _tilled = null!;
     private Node2D _crops = null!;
     private FarmCellCursor _cursor = null!;
     private InputRouter _router = null!;
+    private CarrySlotBarView _carry = null!;
     private HarvestYieldRule _yield = null!;
 
     private readonly Dictionary<Vector2I, Plot> _plots = [];
@@ -154,6 +165,7 @@ public partial class FarmField : Node
         _crops = CropsContainer ?? throw Missing(nameof(CropsContainer), "放作物精灵的那个节点");
         _cursor = Cursor ?? throw Missing(nameof(Cursor), $"当前操作格（挂了 {nameof(FarmCellCursor)} 的节点）");
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
+        _carry = CarryBar ?? throw Missing(nameof(CarryBar), $"随身栏（挂了 {nameof(CarrySlotBarView)} 的节点）");
 
         if (_tilled.TileSet is null)
         {
@@ -184,7 +196,7 @@ public partial class FarmField : Node
 
         LoadCropDefinitions();
         IndexCropArts();
-        RequirePlantingCropExists();
+        FillCarryBarWithSeeds();
         BuildPlots();
         RefreshAll();
     }
@@ -252,7 +264,7 @@ public partial class FarmField : Node
         {
             PlotState.Uncleared => plot.Clear(),
             PlotState.Cleared => plot.Till(),
-            PlotState.Tilled => plot.Plant(_cropDefs[PlantingCropId]),
+            PlotState.Tilled => PlantFromHand(plot),
             PlotState.Planted => plot.Water(),
             PlotState.Harvestable => Harvest(plot),
             PlotState.Withered => plot.ClearWithered(),
@@ -265,6 +277,38 @@ public partial class FarmField : Node
         {
             RefreshAll();
         }
+    }
+
+    /// <summary>
+    /// 播一次，种子取随身栏选中那一格（`GP-128`）。
+    /// </summary>
+    /// <remarks>
+    /// **判在规则层**（<see cref="Planting.TryPlant"/>），本方法只把那三条被拒路径各打一行 ——
+    /// 给玩家的提示归界面侧（`UI-27`），那一层还不存在。
+    ///
+    /// **三条原因必须分得开**，这是 `GP-128` 的承重项：合并成一句「不能播」之后玩家按下去没反应
+    /// 而他不知道该换格、换东西还是先锄地。
+    /// </remarks>
+    private bool PlantFromHand(Plot plot)
+    {
+        var hand = _carry.Bar.Selected;
+        var result = Planting.TryPlant(
+            plot,
+            hand.IsEmpty ? null : hand.ItemId,
+            id => _cropDefs.TryGetValue(id, out var crop) ? crop : null);
+
+        if (result != PlantResult.Planted)
+        {
+            GD.Print("[地块] 播不了 ", _cursor.Cell, "：", result switch
+            {
+                PlantResult.NothingSelected => "手上第 " + (_carry.Bar.SelectedIndex + 1) + " 格是空的",
+                PlantResult.NotASeed => $"手上拿的「{hand.ItemId}」不是种子",
+                PlantResult.CellNotReady => $"这一格是 {plot.State}，不是已锄的地",
+                _ => result.ToString(),
+            });
+        }
+
+        return result == PlantResult.Planted;
     }
 
     /// <summary>收一次。件数交给谁在设计里已经定了，而那条管道还不存在 —— 见下面注释。</summary>
@@ -337,14 +381,35 @@ public partial class FarmField : Node
         }
     }
 
-    private void RequirePlantingCropExists()
+    /// <summary>
+    /// 往随身栏里塞一份种子清单。**这是脚手架**，`UI-35` 会把它换成背包前六格的投影。
+    /// </summary>
+    /// <remarks>
+    /// **它为什么还是脚手架**：真正的来源是背包（`GP-23`），而背包还不存在。但它与原先那个写死
+    /// 一个作物标识的导出属性**形状完全不同** —— 那个属性让玩家在游戏里换不了作物，而这一份
+    /// 只是「格子里先装什么」，换格、播种与被拒那几条路径都已经是正式的。
+    ///
+    /// 按标识排序是为了**可重复**：字典的枚举顺序不保证稳定，不排的话同一份内容在两次运行里
+    /// 可能落在不同格子上，而那种不稳定查起来很贵。
+    ///
+    /// 作物多于六种时只装得下前六种，**少于六种时其余格子是空的** —— 空格是合法状态
+    /// （<see cref="Tinderhearth.Rules.Ui.CarrySlot.Empty"/>），不补假数据。
+    /// </remarks>
+    private void FillCarryBarWithSeeds()
     {
-        if (!_cropDefs.ContainsKey(PlantingCropId))
+        var seeds = _cropDefs.Keys
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .Take(CarrySlotBar.SlotCount)
+            .Select(id => new CarrySlot(id, 1))
+            .ToList();
+
+        while (seeds.Count < CarrySlotBar.SlotCount)
         {
-            throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）的 {nameof(PlantingCropId)} 是「{PlantingCropId}」，"
-                    + $"不在已载入的作物里：{string.Join("、", _cropDefs.Keys)}");
+            seeds.Add(CarrySlot.Empty);
         }
+
+        _carry.Bar.Fill(seeds);
+        _carry.OnContentChanged();
     }
 
     private void BuildPlots()
