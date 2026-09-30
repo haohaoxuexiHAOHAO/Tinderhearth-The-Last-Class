@@ -123,7 +123,21 @@ LEAK_RULES = (
     ("NuGet 配置", re.compile(r"(^|/)(nuget\.config|packages\.lock\.json)$", re.IGNORECASE)),
     ("版本库元数据", re.compile(r"(^|/)\.git", re.IGNORECASE)),
     ("文档与脚本", re.compile(r"\.(md|py|log|txt|ps1|sh)$", re.IGNORECASE)),
+    # 下面两条补的是同一个洞：**第三方编辑器插件会随发行包出去，而原先没有任何一条判据
+    # 看得见它。** 本项目是纯 C#（`ADR-0005`），仓里一个 `.gd` 都没有、也没有 `addons/`，
+    # 所以这两条现在是空跑的 —— 留着是因为装一个插件（社区的 Godot MCP 是典型）只要把目录
+    # 拖进 `res://` 就成立，而那一刻没有人会想起来查发行包。
+    #
+    # **两条都要，因为它们漏的不是同一批**：`.gd` 管住「有人在这个 C# 工程里写了 GDScript」，
+    # 而 `addons/` 管住插件里那些**不是脚本**的文件（`plugin.cfg`、图标、`.tres`）—— 只判
+    # 扩展名的话它们一条都拦不住。方向按 `ENG-18` 的教训取「默认面是全部」：真有哪个插件
+    # 必须随发行出去，那时把它登记进 `BUNDLED_FILES`，而不是现在先把口子开着。
+    ("GDScript 脚本", re.compile(r"\.gd$", re.IGNORECASE)),
+    ("编辑器插件", re.compile(r"(^|/)addons/", re.IGNORECASE)),
 )
+# ⚠️ 上面那条 `.gd` 刻意锚在行尾（`\.gd$`），**不是 `\.gd`**。两个近亲不许被它扫到：
+# `.gdshader` 是运行时要用的着色器，本该在包里；`.gdignore` 是让引擎跳过目录的标记文件。
+# 写成不锚尾的话这两样都会被判成泄漏，而那种误报会让人把整条规则关掉。
 # `.cs` 单独判，因为它有一种**合法**形态。实测（见 3-export-manifest.txt）：引擎层的
 # `src/**/*.cs` 一定在包里，但预设的 `dotnet/include_scripts_content=false` 让它们只是
 # 1 字节空占位 —— Godot 需要这些 CSharpScript 条目存在，内容并不发行。
