@@ -30,9 +30,13 @@ public enum InputSymbol
     KeySpace, KeyShift,
     Digit1, Digit2, Digit3, Digit4, Digit5, Digit6,
 
-    // 鼠标键刻意不在这里：本作侧视战斗**没有瞄准**，鼠标提供不了它擅长的精确指向，
-    // 却要占住右手不让它分担按键，所以轻重攻击取 J／K。
-    // 将来建造界面用鼠标点格子、或者改键界面要给鼠标当选项时再加回来 —— 那时是加几行的事。
+    // 鼠标左键：**经营侧那些逐格动作用它执行**（锄、播、浇、收，将来还有建造摆位）。
+    // 理由是当前操作格在键鼠上本来就取「指针所在那一格」——指针已经在指格子，执行也用鼠标
+    // 才不用两只手换位。
+    //
+    // **侧视战斗仍然不用鼠标**：那边没有瞄准，鼠标提供不了它擅长的精确指向，却要占住右手
+    // 不让它分担按键，所以轻重攻击照旧取 J／K。经营侧不存在这个顾虑——那里没有连段。
+    MouseLeft,
 
     // ── 手柄按钮 ──
     PadFaceBottom, PadFaceRight, PadFaceLeft, PadFaceTop,
@@ -86,8 +90,9 @@ public sealed record InputBinding(InputSymbol Symbol, string EngineText)
 /// **键盘取物理键位**（`physical_keycode`）而不是字符键位：AZERTY 键盘上 WASD 的物理位置是
 /// ZQSD，按字符绑会让那批玩家的移动键散开。物理位在任何布局下都是同四个键。
 ///
-/// 改键将来覆盖的就是本表（正典设置里那一组）。**只有默认值，没有持久化** —— 设置存储归
-/// 设置系统，现在定格式就是猜一套将来要改的格式。
+/// 改键将来覆盖的就是本表（正典设置里那一组）。**只有默认值，没有持久化** —— 改过的键是一项
+/// **玩家级偏好**（设计仓 `design/存档系统.md` 的「玩家级偏好：第三样东西，不是分片」），它跨存档位、
+/// 不进任何存档分片，与本表走的是同一条读写路；现在定持久化格式就是猜一套将来要改的格式。
 /// </remarks>
 public static class InputBindings
 {
@@ -176,8 +181,12 @@ public static class InputBindings
                 new(InputSymbol.PadFaceBottom,
                     "Joypad Button 0 (Bottom Action, Sony Cross, Xbox A, Nintendo B)"),
             ],
+            // 交互：**经营侧以鼠标左键为主**（所以它排在前面，提示优先显示它），键盘 F 仍然可用。
+            // 两个键同一个动作不是冗余：经营侧逐格动作用鼠标最顺，而战斗侧的采集、开箱与片段
+            // 转场在键盘上更顺手——那边右手在 J／K 上，腾不出来去点鼠标。
             [InputActions.Interact] =
             [
+                new(InputSymbol.MouseLeft, "Left Mouse Button"),
                 new(InputSymbol.KeyF, "F - Physical"),
                 new(InputSymbol.PadShoulderRight,
                     "Joypad Button 10 (Right Shoulder, Sony R1, Xbox RB)"),

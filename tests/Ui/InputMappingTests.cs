@@ -130,12 +130,13 @@ public class InputMappingTests
     {
         // AZERTY 上 WASD 的物理位置是 ZQSD，按字符绑会让那批玩家的移动键散开。
         // 引擎给物理键位的自报名带 "- Physical" 后缀，所以这条能机器判。
-        // Shift 是例外：引擎给修饰键只打 "Shift"，没有后缀。
+        // 两个例外：Shift 是修饰键，引擎只打 "Shift" 没有后缀；**鼠标按键根本不在键盘布局上**，
+        // 左键在 AZERTY 上还是左键，所以「物理键位」这件事对它没有意义。
         foreach (var (_, bindings) in InputBindings.Table)
         {
             foreach (var binding in bindings)
             {
-                if (binding.Symbol is InputSymbol.KeyShift
+                if (binding.Symbol is InputSymbol.KeyShift or InputSymbol.MouseLeft
                     || binding.Device == InputDeviceKind.Gamepad)
                 {
                     continue;
@@ -144,6 +145,29 @@ public class InputMappingTests
                 Assert.EndsWith(" - Physical", binding.EngineText);
             }
         }
+    }
+
+    [Fact]
+    public void 交互在键鼠上以鼠标左键为主()
+    {
+        // 经营侧那些逐格动作（锄、播、浇、收）用这个动作执行，而当前操作格在键鼠上取的是
+        // 「指针所在那一格」—— 指针已经在指格子，执行也用鼠标才不用两只手换位。
+        // 排第一是因为提示优先显示第一条；键盘 F 留着给不想用鼠标的场合（战斗侧采集就是）。
+        var keys = InputBindings.For(InputActions.Interact, InputDeviceKind.KeyboardMouse);
+        Assert.Equal(InputSymbol.MouseLeft, keys[0].Symbol);
+        Assert.Contains(keys, b => b.Symbol == InputSymbol.KeyF);
+    }
+
+    [Fact]
+    public void 鼠标左键没有被别的动作占用()
+    {
+        // 侧视战斗刻意不用鼠标（没有瞄准，而右手要留给 J／K），所以鼠标左键只该有这一个主人。
+        var owners = InputBindings.Table
+            .Where(entry => entry.Value.Any(b => b.Symbol == InputSymbol.MouseLeft))
+            .Select(entry => entry.Key)
+            .ToList();
+        Assert.Single(owners);
+        Assert.Equal(InputActions.Interact, owners[0]);
     }
 
     [Fact]
@@ -175,10 +199,21 @@ public class InputMappingTests
     [Fact]
     public void 战斗动作一个都不绑鼠标键()
     {
-        // 侧视战斗没有瞄准，鼠标的长处用不上却占着右手。真要给鼠标当改键选项是将来的事，
-        // 那时往符号表里加回来 —— 这条测试会跟着失败，把人领到那段说明。
-        foreach (var (_, bindings) in InputBindings.Table)
+        // 侧视战斗没有瞄准，鼠标的长处用不上却占着右手 —— 右手要留在 J／K 上连段。
+        //
+        // **交互是唯一的例外，而它是刻意的**：那个动作两侧都在用（战斗侧采集、开箱与片段转场，
+        // 经营侧那些逐格动作），而经营侧的当前操作格本来就取「指针所在那一格」。「占住右手」
+        // 那个顾虑对它不成立 —— 采集不发生在连段中间，而经营侧没有连段。
+        //
+        // 这条原先遍历**全部**动作，与它的名字不一致；现在按名字判。**排除法而不是列举法**：
+        // 往后加的动作默认受这条检查，漏加清单不会让保护静默失效。
+        foreach (var (action, bindings) in InputBindings.Table)
         {
+            if (action == InputActions.Interact)
+            {
+                continue;
+            }
+
             foreach (var binding in bindings)
             {
                 Assert.DoesNotContain("Mouse", binding.EngineText);

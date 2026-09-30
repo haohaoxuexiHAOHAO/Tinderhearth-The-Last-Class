@@ -119,6 +119,10 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
+        // 鼠标左键走另一种事件类型，所以它不经 Key()。**它没有「物理位」这回事** ——
+        // 键盘那条物理键位的讲究是为了 AZERTY 之类的布局，而鼠标左键在任何布局下都是左键。
+        InputSymbol.MouseLeft => Mouse(MouseButton.Left),
+
         // 面键用引擎的布局中立编号：0 是下、1 是右、2 是左、3 是上（从 as_text() 读回）。
         InputSymbol.PadFaceBottom => Pad(JoyButton.A),
         InputSymbol.PadFaceRight => Pad(JoyButton.B),
@@ -141,6 +145,8 @@ public static class InputMapInstaller
     };
 
     private static InputEventKey Key(Key key) => new() { PhysicalKeycode = key };
+
+    private static InputEventMouseButton Mouse(MouseButton button) => new() { ButtonIndex = button };
 
     private static InputEventJoypadButton Pad(JoyButton button) => new() { ButtonIndex = button };
 
