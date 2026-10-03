@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>字体抗锯齿方式。**规则层不引用 Godot，所以自己定符号**，翻译在引擎层。</summary>
 public enum FontAntialiasing
@@ -61,7 +61,7 @@ public enum FontSubpixelPositioning
 /// 表现不同**。画面只是「有点糊」「有点不对」，不报错。
 ///
 /// 取值依据全部来自 [ADR-0008] 的实测表，本文件不重新论证。字号与行高不在这里 ——
-/// 它们是排版单位，在 <see cref="UiMetrics"/>。
+/// 它们是排版单位，在 <see cref="UIMetrics"/>。
 /// </remarks>
 public static class PixelFont
 {

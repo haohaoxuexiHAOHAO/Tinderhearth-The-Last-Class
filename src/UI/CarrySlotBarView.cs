@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -8,7 +8,7 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// **本文件里一个「量」都没有**，与 <see cref="LevelHud"/> 同一条纪律：尺寸与放置从
-/// <see cref="HudLayout"/> 与 <see cref="UiMetrics"/> 取，显示什么从 <see cref="CarrySlotBar"/> 取，
+/// <see cref="HudLayout"/> 与 <see cref="UIMetrics"/> 取，显示什么从 <see cref="CarrySlotBar"/> 取，
 /// 颜色从 <see cref="HudPalette"/> 取，位置一律走锚点预设、不出现 <c>Position</c>。
 ///
 /// **它坐在 <see cref="HudBlock.ActionBar"/> 那一块上，与关卡的技能位是同一块。** 俯视经营场景里
@@ -151,7 +151,7 @@ public sealed partial class CarrySlotBarView : Control
             AntiAliasing = false,
         };
         style.SetBorderWidthAll(1);
-        style.SetContentMarginAll(UiMetrics.PanelPadding);
+        style.SetContentMarginAll(UIMetrics.PanelPadding);
 
         var panel = new PanelContainer
         {
@@ -176,7 +176,7 @@ public sealed partial class CarrySlotBarView : Control
             var frame = new Control
             {
                 Name = $"Slot{i}",
-                CustomMinimumSize = new Vector2(UiMetrics.IconSmall, UiMetrics.IconSmall),
+                CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
                 MouseFilter = MouseFilterEnum.Ignore,
             };
             row.AddChild(frame);
@@ -216,7 +216,7 @@ public sealed partial class CarrySlotBarView : Control
                 HudAnchor.BottomRight => LayoutPreset.BottomRight,
                 _ => throw new ArgumentOutOfRangeException(nameof(HudBlock.ActionBar)),
             },
-            LayoutPresetMode.Minsize, UiMetrics.SafeMargin);
+            LayoutPresetMode.Minsize, UIMetrics.SafeMargin);
 
     /// <summary>
     /// 把六格画上去。
@@ -252,7 +252,7 @@ public sealed partial class CarrySlotBarView : Control
     {
         Name = path is null ? "Icon" : "Frame",
         Texture = path is null ? null : Art(path),
-        CustomMinimumSize = new Vector2(UiMetrics.IconSmall, UiMetrics.IconSmall),
+        CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
         StretchMode = TextureRect.StretchModeEnum.Keep,
         MouseFilter = MouseFilterEnum.Ignore,
     };

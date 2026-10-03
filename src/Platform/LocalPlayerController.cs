@@ -1,7 +1,7 @@
 using Godot;
 using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Combat;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
 namespace Tinderhearth.Platform;

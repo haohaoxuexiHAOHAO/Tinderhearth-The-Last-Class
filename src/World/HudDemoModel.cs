@@ -1,5 +1,5 @@
 using Tinderhearth.Rules.Foundation.Text;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.World;
 
@@ -24,15 +24,15 @@ namespace Tinderhearth.World;
 public static class HudDemoModel
 {
     // 演示用的量。**编的**，见类注释。
-    private const int HpMax = 34;
-    private const int HpNow = 21;
-    private const int SpMax = 20;
-    private const int SpNow = 17;
-    private const int MpMax = 24;
-    private const int MpNow = 6;
+    private const int HPMax = 34;
+    private const int HPNow = 21;
+    private const int SPMax = 20;
+    private const int SPNow = 17;
+    private const int MPMax = 24;
+    private const int MPNow = 6;
     private const int VigorMax = 12;
     private const int VigorNow = 9;
-    private const int MateHpMax = 26;
+    private const int MateHPMax = 26;
     private const double DemoCooldown = 0.55;
 
     /// <summary>目标进度的三种态，用来实机看「为 0 与已达成时仍然显示」。</summary>
@@ -71,7 +71,7 @@ public static class HudDemoModel
                                     ObjectiveState objective = ObjectiveState.InProgress)
     {
         var kinds = Enum.GetValues<HudGaugeKind>();
-        var values = new[] { (HpNow, HpMax), (SpNow, SpMax), (MpNow, MpMax), (VigorNow, VigorMax) };
+        var values = new[] { (HPNow, HPMax), (SPNow, SPMax), (MPNow, MPMax), (VigorNow, VigorMax) };
         var gauges = kinds
             .Select((kind, i) => new HudGauge(kind, text[GaugeKeys[i]], values[i].Item1, values[i].Item2))
             .ToList();
@@ -87,7 +87,7 @@ public static class HudDemoModel
 
         var mates = Enumerable.Range(0, teammates)
             // 第三位倒地，其余按名次掉一点血 —— 四格不能长得一样，否则看不出这块在表达什么。
-            .Select(i => new HudTeammate(MateHpMax - (i * i * 3), MateHpMax, Down: i == 2))
+            .Select(i => new HudTeammate(MateHPMax - (i * i * 3), MateHPMax, Down: i == 2))
             .ToList();
 
         return new HudViewModel(gauges, skills, Objective(text, objective), mates);

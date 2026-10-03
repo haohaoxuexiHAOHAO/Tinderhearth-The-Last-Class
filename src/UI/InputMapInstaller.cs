@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -27,7 +27,7 @@ public static class InputMapInstaller
     /// <remarks>
     /// 先擦再建而不是「有就跳过」：跳过的话第二次调用会静默保留上一次的绑定，将来改键做「恢复
     /// 默认」时就会得到两套叠在一起的绑定。**擦掉只擦本作自己的动作**，引擎内置的 `ui_*` 不动 ——
-    /// 界面导航用的就是它们（`UiRoot` 在用 `ui_cancel`），重定义一套只会多一份要维护的东西。
+    /// 界面导航用的就是它们（`UIRoot` 在用 `ui_cancel`），重定义一套只会多一份要维护的东西。
     /// </remarks>
     public static void Install()
     {
@@ -54,7 +54,7 @@ public static class InputMapInstaller
             }
         }
 
-        PatchBuiltinUiActions();
+        PatchBuiltinUIActions();
     }
 
     /// <summary>
@@ -65,11 +65,11 @@ public static class InputMapInstaller
     /// 带走，键鼠玩家就退不出面板了 —— 而那是「修好手柄反而弄坏键鼠」的典型形状。
     ///
     /// 为什么必须补：实测 Godot 4.7.2 的默认值里 `ui_accept` 与 `ui_cancel` **一条手柄事件都没有**
-    /// （方向那四个有）。理由与已知重叠写在 <see cref="InputBindings.BuiltinUiPatches"/>。
+    /// （方向那四个有）。理由与已知重叠写在 <see cref="InputBindings.BuiltinUIPatches"/>。
     /// </remarks>
-    private static void PatchBuiltinUiActions()
+    private static void PatchBuiltinUIActions()
     {
-        foreach (var (action, bindings) in InputBindings.BuiltinUiPatches)
+        foreach (var (action, bindings) in InputBindings.BuiltinUIPatches)
         {
             if (!InputMap.HasAction(action))
             {

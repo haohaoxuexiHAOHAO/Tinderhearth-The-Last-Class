@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -8,32 +8,32 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// 分工是刻意的：**规则在规则层，节点在这里。** 「按返回键回到哪」「关卡内哪些页能用」
-/// 「打开这一层要不要暂停」都由 <see cref="NavigationStack"/> 与 <see cref="UiSurface"/> 判，
+/// 「打开这一层要不要暂停」都由 <see cref="NavigationStack"/> 与 <see cref="UISurface"/> 判，
 /// 有单元测试盯着；本类只负责把判定结果翻译成节点的显隐与 <c>SceneTree.Paused</c>。
 ///
 /// 为什么不让各场景自己摆 CanvasLayer：那样每个界面会自己挑一个层号，迟早出现「弹窗被 HUD
 /// 挡住」，而排查时得翻遍所有场景才知道谁用了哪个号。
 ///
-/// <see cref="UiLayer.WorldSpace"/> 那一层开了 <c>FollowViewportEnabled</c> —— 它要跟着相机
+/// <see cref="UILayer.WorldSpace"/> 那一层开了 <c>FollowViewportEnabled</c> —— 它要跟着相机
 /// 走并随缩放变化，因为正典要求读条画在执行者身上而不是界面角落。
 /// </remarks>
-public partial class UiRoot : Node
+public partial class UIRoot : Node
 {
-    private readonly Dictionary<UiLayer, CanvasLayer> _layers = [];
+    private readonly Dictionary<UILayer, CanvasLayer> _layers = [];
     private readonly Dictionary<string, Control> _surfaces = [];
     private readonly NavigationStack _nav = new();
 
     /// <summary>当前场合。切场景时由场景设置，决定手环哪些页可用。</summary>
-    public UiContext Context { get; set; } = UiContext.Base;
+    public UIContext Context { get; set; } = UIContext.Base;
 
     /// <summary>导航栈。只读暴露给需要查询的地方，压弹一律走本类的方法。</summary>
     public NavigationStack Navigation => _nav;
 
     public override void _Ready()
     {
-        foreach (UiLayer layer in Enum.GetValues<UiLayer>())
+        foreach (UILayer layer in Enum.GetValues<UILayer>())
         {
-            if (layer == UiLayer.World)
+            if (layer == UILayer.World)
             {
                 continue;   // 世界不是 UI 层，它就是场景本身
             }
@@ -43,24 +43,24 @@ public partial class UiRoot : Node
                 Name = layer.ToString(),
                 Layer = (int)layer,
                 // 世界空间那一层跟随相机；其余是屏幕空间，固定不动。
-                FollowViewportEnabled = layer == UiLayer.WorldSpace,
+                FollowViewportEnabled = layer == UILayer.WorldSpace,
             };
             AddChild(canvas);
             _layers[layer] = canvas;
         }
 
         GD.Print("[界面] 层级 ", string.Join(" → ",
-            Enum.GetValues<UiLayer>().Select(l => $"{l}({(int)l})")));
-        GD.Print("[界面] 排版单位 栅格 ", UiMetrics.Grid,
-                 "｜内边距 ", UiMetrics.PanelPadding,
-                 "｜间距 ", UiMetrics.ItemGap,
-                 "｜安全边距 ", UiMetrics.SafeMargin,
-                 "｜图标 ", UiMetrics.IconSmall, "/", UiMetrics.IconLarge,
-                 "｜满宽汉字下限 ", UiMetrics.MaxFullWidthChars);
+            Enum.GetValues<UILayer>().Select(l => $"{l}({(int)l})")));
+        GD.Print("[界面] 排版单位 栅格 ", UIMetrics.Grid,
+                 "｜内边距 ", UIMetrics.PanelPadding,
+                 "｜间距 ", UIMetrics.ItemGap,
+                 "｜安全边距 ", UIMetrics.SafeMargin,
+                 "｜图标 ", UIMetrics.IconSmall, "/", UIMetrics.IconLarge,
+                 "｜满宽汉字下限 ", UIMetrics.MaxFullWidthChars);
     }
 
     /// <summary>取某一层的画布，用来往上挂节点。</summary>
-    public CanvasLayer LayerOf(UiLayer layer) =>
+    public CanvasLayer LayerOf(UILayer layer) =>
         _layers.TryGetValue(layer, out var canvas)
             ? canvas
             : throw new ArgumentOutOfRangeException(nameof(layer), $"没有这一层：{layer}");
@@ -79,7 +79,7 @@ public partial class UiRoot : Node
     /// 而且不报错。原先这行写在 `AddChild` 之前，碰巧躲过了（不在树里时那段改写不执行），
     /// 于是它的正确性依赖两行代码的先后顺序。改成显式设偏移之后就不依赖了。
     /// </remarks>
-    public void Register(UiSurface surface, Control control)
+    public void Register(UISurface surface, Control control)
     {
         if (!_surfaces.TryAdd(surface.Id, control))
         {
@@ -92,9 +92,9 @@ public partial class UiRoot : Node
     }
 
     /// <summary>打开一层。关卡内不可用的层会被拒绝并说明原因，而不是静默不动。</summary>
-    public bool Open(UiSurface surface)
+    public bool Open(UISurface surface)
     {
-        if (Context == UiContext.Level && !surface.AvailableInLevel)
+        if (Context == UIContext.Level && !surface.AvailableInLevel)
         {
             GD.Print($"[界面] 关卡内不可用：{surface.Id}（管理功能，见玩法定位 · 跨系统约定）");
             return false;
@@ -106,7 +106,7 @@ public partial class UiRoot : Node
     }
 
     /// <summary>关掉指定层。</summary>
-    public void Close(UiSurface surface)
+    public void Close(UISurface surface)
     {
         _nav.Close(surface);
         Sync();

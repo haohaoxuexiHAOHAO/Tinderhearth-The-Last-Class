@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>哪一组技能位当前有效。</summary>
 public enum SkillGroup

@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-7` 输入映射的守卫：绑定表的完整性、修饰键组合的解算、设备切换与网格光标。
@@ -558,17 +558,17 @@ public class InputMappingTests
     public void 内置的确认与返回都补了手柄绑定()
     {
         // 实测：Godot 4.7.2 的默认值里方向四个有手柄事件，ui_accept 与 ui_cancel 一条都没有。
-        // 不补的话手柄能挪焦点却按不下去也退不出来，而 UiRoot 的返回键就是 ui_cancel。
-        Assert.Equal(2, InputBindings.BuiltinUiPatches.Count);
-        Assert.Equal(InputSymbol.PadFaceBottom, InputBindings.BuiltinUiPatches["ui_accept"][0].Symbol);
-        Assert.Equal(InputSymbol.PadFaceRight, InputBindings.BuiltinUiPatches["ui_cancel"][0].Symbol);
+        // 不补的话手柄能挪焦点却按不下去也退不出来，而 UIRoot 的返回键就是 ui_cancel。
+        Assert.Equal(2, InputBindings.BuiltinUIPatches.Count);
+        Assert.Equal(InputSymbol.PadFaceBottom, InputBindings.BuiltinUIPatches["ui_accept"][0].Symbol);
+        Assert.Equal(InputSymbol.PadFaceRight, InputBindings.BuiltinUIPatches["ui_cancel"][0].Symbol);
     }
 
     [Fact]
     public void 内置补丁只补手柄不碰键鼠()
     {
         // 补丁若含键鼠绑定，就有把 Enter／Escape 覆盖掉的风险 —— 那是「修好手柄反而弄坏键鼠」。
-        foreach (var (action, bindings) in InputBindings.BuiltinUiPatches)
+        foreach (var (action, bindings) in InputBindings.BuiltinUIPatches)
         {
             Assert.NotEmpty(bindings);
             foreach (var binding in bindings)

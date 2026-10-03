@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 按键提示的短记号（`UI-8` 显示、`FR-18`）。**从绑定表推，不另抄一份键位。**

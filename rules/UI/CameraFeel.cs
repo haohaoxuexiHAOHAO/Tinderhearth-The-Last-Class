@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 相机手感的**初值**（`UI-5`）。**这些数还没实机收敛过，归 `UI-12`。**
@@ -15,7 +15,7 @@ namespace Tinderhearth.Rules.Ui;
 /// mod 能把死区改成 0，那会让所有关卡在未知取景下运行。**可建造区尺寸是另一回事**，它是场景
 /// 规模、确实从配置读（PRD 的 `FR-24`）。
 ///
-/// **放规则层而不是引擎层**，理由与 <see cref="UiMetrics"/> 相同：它们之间有可以判死的关系 ——
+/// **放规则层而不是引擎层**，理由与 <see cref="UIMetrics"/> 相同：它们之间有可以判死的关系 ——
 /// 屏幕像素量必须能被侧视缩放整除，否则换算到世界像素就出现半像素，而半像素会破坏像素对齐
 /// （已实测，见 `UI-5` 的实现笔记）。有测试盯着这些关系，改坏当场失败。
 ///
@@ -110,5 +110,5 @@ public static class CameraFeel
     public const int ScrollPixelsPerSecond = 384;
 
     /// <summary>边缘推镜触发余量换算成世界像素。</summary>
-    public static int EdgePushMarginPixels => EdgePushMarginCells * UiMetrics.BaseUnit;
+    public static int EdgePushMarginPixels => EdgePushMarginCells * UIMetrics.BaseUnit;
 }

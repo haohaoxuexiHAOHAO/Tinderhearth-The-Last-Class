@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>HUD 的四块内容。**一块一个锚点**，块内靠容器排。</summary>
 public enum HudBlock
@@ -80,10 +80,10 @@ public readonly record struct HudRect(int X, int Y, int Width, int Height)
 }
 
 /// <summary>
-/// HUD 的排版尺寸与放置（`UI-8`）。**尺寸全部从 <see cref="UiMetrics"/> 推，不新定一套。**
+/// HUD 的排版尺寸与放置（`UI-8`）。**尺寸全部从 <see cref="UIMetrics"/> 推，不新定一套。**
 /// </summary>
 /// <remarks>
-/// 为什么这些数在规则层：与 <see cref="UiMetrics"/> 同一条理由 —— 它们之间有**可以判死的关系**
+/// 为什么这些数在规则层：与 <see cref="UIMetrics"/> 同一条理由 —— 它们之间有**可以判死的关系**
 /// （块高是行高的整数倍、块不许压到角色所在的可读区、居中偏移是不是整数），放这里就能用单元测试
 /// 盯住。更要紧的是引擎层因此**一个数字字面量都不需要** —— 「HUD 里没有写死的数」这条原先有静态
 /// 扫描守着，守卫随 `ADR-0009` 删除，现在是 `CONVENTIONS.md` 里的一条约定。
@@ -144,16 +144,16 @@ public static class HudLayout
     public static int SkillGroupCount => InputActions.Skills.Count / SkillsPerGroup;
 
     /// <summary>资源条标签列宽。</summary>
-    public static int GaugeLabelWidth => GaugeLabelChars * UiMetrics.FontSize;
+    public static int GaugeLabelWidth => GaugeLabelChars * UIMetrics.FontSize;
 
     /// <summary>资源条填充部分的宽。</summary>
-    public static int GaugeBarWidth => GaugeBarUnits * UiMetrics.BaseUnit;
+    public static int GaugeBarWidth => GaugeBarUnits * UIMetrics.BaseUnit;
 
     /// <summary>一条资源占的高。取行高，好让标签与条在同一条基线节奏上。</summary>
-    public static int GaugeRowHeight => UiMetrics.LineHeight;
+    public static int GaugeRowHeight => UIMetrics.LineHeight;
 
     /// <summary>一个技能位单元的高：手柄按键提示叠在图标内，不另占一行。</summary>
-    public static int SkillCellHeight => UiMetrics.IconSmall;
+    public static int SkillCellHeight => UIMetrics.IconSmall;
 
     /// <summary>
     /// 随身栏有几格（`UI-34`）。**与技能位同一个数**，所以两种内容同宽由算式保证。
@@ -171,7 +171,7 @@ public static class HudLayout
     /// 框，多出来的那一格空隙留在中间，与技能位那道分界对齐。这样两种内容的格子落在同一批
     /// 横坐标上，换场景时格位不跳。
     /// </remarks>
-    public static int CarryRowWidth => CarrySlotCount * UiMetrics.IconSmall;
+    public static int CarryRowWidth => CarrySlotCount * UIMetrics.IconSmall;
 
     /// <summary>
     /// 一组技能位横排占的宽：三个紧邻的图标格。
@@ -185,7 +185,7 @@ public static class HudLayout
     /// 面键记号**。左组＝左扳机、右组＝右扳机是位置约定，按住任一扳机时的高亮会当场教会玩家。
     /// 手柄呈现效果由脚手架 `G` 键（不接手柄也能预览）人工验收，见 `UI-8` 待确认。
     /// </remarks>
-    public static int SkillGroupWidth => SkillsPerGroup * UiMetrics.IconSmall;
+    public static int SkillGroupWidth => SkillsPerGroup * UIMetrics.IconSmall;
 
     /// <summary>
     /// 取一块的**内容区**尺寸（不含面板内边距）。
@@ -199,13 +199,13 @@ public static class HudLayout
     {
         HudBlock.Objective => new HudRect(
             X: 0, Y: 0,
-            Width: UiMetrics.IconSmall + UiMetrics.ItemGap
-                   + (ObjectiveMaxChars * UiMetrics.FontSize),
-            Height: UiMetrics.LineHeight),
+            Width: UIMetrics.IconSmall + UIMetrics.ItemGap
+                   + (ObjectiveMaxChars * UIMetrics.FontSize),
+            Height: UIMetrics.LineHeight),
 
         HudBlock.Resources => new HudRect(
             X: 0, Y: 0,
-            Width: GaugeLabelWidth + UiMetrics.ItemGap + GaugeBarWidth,
+            Width: GaugeLabelWidth + UIMetrics.ItemGap + GaugeBarWidth,
             Height: GaugeCount * GaugeRowHeight),
 
         // 六个格一行横排，两组之间空一个栅格。关卡里那道空隙是「这三个归左扳机、那三个归右扳机」
@@ -214,12 +214,12 @@ public static class HudLayout
         HudBlock.ActionBar => new HudRect(
             X: 0, Y: 0,
             Width: (SkillGroupCount * SkillGroupWidth)
-                   + ((SkillGroupCount - 1) * UiMetrics.Grid),
+                   + ((SkillGroupCount - 1) * UIMetrics.Grid),
             Height: SkillCellHeight),
 
         HudBlock.Teammates => new HudRect(
             X: 0, Y: 0,
-            Width: (MaxTeammates * PortraitSize) + ((MaxTeammates - 1) * UiMetrics.ItemGap),
+            Width: (MaxTeammates * PortraitSize) + ((MaxTeammates - 1) * UIMetrics.ItemGap),
             Height: PortraitSize + GaugeBarHeight),
 
         _ => throw new ArgumentOutOfRangeException(nameof(block), $"没有这一块：{block}"),
@@ -229,7 +229,7 @@ public static class HudLayout
     public static HudRect SizeOf(HudBlock block)
     {
         var content = ContentSizeOf(block);
-        var both = UiMetrics.PanelPadding * 2;
+        var both = UIMetrics.PanelPadding * 2;
         return new HudRect(0, 0, content.Width + both, content.Height + both);
     }
 
@@ -271,7 +271,7 @@ public static class HudLayout
     public static HudRect RectOf(HudBlock block, int viewportWidth, int viewportHeight)
     {
         var size = SizeOf(block);
-        var margin = UiMetrics.SafeMargin;
+        var margin = UIMetrics.SafeMargin;
         var (x, y) = AnchorOf(block) switch
         {
             HudAnchor.TopLeft => (margin, margin),
@@ -307,9 +307,9 @@ public static class HudLayout
     public static HudRect ActorBand(int viewportWidth, int viewportHeight)
     {
         var halfW = CameraFeel.DeadzoneHalfWidthScreenPx
-                    + (UiMetrics.IconLarge * UiMetrics.SideViewZoom / 2);
+                    + (UIMetrics.IconLarge * UIMetrics.SideViewZoom / 2);
         var halfH = CameraFeel.DeadzoneHalfHeightScreenPx
-                    + (UiMetrics.IconLarge * UiMetrics.SideViewZoom / 2);
+                    + (UIMetrics.IconLarge * UIMetrics.SideViewZoom / 2);
         return new HudRect((viewportWidth / 2) - halfW, (viewportHeight / 2) - halfH,
                            halfW * 2, halfH * 2);
     }

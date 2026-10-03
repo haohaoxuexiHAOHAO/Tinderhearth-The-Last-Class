@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -7,30 +7,30 @@ namespace Tinderhearth.UI;
 /// 世界空间 UI（`UI-9`）：读条圆环、精英血条、伤害数字。**画在执行者身上、随角色走。**
 /// </summary>
 /// <remarks>
-/// **挂在 <see cref="UiLayer.WorldSpace"/> 那一层，不是 <see cref="UiLayer.Hud"/>。** 这是本条的
+/// **挂在 <see cref="UILayer.WorldSpace"/> 那一层，不是 <see cref="UILayer.Hud"/>。** 这是本条的
 /// 核心约束：正典要求[读条画在执行者身上而不是界面角落]。世界空间层开了 <c>FollowViewportEnabled</c>
-/// （见 <see cref="UiRoot"/>），于是这层的子节点用世界坐标、自动跟相机变换与 2 倍缩放 —— 元素只要
+/// （见 <see cref="UIRoot"/>），于是这层的子节点用世界坐标、自动跟相机变换与 2 倍缩放 —— 元素只要
 /// 把 <see cref="Node2D.Position"/> 设成目标的 <see cref="Node2D.GlobalPosition"/> 就对齐了，不必手算
 /// 世界到屏幕的投影。**挂载点必须是世界空间层、不能改成 Hud 层** —— 改了不报错，表现是读条跑到
 /// 界面角落、不再跟着角色走。原先有静态守卫盯这一点，随 `ADR-0009` 删除，现在是一条约定。
 ///
-/// 尺寸与偏移全取自 <see cref="WorldUiLayout"/>，值取自视图模型（<see cref="CastState"/> 等）——
+/// 尺寸与偏移全取自 <see cref="WorldUILayout"/>，值取自视图模型（<see cref="CastState"/> 等）——
 /// 与 <see cref="LevelHud"/> 同一分层纪律：这里不写玩法数字（读条时长、血量上限归各玩法实现）。
 ///
 /// 冷暖色都用不透明色（<see cref="PixelTheme.ToColor"/>，alpha 恒满）：伤害数字到期直接消失、
 /// 不做半透明淡出（像素绘制原则 §9）。
 /// </remarks>
-public sealed partial class WorldSpaceUi : Node
+public sealed partial class WorldSpaceUI : Node
 {
     private readonly CanvasLayer _layer;
     private readonly CastRing _ring;
     private readonly List<WorldHealthBar> _bars = [];
     private readonly List<DamageNumber> _damage = [];
-    private WorldUiOptions _options = WorldUiOptions.Default;
+    private WorldUIOptions _options = WorldUIOptions.Default;
 
-    public WorldSpaceUi(UiRoot ui)
+    public WorldSpaceUI(UIRoot ui)
     {
-        _layer = ui.LayerOf(UiLayer.WorldSpace);        // ← 世界空间层，UI-9 的挂载点
+        _layer = ui.LayerOf(UILayer.WorldSpace);        // ← 世界空间层，UI-9 的挂载点
         _ring = new CastRing();
         _layer.AddChild(_ring);
     }
@@ -94,7 +94,7 @@ public sealed partial class WorldSpaceUi : Node
     /// 离开场景树时收掉自己挂在世界空间层上的元素。
     /// </summary>
     /// <remarks>
-    /// 元素是本管理器加到 <see cref="UiLayer.WorldSpace"/> 层的（不是本节点的子节点），
+    /// 元素是本管理器加到 <see cref="UILayer.WorldSpace"/> 层的（不是本节点的子节点），
     /// 所以本节点被释放时不会自动带走它们 —— 探针跑完要让层回到干净状态，得显式收。
     /// </remarks>
     public override void _ExitTree()
@@ -116,8 +116,8 @@ public sealed partial class WorldSpaceUi : Node
         _damage.Clear();
     }
 
-    /// <summary>设呈现开关（伤害数字默认关，见 <see cref="WorldUiOptions"/>）。</summary>
-    public void SetOptions(WorldUiOptions options) => _options = options;
+    /// <summary>设呈现开关（伤害数字默认关，见 <see cref="WorldUIOptions"/>）。</summary>
+    public void SetOptions(WorldUIOptions options) => _options = options;
 
     /// <summary>在目标头顶冒一个伤害数字。**开关关着时什么都不做**（正典：默认关）。</summary>
     public void PopDamage(Node2D target, int amount)
@@ -159,7 +159,7 @@ public sealed partial class CastRing : Node2D
         {
             Name = "Base",
             Centered = true,
-            Texture = WorldSpaceUi.LoadArt("res://assets/placeholder/ui/cast-ring.png"),
+            Texture = WorldSpaceUI.LoadArt("res://assets/placeholder/ui/cast-ring.png"),
         });
     }
 
@@ -189,8 +189,8 @@ public sealed partial class CastRing : Node2D
 
         var start = -Mathf.Pi / 2f;                                 // 从 12 点方向起
         var sweep = (float)(_state.ClampedProgress * Mathf.Tau);    // 顺时针一整圈 = 满
-        DrawArc(Vector2.Zero, WorldUiLayout.ArcRadius, start, start + sweep,
-            WorldUiLayout.ArcSegments, _arc, WorldUiLayout.ArcWidthPx);
+        DrawArc(Vector2.Zero, WorldUILayout.ArcRadius, start, start + sweep,
+            WorldUILayout.ArcSegments, _arc, WorldUILayout.ArcWidthPx);
     }
 
     /// <summary>探针读回：当前进度。</summary>
@@ -235,9 +235,9 @@ public sealed partial class WorldHealthBar : Node2D
             return;
         }
 
-        var w = WorldUiLayout.EliteBarWidth;
-        var h = WorldUiLayout.EliteBarHeight;
-        var origin = new Vector2(-w / 2f, WorldUiLayout.EliteBarOffsetY);   // 居中于头顶上方
+        var w = WorldUILayout.EliteBarWidth;
+        var h = WorldUILayout.EliteBarHeight;
+        var origin = new Vector2(-w / 2f, WorldUILayout.EliteBarOffsetY);   // 居中于头顶上方
         DrawRect(new Rect2(origin, new Vector2(w, h)), _track);
         var fill = (int)Mathf.Round(_health.Ratio * w);
         DrawRect(new Rect2(origin, new Vector2(fill, h)), _fill);
@@ -250,7 +250,7 @@ public sealed partial class WorldHealthBar : Node2D
     public double Ratio => _health.Ratio;
 }
 
-/// <summary>伤害数字：从头顶冒出、向上飘 <see cref="WorldUiLayout.DamageFloatDistancePx"/> 后消失。</summary>
+/// <summary>伤害数字：从头顶冒出、向上飘 <see cref="WorldUILayout.DamageFloatDistancePx"/> 后消失。</summary>
 public sealed partial class DamageNumber : Node2D
 {
     private readonly Color _color = PixelTheme.ToColor(HudPalette.Hot);
@@ -263,26 +263,26 @@ public sealed partial class DamageNumber : Node2D
         Name = "DamageNumber";
         _amount = amount;
         _base = spawnWorldPos;
-        Position = spawnWorldPos + new Vector2(0, WorldUiLayout.DamageStartOffsetY);
+        Position = spawnWorldPos + new Vector2(0, WorldUILayout.DamageStartOffsetY);
     }
 
     public override void _Process(double delta)
     {
         _elapsed += delta;
-        var life = _elapsed / WorldUiLayout.DamageLifetimeSeconds;
+        var life = _elapsed / WorldUILayout.DamageLifetimeSeconds;
         if (life >= 1.0)
         {
             QueueFree();        // 到期消失，不做半透明淡出（无 alpha）
             return;
         }
 
-        Position = _base + new Vector2(0, (float)WorldUiLayout.DamageRiseAt(life));
+        Position = _base + new Vector2(0, (float)WorldUILayout.DamageRiseAt(life));
     }
 
     public override void _Draw()
     {
-        var w = WorldUiLayout.EliteBarWidth;    // 借一个居中用的文本框宽
+        var w = WorldUILayout.EliteBarWidth;    // 借一个居中用的文本框宽
         DrawString(ThemeDB.FallbackFont, new Vector2(-w / 2f, 0), _amount.ToString(),
-            HorizontalAlignment.Center, w, UiMetrics.FontSize, _color);
+            HorizontalAlignment.Center, w, UIMetrics.FontSize, _color);
     }
 }

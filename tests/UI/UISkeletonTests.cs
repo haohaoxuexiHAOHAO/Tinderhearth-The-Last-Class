@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-6` 界面骨架的守卫：层级、导航栈、手环可用性与排版单位。
@@ -14,33 +14,33 @@ namespace Tinderhearth.Rules.Tests.Ui;
 /// **不含任何玩法数值**（`GP-2` 归他自己）。这里测的是排版单位之间的**关系**与界面规则，
 /// 不是「某个数应该是几」—— 所以改分辨率或字号时，该失败的是关系被破坏的那一条。
 /// </remarks>
-public class UiSkeletonTests
+public class UISkeletonTests
 {
-    private static readonly UiSurface Backpack =
-        new("backpack", UiLayer.Panel, SurfaceKind.Carried);
+    private static readonly UISurface Backpack =
+        new("backpack", UILayer.Panel, SurfaceKind.Carried);
 
-    private static readonly UiSurface Roster =
-        new("roster", UiLayer.Panel, SurfaceKind.Manage);
+    private static readonly UISurface Roster =
+        new("roster", UILayer.Panel, SurfaceKind.Manage);
 
-    private static readonly UiSurface Confirm =
-        new("confirm", UiLayer.Dialog, SurfaceKind.View);
+    private static readonly UISurface Confirm =
+        new("confirm", UILayer.Dialog, SurfaceKind.View);
 
     [Fact]
     public void 层级自下而上的顺序固定()
     {
-        Assert.True(UiLayer.World < UiLayer.WorldSpace);
-        Assert.True(UiLayer.WorldSpace < UiLayer.Hud);
-        Assert.True(UiLayer.Hud < UiLayer.Panel);
-        Assert.True(UiLayer.Panel < UiLayer.Dialog);
-        Assert.True(UiLayer.Dialog < UiLayer.Curtain);
+        Assert.True(UILayer.World < UILayer.WorldSpace);
+        Assert.True(UILayer.WorldSpace < UILayer.Hud);
+        Assert.True(UILayer.Hud < UILayer.Panel);
+        Assert.True(UILayer.Panel < UILayer.Dialog);
+        Assert.True(UILayer.Dialog < UILayer.Curtain);
     }
 
     [Fact]
     public void 世界空间UI单独成层而不是混进HUD()
     {
         // 读条要画在执行者身上、跟着角色移动；混进 HUD 层就会变成固定在屏幕角落。
-        Assert.NotEqual(UiLayer.Hud, UiLayer.WorldSpace);
-        Assert.True(UiLayer.WorldSpace < UiLayer.Hud);
+        Assert.NotEqual(UILayer.Hud, UILayer.WorldSpace);
+        Assert.True(UILayer.WorldSpace < UILayer.Hud);
     }
 
     [Fact]
@@ -109,8 +109,8 @@ public class UiSkeletonTests
     [Fact]
     public void 关卡内手环只留查看类标签页()
     {
-        var inLevel = Wristband.AvailableIn(UiContext.Level).Select(t => t.Id).ToList();
-        var inBase = Wristband.AvailableIn(UiContext.Base).Select(t => t.Id).ToList();
+        var inLevel = Wristband.AvailableIn(UIContext.Level).Select(t => t.Id).ToList();
+        var inBase = Wristband.AvailableIn(UIContext.Base).Select(t => t.Id).ToList();
 
         Assert.Equal(Wristband.Tabs.Count, inBase.Count);        // 基地里全开
         Assert.Contains("codex", inLevel);                       // 图鉴：正典明说可查看
@@ -124,27 +124,27 @@ public class UiSkeletonTests
     public void 手环标签页拼错时抛而不是静默判成不可用()
     {
         // 静默返回 false 会让「拼错 id」和「这里确实不可用」长得一模一样。
-        Assert.Throws<KeyNotFoundException>(() => Wristband.IsEnabled("assgin", UiContext.Base));
+        Assert.Throws<KeyNotFoundException>(() => Wristband.IsEnabled("assgin", UIContext.Base));
     }
 
     [Fact]
     public void 排版栅格与基础单位和逻辑分辨率都对得上()
     {
-        Assert.Equal(0, UiMetrics.BaseUnit % UiMetrics.Grid);      // 栅格整除基础单位
-        Assert.Equal(0, UiMetrics.BaseWidth % UiMetrics.Grid);     // 横向不出现半格
-        Assert.Equal(0, UiMetrics.BaseHeight % UiMetrics.Grid);    // 纵向同上
-        Assert.Equal(0, UiMetrics.SafeMargin % UiMetrics.Grid);    // 安全边距是整数格
+        Assert.Equal(0, UIMetrics.BaseUnit % UIMetrics.Grid);      // 栅格整除基础单位
+        Assert.Equal(0, UIMetrics.BaseWidth % UIMetrics.Grid);     // 横向不出现半格
+        Assert.Equal(0, UIMetrics.BaseHeight % UIMetrics.Grid);    // 纵向同上
+        Assert.Equal(0, UIMetrics.SafeMargin % UIMetrics.Grid);    // 安全边距是整数格
     }
 
     [Fact]
     public void 行高与字号的关系保持整数且面板装得下一行文字()
     {
-        Assert.Equal(0, UiMetrics.LineHeight % 2);
-        Assert.True(UiMetrics.LineHeight > UiMetrics.FontSize);
+        Assert.Equal(0, UIMetrics.LineHeight % 2);
+        Assert.True(UIMetrics.LineHeight > UIMetrics.FontSize);
 
         // 1px 边框 + 内边距 + 一行文字 + 内边距 + 1px 边框，必须塞进 24px 高的面板。
-        var needed = 1 + UiMetrics.PanelPadding + UiMetrics.FontSize
-                     + UiMetrics.PanelPadding + 1;
+        var needed = 1 + UIMetrics.PanelPadding + UIMetrics.FontSize
+                     + UIMetrics.PanelPadding + 1;
         Assert.True(needed <= 24, $"一行文字连边框共占 {needed}px，超过 24px 的面板高度");
     }
 
@@ -152,16 +152,16 @@ public class UiSkeletonTests
     public void 侧视有效视野是逻辑分辨率的一半且能被基础单位整除()
     {
         // 正典把侧视相机定为 2 倍整数缩放，所以能看到的世界只有一半宽高。
-        Assert.Equal(320, UiMetrics.SideViewWorldWidth);
-        Assert.Equal(180, UiMetrics.SideViewWorldHeight);
-        Assert.Equal(0, UiMetrics.SideViewWorldWidth % UiMetrics.BaseUnit);
+        Assert.Equal(320, UIMetrics.SideViewWorldWidth);
+        Assert.Equal(180, UIMetrics.SideViewWorldHeight);
+        Assert.Equal(0, UIMetrics.SideViewWorldWidth % UIMetrics.BaseUnit);
     }
 
     [Fact]
     public void 满宽汉字数是下限而不是定值()
     {
         // aspect="expand" 下逻辑宽度会随窗口宽高比撑开，所以这个数只能当地板用。
-        Assert.Equal((640 - 8 * 2) / 12, UiMetrics.MaxFullWidthChars);
-        Assert.True(UiMetrics.MaxFullWidthChars >= 50);
+        Assert.Equal((640 - 8 * 2) / 12, UIMetrics.MaxFullWidthChars);
+        Assert.True(UIMetrics.MaxFullWidthChars >= 50);
     }
 }

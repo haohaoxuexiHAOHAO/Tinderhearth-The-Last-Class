@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>一次输入信号的形状。**决定它有没有资格切换设备提示。**</summary>
 public enum InputSignalKind

@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 输入动作名（`UI-7`）。**与设备无关** —— 玩法代码只认这些名字，不认按键。
@@ -17,7 +17,7 @@ namespace Tinderhearth.Rules.Ui;
 /// **<see cref="EnterInterior"/> 也不在那份战斗清单里** —— 它是经营侧的，来源是 [ADR-0027]
 /// （进出建筑室内改成点一下门）。那份清单管的是侧视战斗，所以经营侧新增一个动作不算破例。
 ///
-/// **界面动作刻意不在这里。** 返回、确认与焦点移动用引擎内置的 `ui_*`（`UiRoot` 已经在用
+/// **界面动作刻意不在这里。** 返回、确认与焦点移动用引擎内置的 `ui_*`（`UIRoot` 已经在用
 /// `ui_cancel`），重复定义一套只会多一份要维护的东西。打开手环／背包的动作也不在本条范围。
 /// </remarks>
 public static class InputActions

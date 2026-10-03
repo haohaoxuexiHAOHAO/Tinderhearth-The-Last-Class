@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 一个可被导航栈管理的界面（`UI-6`）。只是标识与几条声明，不含任何节点。
@@ -11,11 +11,11 @@ namespace Tinderhearth.Rules.Ui;
 /// </param>
 /// <remarks>
 /// **没有「要不要暂停」这个字段。** 正典的判据是「任何弹出界面并接管输入的东西一律暂停世界」
-/// （[玩法定位 · 弹界面接管输入就暂停世界，世界里的动作不暂停]），而 <see cref="UiSurface"/>
+/// （[玩法定位 · 弹界面接管输入就暂停世界，世界里的动作不暂停]），而 <see cref="UISurface"/>
 /// 按定义就是这样的东西 —— 所以暂停由 <see cref="NavigationStack.WorldShouldPause"/> 按「栈里
 /// 有没有层」判，不由各面板自己声明。**留一个恒为真的开关等于给人一个设错的机会。**
 /// </remarks>
-public sealed record UiSurface(string Id, UiLayer Layer, SurfaceKind Kind)
+public sealed record UISurface(string Id, UILayer Layer, SurfaceKind Kind)
 {
     /// <summary>这一层在关卡内能不能用。</summary>
     public bool AvailableInLevel => Kind != SurfaceKind.Manage;

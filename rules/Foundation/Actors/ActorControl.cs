@@ -8,7 +8,7 @@ namespace Tinderhearth.Rules.Foundation.Actors;
 public enum ActorControllerKind
 {
     LocalPlayer,
-    Ai,
+    AI,
     Remote,
 }
 

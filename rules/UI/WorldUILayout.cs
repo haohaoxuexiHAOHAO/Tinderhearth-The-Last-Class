@@ -1,10 +1,10 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 世界空间 UI 的几何（`UI-9`）：读条圆环、精英血条、伤害数字的尺寸与相对执行者的偏移。
 /// </summary>
 /// <remarks>
-/// 为什么放规则层：与 <see cref="HudLayout"/>、<see cref="UiMetrics"/> 同理 —— 这些数之间有
+/// 为什么放规则层：与 <see cref="HudLayout"/>、<see cref="UIMetrics"/> 同理 —— 这些数之间有
 /// **可以判死的关系**（圆环直径等于占位件、血条宽对齐剪影、进度弧半径落在墨环内侧），放这里
 /// 就能用单元测试盯住，引擎层于是不写任何数字字面量。
 ///
@@ -12,13 +12,13 @@ namespace Tinderhearth.Rules.Ui;
 /// 的震动幅度同类 —— 属呈现规则，与 `GP-2` 无关，也不外置成配置（mod 不该改表现）。
 ///
 /// 世界空间的单位是**世界像素**：侧视 2 倍缩放后每个世界像素占 2 个物理像素，与精灵同步放大，
-/// 所以这里的数不乘缩放（缩放由 <see cref="UiLayer.WorldSpace"/> 那层的 FollowViewport 承担）。
+/// 所以这里的数不乘缩放（缩放由 <see cref="UILayer.WorldSpace"/> 那层的 FollowViewport 承担）。
 /// </remarks>
-public static class WorldUiLayout
+public static class WorldUILayout
 {
     // ── 读条圆环（画在执行者身上，居中）──────────────────────────────
     /// <summary>圆环直径。与占位件 `cast-ring.png` 同尺寸（16×16），替换时不必改代码。</summary>
-    public const int RingDiameter = UiMetrics.IconSmall;
+    public const int RingDiameter = UIMetrics.IconSmall;
 
     /// <summary>圆环半径。</summary>
     public static int RingRadius => RingDiameter / 2;
@@ -34,24 +34,24 @@ public static class WorldUiLayout
 
     // ── 精英 / BOSS 血条（贴在剪影头顶上方）──────────────────────────
     /// <summary>血条宽。对齐 32px 剪影，一眼看出是这个敌人的血。</summary>
-    public const int EliteBarWidth = UiMetrics.IconLarge;
+    public const int EliteBarWidth = UIMetrics.IconLarge;
 
     /// <summary>血条高。取内边距量级（4px），与屏幕空间资源条同一视觉重量。</summary>
-    public const int EliteBarHeight = UiMetrics.PanelPadding;
+    public const int EliteBarHeight = UIMetrics.PanelPadding;
 
     /// <summary>
     /// 血条相对剪影中心的纵向偏移（世界像素，向上为负）：半个剪影 + 一格间距 + 血条本身，
     /// 让它浮在头顶、不压住 32px 剪影的可读区。
     /// </summary>
     public static int EliteBarOffsetY =>
-        -(UiMetrics.IconLarge / 2 + UiMetrics.ItemGap + EliteBarHeight);
+        -(UIMetrics.IconLarge / 2 + UIMetrics.ItemGap + EliteBarHeight);
 
     // ── 伤害数字（从头顶冒出、向上飘一段后消失）────────────────────────
     /// <summary>伤害数字起始纵向偏移（世界像素，向上为负）：正好在头顶。</summary>
-    public static int DamageStartOffsetY => -(UiMetrics.IconLarge / 2);
+    public static int DamageStartOffsetY => -(UIMetrics.IconLarge / 2);
 
     /// <summary>飘升距离：一个基础单位（16 世界像素）。</summary>
-    public const int DamageFloatDistancePx = UiMetrics.BaseUnit;
+    public const int DamageFloatDistancePx = UIMetrics.BaseUnit;
 
     /// <summary>
     /// 飘字生命周期（秒）。表现时长，不是玩法数值 —— 短到够看清一次跳字。到期直接消失，

@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 手环：经营侧界面的统一容器（`UI-6`）。本类只管**有哪些标签页、各自在什么场合可用**。
@@ -18,8 +18,8 @@ namespace Tinderhearth.Rules.Ui;
 public static class Wristband
 {
     /// <summary>手环容器本身。它是一个面板，所以打开时世界暂停。</summary>
-    public static readonly UiSurface Surface =
-        new("wristband", UiLayer.Panel, SurfaceKind.View);
+    public static readonly UISurface Surface =
+        new("wristband", UILayer.Panel, SurfaceKind.View);
 
     /// <summary>标签页，顺序即显示顺序。查看类在前，操作类在后。</summary>
     public static readonly IReadOnlyList<WristbandTab> Tabs =
@@ -34,11 +34,11 @@ public static class Wristband
     ];
 
     /// <summary>在给定场合下可用的标签页。</summary>
-    public static IEnumerable<WristbandTab> AvailableIn(UiContext context) =>
+    public static IEnumerable<WristbandTab> AvailableIn(UIContext context) =>
         Tabs.Where(t => t.AvailableIn(context));
 
     /// <summary>某个标签页在给定场合下可不可用。找不到该 id 时抛 —— 拼错不该静默变成「不可用」。</summary>
-    public static bool IsEnabled(string tabId, UiContext context)
+    public static bool IsEnabled(string tabId, UIContext context)
     {
         var tab = Tabs.FirstOrDefault(t => t.Id == tabId)
             ?? throw new KeyNotFoundException($"手环没有这个标签页：{tabId}");
@@ -52,12 +52,12 @@ public static class Wristband
 public sealed record WristbandTab(string Id, SurfaceKind Kind)
 {
     /// <summary>关卡内只允许查看类；基地与城区两类都可用。</summary>
-    public bool AvailableIn(UiContext context) =>
-        context != UiContext.Level || Kind != SurfaceKind.Manage;
+    public bool AvailableIn(UIContext context) =>
+        context != UIContext.Level || Kind != SurfaceKind.Manage;
 }
 
 /// <summary>界面所处的场合。**只有两种**，因为正典的视角规则只有两种且无例外。</summary>
-public enum UiContext
+public enum UIContext
 {
     /// <summary>俯视的基地与城区。经营侧操作在这里进行。</summary>
     Base,

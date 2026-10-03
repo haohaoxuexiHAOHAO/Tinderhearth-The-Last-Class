@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -25,7 +25,7 @@ public partial class WristbandPanel : Control
     private string _activeTab = "";
 
     /// <summary>当前场合。改它会立刻重算哪些标签页可用。</summary>
-    public UiContext Context
+    public UIContext Context
     {
         get => _context;
         set
@@ -35,7 +35,7 @@ public partial class WristbandPanel : Control
         }
     }
 
-    private UiContext _context = UiContext.Base;
+    private UIContext _context = UIContext.Base;
 
     public override void _Ready()
     {
@@ -43,16 +43,16 @@ public partial class WristbandPanel : Control
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         foreach (var side in new[] { "left", "top", "right", "bottom" })
         {
-            margin.AddThemeConstantOverride($"margin_{side}", UiMetrics.SafeMargin);
+            margin.AddThemeConstantOverride($"margin_{side}", UIMetrics.SafeMargin);
         }
         AddChild(margin);
 
         var column = new VBoxContainer { Name = "Column" };
-        column.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
+        column.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
         margin.AddChild(column);
 
         var tabs = new HBoxContainer { Name = "Tabs" };
-        tabs.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
+        tabs.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
         column.AddChild(tabs);
 
         foreach (var tab in Wristband.Tabs)

@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 一个**完全不透明**的颜色。规则层不引用 Godot，所以自己定，翻译在引擎层。

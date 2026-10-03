@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// 世界空间 UI 的规则层测试（`UI-9`）：几何关系、读条/血条/伤害数字的视图模型契约。
@@ -13,44 +13,44 @@ public class WorldSpaceTests
     [Fact]
     public void 世界空间层在世界之上而在HUD之下()
     {
-        Assert.True(UiLayer.World < UiLayer.WorldSpace, "世界空间 UI 要盖在世界内容之上");
-        Assert.True(UiLayer.WorldSpace < UiLayer.Hud, "读条画在执行者身上，混进 HUD 会固定在屏幕角落");
+        Assert.True(UILayer.World < UILayer.WorldSpace, "世界空间 UI 要盖在世界内容之上");
+        Assert.True(UILayer.WorldSpace < UILayer.Hud, "读条画在执行者身上，混进 HUD 会固定在屏幕角落");
     }
 
     // ── 几何关系 ──────────────────────────────────────────────────────
     [Fact]
     public void 读条圆环直径等于小图标档且是半径两倍()
     {
-        Assert.Equal(UiMetrics.IconSmall, WorldUiLayout.RingDiameter);
-        Assert.Equal(WorldUiLayout.RingDiameter, WorldUiLayout.RingRadius * 2);
+        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingDiameter);
+        Assert.Equal(WorldUILayout.RingDiameter, WorldUILayout.RingRadius * 2);
     }
 
     [Fact]
     public void 进度弧半径落在墨环内侧()
     {
-        Assert.True(WorldUiLayout.ArcRadius < WorldUiLayout.RingRadius, "弧要压在底环内侧，不超出圆外");
-        Assert.True(WorldUiLayout.ArcRadius > 0, "弧半径要是正数");
+        Assert.True(WorldUILayout.ArcRadius < WorldUILayout.RingRadius, "弧要压在底环内侧，不超出圆外");
+        Assert.True(WorldUILayout.ArcRadius > 0, "弧半径要是正数");
     }
 
     [Fact]
     public void 精英血条宽对齐剪影而高为内边距量级()
     {
-        Assert.Equal(UiMetrics.IconLarge, WorldUiLayout.EliteBarWidth);
-        Assert.Equal(UiMetrics.PanelPadding, WorldUiLayout.EliteBarHeight);
+        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidth);
+        Assert.Equal(UIMetrics.PanelPadding, WorldUILayout.EliteBarHeight);
     }
 
     [Fact]
     public void 精英血条浮在剪影头顶以上()
     {
-        Assert.True(WorldUiLayout.EliteBarOffsetY < 0, "向上为负：血条要在剪影上方");
-        Assert.True(WorldUiLayout.EliteBarOffsetY <= -(UiMetrics.IconLarge / 2), "血条要完全在头顶以上、不压脸");
+        Assert.True(WorldUILayout.EliteBarOffsetY < 0, "向上为负：血条要在剪影上方");
+        Assert.True(WorldUILayout.EliteBarOffsetY <= -(UIMetrics.IconLarge / 2), "血条要完全在头顶以上、不压脸");
     }
 
     [Fact]
     public void 伤害数字从头顶起向上飘一个基础单位()
     {
-        Assert.Equal(-(UiMetrics.IconLarge / 2), WorldUiLayout.DamageStartOffsetY);
-        Assert.Equal(UiMetrics.BaseUnit, WorldUiLayout.DamageFloatDistancePx);
+        Assert.Equal(-(UIMetrics.IconLarge / 2), WorldUILayout.DamageStartOffsetY);
+        Assert.Equal(UIMetrics.BaseUnit, WorldUILayout.DamageFloatDistancePx);
     }
 
     [Theory]
@@ -58,8 +58,8 @@ public class WorldSpaceTests
     [InlineData(1.0)]
     public void 伤害数字飘升在两端对齐起点与终点(double life)
     {
-        double expected = WorldUiLayout.DamageStartOffsetY - WorldUiLayout.DamageFloatDistancePx * life;
-        Assert.Equal(expected, WorldUiLayout.DamageRiseAt(life), 3);
+        double expected = WorldUILayout.DamageStartOffsetY - WorldUILayout.DamageFloatDistancePx * life;
+        Assert.Equal(expected, WorldUILayout.DamageRiseAt(life), 3);
     }
 
     [Theory]
@@ -67,8 +67,8 @@ public class WorldSpaceTests
     [InlineData(1.5, 1.0)]
     public void 伤害数字飘升比例越界被钳(double life, double clampedLife)
     {
-        double expected = WorldUiLayout.DamageStartOffsetY - WorldUiLayout.DamageFloatDistancePx * clampedLife;
-        Assert.Equal(expected, WorldUiLayout.DamageRiseAt(life), 3);
+        double expected = WorldUILayout.DamageStartOffsetY - WorldUILayout.DamageFloatDistancePx * clampedLife;
+        Assert.Equal(expected, WorldUILayout.DamageRiseAt(life), 3);
     }
 
     // ── 读条状态 ──────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ public class WorldSpaceTests
     [Fact]
     public void 伤害数字默认关闭而可开()
     {
-        Assert.False(WorldUiOptions.Default.ShowDamageNumbers, "正典：伤害数字默认关闭，设置里可开");
-        Assert.True(new WorldUiOptions(ShowDamageNumbers: true).ShowDamageNumbers);
+        Assert.False(WorldUIOptions.Default.ShowDamageNumbers, "正典：伤害数字默认关闭，设置里可开");
+        Assert.True(new WorldUIOptions(ShowDamageNumbers: true).ShowDamageNumbers);
     }
 }

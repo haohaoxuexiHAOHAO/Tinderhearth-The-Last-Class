@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-5` 相机五项行为的守卫：跟随死区、缩放与视野、边界钳制、震动、演出接管，加建造滚动与推镜。
@@ -17,10 +17,10 @@ namespace Tinderhearth.Rules.Tests.Ui;
 /// </remarks>
 public class CameraTests
 {
-    private static CameraRig Rig(CameraView view, int logicalWidth = UiMetrics.BaseWidth)
+    private static CameraRig Rig(CameraView view, int logicalWidth = UIMetrics.BaseWidth)
     {
         var rig = new CameraRig(view);
-        rig.SetLogicalViewport(logicalWidth, UiMetrics.BaseHeight);
+        rig.SetLogicalViewport(logicalWidth, UIMetrics.BaseHeight);
         return rig;
     }
 
@@ -33,7 +33,7 @@ public class CameraTests
         Assert.Equal(2, Enum.GetValues<CameraView>().Length);
 
         Assert.Equal(1, Rig(CameraView.TopDown).Zoom);
-        Assert.Equal(UiMetrics.SideViewZoom, Rig(CameraView.SideView).Zoom);
+        Assert.Equal(UIMetrics.SideViewZoom, Rig(CameraView.SideView).Zoom);
     }
 
     [Fact]
@@ -41,8 +41,8 @@ public class CameraTests
     {
         var rig = Rig(CameraView.SideView);
 
-        Assert.Equal(UiMetrics.SideViewWorldWidth, rig.VisibleWidth);
-        Assert.Equal(UiMetrics.SideViewWorldHeight, rig.VisibleHeight);
+        Assert.Equal(UIMetrics.SideViewWorldWidth, rig.VisibleWidth);
+        Assert.Equal(UIMetrics.SideViewWorldHeight, rig.VisibleHeight);
         Assert.Equal(320, rig.VisibleWidth);
         Assert.Equal(180, rig.VisibleHeight);
     }
@@ -55,7 +55,7 @@ public class CameraTests
         var wide = Rig(CameraView.SideView, logicalWidth: 649);
 
         Assert.Equal(325, wide.VisibleWidth);       // 向上取整：往大取只会让钳制更保守
-        Assert.True(wide.VisibleWidth > UiMetrics.SideViewWorldWidth);
+        Assert.True(wide.VisibleWidth > UIMetrics.SideViewWorldWidth);
     }
 
     // ── 跟随死区 ────────────────────────────────────────────────────────
@@ -406,10 +406,10 @@ public class CameraTests
     [Fact]
     public void 手感初值能被侧视缩放整除_否则换算出半像素()
     {
-        Assert.Equal(0, CameraFeel.DeadzoneHalfWidthScreenPx % UiMetrics.SideViewZoom);
-        Assert.Equal(0, CameraFeel.DeadzoneHalfHeightScreenPx % UiMetrics.SideViewZoom);
-        Assert.Equal(0, CameraFeel.ShakeAmplitudeScreenPx % UiMetrics.SideViewZoom);
-        Assert.Equal(0, CameraFeel.LightHitShakeAmplitudeScreenPx % UiMetrics.SideViewZoom);
+        Assert.Equal(0, CameraFeel.DeadzoneHalfWidthScreenPx % UIMetrics.SideViewZoom);
+        Assert.Equal(0, CameraFeel.DeadzoneHalfHeightScreenPx % UIMetrics.SideViewZoom);
+        Assert.Equal(0, CameraFeel.ShakeAmplitudeScreenPx % UIMetrics.SideViewZoom);
+        Assert.Equal(0, CameraFeel.LightHitShakeAmplitudeScreenPx % UIMetrics.SideViewZoom);
     }
 
     [Fact]
@@ -419,7 +419,7 @@ public class CameraTests
         // 小于它会被取整成 0，也就是压根不震，那就退回了本条要修的状态。
         Assert.True(CameraFeel.LightHitShakeAmplitudeScreenPx < CameraFeel.ShakeAmplitudeScreenPx,
             "轻击震得不比重击弱，轻重就靠震屏分不出来了");
-        Assert.True(CameraFeel.LightHitShakeAmplitudeScreenPx >= UiMetrics.SideViewZoom,
+        Assert.True(CameraFeel.LightHitShakeAmplitudeScreenPx >= UIMetrics.SideViewZoom,
             "幅度小于一个世界像素乘缩放，取整后恒为 0 —— 等于没震");
 
         // 时长：比重击短（轻击连段要流畅，镜头不能挂在上一下），但仍装得下一个完整震动周期。
@@ -444,10 +444,10 @@ public class CameraTests
     public void 死区落在算得出来的区间里()
     {
         // 上限：角色始终留在画面中间那一半，即死区半宽 ≤ 视野半宽的一半。
-        var halfViewX = UiMetrics.BaseWidth / 2;
-        var halfViewY = UiMetrics.BaseHeight / 2;
-        Assert.InRange(CameraFeel.DeadzoneHalfWidthScreenPx, UiMetrics.Grid, halfViewX / 2);
-        Assert.InRange(CameraFeel.DeadzoneHalfHeightScreenPx, UiMetrics.Grid, halfViewY / 2);
+        var halfViewX = UIMetrics.BaseWidth / 2;
+        var halfViewY = UIMetrics.BaseHeight / 2;
+        Assert.InRange(CameraFeel.DeadzoneHalfWidthScreenPx, UIMetrics.Grid, halfViewX / 2);
+        Assert.InRange(CameraFeel.DeadzoneHalfHeightScreenPx, UIMetrics.Grid, halfViewY / 2);
 
         // 竖向视野本来就只有 180，所以竖向死区不该比横向宽。
         Assert.True(CameraFeel.DeadzoneHalfHeightScreenPx <= CameraFeel.DeadzoneHalfWidthScreenPx);
@@ -458,7 +458,7 @@ public class CameraTests
     {
         // 幅度下限是「侧视下表达得出来的最小位移」，上限是「别把角色晃出死区」。
         Assert.InRange(CameraFeel.ShakeAmplitudeScreenPx,
-            UiMetrics.SideViewZoom, CameraFeel.DeadzoneHalfHeightScreenPx);
+            UIMetrics.SideViewZoom, CameraFeel.DeadzoneHalfHeightScreenPx);
 
         // 时长：短于一个震动周期只会看到一次跳动；长过四分之一秒会盖住下一次输入的反馈
         // （正典对顿帧那条约束的邻居：不能长到打断连段输入节奏）。
@@ -471,14 +471,14 @@ public class CameraTests
     public void 推镜与滚动速度落在算得出来的区间里()
     {
         // 触发余量必须小于视野半宽，否则一进场就在推镜。
-        Assert.True(CameraFeel.EdgePushMarginPixels < UiMetrics.SideViewWorldWidth / 2);
-        Assert.Equal(CameraFeel.EdgePushMarginCells * UiMetrics.BaseUnit,
+        Assert.True(CameraFeel.EdgePushMarginPixels < UIMetrics.SideViewWorldWidth / 2);
+        Assert.Equal(CameraFeel.EdgePushMarginCells * UIMetrics.BaseUnit,
             CameraFeel.EdgePushMarginPixels);
 
         // 推镜是提示不是操作，所以比手动滚动慢。
         Assert.True(CameraFeel.EdgePushPixelsPerSecond < CameraFeel.ScrollPixelsPerSecond);
 
         // 横穿一屏不该久到让人不耐烦：按这个速度走完 640 世界像素不超过 4 秒。
-        Assert.True(CameraFeel.ScrollPixelsPerSecond >= UiMetrics.BaseWidth / 4);
+        Assert.True(CameraFeel.ScrollPixelsPerSecond >= UIMetrics.BaseWidth / 4);
     }
 }

@@ -1,8 +1,7 @@
 using Godot;
-using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.Rules.Economy;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
 namespace Tinderhearth.World.Farm;
@@ -393,7 +392,7 @@ public partial class FarmField : Node
     /// 可能落在不同格子上，而那种不稳定查起来很贵。
     ///
     /// 作物多于六种时只装得下前六种，**少于六种时其余格子是空的** —— 空格是合法状态
-    /// （<see cref="Tinderhearth.Rules.Ui.CarrySlot.Empty"/>），不补假数据。
+    /// （<see cref="Tinderhearth.Rules.UI.CarrySlot.Empty"/>），不补假数据。
     /// </remarks>
     private void FillCarryBarWithSeeds()
     {

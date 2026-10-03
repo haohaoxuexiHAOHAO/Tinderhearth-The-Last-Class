@@ -141,8 +141,8 @@ public class Eng5ReservationTests
         Assert.Equal(ActorControllerKind.LocalPlayer, registry.Require(protagonistId).Kind);
 
         // 换成 AI —— 如果哪天有人把「主角必须由玩家控制」写进代码，这一行会失败。
-        registry.Assign(protagonistId, new StubController(ActorControllerKind.Ai));
-        Assert.Equal(ActorControllerKind.Ai, registry.Require(protagonistId).Kind);
+        registry.Assign(protagonistId, new StubController(ActorControllerKind.AI));
+        Assert.Equal(ActorControllerKind.AI, registry.Require(protagonistId).Kind);
 
         // 反过来：学生也能交给本地玩家驱动，联机时玩家用自定义角色靠的就是这条。
         registry.Assign("student-a", new StubController(ActorControllerKind.LocalPlayer));

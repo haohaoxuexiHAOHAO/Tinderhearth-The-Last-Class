@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>敌人等级。血条只给精英与 BOSS（[战斗与关卡] 正典），杂兵没有。</summary>
 public enum EnemyRank
@@ -85,8 +85,8 @@ public sealed record EliteHealth
 /// 分片」那一节：跨存档位、不进任何存档分片、缺字段补默认值。**全库不会有一份「设置系统」** ——
 /// 偏好那一层的机制归存档那一份，界面归界面那一份。值由调用方注入。
 /// </remarks>
-public sealed record WorldUiOptions(bool ShowDamageNumbers = false)
+public sealed record WorldUIOptions(bool ShowDamageNumbers = false)
 {
     /// <summary>默认呈现：伤害数字关。</summary>
-    public static WorldUiOptions Default => new();
+    public static WorldUIOptions Default => new();
 }

@@ -10,7 +10,7 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 属性公式、成长曲线、判定公式、价格与消耗量的设计在设计仓 `design/数值模型.md`，
 /// 把它们搬进代码属各玩法实现需求，不是往这份配置里加字段。相机手感（死区、震动幅度、推镜速度）
 /// 同样不进这里：那是表现规则，正典的「内容外置，规则不外置」把它划在外面，
-/// 落点是 `rules/Ui/CameraFeel.cs`。
+/// 落点是 `rules/UI/CameraFeel.cs`。
 ///
 /// **每个字段都在构造时校验为正。** 这不是防御性代码，是补一个真实的静默失效：位置参数
 /// <c>record</c> 配 <c>System.Text.Json</c> 时，JSON 里**缺字段不报错**，会拿

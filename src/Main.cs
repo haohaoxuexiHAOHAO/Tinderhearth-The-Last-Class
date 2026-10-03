@@ -7,7 +7,7 @@ using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth;
 
@@ -63,12 +63,12 @@ public partial class Main : Node2D
         GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
                  " 人，控制器 ", controllers.Count, " 个");
 
-        BuildUi();
+        BuildUI();
         BuildInputRouter();
         BuildHud();
     }
 
-    private UiRoot _ui = null!;
+    private UIRoot _ui = null!;
     private InputRouter _router = null!;
     private LevelHud _hud = null!;
     private WristbandPanel _wristband = null!;
@@ -101,7 +101,7 @@ public partial class Main : Node2D
             Name = "LevelHud",
             Theme = theme,
         };
-        _ui.LayerOf(UiLayer.Hud).AddChild(_hud);
+        _ui.LayerOf(UILayer.Hud).AddChild(_hud);
     }
 
     /// <summary>建界面根与手环面板（`UI-6`）。</summary>
@@ -111,9 +111,9 @@ public partial class Main : Node2D
     /// 主导之后那条链连同它的消费者一起删了：场景与参数归作者在 Godot 里配，画面上的事由他实机看，
     /// 不再用脚本去证明「层级建好了」。**保留的是真正构成游戏的那部分** —— 界面根、手环、HUD。
     /// </remarks>
-    private void BuildUi()
+    private void BuildUI()
     {
-        var ui = new UiRoot();
+        var ui = new UIRoot();
         AddChild(ui);
         _ui = ui;
 
@@ -122,8 +122,8 @@ public partial class Main : Node2D
         _wristband = wristband;
         ui.Open(Wristband.Surface);
 
-        ui.Context = UiContext.Level;
-        wristband.Context = UiContext.Level;
+        ui.Context = UIContext.Level;
+        wristband.Context = UIContext.Level;
     }
 
     /// <summary>建输入门面（`UI-7`）。引擎层查询输入一律经它，不直接轮询 <c>Input</c>。</summary>

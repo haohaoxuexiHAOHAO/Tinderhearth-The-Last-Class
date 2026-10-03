@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""代码仓验收总入口：行尾 → 构建 → 测试 → 导出 → 跑产物，五步串成一条命令。
+"""代码仓验收总入口：命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物，串成一条命令。
 
 **范围由 `ADR-0009` 定死**：只保留「与编辑器里配什么无关」的那几步。素材守卫、代码形状守卫
 （界面无字面量、单一相机类型、整数缩放、世界空间 UI、输入不直接轮询）与五个图形探针都已删除
@@ -17,6 +17,8 @@
 
 所以本入口的重点不是省几次敲键盘，而是**每一步都另找一个量具核对产物**：
 
+    命名    磁盘上的名字 ≙ 代码与预设里写死的 `res://` 路径（逐段比大小写，不用 exists）
+    行尾    实际字节 ≙ git 自己解析出来的 `.gitattributes` 策略（规则不在本脚本里重写一遍）
     构建    退出码 + 自己数错误行，认不出输出形状就判失败（不静默放过）
     测试    运行器报的条数 ≙ 从测试源码静态数出来的条数（两个独立来源必须相等）
     导出    先清空 export/ 再导 → 产物必须存在 → **解开 .pck 逐条看清单**查泄漏
@@ -24,7 +26,7 @@
 
 门禁只调本入口。用法（从**代码仓根目录**运行）：
 
-    python tools/verify.py               # 四步全跑，这是门禁用的形态
+    python tools/verify.py               # 全跑，这是门禁用的形态
     python tools/verify.py --upto test   # 只跑到测试；前置步骤一定跟着跑，跑不出旧产物
     python tools/verify.py --manifest    # 不跑任何步骤，只把现有 .pck 的包内清单打出来
     python tools/verify.py --manifest <某个.pck>   # 看指定的包
@@ -161,8 +163,9 @@ SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 
-STEPS = ("eol", "build", "test", "export", "smoke")
+STEPS = ("names", "eol", "build", "test", "export", "smoke")
 STEP_TITLES = {
+    "names": "命名",
     "eol": "行尾",
     "build": "构建",
     "test": "测试",
@@ -348,7 +351,38 @@ BUILD_COUNT_RE = re.compile(r"^\s*(\d+)\s+(Warning|Error)\(s\)\s*$", re.MULTILIN
 DIAG_RE = re.compile(r"\b(error|warning) [A-Z]{2}\d{4}\b")
 
 
-# ── 步骤 1：行尾（`ENG-11`）──────────────────────────────────────────
+# ── 命名 ──────────────────────────────────────────────────────────────
+def step_names(rep: Report) -> StepResult:
+    """命名守卫：文件名、目录名、场景节点名与写死的 `res://` 路径大小写。
+
+    排在最前：纯 Python、无编译、无引擎，是整条流水线里最便宜的一步。
+    它判的东西**在 Godot 里看不出来** —— 导出后的 `.pck` 区分大小写而 Windows 不区分，
+    路径大小写写错在编辑器里一切正常，只在导出后或 Linux 上才找不到文件且不报编译错。
+    规则本体在 `CONVENTIONS.md` 的「文件与目录命名」一节。
+
+    判定不只看退出码：认不出 `check_names.py` 的输出形状同样拒绝判过。
+    """
+    started = time.perf_counter()
+    code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_names.py")],
+                         ROOT, timeout=120)
+    rep.write_log("1-names.log", f"# 编码 {enc}\n# 退出码 {code}\n\n{out}")
+    cost = time.perf_counter() - started
+
+    gauge = next((ln for ln in out.splitlines() if ln.startswith("覆盖量：")), "")
+    if not gauge:
+        return StepResult("names", False, "认不出 check_names.py 的输出形状，拒绝判过",
+                          cost, log_names=["1-names.log"])
+    if code != 0:
+        first = next((ln for ln in out.splitlines() if ln.startswith("[FAIL]")), "详见日志")
+        return StepResult("names", False, f"失败：{first.removeprefix('[FAIL] ')}",
+                          cost, log_names=["1-names.log"],
+                          details=[gauge])
+    return StepResult("names", True, gauge.removeprefix("覆盖量："), cost,
+                      log_names=["1-names.log"],
+                      details=[f"命令 tools/check_names.py（输出编码 {enc}）"])
+
+
+# ── 行尾（`ENG-11`）──────────────────────────────────────────────────
 def step_eol(rep: Report) -> StepResult:
     """行尾守卫（`ENG-11`）：代码仓文本文件行尾必须符合 `.gitattributes`。
 
@@ -378,7 +412,7 @@ def step_eol(rep: Report) -> StepResult:
                       details=[f"命令 tools/check_eol.py（输出编码 {enc}）"])
 
 
-# ── 步骤 2：构建 ──────────────────────────────────────────────────────
+# ── 构建 ──────────────────────────────────────────────────────────────
 def step_build(rep: Report) -> StepResult:
     started = time.perf_counter()
     code, out, enc = run(["dotnet", "build"], ROOT, timeout=900)
@@ -409,7 +443,7 @@ def step_build(rep: Report) -> StepResult:
                       details=[f"命令 dotnet build（输出编码 {enc}）"])
 
 
-# ── 步骤 2：测试 ──────────────────────────────────────────────────────
+# ── 测试 ──────────────────────────────────────────────────────────────
 def expected_test_count() -> tuple[int, int, str | None]:
     """从测试源码静态数出用例条数，返回 (条数, 扫到的文件数, 出错原因)。
 
@@ -750,7 +784,7 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
     return not problems, (problems or notes), lines
 
 
-# ── 步骤 3：导出 ──────────────────────────────────────────────────────
+# ── 导出 ──────────────────────────────────────────────────────────────
 def clean_export_dir() -> list[str]:
     """导出前清空 export/，好让「文件存在」直接等于「本轮生成」。
 
@@ -816,7 +850,7 @@ def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
                       details=[f"清掉上轮 {len(removed)} 项：{removed}", *notes])
 
 
-# ── 步骤 4：跑产物 ────────────────────────────────────────────────────
+# ── 跑产物 ────────────────────────────────────────────────────────────
 def verify_smoke_markers() -> str | None:
     """标记还在脚手架源码里吗。脱节就当场说清，别等冒烟阶段报一句看不懂的没找到。"""
     if not MAIN_SCAFFOLD.is_file():
@@ -997,7 +1031,9 @@ def main() -> int:
         if stopped:
             rep.finish_step(StepResult(name, False, "前一步失败，未执行", skipped=True))
             continue
-        if name == "eol":
+        if name == "names":
+            result = step_names(rep)
+        elif name == "eol":
             result = step_eol(rep)
         elif name == "build":
             result = step_build(rep)

@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-10`：`UI-1` 的端到端验证。走整条界面链路，确认各规则**合起来**成立，
@@ -11,7 +11,7 @@ namespace Tinderhearth.Rules.Tests.Ui;
 /// 测试边界：规则层。引擎层（节点摆放、实际渲染、窗口缩放）原先由启动探针验，探针随 `ADR-0009`
 /// 删除、改由作者实机看；这里测的是「规则层的合约能不能撑起那条链路」。
 ///
-/// 风格照 <see cref="HudTests"/> 与 <see cref="UiSkeletonTests"/>：钉住关系、坏值反证、
+/// 风格照 <see cref="HudTests"/> 与 <see cref="UISkeletonTests"/>：钉住关系、坏值反证、
 /// 边界钳制，不含任何玩法数值。
 /// </remarks>
 public class E2ETests
@@ -28,13 +28,13 @@ public class E2ETests
         teammates: [.. Enumerable.Range(0, teammates)
                                  .Select(_ => new HudTeammate(FakeMax, FakeMax, Down: false))]);
 
-    private static readonly UiSurface Backpack =
-        new("backpack", UiLayer.Panel, SurfaceKind.Carried);
+    private static readonly UISurface Backpack =
+        new("backpack", UILayer.Panel, SurfaceKind.Carried);
 
-    private static readonly UiSurface Wristband_ = Wristband.Surface;
+    private static readonly UISurface Wristband_ = Wristband.Surface;
 
-    private static readonly UiSurface Confirm =
-        new("confirm", UiLayer.Dialog, SurfaceKind.View);
+    private static readonly UISurface Confirm =
+        new("confirm", UILayer.Dialog, SurfaceKind.View);
 
     // ── 主路径：完整链路 ────────────────────────────────────────────
     [Fact]
@@ -87,8 +87,8 @@ public class E2ETests
     public void 主路径_手环关卡内只允许查看类标签页()
     {
         // 侧视关卡里打开手环，操作类页必须禁用
-        var inLevel = Wristband.AvailableIn(UiContext.Level).ToList();
-        var inBase  = Wristband.AvailableIn(UiContext.Base).ToList();
+        var inLevel = Wristband.AvailableIn(UIContext.Level).ToList();
+        var inBase  = Wristband.AvailableIn(UIContext.Base).ToList();
 
         Assert.True(inLevel.Count < inBase.Count);    // 关卡内可用页少于基地
         Assert.All(inLevel, t => Assert.Equal(SurfaceKind.View, t.Kind));
@@ -102,22 +102,22 @@ public class E2ETests
     public void 主路径_HUD四块在侧视基准分辨率下一块都不压角色可读区()
     {
         // 侧视场景 HUD 出现后，确认整套放置对角色可读区无干扰
-        Assert.Empty(HudLayout.BlocksOverActorBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight));
+        Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
 
-        var band = HudLayout.ClearBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
-        Assert.Equal(UiMetrics.BaseWidth, band.Width);    // 贯通两端
+        var band = HudLayout.ClearBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+        Assert.Equal(UIMetrics.BaseWidth, band.Width);    // 贯通两端
         Assert.True(band.Height > 0);
     }
 
     [Fact]
-    public void 主路径_HUD四块与世界空间层都落在正确的UiLayer层级()
+    public void 主路径_HUD四块与世界空间层都落在正确的UILayer层级()
     {
         // 层级约束是全部 UI 条目的基础；合起来验一次
-        Assert.True(UiLayer.World < UiLayer.WorldSpace);
-        Assert.True(UiLayer.WorldSpace < UiLayer.Hud);
-        Assert.True(UiLayer.Hud < UiLayer.Panel);
-        Assert.True(UiLayer.Panel < UiLayer.Dialog);
-        Assert.True(UiLayer.Dialog < UiLayer.Curtain);
+        Assert.True(UILayer.World < UILayer.WorldSpace);
+        Assert.True(UILayer.WorldSpace < UILayer.Hud);
+        Assert.True(UILayer.Hud < UILayer.Panel);
+        Assert.True(UILayer.Panel < UILayer.Dialog);
+        Assert.True(UILayer.Dialog < UILayer.Curtain);
 
         // 背包在 Panel 层，弹窗在 Dialog 层，确认弹窗永远在背包之上
         Assert.True(Backpack.Layer < Confirm.Layer);
@@ -159,12 +159,12 @@ public class E2ETests
     {
         // aspect="expand" 的实际效果：左锚 X 不变、右锚 X 随宽度增加
         const int wide = 649;
-        var delta = wide - UiMetrics.BaseWidth;
+        var delta = wide - UIMetrics.BaseWidth;
 
         foreach (var block in Enum.GetValues<HudBlock>())
         {
-            var narrow    = HudLayout.RectOf(block, UiMetrics.BaseWidth, UiMetrics.BaseHeight);
-            var stretched = HudLayout.RectOf(block, wide, UiMetrics.BaseHeight);
+            var narrow    = HudLayout.RectOf(block, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+            var stretched = HudLayout.RectOf(block, wide, UIMetrics.BaseHeight);
 
             var xDelta = HudLayout.AnchorOf(block) switch
             {
@@ -180,7 +180,7 @@ public class E2ETests
     public void 失败路径_宽屏下占屏仍不超过一成()
     {
         const int wide = 649;
-        var share = HudLayout.CoverageRatio(wide, UiMetrics.BaseHeight);
+        var share = HudLayout.CoverageRatio(wide, UIMetrics.BaseHeight);
         Assert.True(share < 0.10, $"宽屏下 HUD 占屏 {share:P1}");
     }
 
@@ -208,7 +208,7 @@ public class E2ETests
         Assert.False(hud.ShowTeammates);
 
         // 布局算法本身不依赖 ShowTeammates，四块坐标不变
-        Assert.Empty(HudLayout.BlocksOverActorBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight));
+        Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
     }
 
     // ── 失败路径：目标进度为 0 与已完成 ─────────────────────────────
@@ -284,28 +284,28 @@ public class E2ETests
     public void 综合_侧视有效视野是基准分辨率一半且是整数()
     {
         // 2 倍缩放的结构约束：世界空间 UI 与相机共同依赖这个数
-        Assert.Equal(UiMetrics.BaseWidth / UiMetrics.SideViewZoom,
-                     UiMetrics.SideViewWorldWidth);
-        Assert.Equal(UiMetrics.BaseHeight / UiMetrics.SideViewZoom,
-                     UiMetrics.SideViewWorldHeight);
-        Assert.Equal(0, UiMetrics.BaseWidth % UiMetrics.SideViewZoom);
-        Assert.Equal(0, UiMetrics.BaseHeight % UiMetrics.SideViewZoom);
+        Assert.Equal(UIMetrics.BaseWidth / UIMetrics.SideViewZoom,
+                     UIMetrics.SideViewWorldWidth);
+        Assert.Equal(UIMetrics.BaseHeight / UIMetrics.SideViewZoom,
+                     UIMetrics.SideViewWorldHeight);
+        Assert.Equal(0, UIMetrics.BaseWidth % UIMetrics.SideViewZoom);
+        Assert.Equal(0, UIMetrics.BaseHeight % UIMetrics.SideViewZoom);
     }
 
     [Fact]
-    public void 综合_世界空间UI几何与HUD几何都从UiMetrics推导无字面量()
+    public void 综合_世界空间UI几何与HUD几何都从UIMetrics推导无字面量()
     {
         // 两套量用同一套基础单位。这条把「引擎层不写数字字面量」的前提钉住
-        Assert.Equal(UiMetrics.IconSmall, WorldUiLayout.RingDiameter);
-        Assert.Equal(UiMetrics.IconLarge, WorldUiLayout.EliteBarWidth);
-        Assert.Equal(UiMetrics.PanelPadding, WorldUiLayout.EliteBarHeight);
-        Assert.Equal(UiMetrics.BaseUnit, WorldUiLayout.DamageFloatDistancePx);
+        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingDiameter);
+        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidth);
+        Assert.Equal(UIMetrics.PanelPadding, WorldUILayout.EliteBarHeight);
+        Assert.Equal(UIMetrics.BaseUnit, WorldUILayout.DamageFloatDistancePx);
     }
 
     [Fact]
     public void 综合_整条链路在侧视基准分辨率下占屏不超过一成()
     {
-        var share = HudLayout.CoverageRatio(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
+        var share = HudLayout.CoverageRatio(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
         Assert.True(share < 0.10, $"HUD 占屏 {share:P1}");
     }
 }

@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-8` 关卡 HUD 的守卫：排版关系、放置候选、视图模型契约与像素字体取值。
@@ -45,8 +45,8 @@ public class HudTests
     {
         // 不成倍数的话标签基线与条会差半格，而那种错只在并排看两块时才发现。
         var content = HudLayout.ContentSizeOf(HudBlock.Resources);
-        Assert.Equal(0, content.Height % UiMetrics.LineHeight);
-        Assert.Equal(HudLayout.GaugeCount, content.Height / UiMetrics.LineHeight);
+        Assert.Equal(0, content.Height % UIMetrics.LineHeight);
+        Assert.Equal(HudLayout.GaugeCount, content.Height / UIMetrics.LineHeight);
     }
 
     [Fact]
@@ -57,16 +57,16 @@ public class HudTests
         {
             var content = HudLayout.ContentSizeOf(block);
             var outer = HudLayout.SizeOf(block);
-            Assert.Equal(content.Width + (UiMetrics.PanelPadding * 2), outer.Width);
-            Assert.Equal(content.Height + (UiMetrics.PanelPadding * 2), outer.Height);
+            Assert.Equal(content.Width + (UIMetrics.PanelPadding * 2), outer.Width);
+            Assert.Equal(content.Height + (UIMetrics.PanelPadding * 2), outer.Height);
         }
     }
 
     [Fact]
     public void 资源条比行高矮好让它在一行里居中()
     {
-        Assert.True(HudLayout.GaugeBarHeight < UiMetrics.LineHeight);
-        Assert.Equal(0, (UiMetrics.LineHeight - HudLayout.GaugeBarHeight) % 2);
+        Assert.True(HudLayout.GaugeBarHeight < UIMetrics.LineHeight);
+        Assert.Equal(0, (UIMetrics.LineHeight - HudLayout.GaugeBarHeight) % 2);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class HudTests
     [Fact]
     public void 技能位单元只占图标一格且手柄提示叠在图标内()
     {
-        Assert.Equal(UiMetrics.IconSmall, HudLayout.SkillCellHeight);
+        Assert.Equal(UIMetrics.IconSmall, HudLayout.SkillCellHeight);
     }
 
     [Fact]
@@ -91,11 +91,11 @@ public class HudTests
         var content = HudLayout.ContentSizeOf(HudBlock.ActionBar);
         Assert.Equal(HudLayout.SkillCellHeight, content.Height);
         Assert.Equal((HudLayout.SkillGroupCount * HudLayout.SkillGroupWidth)
-                     + ((HudLayout.SkillGroupCount - 1) * UiMetrics.Grid), content.Width);
+                     + ((HudLayout.SkillGroupCount - 1) * UIMetrics.Grid), content.Width);
 
         // 槽框本身分隔同组三格，组内不留空；两组之间仍由上面的栅格明确分开。
         // 没有「L」「R」记号列：一组就是三个紧邻的图标格。
-        Assert.Equal(HudLayout.SkillsPerGroup * UiMetrics.IconSmall, HudLayout.SkillGroupWidth);
+        Assert.Equal(HudLayout.SkillsPerGroup * UIMetrics.IconSmall, HudLayout.SkillGroupWidth);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class HudTests
     {
         var content = HudLayout.ContentSizeOf(HudBlock.Teammates);
         var expected = (HudLayout.MaxTeammates * HudLayout.PortraitSize)
-                       + ((HudLayout.MaxTeammates - 1) * UiMetrics.ItemGap);
+                       + ((HudLayout.MaxTeammates - 1) * UIMetrics.ItemGap);
         Assert.Equal(expected, content.Width);
         Assert.Equal(4, HudLayout.MaxTeammates);        // 正典：主角 + 1 至 4 名学生
     }
@@ -114,8 +114,8 @@ public class HudTests
         // 「已达成，返回入口点撤离」11 个全宽汉字。按短的定宽会让达成态被截断，
         // 而正典要求进度始终可见 —— 达成那句正是最需要看清的时刻。
         var content = HudLayout.ContentSizeOf(HudBlock.Objective);
-        Assert.True(content.Width >= "已达成，返回入口点撤离".Length * UiMetrics.FontSize);
-        Assert.Equal(UiMetrics.LineHeight, content.Height);
+        Assert.True(content.Width >= "已达成，返回入口点撤离".Length * UIMetrics.FontSize);
+        Assert.Equal(UIMetrics.LineHeight, content.Height);
     }
 
     // ── 放置 ────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ public class HudTests
     {
         // 本条的硬判据。角色 32px 在侧视 2 倍下占屏 64px，加上死区允许的偏移，
         // 中间那块必须一块 HUD 都不压。
-        Assert.Empty(HudLayout.BlocksOverActorBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight));
+        Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
     }
 
     [Fact]
@@ -133,20 +133,20 @@ public class HudTests
     {
         // 侧视关卡是一条水平走廊，左右两端的敌人与平台跟正中间一样要紧，
         // 所以判据是「整幅宽的横带」而不是「最大空白面积」。
-        var band = HudLayout.ClearBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
-        Assert.Equal(UiMetrics.BaseWidth, band.Width);
+        var band = HudLayout.ClearBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+        Assert.Equal(UIMetrics.BaseWidth, band.Width);
         // 下限取五分之三：它必须比角色可读区（128px）宽出一截，否则「不压角色」这条就靠得太紧，
         // 一点排版变动就把余量吃光。实测 238px。
-        Assert.True(band.Height >= UiMetrics.BaseHeight * 3 / 5,
+        Assert.True(band.Height >= UIMetrics.BaseHeight * 3 / 5,
                     $"可读横带只有 {band.Height}px");
         Assert.True(band.Height > HudLayout.ActorBand(
-            UiMetrics.BaseWidth, UiMetrics.BaseHeight).Height);
+            UIMetrics.BaseWidth, UIMetrics.BaseHeight).Height);
     }
 
     [Fact]
     public void 占屏不超过一成()
     {
-        var share = HudLayout.CoverageRatio(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
+        var share = HudLayout.CoverageRatio(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
         Assert.True(share < 0.10, $"HUD 占屏 {share:P1}，超过一成就开始挤中间那块");
     }
 
@@ -156,12 +156,12 @@ public class HudTests
         // `aspect="expand"` 下逻辑宽度是变量（`UI-3` 实测 3840×2130 得到 649×360）。
         // 这条把「用锚点而不是写死坐标」变成算得出来的性质。
         const int wide = 649;
-        var delta = wide - UiMetrics.BaseWidth;
+        var delta = wide - UIMetrics.BaseWidth;
 
         foreach (var block in Enum.GetValues<HudBlock>())
         {
-            var narrow = HudLayout.RectOf(block, UiMetrics.BaseWidth, UiMetrics.BaseHeight);
-            var stretched = HudLayout.RectOf(block, wide, UiMetrics.BaseHeight);
+            var narrow = HudLayout.RectOf(block, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+            var stretched = HudLayout.RectOf(block, wide, UIMetrics.BaseHeight);
             var expected = HudLayout.AnchorOf(block) switch
             {
                 HudAnchor.TopLeft or HudAnchor.BottomLeft => 0,
@@ -193,13 +193,13 @@ public class HudTests
     [InlineData(649)]
     public void 四块都在屏幕内且留着安全边距(int viewportWidth)
     {
-        foreach (var (block, rect) in HudLayout.RectsOf(viewportWidth, UiMetrics.BaseHeight))
+        foreach (var (block, rect) in HudLayout.RectsOf(viewportWidth, UIMetrics.BaseHeight))
         {
-            Assert.True(rect.X >= UiMetrics.SafeMargin, $"{block} 左边越过安全边距");
-            Assert.True(rect.Y >= UiMetrics.SafeMargin, $"{block} 上边越过安全边距");
-            Assert.True(rect.Right <= viewportWidth - UiMetrics.SafeMargin,
+            Assert.True(rect.X >= UIMetrics.SafeMargin, $"{block} 左边越过安全边距");
+            Assert.True(rect.Y >= UIMetrics.SafeMargin, $"{block} 上边越过安全边距");
+            Assert.True(rect.Right <= viewportWidth - UIMetrics.SafeMargin,
                         $"{block} 右边越过安全边距");
-            Assert.True(rect.Bottom <= UiMetrics.BaseHeight - UiMetrics.SafeMargin,
+            Assert.True(rect.Bottom <= UIMetrics.BaseHeight - UIMetrics.SafeMargin,
                         $"{block} 下边越过安全边距");
         }
     }
@@ -221,7 +221,7 @@ public class HudTests
     [Fact]
     public void 四块两两不重叠()
     {
-        var rects = HudLayout.RectsOf(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
+        var rects = HudLayout.RectsOf(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
         for (var i = 0; i < rects.Count; i++)
         {
             for (var j = i + 1; j < rects.Count; j++)
@@ -235,22 +235,22 @@ public class HudTests
     [Fact]
     public void 角色可读区取死区加一个精灵格()
     {
-        var band = HudLayout.ActorBand(UiMetrics.BaseWidth, UiMetrics.BaseHeight);
-        var sprite = UiMetrics.IconLarge * UiMetrics.SideViewZoom;      // 32 世界像素占屏 64
+        var band = HudLayout.ActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+        var sprite = UIMetrics.IconLarge * UIMetrics.SideViewZoom;      // 32 世界像素占屏 64
         Assert.Equal((CameraFeel.DeadzoneHalfWidthScreenPx * 2) + sprite, band.Width);
         Assert.Equal((CameraFeel.DeadzoneHalfHeightScreenPx * 2) + sprite, band.Height);
-        Assert.Equal(UiMetrics.BaseWidth / 2, band.X + (band.Width / 2));
+        Assert.Equal(UIMetrics.BaseWidth / 2, band.X + (band.Width / 2));
     }
 
     [Fact]
     public void 横跨屏幕中心线时可读横带判成零()
     {
         // 反证：判据不能只会说「通过」。矩形重叠判定本身也顺带撞一次。
-        var band = new HudRect(0, UiMetrics.BaseHeight / 2, UiMetrics.BaseWidth, 0);
+        var band = new HudRect(0, UIMetrics.BaseHeight / 2, UIMetrics.BaseWidth, 0);
         Assert.Equal(0, band.Height);
-        var center = new HudRect(0, (UiMetrics.BaseHeight / 2) - 1, UiMetrics.BaseWidth, 2);
+        var center = new HudRect(0, (UIMetrics.BaseHeight / 2) - 1, UIMetrics.BaseWidth, 2);
         Assert.True(center.Overlaps(HudLayout.ActorBand(
-            UiMetrics.BaseWidth, UiMetrics.BaseHeight)));
+            UIMetrics.BaseWidth, UIMetrics.BaseHeight)));
     }
 
     // ── 视图模型契约 ────────────────────────────────────────────────

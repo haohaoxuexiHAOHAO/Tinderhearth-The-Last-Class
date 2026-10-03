@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -8,7 +8,7 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// **本文件里一个「量」都没有。** 尺寸与放置全部从 <see cref="HudLayout"/> 与
-/// <see cref="UiMetrics"/> 取，显示的数值全部从 <see cref="HudViewModel"/> 取，颜色从
+/// <see cref="UIMetrics"/> 取，显示的数值全部从 <see cref="HudViewModel"/> 取，颜色从
 /// <see cref="HudPalette"/> 取。这不是风格洁癖，是让两条会静默退化的规则有执行体：
 ///
 /// - **没有绝对像素坐标。** 位置一律走 <see cref="Control.SetAnchorsAndOffsetsPreset"/>，
@@ -22,7 +22,7 @@ namespace Tinderhearth.UI;
 /// 真数值接进来才发现有两份矛盾的事实。所以实机验 HUD 时拉一下窗口宽度，并确认数字真的在变。
 ///
 /// **世界空间那一半不在这里。** 读条、精英血条与伤害数字归 `UI-9`，挂
-/// <see cref="UiLayer.WorldSpace"/> —— 正典明确否掉「读条画在界面角落」，要求画在执行者身上。
+/// <see cref="UILayer.WorldSpace"/> —— 正典明确否掉「读条画在界面角落」，要求画在执行者身上。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
@@ -167,8 +167,8 @@ public sealed partial class LevelHud : Control
     /// </remarks>
     private void BuildObjective()
     {
-        var content = Row(HudBlock.Objective, UiMetrics.ItemGap);
-        content.AddChild(Picture(ObjectiveIconPath, UiMetrics.IconSmall, UiMetrics.IconSmall));
+        var content = Row(HudBlock.Objective, UIMetrics.ItemGap);
+        content.AddChild(Picture(ObjectiveIconPath, UIMetrics.IconSmall, UIMetrics.IconSmall));
 
         _objective = new Label
         {
@@ -176,7 +176,7 @@ public sealed partial class LevelHud : Control
             ClipText = true,
             VerticalAlignment = VerticalAlignment.Center,
             CustomMinimumSize = new Vector2(
-                HudLayout.ObjectiveMaxChars * UiMetrics.FontSize, UiMetrics.LineHeight),
+                HudLayout.ObjectiveMaxChars * UIMetrics.FontSize, UIMetrics.LineHeight),
         };
         content.AddChild(_objective);
     }
@@ -189,14 +189,14 @@ public sealed partial class LevelHud : Control
         foreach (var gauge in _model.Gauges)
         {
             var row = new HBoxContainer { Name = gauge.Kind.ToString() };
-            row.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
+            row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
             column.AddChild(row);
 
             var label = new Label
             {
                 Name = "Label",
                 VerticalAlignment = VerticalAlignment.Center,
-                CustomMinimumSize = new Vector2(HudLayout.GaugeLabelWidth, UiMetrics.LineHeight),
+                CustomMinimumSize = new Vector2(HudLayout.GaugeLabelWidth, UIMetrics.LineHeight),
             };
             row.AddChild(label);
 
@@ -238,7 +238,7 @@ public sealed partial class LevelHud : Control
     private void BuildSkills()
     {
         // 两组之间留一个栅格：那道空隙就是「这三个归左扳机、那三个归右扳机」的视觉分界。
-        var line = Row(HudBlock.ActionBar, UiMetrics.Grid);
+        var line = Row(HudBlock.ActionBar, UIMetrics.Grid);
 
         for (var group = 0; group < HudLayout.SkillGroupCount; group++)
         {
@@ -258,17 +258,17 @@ public sealed partial class LevelHud : Control
                 var frame = new Control
                 {
                     Name = "Frame",
-                    CustomMinimumSize = new Vector2(UiMetrics.IconSmall, UiMetrics.IconSmall),
+                    CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
                 };
                 cell.AddChild(frame);
 
                 var slot = Picture(Numbered(SlotPathFormat, index),
-                                   UiMetrics.IconSmall, UiMetrics.IconSmall);
+                                   UIMetrics.IconSmall, UIMetrics.IconSmall);
                 slot.SetAnchorsPreset(LayoutPreset.FullRect);
                 frame.AddChild(slot);
 
                 var icon = Picture(Numbered(IconPathFormat, index),
-                                   UiMetrics.IconSmall, UiMetrics.IconSmall);
+                                   UIMetrics.IconSmall, UIMetrics.IconSmall);
                 icon.SetAnchorsPreset(LayoutPreset.FullRect);
                 frame.AddChild(icon);
 
@@ -290,7 +290,7 @@ public sealed partial class LevelHud : Control
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                     MouseFilter = MouseFilterEnum.Ignore,
-                    CustomMinimumSize = new Vector2(UiMetrics.IconSmall, UiMetrics.IconSmall),
+                    CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
                 };
                 hint.SetAnchorsPreset(LayoutPreset.FullRect);
                 frame.AddChild(hint);
@@ -310,7 +310,7 @@ public sealed partial class LevelHud : Control
     /// </remarks>
     private void BuildTeammates()
     {
-        var row = Row(HudBlock.Teammates, UiMetrics.ItemGap);
+        var row = Row(HudBlock.Teammates, UIMetrics.ItemGap);
         for (var i = 0; i < HudLayout.MaxTeammates; i++)
         {
             var cell = new VBoxContainer { Name = $"Mate{i}" };
@@ -381,7 +381,7 @@ public sealed partial class LevelHud : Control
                 HudAnchor.BottomRight => LayoutPreset.BottomRight,
                 _ => throw new ArgumentOutOfRangeException(nameof(block)),
             };
-            root.SetAnchorsAndOffsetsPreset(preset, LayoutPresetMode.Minsize, UiMetrics.SafeMargin);
+            root.SetAnchorsAndOffsetsPreset(preset, LayoutPresetMode.Minsize, UIMetrics.SafeMargin);
         }
     }
 
@@ -449,7 +449,7 @@ public sealed partial class LevelHud : Control
             var lit = active != SkillGroup.None && active == group;
 
             cell.Icon.Visible = slot.Unlocked;
-            cell.Mask.OffsetBottom = Extent(slot.MaskRatio, UiMetrics.IconSmall);
+            cell.Mask.OffsetBottom = Extent(slot.MaskRatio, UIMetrics.IconSmall);
             cell.Slot.SelfModulate = PixelTheme.ToColor(
                 lit ? HudPalette.Hot : slot.Unlocked ? HudPalette.Ink : HudPalette.Dim);
 
@@ -514,7 +514,7 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <remarks>
     /// 用 <see cref="StyleBoxFlat"/> 而不是九宫格素材，两条理由：描边宽度与内边距要从
-    /// <see cref="UiMetrics"/> 取（素材一旦换尺寸，九宫格边距就得跟着改，那是第二份真相）；
+    /// <see cref="UIMetrics"/> 取（素材一旦换尺寸，九宫格边距就得跟着改，那是第二份真相）；
     /// 而且**抗锯齿必须关掉** —— 圆角与抗锯齿会造出半透明边，违反[像素绘制原则 §9]。
     /// 面板素材 `panel.png` 留给对话框与弹窗，那里真需要九宫格花纹。
     /// </remarks>
@@ -528,7 +528,7 @@ public sealed partial class LevelHud : Control
             AntiAliasing = false,
         };
         style.SetBorderWidthAll(1);
-        style.SetContentMarginAll(UiMetrics.PanelPadding);
+        style.SetContentMarginAll(UIMetrics.PanelPadding);
 
         var frame = new PanelContainer
         {

@@ -15,10 +15,55 @@
 | 局部变量、参数 | camelCase | `viewportWidth`、`block`、`rel` |
 | 接口 | `I` 前缀 + PascalCase | `IActorController`、`IContentSource` |
 | 布尔属性/局部变量 | 动词开头，读起来像断言 | `IsFull`、`IsShown`、`bad_eol` |
+| **两字母缩写** | 该用 PascalCase 的位置**全大写**，否则全小写 | `UIMetrics`、`WorldUILayout`、`Tinderhearth.Rules.UI`；局部变量写 `ui` |
+
+两字母缩写那条来自 Godot 的 C# 风格指南，它举的例子就是 `UI`。三字母及以上**不适用**，
+照常 PascalCase（`Hud` 而不是 `HUD`，`Vfx` 而不是 `VFX`）。`Id` 不是缩写，当普通标识符写。
+**引擎自己的写法优先**：`Error.Ok` 是 Godot 的 API，跟着它写 `Ok`，不要为这条规则把它改成 `OK`。
 
 命名空间与目录对应（`Tinderhearth.Rules.Foundation` ↔ `rules/Foundation/`），
 是约定而不是语言强制——但**必须一致**，否则「东西在哪」需要靠记忆而不是路径。
 目录只在有代码时建，命名空间跟着走。
+
+## 文件与目录命名
+
+Godot 官方的建议是：文件夹与文件名用 snake_case，**C# 脚本例外**（按类名走 PascalCase）；
+节点名用 PascalCase，因为内置节点就是这个形状。
+
+**理由不是好看**：导出后的 `.pck` 虚拟文件系统**区分大小写**，而 Windows 与 macOS 的文件系统
+默认不区分。路径大小写写错，在编辑器里一切正常，只在导出后或 Linux 上才找不到文件 ——
+**而且不报编译错**，表现是某张图没了、某份配置读不到。
+
+| 元素 | 形式 | 例子 |
+| --- | --- | --- |
+| 场景文件 | 小写 snake_case | `scenes/main.tscn`、`scenes/training_room.tscn` |
+| 资源、素材与数据文件 | 小写 | `data/config/game.json`、`assets/self-drawn/tiles/tilled.png` |
+| 节点名 | PascalCase | 场景里的 `Main`、`TrainingRoom`；代码里设的 `LevelHud`、`CastRing` |
+| C# 文件 | PascalCase，与类名一致 | `UIMetrics.cs`、`PlayerActor.cs` |
+| C# 目录 | PascalCase，与命名空间一致 | `rules/UI/`、`src/World/Farm/` |
+
+有理由的偏离写在这里，**不是漏改**：
+
+- **C# 目录用 PascalCase**。官方那条例外只给 C# 文件，没给文件夹。但本仓要求命名空间与目录对应
+  （见上面「命名」一节），而命名空间是 PascalCase，于是目录只能跟着走。这些目录里没有引擎资源、
+  不出现在 `res://` 资源路径里，所以吃不到大小写那个坑。
+- **素材文件名用中划线**（`bar-fill.png`、`self-drawn/`）而不是下划线。全小写，同样吃不到那个坑；
+  而改名要动一批写死的路径常量，并且**必须在 Godot 编辑器里做** —— 在外面改，`.import` 附属物
+  与引用得手工同步。**只约束新增的**：新素材用下划线。
+
+**允许带大写字母的文件只有下面这些**，想往这张表添一行之前先问「它的大小写会不会被某个路径
+字符串写死」—— 会，就别添。
+
+| 文件 | 为什么 |
+| --- | --- |
+| `assets/fonts/LICENSE-OFL.txt` | 授权文件的通行名。它的大小写同时写在磁盘、`rules/UI/PixelFont.cs` 与 `export_presets.cfg` 的 `include_filter` 里，三处必须一致 |
+| `assets/downloaded/fists-of-fury/LICENSE.txt`、`assets/downloaded/samurai/License.txt` | 上游原名。改了就断了与来源的对应，而两份来源本来就不同名 |
+| `data/text/zh-CN.json` | 语言标签的标准写法。`src/Main.cs` 拿它的全名精确匹配，改名要同时改那一处 |
+| 仓库根的 `README.md`、`ARCHITECTURE.md`、`CONVENTIONS.md`、`.csproj`、`.sln` | 不是引擎资源，不进发行包 |
+
+这一节由 `tools/check_names.py` 静态核，它是 `verify.py` 第一步的一部分。
+**守卫判得到的只有文件名、目录名与场景里的节点名**；代码里 `Name = "..."` 设的节点名
+与两字母缩写那条判不到，写的时候自己守。
 
 ## 大括号与缩进
 
@@ -123,7 +168,7 @@ var action = motor.Phase switch
 **单层**三元（`a ? x : y`）是「取值版 if/else」，仍然首选，不要为它写四行 `if`：
 
 ```csharp
-public UiSurface? Top => _stack.Count > 0 ? _stack[^1] : null;
+public UISurface? Top => _stack.Count > 0 ? _stack[^1] : null;
 ```
 
 带 `when` 守卫的 `switch` 表达式**保序**：情形自上而下匹配、第一个成立的赢，与原来的 `?:` 链一致——
@@ -229,7 +274,7 @@ public static HudRect SizeOf(HudBlock block) { ... }
 // 错：复述代码
 // 创建一个新的 HBoxContainer 并设置间距
 var row = new HBoxContainer();
-row.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
+row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
 ```
 
 注释语言：与代码仓一致，使用中文。
@@ -246,7 +291,7 @@ row.AddThemeConstantOverride("separation", UiMetrics.ItemGap);
 **引擎层（`src/`）查询输入必须通过 `InputRouter`**，不许直接调 `Input.IsActionPressed`。
 理由是绕过门面会让「面板打开时屏蔽玩法动作」这类门控在某一处失效，且**不报错**。
 
-**界面里除 0 与 1 之外无数字字面量。** 排版量从 `UiMetrics` 和 `HudLayout` 取，
+**界面里除 0 与 1 之外无数字字面量。** 排版量从 `UIMetrics` 和 `HudLayout` 取，
 颜色从 `HudPalette` 取，字体参数从 `PixelFont` 取。
 
 **不覆盖 `TextureFilter`。** 项目级最近邻纹理过滤在 `project.godot` 里统一设置，

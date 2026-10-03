@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>视角。**只有这两种，且共用同一份相机实现** —— 正典写明「无例外」。</summary>
 public enum CameraView
@@ -35,8 +35,8 @@ public enum CameraView
 /// </remarks>
 public sealed class CameraRig
 {
-    private int _logicalWidth = UiMetrics.BaseWidth;
-    private int _logicalHeight = UiMetrics.BaseHeight;
+    private int _logicalWidth = UIMetrics.BaseWidth;
+    private int _logicalHeight = UIMetrics.BaseHeight;
 
     private int _centerX;
     private int _centerY;
@@ -65,15 +65,15 @@ public sealed class CameraRig
     public CameraView View { get; }
 
     /// <summary>
-    /// 整数缩放倍数。俯视 1 倍，侧视取 <see cref="UiMetrics.SideViewZoom"/>。
+    /// 整数缩放倍数。俯视 1 倍，侧视取 <see cref="UIMetrics.SideViewZoom"/>。
     /// </summary>
     /// <remarks>
-    /// 侧视那个 2 **不在这里重定义**：它是正典的像素基准，已经在 <see cref="UiMetrics"/> 里，
+    /// 侧视那个 2 **不在这里重定义**：它是正典的像素基准，已经在 <see cref="UIMetrics"/> 里，
     /// 且那边有测试钉住「有效视野 = 320×180」。演出期间可以临时覆盖，但只能覆盖成正整数。
     /// </remarks>
     public int Zoom => _zoomOverride > 0
         ? _zoomOverride
-        : View == CameraView.SideView ? UiMetrics.SideViewZoom : 1;
+        : View == CameraView.SideView ? UIMetrics.SideViewZoom : 1;
 
     /// <summary>
     /// 告诉相机当前的逻辑视口尺寸。**必须每帧传，不能缓存成常量。**

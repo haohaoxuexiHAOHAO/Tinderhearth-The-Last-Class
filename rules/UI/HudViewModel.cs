@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>哪一条资源。**只用来决定配色**，量与上限由视图模型带进来。</summary>
 public enum HudGaugeKind

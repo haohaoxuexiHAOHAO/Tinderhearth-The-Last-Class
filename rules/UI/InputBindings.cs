@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>输入设备族。**按族而不是按具体设备** —— 键盘与鼠标一起用，提示图标也一起换。</summary>
 public enum InputDeviceKind
@@ -302,7 +302,7 @@ public static class InputBindings
     /// `ui_up`／`ui_down`／`ui_left`／`ui_right` **各有两条手柄事件**（D-pad 加左摇杆），但
     /// `ui_accept` 只有 Enter／小键盘 Enter／Space，`ui_cancel` 只有 Escape —— **手柄上一条都没有**。
     ///
-    /// 后果是具体的：手柄能把焦点挪来挪去，却**按不下去也退不出来**，而 `UiRoot` 的返回键正是
+    /// 后果是具体的：手柄能把焦点挪来挪去，却**按不下去也退不出来**，而 `UIRoot` 的返回键正是
     /// `ui_cancel`。所以「面板导航在手柄上可用」这条验收不补这两条就不成立。这不是猜的引擎行为，
     /// 是守卫先判失败才发现的。
     ///
@@ -314,7 +314,7 @@ public static class InputBindings
     /// 「不暂停的面板打开时该不该屏蔽玩法动作」是个真问题。它跨 `UI-6` 的导航栈与本条，且正确行为
     /// 不显然（背包不暂停世界，那时跳跃该不该还能按？），所以**不在本条顺手定**，已记 `UI-11`。
     /// </remarks>
-    public static readonly IReadOnlyDictionary<string, IReadOnlyList<InputBinding>> BuiltinUiPatches =
+    public static readonly IReadOnlyDictionary<string, IReadOnlyList<InputBinding>> BuiltinUIPatches =
         new Dictionary<string, IReadOnlyList<InputBinding>>
         {
             ["ui_accept"] =

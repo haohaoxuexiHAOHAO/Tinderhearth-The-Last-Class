@@ -124,7 +124,7 @@ public static class DepthRendering
     /// </summary>
     /// <remarks>
     /// **用缩小表示高度，不用变淡。** 变淡要 alpha，而[像素绘制原则 §9]把「透明度只使用完全
-    /// 透明或完全不透明」定为绝对规则（`rules/Ui/HudPalette.cs` 的 <c>PixelColor</c> 连字段都
+    /// 透明或完全不透明」定为绝对规则（`rules/UI/HudPalette.cs` 的 <c>PixelColor</c> 连字段都
     /// 不给）—— 一个半透明影子画上去就是屏幕上的插值像素，与半透明素材同一后果。缩小是像素风
     /// 该有的做法：层次靠形状与色阶。
     ///

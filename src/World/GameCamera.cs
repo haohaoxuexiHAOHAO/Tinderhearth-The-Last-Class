@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
 namespace Tinderhearth.World;
@@ -8,7 +8,7 @@ namespace Tinderhearth.World;
 /// 全游戏唯一的相机节点（`UI-5`）。**两种视角共用它，视角只是构造参数。**
 /// </summary>
 /// <remarks>
-/// 分工与 <see cref="UiRoot"/> 一致：**判定在规则层，节点在这里。** 跟随、钳制、震动、演出接管
+/// 分工与 <see cref="UIRoot"/> 一致：**判定在规则层，节点在这里。** 跟随、钳制、震动、演出接管
 /// 与推镜的全部几何都在 <see cref="CameraRig"/> 里，有不启引擎的单元测试盯着；本类只做三件
 /// 引擎才能做的事 —— 每帧把真实逻辑视口尺寸喂给规则层、把算出来的整数世界坐标抄进
 /// <c>Camera2D</c>、把输入经 <see cref="InputRouter"/> 翻成滚动方向。
@@ -108,7 +108,7 @@ public sealed partial class GameCamera : Camera2D
     public void UseBuildableArea(int widthCells, int heightCells, int originX = 0, int originY = 0)
     {
         Rig.SetBuildableArea(originX, originY,
-            widthCells * UiMetrics.BaseUnit, heightCells * UiMetrics.BaseUnit);
+            widthCells * UIMetrics.BaseUnit, heightCells * UIMetrics.BaseUnit);
     }
 
     /// <summary>把规则层算出来的结果抄进节点。**每帧只有这里改 <c>Camera2D</c> 的属性。**</summary>

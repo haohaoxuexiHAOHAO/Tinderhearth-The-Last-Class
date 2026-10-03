@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 界面层级（`UI-6`）。自下而上固定六层，**一处定义，各场景不得自行摆放**。
@@ -13,7 +13,7 @@ namespace Tinderhearth.Rules.Ui;
 ///
 /// 数值之间留 10 的间隔：将来插一层（例如提示气泡）不必给全部层重新编号。
 /// </remarks>
-public enum UiLayer
+public enum UILayer
 {
     /// <summary>世界本身：图块、角色、场景物件。</summary>
     World = 0,

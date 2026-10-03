@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>
 /// 界面排版单位（`UI-6`）。**所有界面都从这里取数，不各自发明边距。**
@@ -14,7 +14,7 @@ namespace Tinderhearth.Rules.Ui;
 /// 依据链：基础单位 16px 与精灵格 32×32 来自[玩法定位 · 像素基准]；字号 12px、行高 16px
 /// 来自 [ADR-0008]；逻辑分辨率 640×360。交付 `DOC-2` 的就是这一组。
 /// </remarks>
-public static class UiMetrics
+public static class UIMetrics
 {
     /// <summary>基础单位。图块、背包图标与 1 格建筑都是它，人物占两个。</summary>
     public const int BaseUnit = 16;

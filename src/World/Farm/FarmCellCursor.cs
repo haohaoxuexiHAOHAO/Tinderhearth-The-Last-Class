@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
 namespace Tinderhearth.World.Farm;
@@ -59,7 +59,7 @@ public partial class FarmCellCursor : Node2D
 
     /// <summary>够得到时框的颜色。</summary>
     /// <remarks>
-    /// **颜色归作者在检查器里定**（`ADR-0009`），所以它不进 `rules/Ui/HudPalette.cs` ——
+    /// **颜色归作者在检查器里定**（`ADR-0009`），所以它不进 `rules/UI/HudPalette.cs` ——
     /// 那一份是 HUD 的占位色板、等 `DOC-2` 定稿，而这一格是世界里那一层、由作者实机看着调。
     ///
     /// 一条硬约束仍然管着它：**像素只许全透明或全不透明**，所以 alpha 要么 0 要么 1，

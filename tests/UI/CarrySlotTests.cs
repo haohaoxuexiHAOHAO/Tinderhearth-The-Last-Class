@@ -1,7 +1,7 @@
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
-namespace Tinderhearth.Rules.Tests.Ui;
+namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
 /// `UI-34` 随身栏那条六格：格数从哪来、选中位怎么动、内容换了之后它动不动。
@@ -51,7 +51,7 @@ public class CarrySlotTests
 
         Assert.True(HudLayout.CarryRowWidth <= block.Width,
             $"随身栏 {HudLayout.CarryRowWidth}px 宽，装不进 {block.Width}px 的块");
-        Assert.Equal(UiMetrics.IconSmall, block.Height);   // 一行 16px 图标，高度两种内容一致
+        Assert.Equal(UIMetrics.IconSmall, block.Height);   // 一行 16px 图标，高度两种内容一致
     }
 
     [Fact]
@@ -62,9 +62,9 @@ public class CarrySlotTests
     }
 
     [Theory]
-    [InlineData(UiMetrics.BaseWidth, UiMetrics.BaseHeight)]
-    [InlineData(649, UiMetrics.BaseHeight)]     // UI-3 实测的那个宽窗口逻辑尺寸
-    [InlineData(1280, UiMetrics.BaseHeight)]
+    [InlineData(UIMetrics.BaseWidth, UIMetrics.BaseHeight)]
+    [InlineData(649, UIMetrics.BaseHeight)]     // UI-3 实测的那个宽窗口逻辑尺寸
+    [InlineData(1280, UIMetrics.BaseHeight)]
     public void 随身栏进来之后没有哪一块压到角色可读区(int width, int height)
     {
         // 既有的硬判据，本需求不许让它变红。它现在自动仍然成立，**因为随身栏没有新开块、

@@ -1,5 +1,5 @@
 using Tinderhearth.Rules.Economy;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;

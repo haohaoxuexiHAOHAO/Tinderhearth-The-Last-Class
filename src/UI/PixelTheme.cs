@@ -1,5 +1,5 @@
 using Godot;
-using Tinderhearth.Rules.Ui;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -17,7 +17,7 @@ namespace Tinderhearth.UI;
 /// <c>allow_system_fallback</c> 一开，缺字悄悄换成系统中文字体，**而且每台机器表现不同** ——
 /// 那种缺陷在自己机器上永远看不到。
 ///
-/// **字号与行高不在这里定**，在 <see cref="UiMetrics"/>；配色也不在这里，在
+/// **字号与行高不在这里定**，在 <see cref="UIMetrics"/>；配色也不在这里，在
 /// <see cref="HudPalette"/>（占位，归 `DOC-2`）。本类只负责把它们装进 <see cref="Theme"/>。
 /// </remarks>
 public static class PixelTheme
@@ -46,12 +46,12 @@ public static class PixelTheme
         checks = Verify(font);
 
         ThemeDB.FallbackFont = font;
-        ThemeDB.FallbackFontSize = UiMetrics.FontSize;
+        ThemeDB.FallbackFontSize = UIMetrics.FontSize;
 
         var theme = new Theme
         {
             DefaultFont = font,
-            DefaultFontSize = UiMetrics.FontSize,
+            DefaultFontSize = UIMetrics.FontSize,
         };
 
         // 只设当前真用到的几项。**不预设一整套** —— 没有界面在用的主题项是猜出来的，

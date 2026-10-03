@@ -1,4 +1,4 @@
-namespace Tinderhearth.Rules.Ui;
+namespace Tinderhearth.Rules.UI;
 
 /// <summary>面板在手柄上怎么导航。</summary>
 public enum PanelNavigationMode
