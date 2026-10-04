@@ -4,83 +4,83 @@ using Tinderhearth.Rules.Foundation.Actors;
 
 namespace Tinderhearth.World;
 
-/// <summary>GP-12 主角节点，位置归物理引擎、动作与速度归规则层。也用作训练房的受击靶（`GP-14`）。</summary>
+/// <summary>主角节点。横向与跳跃的位置归物理引擎，动作、速度与纵深归规则层。</summary>
+/// <remarks>训练房里那两个受击沙包也是这个类，只是换成一个不操作的控制器。</remarks>
 public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
 {
-    // ── 精灵表几何（`ART-6`）───────────────────────────────────────────
-    // 三个数是从收件箱原件量出来的帧框（帧宽／帧高／帧内地面行）。**这里不重新推导，只做一致性
-    // 校验**：载入时按纹理实测尺寸核（高必须等于帧高、宽必须是帧宽的整数倍），对不上就当缺图走
-    // 占位分支。于是「表重新生成后帧框变了而代码没跟着改」不会静默错位 —— 它会当场退回占位并打日志。
+    // ── 精灵表几何 ───────────────────────────────────────────
+    // 下面三个数是从素材原件量出来的帧框：帧宽、帧高、帧内的地面行。载入时会按纹理实际尺寸核一遍
+    // （高必须等于帧高、宽必须是帧宽的整数倍），对不上就当缺图走占位分支并打日志。于是「精灵表
+    // 重新生成后帧框变了而代码没跟着改」不会静默错位。
     //
-    // 但纹理自校验有个洞要写明：**它管得住宽高，管不住地面行**。GroundRow 只影响精灵往上抬多少，
-    // 改错一像素的表现是「脚底离地」或「陷进地面」，纹理尺寸照样对得上、日志照样干净。原先由素材
-    // 登记表加守卫逐条比对盯着这一项，那条链已随 `ADR-0009` 删除 —— **现在它只能靠作者实机看**，
-    // 脚底有没有贴地是一眼的事。改这三个数时请连带在 Godot 里跑一次训练房确认脚底。
+    // 但这个自校验管得住宽高，管不住地面行。GroundRow 只影响精灵往上抬多少，改错一像素的表现是
+    // 脚底离地或陷进地面，而纹理尺寸照样对得上、日志照样干净。所以改完这三个数，请在 Godot 里跑
+    // 一次训练房看一眼脚底有没有贴地 —— 那是一眼就看得出来的事。
     //
-    // 这三个数是 `internal` 而不是 `private`：规则层测试要拿它们核本体高度，避免在测试里再抄一遍
-    // 数字 —— 抄第二遍就又多了一处会漂的地方。
-    internal const int FrameWidth = 44;
-    internal const int FrameHeight = 32;
+    // 这三个只有本类读，所以是 private。下面还有几个常量写成 internal，那是因为同一程序集里
+    // 真有别处读它们，各自注明了是谁 —— 没有读者就不要放宽，放宽之后「谁在用这个数」就查不清了。
+    private const int FrameWidth = 44;
+    private const int FrameHeight = 32;
 
-    /// <summary>帧内地面行：脚底像素落在它上一行，精灵偏移就是把这一行对到节点原点。</summary>
-    internal const int GroundRow = 30;
+    /// <summary>帧内的地面行，单位是帧内像素行号。脚底像素落在它上面一行。</summary>
+    /// <remarks>精灵的偏移量就是把这一行对到节点原点上算出来的，而节点原点就是脚底。</remarks>
+    private const int GroundRow = 30;
 
-    /// <summary>
-    /// 角色实体宽度，世界像素。碰撞框用它，影子的宽度下限也用它（`ENG-15`）。
-    /// </summary>
+    /// <summary>角色身体的宽度，世界像素。碰撞框用它，影子的宽度下限也用它。</summary>
     /// <remarks>
-    /// 贴角色实测轮廓（登记表「角色本体」站立姿约 19px 宽，取 18 作实体宽）。**影子不许比它更窄**：
-    /// 整帧的不透明宽度含四肢，而手臂前后摆会让它在走动中从 20px 掉到 11px —— 逐帧照抄就会让影子
-    /// 以 15Hz 缩到一半，而角色占的那块地根本没变。影子代表占地，所以取「实体宽与当前姿态宽的较
-    /// 大者」：走动时稳定在实体宽，出拳时跟着伸出去。
-    /// </remarks>
-    internal const int BodyWidthFloorWorldPx = 18;
-
-    /// <summary>
-    /// 主角站立姿的本体高度，世界像素。实体碰撞框与受击框（`ENG-6` 修正）共用它，不各写一个数。
-    /// </summary>
-    /// <remarks>
-    /// 取登记表「角色本体」量出来的**站立姿 28px**（去掉地面参考线后量的）。原先受击框写死 32 —— 那
-    /// 是木桩柱子的高度，套到主角身上高出 4px，从头顶掠过的攻击照样命中且不报错。
+    /// 只有本类读它。实体阻挡要的半宽是从引擎实际在用的那个碰撞形状上读回来的，不是读这个常量
+    /// （见 <see cref="DepthBlocker"/> 的 HalfWidthOf），所以这里不必放宽成 internal。
     ///
-    /// **各动作最高到 30px（`dodge`／`heavy`）刻意不取。** 宁可闪步那几帧头顶
-    /// 露出框外一点（那几帧本来就是主动闪避的姿态），也不要为了兜住最高姿态让站着的时候平白高 2px。
-    /// 按状态给不同高度是正确的长期形状，归 `GP-18`／`GP-6`。
+    /// 贴着实测轮廓来：站立姿量出来约 19 像素宽，取 18 当身体宽。
+    ///
+    /// 影子不许比它更窄。整帧的不透明宽度含四肢，而手臂前后摆会让它在走动中从 20 像素掉到 11
+    /// 像素 —— 逐帧照抄的话，影子会随着走路动画缩到一半，而角色占的那块地根本没变。影子代表的是
+    /// 占地，所以取「身体宽与当前姿态宽的较大者」：走动时稳定在身体宽，出拳时跟着伸出去。
+    /// </remarks>
+    private const int BodyWidthFloorWorldPx = 18;
+
+    /// <summary>主角站立时的身体高度，世界像素。实体碰撞框与受击框共用它，不各写一个数。</summary>
+    /// <remarks>
+    /// 它是 internal，因为 <see cref="TrainingRoom"/> 挂受击框时要读它，那边不该再抄一遍数字。
+    ///
+    /// 28 是站立姿实测量出来的（去掉地面参考线之后量的）。受击框原先写死 32，那是木桩柱子的高度，
+    /// 套到主角身上高出 4 像素，从头顶掠过的攻击照样判命中，而且不报错。
+    ///
+    /// 各动作里最高的姿态能到 30 像素（闪避与重击），这里刻意不取那个数。宁可闪步那几帧头顶露出
+    /// 框外一点（那几帧本来就是在主动闪避），也不要为了兜住最高姿态让站着的时候平白高 2 像素。
+    /// 按状态给不同高度才是长久的做法，那要先定设计。
     /// </remarks>
     internal const int BodyHeightWorldPx = 28;
 
     private const string SheetDir = "res://assets/self-drawn/test-role";
 
-    // 接进 A1 玩法的动作。轻击三段各有独立表 `light`／`light2`／`light3`（`ART-6`），
-    // 由 <see cref="UpdateVisual"/> 按 <c>combo.Step</c> 选。受击表 `light_hit`／`heavy_hit`（`GP-14`，
-    // 已接入）：训练房把靶换成真角色后，命中要放受击帧作反馈（替代木桩那种晃眼闪白），于是
-    // 「受击」这条规则有了（<see cref="MotorPhase.Hurt"/> + <see cref="Receive"/>），图也就该载入了。
-    // 另外四张仍**刻意不载入**：`general_defense`、`precise_defense`、`imbalance`、`death` —— 防御、
-    // 失衡与死亡的玩法都还没有，载进来只会是「有图没规则」的半成品。`imbalance` 另有一层不确定：
-    // 失衡与失衡恢复合在同一张 5 帧表里，帧号区间**作者尚未给出**，就算现在想接也没有切分点。
+    // 已经接进玩法的那些精灵表。轻击三段各有一张（light、light2、light3），由 UpdateVisual 按当前
+    // 打到第几段来选；受击分轻重两张，命中时放受击帧作反馈。
+    //
+    // 防御、精准防御、失衡与死亡那几张刻意不载入：对应的玩法规则还没有，载进来只会是「有图没规则」
+    // 的半成品。失衡那张还多一层不确定 —— 失衡与失衡恢复画在同一张表里，作者还没说从第几帧切开。
     private static readonly string[] Sheets =
         ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy", "light_hit", "heavy_hit"];
 
-    // 攻击相位 → 精灵帧的映射。轻击三段**各有独立表**（`ART-6`），重击单招
-    // 一张表；每段的帧数不同（light 6、light2 5、light3 6、heavy 7），映射按当前表的 `count` 算，
-    // 不写死。唯一的硬约束在这里：**前摇只准用第 0 帧，Active 只准用第 1–2 帧**。作者每段的第 1 帧
-    // （0 基第 0 帧）是静止起手姿、第 2–3 帧（0 基 1–2）才是拳脚伸出的命中姿；判定框的取值也正是
-    // 从这两帧的实测伸展导出的（见 `CombatFeel` 与 `check_hitbox_binding`），所以「命中姿落在
-    // Active 窗那两帧」是画面与判定对齐的前提。三段都逐段核过：light 峰值右伸在 0 基第 1 帧、
-    // light2 在第 1 帧、light3（踢腿）在第 2 帧，全部落在 [1,2] 内。若让渲染时钟自己跑，命中姿会
-    // 在判定框开之前先亮出来，玩家学到的时机是错的；探针 `startup-frame`／`active-frame`
-    // 与 `sprite-phase` 逐帧钉住它。
+    // 攻击的三个阶段各用哪几张图。每张表的帧数都不同，所以映射按当前表实际有几帧算，不写死帧号。
+    // 只有一条硬约束：前摇只准用第 0 帧，判定窗只准用第 1 到第 2 帧。
+    //
+    // 理由是作者每段的第 0 帧是静止起手姿、第 1 到 2 帧才是拳脚伸出去的命中姿，而判定框的尺寸正是
+    // 从这两帧量出来的伸展换算的。让命中姿落在判定窗那两帧上，画面与判定才对得齐；要是让渲染时钟
+    // 自己跑，命中姿会在判定框开之前先亮出来，玩家学到的时机就是错的。三段都逐段核过：轻击前两段
+    // 的最大右伸在第 1 帧，第三段那一脚在第 2 帧，都落在这个区间里。
+    // 三个都只有本类读。CombatFeel 那边量判定框尺寸时提到了这两个帧号，但它在规则层、是另一个
+    // 程序集，本来就读不到 internal —— 那是一处写在注释里的口头约定，不是代码依赖。
     private const int AttackStartupFrame = 0;
-    internal const int AttackActiveFirstFrame = 1;
-    internal const int AttackActiveSpan = 2;
+    private const int AttackActiveFirstFrame = 1;
+    private const int AttackActiveSpan = 2;
 
     public string ActorId { get; init; } = "player";
 
     /// <inheritdoc />
     /// <remarks>
-    /// 默认我方（`GP-17`）：主角与训练房那个我方沙包都取它，敌方由场景显式给。**与谁驱动这个角色
-    /// 无关** —— 立场是 <see cref="CombatSide"/>，驱动是 <see cref="Controllers"/>，`ENG-5` 要求这
-    /// 两件事不许互相推断（一个由 AI 驱动的队友仍然是我方）。
+    /// 默认我方，敌方由场景显式给。它与「谁在驱动这个角色」是两件事，不许互相推断 —— 一个由 AI
+    /// 驱动的队友仍然是我方。
     /// </remarks>
     public CombatSide Side { get; init; } = CombatSide.Ally;
 
@@ -90,30 +90,24 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     public string VisualAction { get; private set; } = "idle";
     private int _visualFrame;
 
-    /// <summary>最近一次受击是不是重击：决定受击相位放 `heavy_hit` 还是 `light_hit`（`GP-14`）。</summary>
+    /// <summary>最近挨的那一下是不是重击。决定受击时放哪一张受击表。</summary>
     private bool _hurtHeavy;
 
-    /// <summary>着色器里那个白闪开关的名字。写一次，读写两处都引它。</summary>
+    /// <summary>着色器里那个白闪开关的参数名。只写一次，读写两处都引它。</summary>
     private static readonly StringName FlashParam = "flash";
 
-    /// <summary>
-    /// 命中白闪的着色器（`GP-20`）。**全项目第一个着色器，刻意不落 <c>.gdshader</c> 文件。**
-    /// </summary>
+    /// <summary>命中白闪用的着色器。写在代码里，不单独做成一个 <c>.gdshader</c> 文件。</summary>
     /// <remarks>
-    /// **为什么必须是着色器**：<c>modulate</c> 是乘法，白色乘彩色贴图等于原样，精灵不会变白（`GP-13`
-    /// 那轮实测踩过，踩坑记录里记着）。木桩能靠换 <c>Polygon2D.Color</c> 变白，是因为它本来就是几何。
+    /// 白闪必须走着色器：<c>Modulate</c> 是乘法，白色乘上彩色贴图等于原样，精灵根本不会变白
+    /// （实测踩过）。木桩能靠换填充色变白，是因为它本来就是几何、没有贴图。
     ///
-    /// **为什么闪白不能由美术给**：`ART-6` 定了「闪白由代码持有、进仓表禁单色帧」。这不是偏好 ——
-    /// 实测过下载素材 <c>samurai/hurt.png</c> 第 1 帧就是整张白的，「受击表塞一张闪白」在第三方素材
-    /// 里是常见做法，而那让闪白时长被烧进图、代码调不了。**所以裁图时别把闪白帧切进来。**
+    /// 闪白由代码持有，不要让美术在受击表里塞一张纯白帧 —— 那在第三方素材里是常见做法（实测过一份
+    /// 下载素材的受击表第一帧就是整张白的），但那样闪白时长就烧进图里了，代码调不了，也没法跟顿帧
+    /// 一起冻结、做成可关的无障碍项。裁图时请把这种帧挑出去。
     ///
-    /// **为什么用代码字符串而不是 <c>.gdshader</c> 文件**：这段着色器只有三行、没有可替换的美术
-    /// 内容，落成资源文件只是多一类要管的东西（还要 `.import` 与纹理过滤那套）。写在代码里正好
-    /// 落实「闪白由代码持有」那句话。
-    ///
-    /// **只改 RGB、不动 alpha**：项目规则是像素只允许全透明或全不透明（像素规范 §9），动
-    /// alpha 会造出半透明边。不闪时**一个字都不写** <c>COLOR</c>，于是默认采样与 <c>modulate</c>
-    /// （无敌青、奔跑黄）照旧生效，两个通道不抢。
+    /// 着色器只改 RGB、不动 alpha：本项目的像素只允许全透明或全不透明，动 alpha 会造出半透明边。
+    /// 不闪的时候一个字都不写 <c>COLOR</c>，于是默认采样和 <c>Modulate</c> 那边的染色照旧生效，
+    /// 两条路不抢。
     /// </remarks>
     private static readonly Shader FlashShader = new()
     {
@@ -132,86 +126,73 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
             """,
     };
 
-    /// <summary>本角色自己的一份着色器材质：着色器共享，开关各自一份。</summary>
+    /// <summary>本角色自己的一份着色器材质：着色器共享，那个开关各自一份。</summary>
     private readonly ShaderMaterial _flashMaterial = new() { Shader = FlashShader };
 
-    /// <summary>白闪结束的物理帧号（不含）。<c>0</c> 表示从没闪过。</summary>
+    /// <summary>白闪结束的物理帧号，不含这一帧。0 表示从没闪过。</summary>
     private ulong _flashUntilFrame;
 
-    /// <summary>
-    /// 此刻在不在白闪。**按物理帧号算，不按谁调了几次递减**（`GP-20`）。
-    /// </summary>
+    /// <summary>此刻在不在白闪。按物理帧号算，不靠每帧减一的计数器。</summary>
     /// <remarks>
-    /// 用帧号而不是「每帧减一的计数器」，是为了躲开一个顺序依赖：命中当帧里 <see cref="Receive"/>
-    /// （由场景的命中结算调）与本节点自己的 <see cref="_PhysicsProcess"/> 都会跑，而两者的先后取决于
-    /// 树的顺序（父在子前）。计数器版本会因此在「命中当帧就被减掉一次」与「没被减掉」之间摇摆，白闪
-    /// 到底亮 1 帧还是 2 帧变成树结构的函数 —— 那正是踩坑记录第 38 条那一类，改一次挂载点就悄悄变。
-    /// 帧号版本与调用顺序、调用次数都无关。
+    /// 用帧号是为了躲开一个顺序依赖：命中当帧里 <see cref="Receive"/>（由场景的命中结算调）和本
+    /// 节点自己的 <see cref="_PhysicsProcess"/> 都会跑，而谁先谁后取决于节点树的顺序。用计数器的
+    /// 话，白闪到底亮 1 帧还是 2 帧就成了节点树结构的函数，换一次挂载点就悄悄变。帧号跟调用顺序
+    /// 和调用次数都无关。
     ///
-    /// 顿帧不影响它：物理帧号照常走，而战斗推进被 gate 停住 —— 这就是「真实帧」，理由见
+    /// 顿帧不影响它：物理帧号照常走，被停住的只是战斗推进。白闪按真实帧走的理由见
     /// <see cref="CombatFeel.HitFlashFrames"/>。
     /// </remarks>
     public bool HitFlashing => Engine.GetPhysicsFrames() < _flashUntilFrame;
 
-    /// <summary>白闪还剩几个真实帧，给探针当量具。</summary>
+    /// <summary>白闪还剩几个物理帧。</summary>
     public int HitFlashFramesLeft =>
         (int)Math.Max(0L, (long)_flashUntilFrame - (long)Engine.GetPhysicsFrames());
 
-    /// <summary>
-    /// 材质里那个开关**此刻的实际值**，从材质读回而不是复述意图。
-    /// </summary>
+    /// <summary>材质里那个开关此刻的实际值，从材质读回来的。</summary>
     /// <remarks>
-    /// 判据要取运行时实际值（踩坑记录第 41 条那一类：改了配置却跑着旧产物，两者长得一样）。
-    /// <see cref="HitFlashing"/> 说的是「按帧号算此刻该不该闪」，本属性说的是「开关真的送到材质了
-    /// 吗」—— 两者都绿才说明这条链是通的；只看前者，漏掉 <c>SetShaderParameter</c> 也照样全绿。
+    /// <see cref="HitFlashing"/> 说的是「按帧号算此刻该不该闪」，这一个说的是「开关真的送到材质
+    /// 了吗」。只看前者的话，漏掉那一句 <c>SetShaderParameter</c> 也看不出来。
     /// </remarks>
     public bool HitFlashUniform => _flashMaterial.GetShaderParameter(FlashParam).AsBool();
 
-    /// <summary>
-    /// 纵深可视根（`ENG-15`）：精灵挂在它下面，纵深偏移与影子都由它管。
-    /// </summary>
+    /// <summary>纵深可视根：精灵挂在它下面，纵深偏移与影子都由它管。</summary>
     public DepthVisual Visual { get; private set; } = null!;
 
     /// <inheritdoc />
-    /// <remarks>转发规则层那一份，不另存 —— 纵深的唯一来源是 <c>Combat.Motor</c>。</remarks>
+    /// <remarks>只是转发规则层那一份，本类不另存一份纵深。</remarks>
     public double DepthWorldPx => Combat.Motor.DepthWorldPx;
 
     /// <inheritdoc />
     /// <remarks>
-    /// 同样只是转发：写入口仍然唯一（<c>MotorState.PlaceDepth</c>），本类不自己存一份纵深
-    /// （`ARCHITECTURE.md`「引擎层绝不许自己再积分一遍纵深速度」）。
+    /// 同样只是转发，写入口仍然唯一。引擎层只读纵深值，绝不自己再按速度积分一遍 —— 那会得到两倍
+    /// 位移，而且不报错，见 <c>ARCHITECTURE.md</c>。
     ///
-    /// <c>PlaceDepth</c> 会把纵深速度清零，而这里**不需要**为此另开一个保速度的写法：纵深速度每帧都
-    /// 由输入重算（<c>MotorState.AdvanceDepth</c> 的入参），而本方法由 <see cref="DepthBlocker"/> 在角色
-    /// 推进**之前**调 —— 清掉的那个值在同一帧里就会被重新算出来，动画那条「两个轴都算在走」照旧成立
-    /// （否则顶着障碍物挪纵深时角色会显示待机，与顶着墙横向走时显示行走不一致）。
+    /// 底下那个方法会把纵深速度清零，而这里不需要为此另开一个保速度的写法：纵深速度每帧都由输入
+    /// 重算，而本方法由 <see cref="DepthBlocker"/> 在角色推进之前调，清掉的值在同一帧里就被重新算
+    /// 出来了。于是「两个轴只要有一个在动就算在走」照旧成立，顶着障碍物挪纵深时角色不会显示待机。
     /// </remarks>
     public void PlaceDepth(double depthWorldPx) => Combat.Motor.PlaceDepth(depthWorldPx);
 
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
-    /// <summary>各动作**逐帧**的本体左右边界（帧内像素索引）。指向下面那份按表共享的缓存。</summary>
+    /// <summary>各动作逐帧的身体左右边界，单位是帧内像素列号。指向下面那份按表共享的缓存。</summary>
     private readonly Dictionary<string, (int Left, int Right)[]> _bodyBounds = [];
 
-    /// <summary>
-    /// 逐帧本体边界的缓存，键是精灵表路径。**同一张表只扫一次**，所有角色共享结果。
-    /// </summary>
+    /// <summary>逐帧身体边界的缓存，键是精灵表的完整路径。同一张表只扫一次，所有角色共享结果。</summary>
     /// <remarks>
-    /// 不缓存的话每个角色实例都要重扫一遍：探针里 spawn 六个替身就是 45 万像素，正典的同屏 20 个
-    /// 角色会是 150 万 —— 而那是**同一批图**。缓存键取完整路径而不是动作名，好让将来不同角色用
-    /// 不同表时仍然各自命中（现在全体共用 <see cref="SheetDir"/> 那一套）。
+    /// 不缓存的话每个角色实例都要把同一批图重扫一遍 —— 同屏二十个角色就是上百万个像素。键取完整
+    /// 路径而不是动作名，好让将来不同角色用不同表时各自命中；现在所有角色共用同一套表。
     ///
-    /// 这个开销不会被任何判据报出来（它不影响任何结论，只是载入变慢），发现它靠的是启动日志里
-    /// 同一行打了六遍。所以宽度那行只在真正扫的时候打 —— 打的次数本身就是「扫了几次」的量具。
+    /// 这个开销不影响任何结果，只是载入变慢，所以它不会以报错的形式冒出来。发现它靠的是启动日志里
+    /// 同一行打了好几遍。所以那一行只在真正扫的时候才打 —— 打几遍就说明扫了几遍。
     /// </remarks>
     private static readonly Dictionary<string, (int Left, int Right)[]> BodyBoundsCache = [];
 
     /// <inheritdoc />
     /// <remarks>
-    /// **当前帧的不透明边界与实体范围取并集**，理由见 <see cref="BodyWidthFloorWorldPx"/>：整帧
-    /// 边界含四肢，只用它会让走动中的影子随手臂摆动缩到一半。边界是在**未翻转**的图上量的，所以
-    /// 朝左时要镜像。缺图退回占位框时只有实体范围可用。
+    /// 取「这一帧的不透明边界」与「身体宽」两者的并集，理由见 <see cref="BodyWidthFloorWorldPx"/>。
+    /// 边界是在没翻转的图上量的，所以角色朝左时要镜像一下。缺图退回占位框时只有身体宽可用。
     /// </remarks>
     public GroundSpan BodySpanWorldPx
     {
@@ -225,23 +206,20 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
             var (left, right) = bounds[Math.Clamp(Sprite.Frame, 0, bounds.Length - 1)];
             if (right < left)
             {
-                return floor;   // 空帧（整帧全透明），没有可量的边界
+                return floor;   // 整帧全透明，没有可量的边界
             }
-            // 精灵居中绘制，所以帧的横向中点（帧宽的一半）落在节点原点上；像素 x 覆盖 [x, x+1)。
+            // 精灵居中绘制，所以帧的横向中点落在节点原点上；第 x 列像素覆盖 [x, x+1) 这一段。
             var span = new GroundSpan(left - (FrameWidth / 2.0), right + 1 - (FrameWidth / 2.0));
             return (Sprite.FlipH ? span.Mirrored() : span).Union(floor);
         }
     }
 
-    /// <summary>
-    /// 逐帧量本体的左右边界（帧内像素索引）：扫每一帧不透明像素的最左与最右列。
-    /// </summary>
+    /// <summary>逐帧扫出身体的左右边界：每一帧里不透明像素最左与最右那一列，单位是帧内像素列号。</summary>
     /// <remarks>
-    /// **为什么运行时重算而不是预先存一份**：存下来的那份必须跟着素材改，而它不会自动跟 —— 运行时
-    /// 从纹理直接扫，素材一换结果就跟着变，没有第二个会过期的家。实测七张表的逐帧最大值是
-    /// 19／20／25／20／27／29／36，与另一套独立实现算出的结果逐个相同。
+    /// 运行时从纹理直接扫，而不是预先存一份数字：存下来的那份得跟着素材改，而它不会自动跟。直接扫
+    /// 的话素材一换结果就跟着变，不会有第二份过期的数据。
     ///
-    /// 代价可忽略：七张表共 54 帧、约 7.6 万像素，只在 <c>_Ready</c> 扫一次。
+    /// 开销可以忽略：几十帧、几万个像素，只在 <see cref="_Ready"/> 里扫一次，而且同一张表只扫一次。
     /// </remarks>
     private static (int Left, int Right)[] MeasureBodyBounds(Texture2D texture, int frames)
     {
@@ -264,13 +242,13 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
                     break;
                 }
             }
-            // 全透明帧留成反向区间，消费方据此退回实体范围 —— 不编一个 0 宽度出来。
+            // 全透明的帧留成一个左大于右的反向区间，读的人据此退回身体宽，而不是编一个 0 宽度出来。
             bounds[frame] = (left, right);
         }
         return bounds;
     }
 
-    /// <summary>缺图退回几何占位的动作名，开发探针用；空表示全部动作都有真图。</summary>
+    /// <summary>哪些动作因为缺图退回了几何占位。空的就表示每个动作都有真图。</summary>
     public IReadOnlyList<string> MissingSheets => _missing;
     private readonly List<string> _missing = [];
 
@@ -278,20 +256,19 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     {
         if (Engine.PhysicsTicksPerSecond != CombatFeel.PhysicsTicksPerSecond)
         {
-            throw new InvalidOperationException("Combat requires 60 physics ticks per second");
+            throw new InvalidOperationException("战斗的帧数都按每秒 60 个物理帧算，项目里设的不是 60");
         }
         _ = Controllers.Require(ActorId);
-        // 碰撞框贴角色实测轮廓：站立姿 28px 高（登记表「角色本体」那一项，去掉地面参考线后量的），
-        // 底边落在节点原点 —— 原点即脚底，精灵偏移也对到同一处。
+        // 碰撞框贴实测轮廓，底边落在节点原点上 —— 原点就是脚底，精灵的偏移也对到同一处。
         AddChild(new CollisionShape2D
         {
             Shape = new RectangleShape2D { Size = new Vector2(BodyWidthFloorWorldPx, BodyHeightWorldPx) },
             Position = new Vector2(0, -14),
         });
         Sprite.SpriteFrames = new SpriteFrames();
-        // 把帧内地面行对到节点原点：帧居中绘制，行 r 的上沿在精灵局部 y = r - 帧高/2。
+        // 把帧内地面行对到节点原点上：帧是居中绘制的，所以第 r 行的上沿在精灵局部 y = r 减帧高一半。
         Sprite.Position = new Vector2(0, -(GroundRow - FrameHeight / 2));
-        // 命中白闪走材质，不走 modulate（乘法对彩色贴图无效），理由见 FlashShader。
+        // 白闪走材质，不走 Modulate（乘法对彩色贴图无效），理由见 FlashShader。
         Sprite.Material = _flashMaterial;
         foreach (var name in Sheets)
         {
@@ -299,7 +276,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
             if (texture == null || texture.GetHeight() != FrameHeight
                 || texture.GetWidth() % FrameWidth != 0 || texture.GetWidth() == 0)
             {
-                GD.PushWarning($"[GP12] Missing or invalid sheet: {name}");
+                GD.PushWarning($"[主角] 精灵表缺失或尺寸不对，这个动作退回几何占位：{name}");
                 _missing.Add(name);
                 continue;
             }
@@ -318,37 +295,35 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
             {
                 bounds = MeasureBodyBounds(texture, count);
                 BodyBoundsCache[path] = bounds;
-                GD.Print($"[GP12] BodySpan {name}="
+                GD.Print($"[主角] 逐帧身体边界 {name}="
                     + $"[{string.Join(",", bounds.Select(b => $"{b.Left}:{b.Right}"))}]");
             }
             _bodyBounds[name] = bounds;
-            // 这一行把每张表的帧数打进启动日志，方便对照精灵表确认切图没切错。原先有探针按
-            // `^\[GP12\] Sheet (\w+)=(\d+)$` 解析它，探针已随 `ADR-0009` 删除，格式不再是契约。
-            GD.Print($"[GP12] Sheet {name}={count}");
+            // 把每张表的帧数打进启动日志，方便对照精灵表确认切图没切错。
+            GD.Print($"[主角] 精灵表 {name} 有 {count} 帧");
         }
         GD.Print(_missing.Count == 0
-            ? $"[GP12] Missing animations: none; frame {FrameWidth}x{FrameHeight} ground row {GroundRow}"
-            : $"[GP12] Missing animations: {string.Join(", ", _missing)}; geometry fallback");
-        // 精灵挂在纵深可视根下，于是纵深偏移只有一处来源（`ENG-15`）。
+            ? $"[主角] 全部动作都有真图；帧框 {FrameWidth}x{FrameHeight}，帧内地面行 {GroundRow}"
+            : $"[主角] 这些动作缺图、退回几何占位：{string.Join(", ", _missing)}");
+        // 精灵挂在纵深可视根下面，于是纵深偏移只有一处来源。
         Visual = new DepthVisual { Actor = this };
         AddChild(Visual);
         Visual.AddChild(Sprite);
         UpdateVisual();
     }
 
-    /// <summary>由战斗场景统一推进时关闭默认物理回调。</summary>
+    /// <summary>置真表示由场景自己调 <see cref="AdvanceCombat"/>，引擎的默认物理回调就不再推进一遍。</summary>
     public bool ManualPhysics { get; init; }
 
     public override void _PhysicsProcess(double delta)
     {
-        // 白闪开关每帧同步一次。**这一句在 `ManualPhysics` 分支之外**：白闪按真实帧走，顿帧或帧步进
-        // 冻住战斗推进时它仍要自己走完（见 <see cref="HitFlashing"/>）。写成「变了才设」会多一份要
-        // 跟着对的状态，而这是一次 uniform 赋值，不值当。
+        // 白闪开关每帧同步一次。这一句刻意放在 ManualPhysics 判断之外：白闪按真实帧走，顿帧或单帧
+        // 前进冻住战斗推进的时候它仍要自己走完。
         _flashMaterial.SetShaderParameter(FlashParam, HitFlashing);
         if (!ManualPhysics) AdvanceCombat();
     }
 
-    /// <summary>推进一个未冻结的物理帧，包括碰撞后取消与动画。</summary>
+    /// <summary>推进一个没被冻结的物理帧：读输入、移动、落地取消，再刷动画。</summary>
     public void AdvanceCombat()
     {
         var controller = Controllers.Require(ActorId);
@@ -358,29 +333,26 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         Velocity = new Vector2((float)Combat.Motor.HorizontalVelocity, (float)Combat.Motor.VerticalVelocity);
         MoveAndSlide();
         Combat.AfterMove(IsOnFloor(), IsOnCeiling(), IsOnWall(), Velocity.X);
-        // 位置已定才刷纵深偏移与影子：射线要问的是这一帧的最终位置。
+        // 位置定下来之后才刷纵深偏移与影子：找地面那条射线要问的是这一帧的最终位置。
         Visual.Sync();
         UpdateVisual();
     }
 
-    /// <summary>
-    /// 接受一次命中（`GP-14` 把训练靶换成真角色时接入的 GP-18 一小片：受击表现）。实现 <see cref="IHittable"/>。
-    /// </summary>
+    /// <summary>挨一下。实现 <see cref="IHittable"/>。</summary>
     /// <remarks>
-    /// 命中反应的分工：**顿帧与震屏在场景层**（命中回调里做，木桩与角色通用），**硬直与击退在这里**
-    /// 经 <see cref="MotorState.Stagger"/> 交给运动状态机，**受击帧在 <see cref="UpdateVisual"/>** —— 按
-    /// <see cref="MotorPhase.Hurt"/> 选 `light_hit`／`heavy_hit`。轻击击退为 0（`CombatFeel`），所以轻击
-    /// 命中是「定身 + 受击帧」没有位移，重击才推开，与木桩同一套数。
+    /// 命中反应分在三处：顿帧与震屏在场景那一层（命中回调里做，木桩与角色通用）；硬直与击退在
+    /// 这里，交给运动状态机的 <see cref="MotorState.Stagger"/>；受击帧在
+    /// <see cref="UpdateVisual"/> 里按运动相位挑。轻击的击退量是 0，所以轻击命中是「定身加受击帧」
+    /// 没有位移，重击才推开。
     /// </remarks>
     public void Receive(HitReaction reaction, int facing)
     {
         _hurtHeavy = reaction.IsHeavy;
-        // 命中白闪（`GP-20`）：在**命中当帧**打戳。这一句跑在顿帧开始之前 —— `Hitbox.Resolve` 里
-        // 先 `target.Receive`、后 `feedback`（那里才 `Hitstop.Begin`），所以白闪、受击帧、顿帧、
-        // 震屏与打击火花全部落在同一个物理帧上，这正是「爆点」而不是「延迟」的条件。
+        // 白闪在命中当帧就打戳。这一句跑在顿帧开始之前（命中结算里先通知目标、后做反馈），所以
+        // 白闪、受击帧、顿帧、震屏与火花全部落在同一个物理帧上，那是「爆点」而不是「延迟」的条件。
         _flashUntilFrame = Engine.GetPhysicsFrames() + (ulong)CombatFeel.HitFlashFrames;
         _flashMaterial.SetShaderParameter(FlashParam, true);
-        // 把「硬直帧内走完 KnockbackWorldPx」折成速度：每帧位移 = 击退 ÷ 硬直，速度 = 每帧位移 × 帧率。
+        // 把「在硬直帧数内走完这段击退距离」折成速度：每帧位移等于击退除硬直，速度等于它乘帧率。
         var knockbackVelocity = reaction.HitstunFrames > 0
             ? facing * (double)reaction.KnockbackWorldPx / reaction.HitstunFrames * CombatFeel.PhysicsTicksPerSecond
             : 0.0;
@@ -397,12 +369,11 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
             _ when combo.IsAttacking => combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step),
             MotorPhase.Dodge => "dodge",
             MotorPhase.Airborne => "jump",
-            // 地面只有行走与奔跑两档（`MotorPhase.Run` 即设计文档里的「冲刺」），这张表只在奔跑相位播。
+            // 地面只有行走与奔跑两档，这张表只在奔跑那一档播。
             MotorPhase.Run => "run",
-            // **两个轴都算「在走」**（`ENG-15` 修）。原来只看横向速度，于是纯纵深移动时动作是
-            // idle —— 角色站着不动地在纵深上滑，而这件事不报错：位置在变、判据全绿、只有眼睛
-            // 看得出来。走纵深复用侧面行走姿态，不需要新素材：belt-scroll 那一类作品都是这么
-            // 做的（没有「往里走」的专用动画），而正典也定了角色不因远近缩放、朝向只有左右两面。
+            // 横向与纵深，两个轴只要有一个在动就算「在走」。原来只看横向速度，于是纯前后移动时放的
+            // 是待机 —— 角色站着不动地在纵深上滑，而它不报错，只有眼睛看得出来。走纵深直接复用侧面
+            // 行走姿态，不需要新素材：这一类横版作品都没有「往里走」的专用动画。
             _ when Math.Abs(motor.HorizontalVelocity) > 0 || Math.Abs(motor.DepthVelocity) > 0 => "walk",
             _ => "idle",
         };
@@ -420,10 +391,10 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         {
             Sprite.Animation = action;
             var count = Sprite.SpriteFrames.GetFrameCount(action);
-            // 攻击与闪避按**规则层相位**取帧，不许渲染时钟自己跑；其余动作才用渲染计数循环。
+            // 攻击与闪避按规则层算出来的相位取帧，不让渲染时钟自己跑；其余动作才按渲染计数循环。
             Sprite.Frame = motor.Phase switch
             {
-                // 受击帧播一遍、停在末帧，不循环
+                // 受击帧播一遍就停在末帧，不循环。
                 MotorPhase.Hurt => Math.Min(count - 1, _visualFrame / LoopTicks(action)),
                 _ when combo.IsAttacking => AttackFrame(combo, count),
                 MotorPhase.Dodge => PhaseFrame(_visualFrame, CombatFeel.DodgeDurationFrames, count),
@@ -434,10 +405,10 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         QueueRedraw();
     }
 
-    /// <summary>轻击每段的精灵表名（`ART-6`）：第 1/2/3 段 → light/light2/light3。</summary>
+    /// <summary>轻击每一段用哪张精灵表。</summary>
     /// <remarks>
-    /// 段号超出（理论上不会，`LightChainLength=3`）落到第 3 段，与 <see cref="Hitbox.SpecFor"/> 的
-    /// 兜底方向一致 —— 两处对「未知段」的处理必须同向，否则动画与判定框会各选一段。
+    /// 段号超出范围（照理不会）落到最后一段，与 <see cref="Hitbox.SpecFor"/> 的兜底方向一致 ——
+    /// 两处对「段号不认识」的处理必须同向，否则动画与判定框会各选一段。
     /// </remarks>
     private static string LightSheet(int step) => step switch
     {
@@ -446,7 +417,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         _ => "light3",
     };
 
-    /// <summary>一段攻击的相位 → 精灵帧。命中姿绝不出现在前摇里，见类顶部注释。</summary>
+    /// <summary>一段攻击此刻该放第几帧图。命中姿绝不出现在前摇里，理由见类顶部那段注释。</summary>
     private static int AttackFrame(ComboStateMachine combo, int count)
     {
         var heavy = combo.Kind == ComboKind.Heavy;
@@ -462,11 +433,12 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         };
     }
 
-    /// <summary>把「相位内第几帧」等分映射到「这一段有几张图」，单调不回头、不越界。</summary>
+    /// <summary>把「这个阶段走到第几帧」等分摊到「这一段有几张图」，不回头也不越界。</summary>
     private static int PhaseFrame(int frameInPhase, int phaseFrames, int spriteFrames) =>
         Math.Clamp(frameInPhase * spriteFrames / Math.Max(1, phaseFrames), 0, Math.Max(0, spriteFrames - 1));
 
-    /// <summary>循环动作每张图停几个物理帧。占位值，归 `GP-6` 实测收敛。</summary>
+    /// <summary>循环播放的动作里，每张图停几个物理帧。</summary>
+    /// <remarks>这几个数是临时填的，手感要实机试了才定得下来。</remarks>
     private static int LoopTicks(string action) => action switch
     {
         "idle" => 8,
@@ -474,18 +446,16 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         _ => 3,
     };
 
-    /// <summary>缺图时的几何占位：只画一个框加朝向线，**不按动作分形状**。</summary>
+    /// <summary>缺图时的几何占位：只画一个框加一条朝向线，不按动作分形状。</summary>
     /// <remarks>
-    /// 原来这里按动作画过圆圈（闪避）与斜线（命中相）、还给重击换成品红 —— 那些是"没有图"期间
-    /// 的替身。跳跃／闪避／轻重击都有真图之后它们成了死代码，留着只会让人以为占位还在用。
-    /// **机制本身保留**：将来新增一个还没画的动作，它照旧退回这个框并在启动日志里点名。
+    /// 这套占位机制保留着：将来新增一个还没画的动作，它照旧退回这个框，并在启动日志里点名是哪个。
     /// </remarks>
     public override void _Draw()
     {
         if (!Sprite.Visible)
         {
-            // 占位几何也得跟着纵深偏移，否则缺图的动作在纵深上走动时画面不动（`ENG-15`）。
-            // 偏移读可视根那一份，不在这里再算一次 —— 算第二遍就多了一处会漂的地方。
+            // 占位几何也得跟着纵深偏移，否则缺图的动作在纵深上走动时画面不动。偏移读可视根那一份，
+            // 不在这里再算一次 —— 算第二遍就多了一处会跟不上的地方。
             DrawSetTransform(Visual.Position);
             var color = Combat.Motor.IsInvulnerable ? Colors.Cyan : Colors.White;
             DrawRect(new Rect2(-9, -28, 18, 28), color, false, 2);
