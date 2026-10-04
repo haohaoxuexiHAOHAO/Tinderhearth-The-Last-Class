@@ -1,21 +1,24 @@
 namespace Tinderhearth.Rules.UI;
 
-/// <summary>哪一条资源。**只用来决定配色**，量与上限由视图模型带进来。</summary>
+/// <summary>哪一条资源。它只用来决定配色，量与上限由视图模型带进来。</summary>
 public enum HudGaugeKind
 {
-    /// <summary>HP。正典：生命。</summary>
+    /// <summary>生命。</summary>
     Health,
 
     /// <summary>
-    /// 体力（缩写 SP）。正典：冲刺、闪避、跳跃与普通防御的消耗，关卡内自回。
-    /// **与下面的 <see cref="DailyVigor"/> 是两条不共用预算的资源**，中文名见 `DOC-18`。
+    /// 体力（缩写 SP）：奔跑、闪避、跳跃与普通防御的消耗，关卡内自回。它与
+    /// <see cref="DailyVigor"/> 是两条不共用预算的资源。
     /// </summary>
     Stamina,
 
-    /// <summary>MP。正典：施放技能，普攻命中回复。</summary>
+    /// <summary>法力：施放技能要扣，普攻命中回一点。</summary>
     Mana,
 
-    /// <summary>精力。经营侧当日一切行动的共同预算，关卡内不变 —— 摆在这里是为了让玩家出征前后都看得见同一个数。</summary>
+    /// <summary>
+    /// 精力：经营侧当日一切行动的共同预算，关卡内不变。摆在 HUD 上是为了让玩家出征前后看到的
+    /// 是同一个数。
+    /// </summary>
     DailyVigor,
 }
 
@@ -23,13 +26,12 @@ public enum HudGaugeKind
 /// 一条资源条。
 /// </summary>
 /// <param name="Kind">哪一条，决定配色。</param>
-/// <param name="Label">显示的标签。**已经取过文本表的成品字符串**，界面不做查表。</param>
+/// <param name="Label">显示的标签。已经查过文本表的成品字符串，界面不再查表。</param>
 /// <param name="Current">当前值。</param>
 /// <param name="Max">上限。</param>
 /// <remarks>
-/// <paramref name="Current"/> 与 <paramref name="Max"/> 是**玩法数值**，一律由调用方传入 ——
-/// `UI-8` 不读也不搬 `design/数值模型.md` 的参数表（PRD 第 8 节）。测试里注入假值，实机演示
-/// 用一份明确标为演示的数据。
+/// <paramref name="Current"/> 和 <paramref name="Max"/> 是玩法数值，一律由调用方传入，界面层
+/// 不去读设计仓 design/数值模型.md 的参数表。测试里注入假值，实机演示用一份明确标为演示的数据。
 /// </remarks>
 public sealed record HudGauge(HudGaugeKind Kind, string Label, int Current, int Max)
 {
@@ -45,8 +47,8 @@ public sealed record HudGauge(HudGaugeKind Kind, string Label, int Current, int 
 /// <param name="Unlocked">解锁了没有。没解锁的位显示空框而不是隐藏 —— 位置固定才有肌肉记忆。</param>
 /// <param name="CooldownRemaining">冷却剩余比例，1 ＝ 刚放完，0 ＝ 可用。</param>
 /// <remarks>
-/// **冷却时长不在这里**，只有比例。时长归 `design/数值模型.md`，本条只做表现形式
-/// （从下往上退去的暗色遮罩 + 冷却中不显示按键提示）。
+/// 这里只有比例，没有冷却时长。时长归设计仓 design/数值模型.md，界面只管表现形式：
+/// 一层从下往上退去的暗色遮罩，冷却中不显示按键提示。
 /// </remarks>
 public sealed record HudSkillSlot(string Action, string Label, bool Unlocked,
                                  double CooldownRemaining)
@@ -66,13 +68,13 @@ public sealed record HudSkillSlot(string Action, string Label, bool Unlocked,
 /// <param name="Total">需要的数量。</param>
 /// <param name="DoneMessage">达成后显示的那句话。</param>
 /// <remarks>
-/// **为 0 或已达成时仍然显示**，不隐藏（[战斗与关卡]：目标进度必须始终可见 —— 没有目标就没有
-/// 推进感，而进度看不见等于没有目标）。达成后显示的是「返回入口点撤离」而不是「已完成」，因为
-/// 正典明确达成目标后不自动结束关卡，玩家还得走回去。
+/// 进度为 0 或者已达成时照样显示，不隐藏：进度看不见等于没有目标。达成后显示的是「返回入口点
+/// 撤离」而不是「已完成」，因为达成目标不会自动结束关卡，玩家还得走回去。详见设计仓
+/// canon/gameplay/战斗与关卡.md。
 /// </remarks>
 public sealed record HudObjective(string Label, int Done, int Total, string DoneMessage)
 {
-    /// <summary>达成了没有。**总数为 0 也算达成** —— 没有要采的东西就等于不用采。</summary>
+    /// <summary>达成了没有。总数为 0 也算达成：没有要采的东西就等于不用采。</summary>
     public bool Complete => Total <= 0 || Done >= Total;
 
     /// <summary>还差多少。达成后是 0，不会是负数。</summary>
@@ -84,14 +86,13 @@ public sealed record HudObjective(string Label, int Done, int Total, string Done
 /// </summary>
 /// <param name="Current">当前 HP。</param>
 /// <param name="Max">HP 上限。</param>
-/// <param name="Down">倒地了没有。倒地不等于 HP 为 0 —— 正典有「去扶倒地的同伴」这条行为。</param>
+/// <param name="Down">倒地了没有。倒地不等于 HP 为 0，玩家可以去扶倒地的同伴。</param>
 /// <remarks>
-/// **刻意没有名字这一项。** 队友格只有 20px 宽（头像框的尺寸），12px 汉字放不下两个字，而
-/// [ADR-0008] 已排除更小的字号。识别靠头像本身 —— 那正是[人物 · 形象记忆点设计]要求每个角色
-/// 有独立剪影与签名色的用处，占位件看不出区别，换成正式头像就看得出。
+/// 没有名字这一项。队友格就是头像框那么宽，汉字放不下两个，而更小的字号已经被排除。识别靠头像
+/// 本身，所以每个角色要有独立的剪影与签名色（设计仓 production/像素绘制原则.md）。占位头像看不
+/// 出区别，换成正式头像就看得出。
 ///
-/// 于是「倒地」这个状态不能只靠颜色区分（[像素绘制原则 §4]：相反语义要有不同符号），
-/// 界面另加一个记号盖在头像上。
+/// 于是「倒地」不能只靠颜色区分，界面另加一个记号盖在头像上。相反语义要有不同符号，不能只换色。
 /// </remarks>
 public sealed record HudTeammate(int Current, int Max, bool Down)
 {
@@ -99,20 +100,17 @@ public sealed record HudTeammate(int Current, int Max, bool Down)
     public double Ratio => Max <= 0 ? 0.0 : Math.Clamp((double)Current / Max, 0.0, 1.0);
 }
 
-/// <summary>
-/// 关卡 HUD 要显示的全部东西（`UI-8`）。**界面只渲染它，不去别处取数。**
-/// </summary>
+/// <summary>关卡 HUD 要显示的全部东西。界面只渲染它，不去别处取数。</summary>
 /// <remarks>
-/// 为什么要有这么一层：PRD 第 8 节写明「HUD 显示的数值从视图模型传入，`UI-1` 不读也不搬 `GP-2`
-/// 的参数表」。没有这一层的话，界面代码会顺手写一个 100 当 HP 上限 —— 那个数不会报错，只会在
-/// 数值模型真接进来的那天变成两份互相矛盾的事实。
+/// 要这么一层是因为没有它的话，界面代码会顺手写一个数当 HP 上限。那个数不报错，只会在真玩法
+/// 数值接进来的那天变成两份互相矛盾的事实。
 ///
-/// 构造时就校验条数（资源 4 条、技能 6 位、队友不超过编队上限），**对不上直接抛**。静默少画一格
-/// 的后果是界面看起来正常而信息缺了一条，那种缺陷没人会发现。
+/// 构造时就校验条数：资源、技能位、队友各自该有几条，对不上直接抛。静默少画一格的后果是界面
+/// 看起来正常而信息缺了一条，那种缺陷没人会发现。
 /// </remarks>
 public sealed class HudViewModel
 {
-    /// <summary>装一份视图模型。**条数对不上直接抛**，不静默少画一格。</summary>
+    /// <summary>装一份视图模型。条数对不上直接抛，不静默少画一格。</summary>
     public HudViewModel(IReadOnlyList<HudGauge> gauges, IReadOnlyList<HudSkillSlot> skills,
                         HudObjective objective, IReadOnlyList<HudTeammate> teammates)
     {
@@ -125,27 +123,25 @@ public sealed class HudViewModel
                 $"队友 {teammates.Count} 名超过编队上限 {HudLayout.MaxTeammates}");
     }
 
-    /// <summary>四条资源，顺序即显示顺序。</summary>
+    /// <summary>各条资源，顺序就是显示顺序。</summary>
     public IReadOnlyList<HudGauge> Gauges { get; }
 
-    /// <summary>6 个技能位，顺序即编号。</summary>
+    /// <summary>各个技能位，顺序就是编号。</summary>
     public IReadOnlyList<HudSkillSlot> Skills { get; }
 
     /// <summary>目标进度。</summary>
     public HudObjective Objective { get; }
 
-    /// <summary>队友，0 至编队上限。</summary>
+    /// <summary>队友，从没有到编队上限。</summary>
     public IReadOnlyList<HudTeammate> Teammates { get; }
 
-    /// <summary>
-    /// 队友区显不显示。**为 0 时收起整块，而不是留 4 个空槽。**
-    /// </summary>
+    /// <summary>队友区显不显示。一个队友都没有时收起整块，而不是留一排空槽。</summary>
     /// <remarks>
-    /// 空槽会让「单人采集」看起来像「三个队友没加载出来」。收起是正确的表达：这一趟就是一个人去。
+    /// 空槽会让「单人采集」看起来像「队友没加载出来」。收起才是正确的表达：这一趟就是一个人去。
     /// </remarks>
     public bool ShowTeammates => Teammates.Count > 0;
 
-    /// <summary>不用类做整体替换时按块换：只换资源，其余照旧。</summary>
+    /// <summary>按块替换：只换资源，其余照旧。</summary>
     public HudViewModel WithGauges(IReadOnlyList<HudGauge> gauges) =>
         new(gauges, Skills, Objective, Teammates);
 

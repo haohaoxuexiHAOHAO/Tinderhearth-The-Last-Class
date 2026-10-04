@@ -1,6 +1,6 @@
 namespace Tinderhearth.Rules.UI;
 
-/// <summary>视角。**只有这两种，且共用同一份相机实现** —— 正典写明「无例外」。</summary>
+/// <summary>视角。只有这两种，而且共用同一份相机实现，没有例外。</summary>
 public enum CameraView
 {
     /// <summary>基地与城区。1 倍缩放。</summary>
@@ -10,28 +10,19 @@ public enum CameraView
     SideView,
 }
 
-/// <summary>
-/// 一台相机的全部行为（`UI-5`）：跟随、钳制、震动、演出接管、建造滚动与边缘推镜。
-/// </summary>
+/// <summary>一台相机的全部行为：跟随、钳制、震动、演出接管、建造滚动与边缘推镜。</summary>
 /// <remarks>
-/// **两种视角共用这一个类，视角只是构造参数。** 这不是省事，是正典点名的立项理由：
-/// 「行为不定下来，两种视角会各写一套」。所以视角在这里只影响一件事 —— <see cref="Zoom"/>，
-/// 以及由它换算出来的可视尺寸与死区。其余判定逐字相同。执行体现在只有一个：`GameCamera` 是
-/// `sealed`，所以「再派一个子类」在编译期就走不通。原先另有静态守卫核「引擎层只有一个
-/// <c>Camera2D</c> 派生类型」并要求每条判据在两种视角下各出现一次，随 `ADR-0009` 删除。
+/// 两种视角共用这一个类，视角只是构造参数。这样做是为了防「两种视角各写一套相机」。视角在这里
+/// 只影响 <see cref="Zoom"/> 以及由它换算出来的可视尺寸和死区，其余判定逐字相同。引擎那一侧
+/// <c>GameCamera</c> 是 <c>sealed</c> 的，所以再派一个子类在编译期就走不通。
 ///
-/// **为什么整台状态机在规则层。** 相机的失效方式都不报错：死区写成 0 只表现为「镜头有点抖」，
-/// 钳制少一边只表现为「地图边上偶尔露白」，演出结束忘了归还只表现为「后面镜头不动了」。
-/// 这些都是纯几何，放这里就能用不启引擎的单元测试盯住。引擎层只剩一件事：把
-/// <see cref="CenterX"/> 与 <see cref="ShakeOffsetX"/> 抄进 <c>Camera2D</c>。
+/// 整台状态机放在规则层，因为相机的失效方式都不报错：死区写成 0 只表现为镜头有点抖，钳制少一边
+/// 只表现为地图边上偶尔露白，演出结束忘了归还只表现为后面镜头不动了。这些都是纯几何，放这里
+/// 就能用不启引擎的单元测试盯住。引擎层只剩一件事：把算出来的中心和震动偏移抄进 <c>Camera2D</c>。
 ///
-/// **一切对外暴露的位置量都是整数世界像素。** 速度驱动的移动（滚动、推镜）把不足一像素的部分
-/// 留在内部余量里累加，不四舍五入 —— 这样「输出恒为整数」是结构保证而不是某一行取整的结果。
-/// 理由是实测的：相机落在半像素上时最近邻采样会把像素块切成宽窄不一的条（见 `UI-5` 实现笔记），
-/// 而那看起来只是「画面有点脏」，不报错。
-///
-/// **不做位置平滑。** 平滑要引入一个时间常数，那又是一个只能实机收敛的数；而硬死区的行为可预期，
-/// 正是正典对相机的要求。想要软化的场合（演出）由演出脚本自己驱动镜头。
+/// 对外暴露的位置量一律是整数世界像素。速度驱动的移动（滚动、推镜）把不足一像素的部分留在内部
+/// 余量里累加，不四舍五入，这样「输出恒为整数」是结构保证而不是某一行取整的结果。实测过相机落在
+/// 半像素上的后果：最近邻采样会把像素块切成宽窄不一的条，看起来只是画面有点脏，而且不报错。
 /// </remarks>
 public sealed class CameraRig
 {
@@ -64,24 +55,20 @@ public sealed class CameraRig
     /// <summary>这台相机服务哪种视角。构造后不变 —— 切视角是换场景，不是改相机。</summary>
     public CameraView View { get; }
 
-    /// <summary>
-    /// 整数缩放倍数。俯视 1 倍，侧视取 <see cref="UIMetrics.SideViewZoom"/>。
-    /// </summary>
+    /// <summary>整数缩放倍数。俯视是 1 倍，侧视取 <see cref="UIMetrics.SideViewZoom"/>。</summary>
     /// <remarks>
-    /// 侧视那个 2 **不在这里重定义**：它是正典的像素基准，已经在 <see cref="UIMetrics"/> 里，
-    /// 且那边有测试钉住「有效视野 = 320×180」。演出期间可以临时覆盖，但只能覆盖成正整数。
+    /// 侧视那个倍数不在这里重定义，它是全项目的像素基准、已经在 <see cref="UIMetrics"/> 里，
+    /// 那边有测试钉住它换算出来的有效视野。演出期间可以临时覆盖，但只能覆盖成正整数。
     /// </remarks>
     public int Zoom => _zoomOverride > 0
         ? _zoomOverride
         : View == CameraView.SideView ? UIMetrics.SideViewZoom : 1;
 
-    /// <summary>
-    /// 告诉相机当前的逻辑视口尺寸。**必须每帧传，不能缓存成常量。**
-    /// </summary>
+    /// <summary>告诉相机当前的逻辑视口尺寸。必须每帧传，不能缓存成常量。</summary>
     /// <remarks>
-    /// `aspect="expand"` 下逻辑宽度是**下限不是定值**：高度锁在 360，宽度按窗口宽高比撑开
-    /// （`UI-3` 实测 3840×2130 的窗口得到逻辑 649×360）。所以按 640 算钳制范围会错 ——
-    /// 宽窗口上相机会停得太早，地图边缘露白。
+    /// 视口按 expand 拉伸时，逻辑宽度是个下限而不是定值：高度锁住，宽度按窗口宽高比撑开（实测
+    /// 3840×2130 的窗口得到的逻辑尺寸是 649×360）。所以拿基准宽度去算钳制范围会错，宽窗口上
+    /// 相机会停得太早，地图边缘露白。
     /// </remarks>
     public void SetLogicalViewport(int logicalWidth, int logicalHeight)
     {
@@ -96,15 +83,13 @@ public sealed class CameraRig
         Reclamp();
     }
 
-    /// <summary>能看到的世界宽度，世界像素。**向上取整**，理由见 <see cref="VisibleHeight"/>。</summary>
+    /// <summary>能看到的世界宽度，世界像素。向上取整，理由见 <see cref="VisibleHeight"/>。</summary>
     public int VisibleWidth => CeilDiv(_logicalWidth, Zoom);
 
-    /// <summary>
-    /// 能看到的世界高度，世界像素。
-    /// </summary>
+    /// <summary>能看到的世界高度，世界像素。</summary>
     /// <remarks>
-    /// 取上整而不是截断：逻辑宽度可能是奇数（`expand` 撑出来的 649），截断会让相机以为自己看得
-    /// 比实际少半像素，于是钳制放得太松、边缘露出半像素的白缝。往大取只会让钳制更保守。
+    /// 向上取整而不是截断，因为逻辑宽度可能是奇数（视口撑开时就会）。截断会让相机以为自己看得比
+    /// 实际少半像素，于是钳制放得太松、边缘露出半像素的白缝。往大取只会让钳制更保守。
     /// </remarks>
     public int VisibleHeight => CeilDiv(_logicalHeight, Zoom);
 
@@ -117,13 +102,10 @@ public sealed class CameraRig
     /// <summary>钳制用的地图边界。没设过就不钳制（测试与演出场景可以不设）。</summary>
     public bool HasWorldBounds => _world is not null;
 
-    /// <summary>
-    /// 装进相机的可建造区宽度，世界像素；没设过是 0。
-    /// </summary>
+    /// <summary>装进相机的可建造区宽度，世界像素；没设过是 0。</summary>
     /// <remarks>
-    /// 暴露出来原本是给守卫用的：拿它与 `data/config/game.json` 比对，于是「有人在代码里写死
-    /// 一个尺寸」躲不过去 —— 打印配置里的值只能证明配置读到了，证明不了装进相机的是那个值。
-    /// 守卫随 `ADR-0009` 删除，这个属性留着仍然有用：规则层单元测试可以拿它做同样的比对。
+    /// 暴露出来是为了能和 <c>data/config/game.json</c> 里的值比对，于是「有人在代码里写死一个
+    /// 尺寸」躲不过去。打印配置里的值只能证明配置读到了，证明不了装进相机的是那个值。
     /// </remarks>
     public int BuildableWidth => _buildable?.Width ?? 0;
 
@@ -136,10 +118,10 @@ public sealed class CameraRig
     /// <summary>纵向真的会被钳制吗。</summary>
     public bool ClampsVertically => _world is { } w && VisibleHeight < w.Height;
 
-    /// <summary>相机中心的横坐标，整数世界像素，**已钳制**。</summary>
+    /// <summary>相机中心的横坐标，整数世界像素，已经钳进边界了。</summary>
     public int CenterX => _centerX;
 
-    /// <summary>相机中心的纵坐标，整数世界像素，**已钳制**。</summary>
+    /// <summary>相机中心的纵坐标，整数世界像素，已经钳进边界了。</summary>
     public int CenterY => _centerY;
 
     /// <summary>震动的横向位移，整数世界像素。关掉震动时恒为 0。</summary>
@@ -148,13 +130,11 @@ public sealed class CameraRig
     /// <summary>震动的纵向位移，整数世界像素。关掉震动时恒为 0。</summary>
     public int ShakeOffsetY => ShakeAxis(phase: 1);
 
-    /// <summary>
-    /// 屏幕震动的总开关。**设置里那一项直接落在这里。**
-    /// </summary>
+    /// <summary>屏幕震动的总开关。将来设置界面里那一项直接落在这里。</summary>
     /// <remarks>
-    /// 正典把震屏列为第一版必须有的打击反馈，同时要求它可关 —— 它是最容易引起不适的一项。
-    /// 关掉的判据不是「幅度调小」而是**恒零位移**：调小仍会动，而对晕动敏感的玩家要的是不动。
-    /// 设置界面归后续那一组，本条只保证这个开关存在且真的能关死。
+    /// 震屏是第一版就要有的打击反馈，同时它必须可关，因为它是最容易引起不适的一项。关掉的标准
+    /// 不是「幅度调小」而是位移恒为零：调小仍然会动，而对晕动敏感的玩家要的是不动。设置界面还
+    /// 没有，这个开关先保证存在且真的关得死。
     /// </remarks>
     public bool ShakeEnabled { get; set; } = true;
 
@@ -171,14 +151,13 @@ public sealed class CameraRig
         Reclamp();
     }
 
-    /// <summary>
-    /// 设可建造区，世界像素。边缘推镜按它触发。
-    /// </summary>
+    /// <summary>设可建造区，世界像素。边缘推镜按它触发。</summary>
     /// <remarks>
-    /// **与地图边界是两个矩形，不能合成一个。** 可建造区是「能盖房的那块地」，而地图还含它之外
-    /// 的周边地形（水面一类）—— 玩家走得到那里，所以**钳制按地图、推镜按可建造区**。合成一个的
-    /// 话两头都不对：按可建造区钳制，玩家走出去相机就卡住；按地图推镜，推镜会在盖不了房的地方
-    /// 也触发。两个尺寸都从配置读（PRD 的 `FR-24`），代码里一个都不写死。
+    /// 它和地图边界是两个矩形，不能合成一个。可建造区是能盖房的那块地，而地图还含它之外的周边
+    /// 地形（水面一类），玩家走得到那里。所以钳制按地图算、推镜按可建造区算。
+    ///
+    /// 合成一个的话两头都不对：按可建造区钳制，玩家走出去相机就卡住；按地图推镜，推镜会在盖不了
+    /// 房的地方也触发。两个尺寸都从配置读，代码里一个都不写死。
     /// </remarks>
     public void SetBuildableArea(int minX, int minY, int width, int height)
     {
@@ -192,15 +171,13 @@ public sealed class CameraRig
         SnapToInternal(x, y);
     }
 
-    /// <summary>
-    /// 带死区地跟随一个目标。返回镜头是否真的动了。
-    /// </summary>
+    /// <summary>带死区地跟随一个目标。返回镜头是否真的动了。</summary>
     /// <remarks>
-    /// 死区是**硬死区**：目标出了死区，镜头就移动到「目标刚好贴在死区边上」的位置，不多也不少。
-    /// 这样镜头位移完全由目标位移决定，行为可预期；而且没有平滑系数，也就没有第三个要实机调的数。
+    /// 死区是硬的：目标出了死区，镜头就移动到「目标刚好贴在死区边上」的位置，不多也不少。这样
+    /// 镜头位移完全由目标位移决定，行为可预期，而且没有平滑系数、也就少一个要实机调的数。
     ///
-    /// 演出接管期间是空转（返回 <c>false</c>）而不是排队：排队会让归还那一瞬间镜头猛地补上
-    /// 整段位移。归还后的第一次调用会**直接对准目标**，理由见 <see cref="CameraCutscene.Release"/>。
+    /// 演出接管期间它空转、返回 <c>false</c>，不排队。排队会让归还那一瞬间镜头猛地补上整段位移。
+    /// 归还后的第一次调用会直接对准目标，理由见 <see cref="CameraCutscene.Release"/>。
     /// </remarks>
     public bool Follow(int targetX, int targetY)
     {
@@ -223,12 +200,10 @@ public sealed class CameraRig
         return MoveTo(wantX, wantY);
     }
 
-    /// <summary>
-    /// 建造时手动滚动镜头，按世界像素／秒。返回镜头是否真的动了。
-    /// </summary>
+    /// <summary>建造时手动滚动镜头，参数是这一帧要走的世界像素。返回镜头是否真的动了。</summary>
     /// <remarks>
-    /// 方向分量取 −1／0／+1，速度与时长由调用方乘出来 —— 输入来自 <c>InputRouter</c>，
-    /// 规则层不认识输入。不足一像素的部分留在余量里累加，所以慢速滚动也不会卡住不动。
+    /// 方向分量取 -1、0、+1，速度和时长由调用方乘出来，因为输入来自引擎层的输入门面、规则层
+    /// 不认识输入。不足一像素的部分留在余量里累加，所以慢速滚动也不会卡住不动。
     /// </remarks>
     public bool Scroll(double deltaX, double deltaY)
     {
@@ -240,14 +215,11 @@ public sealed class CameraRig
         return Drift(deltaX, deltaY);
     }
 
-    /// <summary>
-    /// 角色靠近可建造区边缘时自动推镜。返回镜头是否真的动了。
-    /// </summary>
+    /// <summary>角色靠近可建造区边缘时自动推镜。返回镜头是否真的动了。</summary>
     /// <remarks>
-    /// 建造**不做缩放**，靠滚动与推镜解决取景。所以这里是唯一让镜头自己
-    /// 离开玩家滚到的位置的地方，触发条件写得保守：角色到可建造区某条边的距离不足
-    /// <see cref="CameraFeel.EdgePushMarginCells"/> 格时，镜头朝那条边推，让玩家看清边界外还有
-    /// 多少地方。推速比手动滚动慢，因为它是提示而不是操作。
+    /// 建造不做缩放，靠滚动和推镜解决取景。这里是唯一让镜头自己离开玩家滚到的位置的地方，所以
+    /// 触发条件写得保守：角色到可建造区某条边的距离不足 <see cref="CameraFeel.EdgePushMarginCells"/>
+    /// 格时镜头朝那条边推。推速比手动滚动慢，因为它是提示而不是操作。
     /// </remarks>
     public bool PushFromEdge(int actorX, int actorY, double seconds)
     {
@@ -314,25 +286,19 @@ public sealed class CameraRig
     /// <summary>震动还在进行中吗。</summary>
     public bool IsShaking => ShakeEnabled && _shakeElapsed < _shakeSeconds;
 
-    /// <summary>
-    /// 演出脚本接管相机，拿到一张归还凭据。
-    /// </summary>
+    /// <summary>演出脚本接管相机，拿到一张归还凭据。</summary>
     /// <remarks>
-    /// **接口形状是有客观优劣的技术选择，理由写在这里**（`UI-5` 不问作者的那部分）。
-    /// 被放弃的两种做法与放弃理由：
+    /// 被放弃的第一种做法是一个布尔标志（<c>IsCutscene = true</c> 然后 <c>= false</c>）。它不
+    /// 阻止忘记复位，也分不清「两段演出同时接管」和「一段演出接管了两次」；归还后的状态是碰巧
+    /// 剩下什么，而要的是与接管前一致。
     ///
-    /// 一是**一个布尔标志**（`IsCutscene = true` … `= false`）。它不阻止忘记复位，也分不清
-    /// 「两段演出同时接管」和「一段演出接管了两次」；归还后的状态是「碰巧剩下什么」，而验收要求
-    /// 的是「与接管前一致」。
+    /// 第二种是调用方自己存快照再还原。比标志好，但快照会丢：跨帧的演出得把它存成字段，而存漏了
+    /// 不报错。
     ///
-    /// 二是**调用方自己存快照再还原**（`var s = rig.Snapshot(); … rig.Restore(s)`）。比标志好，
-    /// 但快照会丢：跨帧的演出得把它存成字段，而存漏了不报错。
-    ///
-    /// 选**凭据**：接管那一刻由相机自己存下行为参数，归还时由相机自己还原，演出脚本记不住也没关系；
-    /// 凭据实现 <see cref="IDisposable"/>，所以 <c>using</c> 能让抛异常的演出也归还 —— 演出脚本
-    /// 最容易出错的地方正是中途抛；重复接管**抛异常**而不是静默覆盖，因为第二段演出悄悄顶掉第一段
-    /// 之后，镜头会归还到错的状态而没人知道；接管期间 <see cref="Follow"/> 与 <see cref="SnapTo"/>
-    /// 都不许直接驱动镜头，要动只能经凭据 —— 于是「谁在开镜头」在类型上就是明确的。
+    /// 所以选凭据：接管那一刻由相机自己存下行为参数、归还时自己还原，演出脚本记不住也没关系。
+    /// 凭据实现 <see cref="IDisposable"/>，所以 <c>using</c> 能让中途抛异常的演出也归还。重复接管
+    /// 抛异常而不是静默覆盖，因为第二段悄悄顶掉第一段之后镜头会归还到错的状态。接管期间
+    /// <see cref="Follow"/> 和 <see cref="SnapTo"/> 都不许直接驱动镜头，要动只能经凭据。
     /// </remarks>
     /// <param name="reason">这段演出是干什么的。卡住时它是唯一能指认责任方的东西。</param>
     public CameraCutscene TakeOver(string reason)
@@ -355,7 +321,7 @@ public sealed class CameraRig
 
     // ── 内部 ────────────────────────────────────────────────────────────
 
-    /// <summary>目标出了死区就把镜头挪到「目标刚好贴在死区边上」。**每轴独立，两轴逐字相同。**</summary>
+    /// <summary>目标出了死区就把镜头挪到「目标刚好贴在死区边上」。每轴独立，两轴算法相同。</summary>
     internal static int FollowAxis(int camera, int target, int deadzoneHalf)
     {
         if (target > camera + deadzoneHalf)
@@ -366,13 +332,11 @@ public sealed class CameraRig
         return target < camera - deadzoneHalf ? target + deadzoneHalf : camera;
     }
 
-    /// <summary>
-    /// 把镜头中心钳进边界，让可视范围不越出地图。
-    /// </summary>
+    /// <summary>把镜头中心钳进边界，让可视范围不越出地图。</summary>
     /// <remarks>
-    /// **视野比地图还宽时居中而不是钳制。** 这不是补丁：`expand` 下逻辑宽度会撑开，而基地的
-    /// 可建造区只有 640 世界像素宽，宽窗口上视野真的会比它宽。那时任何钳制都必然露白，居中至少
-    /// 让露白对称、看起来是有意的。硬钳会把镜头顶到一边，白边全出现在另一边。
+    /// 视野比地图还宽时居中，而不是钳制。这不是补丁：视口撑开时逻辑宽度会变大，宽窗口上视野真的
+    /// 会比基地那块地还宽。那时任何钳制都必然露白，居中至少让露白左右对称、看起来是有意的；硬钳
+    /// 会把镜头顶到一边，白边全出现在另一边。
     /// </remarks>
     internal static int ClampAxis(int camera, int visible, int boundsMin, int boundsSize)
     {
@@ -466,9 +430,9 @@ public sealed class CameraRig
             return 0;
         }
 
-        // 幅度线性衰减到 0，方向按固定频率换向。**波形是占位的**（`UI-12` 实机收敛时再定），
-        // 这里要保住的不变量只有两条：位移恒为整数世界像素，关掉时恒为 0。
-        // 两轴换向速率差一倍，于是四步走遍四个象限 —— 同步换向的话只会沿一条对角线抖。
+        // 幅度线性衰减到 0，方向按固定频率换向。这个波形是临时的，手感要实机调；这里保住的只有
+        // 两条：位移恒为整数世界像素，开关关掉时恒为 0。
+        // 两轴换向速率差一倍，于是四步走遍四个象限。同步换向的话只会沿一条对角线抖。
         var remaining = 1.0 - (_shakeElapsed / _shakeSeconds);
         var amplitudeWorld = (double)_shakeAmplitudeScreenPx / Zoom;
         var magnitude = (int)Math.Round(amplitudeWorld * remaining, MidpointRounding.AwayFromZero);
@@ -529,9 +493,9 @@ public sealed class CameraRig
         lease.Saved.RestoreTo(this);
         _cutscene = null;
 
-        // 归还后**直接对准跟随目标**，不做补间。演出可能把镜头带到很远的地方，而死区跟随是硬的：
+        // 归还后直接对准跟随目标，不做补间。演出可能把镜头带到很远的地方，而死区跟随是硬的，
         // 不重新对准的话第一帧会补上整段位移，看起来就是一次莫名的横移。想要软归还的演出应当
-        // 自己先把镜头摇回来再归还 —— 那时它还握着凭据，做得到。
+        // 自己先把镜头摇回来再归还，那时它还握着凭据、做得到。
         _resnapOnNextFollow = true;
     }
 
@@ -549,9 +513,7 @@ public sealed class CameraRig
                     nameof(width), $"边界尺寸必须为正：{width}×{height}");
     }
 
-    /// <summary>
-    /// 接管那一刻的**行为参数**快照。刻意不含相机位置 —— 验收要求的是「跟随行为一致」。
-    /// </summary>
+    /// <summary>接管那一刻的行为参数快照。它不含相机位置，要还原的是跟随行为、不是镜头在哪。</summary>
     internal readonly record struct Snapshot(
         int ZoomOverride, bool ShakeEnabled, Bounds? World, Bounds? Buildable)
     {
@@ -572,13 +534,11 @@ public sealed class CameraRig
     }
 }
 
-/// <summary>
-/// 演出接管相机的凭据（`UI-5`）。**归还是它的责任，不是演出脚本记性的责任。**
-/// </summary>
+/// <summary>演出接管相机的凭据。归还是它的责任，不是演出脚本记性的责任。</summary>
 /// <remarks>
-/// 形状的取舍写在 <see cref="CameraRig.TakeOver"/> 的注释里。这里只补两条使用约定：
-/// 归还是**幂等**的，重复调 <see cref="Release"/> 不抛；<see cref="Dispose"/> 就是
-/// <see cref="Release"/>，所以跨不了帧的短演出可以直接 <c>using</c>。
+/// 为什么用凭据而不是一个布尔标志，写在 <see cref="CameraRig.TakeOver"/> 的注释里。这里补两条
+/// 使用约定：归还是幂等的，重复调 <see cref="Release"/> 不抛；<see cref="Dispose"/> 就是
+/// <see cref="Release"/>，所以不跨帧的短演出可以直接 <c>using</c>。
 /// </remarks>
 public sealed class CameraCutscene : IDisposable
 {
@@ -602,7 +562,7 @@ public sealed class CameraCutscene : IDisposable
     /// <summary>演出期间把镜头放到某处，整数世界像素。</summary>
     public void MoveTo(int x, int y) => _rig.DriveFromCutscene(this, x, y);
 
-    /// <summary>演出期间临时改缩放。**只接受正整数** —— 非整数缩放会让像素变形。</summary>
+    /// <summary>演出期间临时改缩放。只接受正整数，非整数缩放会让像素变形。</summary>
     public void OverrideZoom(int zoom) => _rig.OverrideZoomFromCutscene(this, zoom);
 
     /// <summary>

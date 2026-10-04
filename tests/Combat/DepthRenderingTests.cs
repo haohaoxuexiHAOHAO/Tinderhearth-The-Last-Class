@@ -3,11 +3,11 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Combat;
 
-/// <summary>
-/// `ENG-15` 纵深绘制规则的守卫。**这里钉的是正典点名的那条承重项**：纵深是排序主键。排错了，
-/// 玩家看到的前后关系会与命中判定（`GP-16`）用的前后关系相反 —— 而那件事不报错，画面上只是
-/// 「这一下明明打中了却没反应」或者反过来。
-/// </summary>
+/// <summary>纵深绘制规则，重点是「纵深是排序主键」这一条。</summary>
+/// <remarks>
+/// 排错了，玩家看到的前后关系会与命中判定用的前后关系相反，而那件事不报错 ——
+/// 画面上只是「这一下明明打中了却没反应」，或者反过来。
+/// </remarks>
 public class DepthRenderingTests
 {
     private static DepthSubject At(double depth, double groundY = 140) => new(depth, groundY);
@@ -48,10 +48,8 @@ public class DepthRenderingTests
         Assert.Equal([1, 0], DepthRendering.DrawOrder([lower, higher]));
     }
 
-    /// <summary>
-    /// **纵深压过脚底**：靠前的角色即使站在更高的地形上，也必须压在靠后的角色上面。这条与
-    /// 「按屏幕 Y 单键排序」的做法结果相反，正是不能直接用 <c>y_sort</c> 的原因。
-    /// </summary>
+    /// <summary>纵深压过脚底：靠前的角色即使站在更高的地形上，也必须压在靠后的角色上面。</summary>
+    /// <remarks>这条与「按屏幕 Y 单键排序」的结果相反，正是不能直接用 <c>y_sort</c> 的原因。</remarks>
     [Fact]
     public void 纵深是主键_脚底不能翻盘()
     {
@@ -160,9 +158,7 @@ public class DepthRenderingTests
         Assert.Equal(body.Center, shadow.Center, 8);
     }
 
-    /// <summary>
-    /// **本体越宽影子越宽**，这是「攻击与闪避时影子跟着变」那条反馈的可测形状。
-    /// </summary>
+    /// <summary>本体越宽影子越宽 —— 攻击与闪避时影子要跟着变，靠的就是这条。</summary>
     [Fact]
     public void 本体变宽影子跟着变宽()
     {
@@ -175,11 +171,11 @@ public class DepthRenderingTests
             > narrow * DepthRendering.ShadowScaleAt(32));
     }
 
-    /// <summary>
-    /// **影子跟着本体的中点偏**，不强行画在脚底锚点上。这是实机报的「攻击时左侧影子
-    /// 没有了」的可测形状：出拳那一帧本体从锚点向右伸出去，对称的椭圆会在后腿那侧盖过头、在拳
-    /// 那侧不够长。
-    /// </summary>
+    /// <summary>影子跟着本体的中点偏，不强行画在脚底锚点上。</summary>
+    /// <remarks>
+    /// 实机报过「攻击时左侧影子没有了」：出拳那一帧本体从锚点向右伸出去，
+    /// 以锚点为中心的对称椭圆会在后腿那侧盖过头、在拳那侧不够长。
+    /// </remarks>
     [Fact]
     public void 本体偏向一侧时影子跟着偏过去()
     {

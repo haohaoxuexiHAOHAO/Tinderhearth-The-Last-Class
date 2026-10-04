@@ -4,12 +4,12 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
-/// 世界空间 UI 的规则层测试（`UI-9`）：几何关系、读条/血条/伤害数字的视图模型契约。
-/// 风格照 <c>HudTests</c> —— 钉住关系、坏值反证、边界钳制。
+/// 画在角色身上那一层界面：几何关系，以及读条、精英血条、伤害数字这三个视图模型的约定。
 /// </summary>
+/// <remarks>写法与 <c>HudTests</c> 一致：测量之间的关系、拿坏值反证、核对边界钳制。</remarks>
 public class WorldSpaceTests
 {
-    // ── 层级（UI-9 依赖 UI-6 的世界空间层）────────────────────────────
+    // ── 层级 ──────────────────────────────────────────────────────────
     [Fact]
     public void 世界空间层在世界之上而在HUD之下()
     {

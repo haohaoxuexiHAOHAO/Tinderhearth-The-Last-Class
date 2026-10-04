@@ -14,7 +14,7 @@ public class ActorCombatStateTests
         Assert.Equal(MotorPhase.Grounded, state.Motor.Phase);
         Assert.Equal(0, state.Motor.HorizontalVelocity);
         Assert.Equal(0, state.Motor.VerticalVelocity);
-        // 三个轴一起定身（`GP-15`）：同帧连纵深键也按着，纵深仍然一像素不动。
+        // 三个轴一起定身：同帧连纵深键也按着，纵深仍然一像素不动。
         Assert.Equal(0, state.Motor.DepthVelocity);
         Assert.Equal(DepthBand.CenterWorldPx, state.Motor.DepthWorldPx);
     }
@@ -64,7 +64,7 @@ public class ActorCombatStateTests
             for (var frame = 0; !state.Combo.IsComboWindowOpen && frame < 60; frame++)
                 state.Tick(CombatInput.None, true);
             Assert.True(state.Combo.IsComboWindowOpen);
-            state.Combo.RegisterHit();   // 续段要命中确认（方案 b，轻重都适用）
+            state.Combo.RegisterHit();   // 续段要先命中确认，轻重都一样
             state.Tick(press, true);
             Assert.Equal(step, state.Combo.Step);
             Assert.Equal(0, state.Combo.FrameInPhase);

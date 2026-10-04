@@ -4,19 +4,16 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 手环容器骨架（`UI-6`）：标签页条加一块内容区。**页内内容不在本条范围。**
+/// 手环面板的骨架：一条标签页按钮加一块内容区。每一页里面显示什么还没做。
 /// </summary>
 /// <remarks>
-/// 形态取「统一容器带标签页」。哪些页存在、各自在什么场合可用，都从
-/// <see cref="Wristband"/> 读 —— 那是规则层，有单元测试盯着「关卡内只留查看类」。本类只把
-/// 判定结果翻译成按钮的 <c>Disabled</c>。
+/// 有哪些页、各自在什么场合可用，都从规则层的 <see cref="Wristband"/> 读，本类只把结论翻译成
+/// 按钮的 <c>Disabled</c>。
 ///
-/// 布局全靠容器：`MarginContainer`（安全边距）→ `VBoxContainer`（标签条在上、内容在下）→
-/// `HBoxContainer`（标签按钮）。**没有一个绝对像素坐标** —— 正典要求如此，理由是 `expand`
-/// 下逻辑宽度会变。
+/// 布局全靠容器套起来：<c>MarginContainer</c> 留安全边距，<c>VBoxContainer</c> 把标签条放上、
+/// 内容放下，<c>HBoxContainer</c> 排标签按钮。这里没有一个绝对像素坐标，因为逻辑宽度会变。
 ///
-/// 文字暂时用引擎默认字体。像素字体与主题跟着 `UI-8` 落地（HUD 是第一个真要排版文字的界面），
-/// 那时把 `Theme` 挂在本类的根节点上即可，不必改结构。
+/// 主题由外面挂进来（<see cref="Control.Theme"/>），本类不自己载字体。
 /// </remarks>
 public partial class WristbandPanel : Control
 {
@@ -60,8 +57,8 @@ public partial class WristbandPanel : Control
             var button = new Button
             {
                 Name = tab.Id,
-                // 文本键而不是中文字面量（`ENG-5` 的「全部文本外置」）。
-                // 真文本由 TextCatalog 在接线时填，本骨架先显示键，缺文本一眼看得出来。
+                // 这里放的是文本键，不是中文字面量 —— 全部文案都外置在文本表里。
+                // 真文案由 TextCatalog 在接线时填，骨架先显示键，缺文案一眼看得出来。
                 Text = $"ui.wristband.{tab.Id}",
                 FocusMode = FocusModeEnum.All,      // 手柄靠焦点移动导航
             };
@@ -74,13 +71,12 @@ public partial class WristbandPanel : Control
         {
             Name = "Content",
             SizeFlagsVertical = SizeFlags.ExpandFill,
-            Text = "（页内内容不在 UI-6 范围）",
+            Text = "（这一页里面显示什么还没做）",
         };
         column.AddChild(_content);
 
-        // 面板一显示就把焦点放上去（`UI-7`）。不放的话手柄按方向键**什么也不会发生** ——
-        // Godot 的焦点导航是从当前焦点找邻居，而没有焦点时就没有起点。键鼠玩家点一下就有了焦点，
-        // 所以这个坑只在手柄上出现，是那种「实机试一遍很容易漏掉」的失效。
+        // 面板一显示就把焦点放上去。不放的话手柄按方向键什么也不会发生：Godot 的焦点导航是从
+        // 当前焦点找邻居，没有焦点就没有起点。键鼠点一下就有了焦点，所以这个坑只在手柄上出现。
         VisibilityChanged += OnVisibilityChanged;
 
         RefreshAvailability();
@@ -90,8 +86,8 @@ public partial class WristbandPanel : Control
     /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点。
     /// </summary>
     /// <remarks>
-    /// 落点取**第一个可用**的标签页而不是第一个标签页：关卡内前几页里的操作类页是禁用的，
-    /// 而禁用按钮拿不到焦点，落在它身上等于没落点。
+    /// 焦点落在第一个可用的标签页上，不是第一个标签页：关卡里那些安排别人的页是禁用的，
+    /// 而禁用按钮拿不到焦点，落在它身上等于没落。
     /// </remarks>
     private void OnVisibilityChanged()
     {
@@ -110,7 +106,7 @@ public partial class WristbandPanel : Control
         }
     }
 
-    /// <summary>切到某一页。不可用的页点不动，所以这里不必再判一次。</summary>
+    /// <summary>切到某一页。不可用的页按钮是禁用的、点不动，所以这里不必再判一次。</summary>
     private void Select(string tabId)
     {
         _activeTab = tabId;
@@ -118,7 +114,7 @@ public partial class WristbandPanel : Control
     }
 
     /// <summary>
-    /// 按场合刷新可用性，并处理一个容易漏的情况：**当前页在关卡里变得不可用时要退出它。**
+    /// 按当前场合刷新每一页可不可用，顺带处理一个容易漏的情况：正打开着的那页变得不可用时要退出它。
     /// </summary>
     private void RefreshAvailability()
     {

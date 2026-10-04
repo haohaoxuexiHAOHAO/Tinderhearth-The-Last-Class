@@ -5,9 +5,11 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>
-/// `GP-87` 作物定义的载入校验。**不测任何玩法数值** —— 阶段天数与产量都归数值模型、现在没有值。
-/// 这里钉的是「填错了要响着坏」：缺字段、天数不足、季节空、退回成熟那一阶段。
+/// 作物定义的载入校验：缺字段、天数不足、季节列表为空、退回成熟那一阶段，都要当场报错。
 /// </summary>
+/// <remarks>
+/// 玩法数值这里一个都不测 —— 阶段天数与产量归设计仓 design/数值模型.md，现在还没有值。
+/// </remarks>
 public class CropDefinitionTests
 {
     /// <summary>一份完整且合法的作物 JSON。各测试从它出发删或改一处。</summary>
@@ -48,12 +50,13 @@ public class CropDefinitionTests
         Assert.Null(crop.DaysToRegrow);
     }
 
-    /// <summary>
-    /// **缺任一键都要报错。** 这一条是本类用 <c>required</c> 属性而不用位置参数 record 的全部
-    /// 理由：位置参数配 <c>System.Text.Json</c> 时缺字段拿 <c>default</c>（`GameConfig` 实测过），
-    /// 而 <see cref="CropDefinition.RegrowFromStage"/> 的 <c>null</c> **是合法值**，
-    /// 所以「缺键」与「显式写 null」靠构造校验区分不出来。
-    /// </summary>
+    /// <summary>JSON 里缺任何一个键都要报错。</summary>
+    /// <remarks>
+    /// 这一条就是作物定义用 <c>required</c> 属性而不用位置参数 record 的全部理由：实测
+    /// 位置参数配 <c>System.Text.Json</c> 时缺字段会拿 <c>default</c> 填，而
+    /// <see cref="CropDefinition.RegrowFromStage"/> 的 <c>null</c> 本身是合法值，
+    /// 所以缺键与显式写 null 靠构造校验区分不出来。
+    /// </remarks>
     [Theory]
     [InlineData("id")]
     [InlineData("stageDays")]
@@ -66,23 +69,17 @@ public class CropDefinitionTests
         Assert.Throws<JsonException>(() => CropDefinition.Parse(broken, "broken.json"));
     }
 
-    /// <summary>
-    /// 天数的项数必须恰好等于要计时的阶段数。**成熟那一阶段不带天数** —— 它是终态，到了就一直
-    /// 待收。多给一项会多出一个没有任何东西读它的字段，而那种字段填错了不报错。
-    /// </summary>
-    /// <summary>
-    /// 计时阶段一个都没有就被拒 —— 那样的作物播下去当天就待收。
-    /// </summary>
+    /// <summary>计时阶段一个都没有就被拒 —— 那样的作物播下去当天就待收。</summary>
     [Fact]
     public void 计时阶段一个都没有就被拒()
     {
         Assert.Throws<ArgumentException>(() => Crop(stageDays: []));
     }
 
-    /// <summary>
-    /// **阶段数由每条作物自己声明**，所以项数多少都成立，最少一项（种子 → 成熟两个阶段）。
-    /// 这一条与上面那条一起，钉住判的是「至少一项」而不是「恰好几项」。
-    /// </summary>
+    /// <summary>阶段数由每条作物自己声明，所以项数多少都成立，最少一项。</summary>
+    /// <remarks>
+    /// 它与「计时阶段一个都没有就被拒」合起来说明校验判的是「至少一项」，不是「恰好几项」。
+    /// </remarks>
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
@@ -112,10 +109,11 @@ public class CropDefinitionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Crop(stageDays: [a, b, c, d]));
     }
 
-    /// <summary>
-    /// **季节列表不许为空**：空列表意味着任何一次换季都让它枯死，也就是种下去撑不过当季 ——
+    /// <summary>季节列表为空就被拒。</summary>
+    /// <remarks>
+    /// 空列表意味着任何一次换季都让它枯死，也就是种下去撑不过当季 ——
     /// 而那看起来像玩法缺陷，不像数据填错。
-    /// </summary>
+    /// </remarks>
     [Fact]
     public void 季节列表为空就被拒()
     {
@@ -129,11 +127,11 @@ public class CropDefinitionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Crop(regrowFromStage: -1));
     }
 
-    /// <summary>
-    /// **退回成熟那一阶段或更后被拒**：退回去之后立刻又是待收，一次收获就能无限收下去。
-    /// 上界要读 <c>RipeStage</c>，而它由阶段数算出来 —— 跨字段的校验落在 <c>Parse</c> 上，
+    /// <summary>退回成熟那一阶段或更后被拒：退回去之后立刻又是待收，一次收获就能无限收下去。</summary>
+    /// <remarks>
+    /// 上界要读 <c>RipeStage</c>，而它由阶段数算出来，跨字段的校验落在 <c>Parse</c> 上，
     /// 所以这一条走 JSON 而不是对象初始化器。
-    /// </summary>
+    /// </remarks>
     [Theory]
     [InlineData(2, 2)]
     [InlineData(2, 3)]
@@ -154,10 +152,8 @@ public class CropDefinitionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => CropDefinition.Parse(json, "turnip.json"));
     }
 
-    /// <summary>
-    /// **退回成熟之前的阶段照旧成立** —— 反向反证，缺了它就分不出上面那条判的是「上界」
-    /// 还是「凡是循环收获都拒」。
-    /// </summary>
+    /// <summary>退回成熟之前的阶段照旧成立。</summary>
+    /// <remarks>缺了这条反证，就分不出上一条校验判的是上界，还是凡是循环收获都拒。</remarks>
     [Fact]
     public void 退回成熟之前的阶段照旧成立()
     {
@@ -188,10 +184,10 @@ public class CropDefinitionTests
         Assert.Throws<ArgumentException>(() => Crop(id: id, yieldItemId: yieldItemId));
     }
 
-    /// <summary>
-    /// 循环收获的两个派生量算得对：**再生间隔没有单独的字段**，它就是从退回那一阶段起
-    /// 剩下那几项天数之和。多一个字段就多一处要与这份天数对账的地方。
-    /// </summary>
+    /// <summary>再生要几天由退回的那一阶段算出来，不另给一个字段。</summary>
+    /// <remarks>
+    /// 它就是从退回那一阶段起剩下那几项天数之和。多一个字段就多一处要与这份天数对账的地方。
+    /// </remarks>
     [Theory]
     [InlineData(0, 8)]
     [InlineData(1, 7)]
@@ -205,10 +201,11 @@ public class CropDefinitionTests
         Assert.Equal(expectedRegrowDays, crop.DaysToRegrow);
     }
 
-    /// <summary>
-    /// 枚举**按名字读**，不按序号。序号在手写数据里读不出含义，而且往枚举中间插一个值会静默
-    /// 改掉全部旧数据的含义。名字写错则是解析失败，那是查得出来的。
-    /// </summary>
+    /// <summary>季节按枚举名字读，不按序号；名字写错是解析失败。</summary>
+    /// <remarks>
+    /// 序号在手写数据里读不出含义，而且往枚举中间插一个值会静默改掉全部旧数据的含义。
+    /// 名字写错至少会解析失败，那是查得出来的。
+    /// </remarks>
     [Fact]
     public void 季节按名字读而写错名字是解析失败()
     {

@@ -1,18 +1,16 @@
 namespace Tinderhearth.Rules.Economy;
 
-/// <summary>一次收获算出几件所需的那几个量。**值不在代码里，由调用方给。**</summary>
+/// <summary>一次收获算出几件要用的那几个量。值不在代码里，由调用方给。</summary>
 /// <remarks>
-/// 这三个量都归数值模型、现在都还没有值（登记在那一份的尚未给值表，归 `GP-7`），所以本类型
-/// **不提供任何默认值** —— 缺配置要当场报错，不能悄悄兜底（`ADR-0009`）。它是 record class
-/// 而不是 record struct，正因为这一条：<c>default</c> 一个 struct 会绕过下面的校验拿到全 0，
-/// 而那正是这里要挡的东西。
+/// 这三个量的值都还没定、要实机试，所以本类型不提供任何默认值 —— 缺配置要当场报错，不能悄悄
+/// 兜底。它是 record class 而不是 record struct 正是为了这一条：<c>default</c> 一个 struct 会
+/// 绕过下面三处校验拿到全 0，而那正是这里要挡的东西。
 ///
-/// **三条约束是形式，不是值，所以它们在代码里判得到**：件数至少 1、系数下限必须大于零、
-/// 上限不得低于下限。下限大于零那一条挡的是「出征十天回来颗粒无收」，与「家畜不死只停产」
-/// 是同一条纪律。
+/// 这三处校验管的是形式而不是值，所以代码里查得出来：件数至少 1、系数下限必须大于零、上限
+/// 不得低于下限。下限大于零挡的是「出征十天回来颗粒无收」。
 /// </remarks>
 /// <param name="BaseCount">浇满水时收几件。</param>
-/// <param name="MinWaterFactor">一次没浇时的产量系数，**必须大于零**。</param>
+/// <param name="MinWaterFactor">一次没浇时的产量系数，必须大于零。</param>
 /// <param name="MaxWaterFactor">浇满时的产量系数，不得低于下限。</param>
 public sealed record HarvestYieldRule(
     int BaseCount,

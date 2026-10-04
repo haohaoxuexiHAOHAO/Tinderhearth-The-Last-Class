@@ -6,75 +6,77 @@ using Tinderhearth.UI;
 namespace Tinderhearth.World;
 
 /// <summary>
-/// 一个占着纵深的角色。**纵深值只有一份**，实现者从自己的唯一来源转发，不另存一份。
+/// 一个占着纵深的角色。纵深值只有一份，实现者从自己那唯一一处转发出来，不另存一份。
 /// </summary>
 /// <remarks>
-/// 正典要求绘制排序与命中判定用同一份纵深值（排错了，画面上的前后关系会与判定相反）。这个接口
-/// 就是那句「同一份」在类型上的落点：排序（`ENG-15`）与将来的命中容差（`GP-16`）都经它取值。
+/// 绘制排序与命中判定必须读同一份纵深值 —— 排错了，玩家看到的前后关系会与打得着打不着相反。
+/// 这个接口就是那句「同一份」在类型上的落点：排序与命中容差都经它取值。
+/// 为什么战斗关卡有这么一条纵深轴，见设计仓 canon/gameplay/战斗与关卡.md 的
+/// 「战斗关卡的空间模型：带纵深的横版」一节。
 /// </remarks>
 public interface IDepthActor
 {
-    /// <summary>纵深位置，世界像素，口径见 <see cref="DepthBand"/>（0 最靠后）。</summary>
+    /// <summary>纵深位置，世界像素。坐标口径见 <see cref="DepthBand"/>（0 最靠后）。</summary>
     double DepthWorldPx { get; }
 
     /// <summary>
-    /// 当前姿态贴地的水平**范围**，相对脚底锚点、已含朝向镜像。影子按它取范围。
+    /// 当前姿态贴着地面的那一段水平范围，世界像素，相对脚底锚点、已经含了朝向镜像。影子按它取宽窄。
     /// </summary>
     /// <remarks>
-    /// 给范围而不是给宽度：只有宽度的话影子只能对称画在脚底上，出拳那一帧就会与本体错开（见
-    /// <see cref="GroundSpan"/>）。由实现者决定「本体」怎么量 —— 有精灵的按当前帧的不透明边界，
-    /// 几何体按自己的尺寸。放进接口而不是让影子自己猜，是因为只有角色知道自己此刻是什么姿态。
+    /// 给一段范围而不是给一个宽度：只有宽度的话影子只能对称画在脚底上，出拳那一帧就会与身体错开。
+    /// 「本体」怎么量交给实现者 —— 有精灵的按当前帧的不透明边界量，几何体按自己的尺寸。放进接口
+    /// 而不是让影子自己猜，是因为只有角色知道自己此刻摆的是什么姿态。
     /// </remarks>
     GroundSpan BodySpanWorldPx { get; }
 
-    /// <summary>
-    /// 排序要用的两个键。实现者转发自己的 <see cref="DepthVisual.Subject"/>，不自己拼。
-    /// </summary>
+    /// <summary>排序要用的那两个量。实现者转发自己的 <see cref="DepthVisual.Subject"/>，不自己拼。</summary>
     /// <remarks>
-    /// 放进接口而不是让排序层去角色的子节点里找 <see cref="DepthVisual"/>：找的那一步要每帧
-    /// 遍历子节点（同屏 20 个角色就是 20 次遍历加分配），而且「找不到就退化成用角色自己的 Y」
-    /// 这条兜底分支会**悄悄给出错的排序键** —— 跳跃高度会混进本该只有地面高度的那个键里。
+    /// 放进接口，而不是让排序层去角色的子节点里找 <see cref="DepthVisual"/>：找的那一步每帧都要
+    /// 遍历一遍子节点，而且「找不到就改用角色自己的 Y」这条兜底会悄悄给出错的顺序 —— 跳跃高度
+    /// 会混进本该只有地面高度的那个量里。
     /// </remarks>
     DepthSubject DepthSubject { get; }
 }
 
 /// <summary>
-/// 角色的纵深可视根（`ENG-15`）：按纵深偏移画面、画代码影子、报排序要用的量。
+/// 角色的纵深可视根：按纵深把画面上下挪一段、画影子、报排序要用的量。
 /// </summary>
 /// <remarks>
-/// **角色的可视子节点都挂在这里，不挂在角色本体上。** 这样「纵深偏移」只有一处来源
-/// （本节点的 <c>Position</c>），新增一种角色时漏不掉 —— 漏了的表现是那个角色在纵深上走动时
-/// 画面不动，而它不报错。角色本体只留物理：<c>Position</c> 仍是横向与跳跃高度，纵深一点都不
-/// 掺进去（`GP-15` 的三轴分离）。
+/// 角色的可视子节点都挂在这里，不挂在角色本体上。于是「纵深偏移」只有一处来源（本节点的
+/// <c>Position</c>），新增一种角色时漏不掉 —— 漏了的表现是那个角色在纵深上走动时画面不动，
+/// 而它不报错。角色本体只留物理：它的 <c>Position</c> 仍然只管横向与跳跃高度。
 ///
-/// **地面靠射线找，不靠「记住上次在地面的高度」。** 影子要落在角色**下方的地面**上，而地形有
-/// 起伏与坑；记忆式的做法在跳过坑时会把影子留在坑沿的高度，那时影子指的位置是错的，而画面上
-/// 只是「影子有点怪」。射线每帧问一次真实地形，坑底就是坑底。
+/// 地面靠射线每帧问一次，不靠「记住上次站在多高」。影子要落在角色正下方的地面上，而地形有起伏
+/// 和坑；记忆式的做法在跳过坑时会把影子留在坑沿的高度 —— 那时影子指的位置是错的，而画面上只是
+/// 「影子有点怪」。射线问的是真实地形，坑底就是坑底。
 /// </remarks>
 public partial class DepthVisual : Node2D
 {
     private static readonly Color ShadowColor = PixelTheme.ToColor(HudPalette.Charcoal);
 
-    /// <summary>影子椭圆的顶点数。16 个足够圆，且逻辑分辨率下每段都落在整像素边界附近。</summary>
+    /// <summary>影子那个椭圆用几个顶点画。</summary>
+    /// <remarks>
+    /// 16 个在这个逻辑分辨率下看着已经够圆，再多的顶点在几像素宽的影子上看不出区别。
+    /// </remarks>
     private const int ShadowVertices = 16;
 
     private readonly Vector2[] _shadow = new Vector2[ShadowVertices];
     private RayCast2D _ground = null!;
     private Node2D _host = null!;
 
-    /// <summary>纵深的来源。构造时注入，本节点不缓存纵深值。</summary>
+    /// <summary>纵深从哪个角色读。建节点时给，本节点不缓存纵深值。</summary>
     public required IDepthActor Actor { get; init; }
 
-    /// <summary>射线往下探多远，世界像素。够穿过一层地形即可。</summary>
+    /// <summary>找地面的射线往下探多远，世界像素。够穿过一层地形就行。</summary>
     public int GroundProbeWorldPx { get; init; } = 256;
 
-    /// <summary>本帧影子落在的地面全局 Y；射线没打到东西时为 <c>null</c>（悬崖外，影子不画）。</summary>
+    /// <summary>这一帧影子落在的地面全局 Y。射线什么都没打到时是 <c>null</c>，那时不画影子。</summary>
     public double? GroundYWorldPx { get; private set; }
 
-    /// <summary>本帧角色离地多高，世界像素。没有地面时为 0。</summary>
+    /// <summary>这一帧角色离地多高，世界像素。没有地面时是 0。</summary>
     public double HeightAboveGroundWorldPx { get; private set; }
 
-    /// <summary>排序要用的量。没有地面时脚底当作与角色同高。</summary>
+    /// <summary>排序要用的两个量。没有地面时把脚底当成与角色同高。</summary>
     public DepthSubject Subject => new(Actor.DepthWorldPx, GroundYWorldPx ?? _host.GlobalPosition.Y);
 
     public override void _Ready()
@@ -83,40 +85,37 @@ public partial class DepthVisual : Node2D
         _ground = new RayCast2D
         {
             TargetPosition = new Vector2(0, GroundProbeWorldPx),
-            // 层 1 是地形层，**但主角也在这一层**（木桩的 `CollisionMask=1` 靠它实现「击退被主角
-            // 挡住」，`GP-13` 的 wall-block 盯着那条）。于是本射线只排除宿主自己，另一个角色若
-            // 正好压在宿主正下方仍会被当成地面。当前场景里不会发生（角色都各自站在地面上），
-            // 真要多角色叠在一起时得给地形一个专属层 —— 那要动 `GP-13` 的碰撞关系，归 A2 记账。
+            // 层 1 是地形层，但主角也在这一层（木桩靠它实现「被击退时撞上主角会停住」）。所以这条
+            // 射线只排除宿主自己，另一个角色正好压在宿主正下方时仍会被当成地面。当前场景里碰不到
+            // 那种摆法；真要让角色叠在一起站，得先给地形一个专属的碰撞层。
             CollisionMask = 1,
-            // 脚底正好贴在地面表面上，射线起点因此在碰撞体边界上；不允许从内部命中会漏掉那一帧。
+            // 脚底正好贴在地面表面上，射线起点因此落在碰撞体边界上；不许从内部命中就会漏掉那一帧。
             HitFromInside = true,
             Enabled = true,
         };
-        // **必须排除宿主自己。** 不排除的话射线从脚底向下第一个命中的是角色自己的碰撞体（主角
-        // 就在地形层里），于是「地面」永远等于角色当前高度、影子永远贴在脚底不动 —— 跳起来看不出
-        // 高度，而这件事不报错。挂到宿主之后 `ExcludeParent` 已经排除了它，这里再显式排一次是为了
-        // 「射线换了挂载点也仍然正确」，不依赖那个默认值。
+        // 必须排除宿主自己：不排除的话射线往下第一个打到的就是角色自己的碰撞体，于是「地面」永远
+        // 等于角色当前高度、影子永远贴在脚底不动，跳起来看不出高度，而它不报错。挂到宿主之后
+        // ExcludeParent 本来就排除了它，这里再显式排一次，好让射线换个挂载点也仍然对。
         if (_host is CollisionObject2D body)
         {
             _ground.AddException(body);
         }
-        // **射线挂宿主、不挂本节点。** 本节点带着纵深绘制偏移，射线若跟着它走，起点就已经偏移过
-        // 一次：纵深往前（偏移为正）时起点落进地面碰撞体内部，`HitFromInside` 让命中点等于起点，
-        // 于是量出来的「地面」也带着那次偏移，最后画影子时又加一次 —— 影子偏出去整整一个偏移量。
-        // 实测过这个形状：木桩在带前沿时影子落在脚底下方 24px。地面是**物理量**，与
-        // 绘制偏移无关，所以射线必须站在宿主的物理位置上问。
+        // 射线挂宿主、不挂本节点：本节点带着纵深的绘制偏移，射线跟着它走就从偏过的位置起算，量出来
+        // 的「地面」也带上那次偏移，画影子时又加一次 —— 影子会偏出去整整一个偏移量（实测木桩站在带
+        // 最前沿时，影子落到脚底下方 24 像素）。地面是物理量，所以射线得站在宿主的物理位置上问。
         _host.AddChild(_ground);
         Sync();
     }
 
-    /// <summary>
-    /// 按当前纵深与地面刷新偏移与影子。**由角色在物理推进之后显式调用** —— 顿帧冻结时不调，
-    /// 于是「冻结期间画面一动不动」连纵深偏移与影子一起成立。
-    /// </summary>
+    /// <summary>按当前纵深与地面刷新绘制偏移和影子。</summary>
+    /// <remarks>
+    /// 由角色在物理推进之后显式调。顿帧冻结的那几帧不调，于是「冻结期间画面一动不动」连纵深偏移
+    /// 与影子一起成立。
+    /// </remarks>
     public void Sync()
     {
         Position = new Vector2(0, (float)DepthRendering.DrawOffsetWorldPx(Actor.DepthWorldPx));
-        // 位置这一帧刚变过，射线的缓存结果还是上一帧的，必须强制重算。
+        // 位置这一帧刚变过，而射线里存的还是上一帧的结果，所以要强制它重算一次。
         _ground.ForceRaycastUpdate();
         GroundYWorldPx = _ground.IsColliding() ? _ground.GetCollisionPoint().Y : null;
         HeightAboveGroundWorldPx = GroundYWorldPx is double ground
@@ -125,14 +124,12 @@ public partial class DepthVisual : Node2D
         QueueRedraw();
     }
 
-    /// <summary>
-    /// 影子：不透明的扁椭圆，画在地面投影点上，随离地高度缩小。
-    /// </summary>
+    /// <summary>影子：一个不透明的扁椭圆，画在角色正下方的地面上，离地越高画得越小。</summary>
     /// <remarks>
-    /// 局部 y 取 <c>地面 Y − 角色 Y</c>：两边各自都带着同一份纵深偏移，相减正好抵消，所以这里
-    /// 不必再管纵深 —— 贴地时是 0（影子与脚底重合），跳起来时是正数（影子留在地面）。
+    /// 局部 y 取「地面 Y 减角色 Y」：两边各自都带着同一份纵深偏移，相减正好抵掉，所以这里不必
+    /// 再管纵深 —— 贴地时得 0（影子与脚底重合），跳起来时得正数（影子留在地面上）。
     ///
-    /// 不透明而不是半透明，理由见 <see cref="DepthRendering.ShadowScaleAt"/>。
+    /// 用不透明色而不是半透明，理由见 <see cref="DepthRendering.ShadowScaleAt"/>。
     /// </remarks>
     public override void _Draw()
     {
@@ -145,7 +142,7 @@ public partial class DepthVisual : Node2D
         var span = DepthRendering.ShadowSpanAt(Actor.BodySpanWorldPx);
         var radiusX = (float)(span.Width * scale / 2.0);
         var radiusY = (float)(CombatFeel.ShadowHeightWorldPx * scale / 2.0);
-        // 横向中心跟着本体的中点走（出拳时偏向拳那一侧），纵向仍落在地面投影点上。
+        // 横向中心跟着身体的中点走（出拳时会偏向拳那一侧），纵向仍落在地面上。
         var center = new Vector2((float)span.Center, (float)(ground - _host.GlobalPosition.Y));
         for (var i = 0; i < ShadowVertices; i++)
         {

@@ -12,13 +12,13 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth;
 
 /// <summary>
-/// 启动场景。**这是 `ENG-2` 的临时脚手架**，不是最终的启动流程。
+/// 启动场景。这是临时脚手架，不是最终的启动流程。
 /// </summary>
 /// <remarks>
-/// 它现在的职责只有两条：把「内容加载 → 规则层」这条链路真的走通一次，以及给 `ENG-1`
-/// 的导出冒烟一个能观察的落点（导出退出码不可信，得看产物真的跑起来并打出东西）。
+/// 它现在只做两件事：把「读内容文件 → 交给规则层」这条链路真的走通一次，以及给导出冒烟一个
+/// 能看的落点 —— 导出的退出码不可信，得看产物真的跑起来并打出东西。
 ///
-/// 教学关、开局流程与剧情演出都不在这里 —— 那些要等玩法实现需求。
+/// 教学关、开局流程与剧情演出都不在这里，那些要等玩法做起来。
 /// </remarks>
 public partial class Main : Node2D
 {
@@ -27,7 +27,7 @@ public partial class Main : Node2D
         GD.Print("[启动] 引擎 ", Engine.GetVersionInfo()["string"]);
         GD.Print("[启动] .NET ", System.Environment.Version);
 
-        // 显示指标延后两帧再打 —— 见 PrintDisplayMetrics 的注释，_Ready 里读到的是中间态。
+        // 显示指标要晚几帧再打：_Ready 这一刻读到的是中间值，理由见 PrintDisplayMetrics。
         SetProcess(true);
 
         if (!ModPaths.EnsureWritableDirectories())
@@ -45,7 +45,7 @@ public partial class Main : Node2D
         var text = LoadText(catalog);
         var characters = LoadCharacters(catalog);
 
-        GD.Print("[启动] 名册容量 ", config.RosterCapacity, "（来自配置，非代码常量）");
+        GD.Print("[启动] 名册容量 ", config.RosterCapacity, "（读的是配置文件，不是代码里的常量）");
         GD.Print("[启动] 文本条目 ", text.Count, " 条");
         GD.Print("[启动] 角色定义 ", characters.Count, " 份");
 
@@ -55,7 +55,7 @@ public partial class Main : Node2D
         foreach (var character in characters)
         {
             roster.TryAdd(character.Id);
-            // 谁被玩家驱动由登记表决定，不由「是不是主角」决定（`ENG-5`）。
+            // 谁被玩家驱动由这张登记表决定，不由「是不是主角」决定。
             controllers.Assign(character.Id, new LocalPlayerController(character.Id));
             GD.Print("[启动]   ", character.Id, " → ", text[character.DisplayNameKey]);
         }
@@ -76,24 +76,20 @@ public partial class Main : Node2D
     private IReadOnlyList<PixelTheme.Check> _fontChecks = [];
 
     /// <summary>
-    /// 建关卡 HUD（`UI-8`）。**它不是导航栈里的一层** —— 常驻显示，不压不弹。
+    /// 建关卡 HUD。它不进导航栈 —— 常驻显示，不压栈也不弹栈。
     /// </summary>
     /// <remarks>
-    /// 数值来自 <see cref="HudDemoModel"/> 那份**明确标为演示**的数据。真数据要等玩法实现，
-    /// PRD 第 8 节写明 `UI-1` 不读也不搬 `GP-2` 的参数表。
-    ///
-    /// 放置是**四角贴边**，从两套候选里选定，几何在
-    /// <see cref="HudLayout.AnchorOf"/>。
+    /// 显示的数值来自 <see cref="HudDemoModel"/>，那是一份明确标为演示用的数据，真数据要等玩法
+    /// 做起来。四块各贴一个屏幕角，具体贴哪个角见 <see cref="HudLayout.AnchorOf"/>。
     /// </remarks>
     private void BuildHud()
     {
         var theme = PixelTheme.Install(out var fontChecks);
         _fontChecks = fontChecks;
-        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 十项属性核对 ",
+        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
                  fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
 
-        // 手环也挂上同一份主题。`UI-6` 的注释就写着「像素字体与主题跟着 `UI-8` 落地，
-        // 那时把 Theme 挂在根节点上即可，不必改结构」—— 这就是那一步。
+        // 手环也挂同一份主题。它自己不载字体，等的就是这一步。
         _wristband.Theme = theme;
 
         _hud = new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates))
@@ -104,12 +100,10 @@ public partial class Main : Node2D
         _ui.LayerOf(UILayer.Hud).AddChild(_hud);
     }
 
-    /// <summary>建界面根与手环面板（`UI-6`）。</summary>
+    /// <summary>建界面根节点与手环面板。</summary>
     /// <remarks>
-    /// **这里原先还串着一条启动探针链**（界面骨架自检 → 输入 → 世界空间 UI → 相机 → HUD 排版 →
-    /// 相机脚手架），判据打进日志、由 `tools/check_*.py` 读回来判。`ADR-0009` 把开发模式改成编辑器
-    /// 主导之后那条链连同它的消费者一起删了：场景与参数归作者在 Godot 里配，画面上的事由他实机看，
-    /// 不再用脚本去证明「层级建好了」。**保留的是真正构成游戏的那部分** —— 界面根、手环、HUD。
+    /// 这里只建真正构成游戏的那几样：界面根、手环、HUD。画面上的事不用脚本去证明，
+    /// 由作者在 Godot 里实机看。
     /// </remarks>
     private void BuildUI()
     {
@@ -126,10 +120,10 @@ public partial class Main : Node2D
         wristband.Context = UIContext.Level;
     }
 
-    /// <summary>建输入门面（`UI-7`）。引擎层查询输入一律经它，不直接轮询 <c>Input</c>。</summary>
+    /// <summary>建输入门面。引擎层查输入一律经它，不直接轮询 <c>Input</c>。</summary>
     private void BuildInputRouter()
     {
-        // 不给它注入导航栈：面板打开时世界暂停，玩法节点不在跑，所以门面不需要知道面板开没开。
+        // 不把导航栈传给它：面板打开时世界暂停、玩法节点不在跑，所以门面不需要知道面板开没开。
         _router = new InputRouter { Name = "InputRouter" };
         AddChild(_router);
     }
@@ -137,12 +131,12 @@ public partial class Main : Node2D
     private int _framesBeforeMetrics = 2;
 
     /// <summary>
-    /// 等窗口稳定后再打显示指标。**不能在 <c>_Ready</c> 里打。**
+    /// 等窗口稳定下来再打显示指标。不能在 <c>_Ready</c> 里打。
     /// </summary>
     /// <remarks>
-    /// 实测过这个坑：请求 3840×2160 的窗口时系统会把它裁成 3840×2130，而
-    /// <c>_Ready</c> 执行时拉伸还没重算完 —— 那一刻读到的是中间态（逻辑 649×360，与窗口
-    /// 尺寸除不通），看起来像配置错了，实际是量早了。两帧之后再读就稳定。
+    /// 实测踩过：请求 3840×2160 的窗口时系统把它裁成 3840×2130，而 <c>_Ready</c> 执行时拉伸还
+    /// 没重算完 —— 那一刻读到的是中间值（逻辑 649×360，拿窗口尺寸去除除不通），看起来像配置
+    /// 错了，其实是量早了。等几帧再读就稳定。
     /// </remarks>
     public override void _Process(double delta)
     {
@@ -156,20 +150,17 @@ public partial class Main : Node2D
     }
 
     /// <summary>
-    /// 把显示链路的实际状态打进启动日志（`UI-3`）。
+    /// 把显示链路的实际状态打进启动日志。
     /// </summary>
     /// <remarks>
-    /// 为什么要打而不是写在文档里：像素游戏最贵的一类静默故障就是缩放变成非整数或纹理过滤
-    /// 变回线性 —— 画面只是"有点糊"，不报错，可能几个月后才被发现。把逻辑尺寸、窗口尺寸、
-    /// 实际缩放倍数与四项设置一起打出来，**换窗口尺寸时扫一眼日志就知道缩放是不是整数**。
-    /// 原先有守卫从这份日志里自动判定，它随 `ADR-0009` 删除；日志行还在。缩放倍数取自
-    /// <see cref="Viewport.GetFinalTransform"/>，也就是引擎真正用上的那个变换，不是我们以为设了什么。
+    /// 打出来而不是写在文档里，是因为像素游戏最难发现的一类毛病就是缩放变成非整数、或者纹理过滤
+    /// 退回线性 —— 画面只是有点糊，不报错，可能几个月后才被注意到。换窗口尺寸之后扫一眼日志就
+    /// 知道缩放是不是整数。缩放倍数取自 <see cref="Viewport.GetFinalTransform"/>，是引擎真正用
+    /// 上的那个变换，不是我们以为自己设了什么。
     ///
-    /// **逻辑宽度是下限不是定值。** 实测 `canvas_items` + `expand` + `integer`
-    /// 的组合：高度锁在 360，宽度按窗口宽高比撑开（3840×2130 的窗口宽高比 1.803，逻辑尺寸
-    /// 就是 649×360），整数缩放取 floor(窗口高 ÷ 360)，除不尽的余量留成黑边。
-    /// 所以「满宽 53 个汉字」是地板数而不是定值，**界面必须靠锚点与容器定位** —— 正典那条
-    /// 要求不是风格偏好。
+    /// 逻辑宽度是下限、不是定值。实测当前这套拉伸设置：高度锁死，宽度按窗口宽高比撑开
+    /// （3840×2130 的窗口得到逻辑 649×360），整数缩放取窗口高除以逻辑高之后向下取整，除不尽的
+    /// 余量留成黑边。所以一行能排多少个汉字也是个下限，界面必须靠锚点与容器定位。
     /// </remarks>
     private void PrintDisplayMetrics()
     {
@@ -197,12 +188,12 @@ public partial class Main : Node2D
     }
 
     /// <summary>
-    /// 文本按**键**合并，不是整文件覆盖 —— 否则 mod 只想改一句台词就会抹掉其余全部文本。
+    /// 文本一条一条按键合并，不是整个文件覆盖 —— 否则 mod 只想改一句台词就会抹掉其余全部文本。
     /// </summary>
     private static TextCatalog LoadText(ContentCatalog catalog)
     {
-        // 语言选择是一项**玩家级偏好**（设计仓 `design/存档系统.md` 的「玩家级偏好：第三样东西，
-        // 不是分片」）—— 它跨存档位，所以不进任何存档分片。本条固定读简体中文，够走通链路。
+        // 选哪种语言属于玩家自己的偏好，它跨存档位、不进任何存档分片，见设计仓
+        // design/存档系统.md 的「玩家级偏好：第三样东西，不是分片」一节。这里先固定读简体中文。
         const string wanted = "text/zh-CN.json";
         var tables = catalog.ResolveAll("text")
             .Where(e => e.RelativePath == wanted)

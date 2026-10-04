@@ -4,33 +4,28 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 输入门面（`UI-7`）：装绑定、解算修饰键组合、记住最后用的设备。
+/// 输入门面：装好按键绑定、解算修饰键组合、记住玩家最后用的是键鼠还是手柄。
 /// </summary>
 /// <remarks>
-/// **玩法代码必须通过本类问输入，不许直接调 <c>Input.IsActionPressed</c>。** 这不是风格偏好，是
-/// 实测出来的硬约束：在 <c>_Input</c> 里对面键事件调 <c>SetInputAsHandled</c> 之后，
-/// <c>Input.IsActionPressed</c> 与 <c>IsActionJustPressed</c> **仍然返回 true**。也就是说「拦下事件」
-/// 只挡住了事件流，挡不住轮询 —— 任何直接轮询的代码都会在玩家按住扳机挑技能时照旧看到轻攻击被
-/// 按下，打出一次没打算打的攻击。**这种失效不报错。** 原先有守卫扫 `src/` 里除本文件之外的
-/// <c>Input.IsActionPressed</c> 调用并判失败，它随 `ADR-0009` 删除 —— 现在这条只是
-/// `CONVENTIONS.md` 里的一条约定：**玩法代码一律通过本类问输入，不直接轮询。**
+/// 玩法代码一律通过本类问输入，不要直接调 <c>Input.IsActionPressed</c>。实测：在 <c>_Input</c> 里
+/// 把面键事件标成已处理之后，<c>Input.IsActionPressed</c> 与 <c>IsActionJustPressed</c> 仍然返回
+/// true —— 拦下事件只挡住事件流，挡不住轮询，而这个失效不报错，见 <c>CONVENTIONS.md</c>。
 ///
-/// 分工与 `UI-6` 一致：**判定在规则层，节点在这里。** 「哪一组生效」「这个面键现在是哪个技能」
-/// 「先按住的赢」「松开时该松哪个技能」都由 <see cref="SkillModifierState"/> 判，有单元测试盯着；
-/// 本类只负责认出引擎事件、喂给它、再把结论翻译成引擎动作。
+/// 判定都在规则层的 <see cref="SkillModifierState"/>：哪一组生效、这个面键现在是哪个技能、
+/// 先按住的赢、松开时该松哪个技能。本类只负责认出引擎事件、喂给它，再把结论翻译回引擎动作。
 ///
-/// 对外用普通 C# 事件而不是 Godot 信号：消费方（`UI-8` 的 HUD）是 C#，用 C# 事件省掉枚举过
-/// Variant 的一层，类型也不会退化成 int。
+/// 对外用普通 C# 事件而不是 Godot 信号：消费方也是 C#，省掉枚举过 Variant 那一层，
+/// 类型也不会退化成 int。
 /// </remarks>
 public partial class InputRouter : Node
 {
     private readonly SkillModifierState _modifiers = new();
     private readonly InputDeviceTracker _devices = new();
 
-    /// <summary>最后使用的设备族变了。按键提示图标照它换（显示归 `UI-8`）。</summary>
+    /// <summary>最后用的设备族变了。按键提示图标照它换。</summary>
     public event Action<InputDeviceKind>? DeviceChanged;
 
-    /// <summary>生效的技能组变了。HUD 照它显示「当前这一组是哪三个技能」（显示归 `UI-8`）。</summary>
+    /// <summary>生效的技能组变了。HUD 照它显示当前这一组是哪几个技能。</summary>
     public event Action<SkillGroup>? SkillGroupChanged;
 
     /// <summary>现在该显示哪一族的按键提示。</summary>
@@ -40,7 +35,7 @@ public partial class InputRouter : Node
     public SkillGroup ActiveSkillGroup => _modifiers.Active;
 
     /// <summary>
-    /// 当前这一组是哪三个技能位。**这就是验收要的「修饰键按下时数据可取」。**
+    /// 当前这一组是哪几个技能位。修饰键一按住就能读到。
     /// </summary>
     public IReadOnlyList<string> ActiveSkills => _modifiers.ActiveSkills;
 
@@ -51,7 +46,7 @@ public partial class InputRouter : Node
     {
         InputMapInstaller.Install();
 
-        // 世界暂停时仍要收输入：弹窗要求暂停，而那时界面还得能操作（`UI-6` 的导航栈）。
+        // 世界暂停时仍要收输入：弹出界面会暂停世界，而那时界面本身还得能操作。
         ProcessMode = ProcessModeEnum.Always;
     }
 
@@ -61,10 +56,9 @@ public partial class InputRouter : Node
     /// <remarks>
     /// 只有一层遮挡：修饰键按住时被遮的动作（<see cref="SkillModifierState.ShouldSuppress"/>）。
     ///
-    /// **面板打开时不需要在这里遮任何东西。** 正典裁定「弹界面接管输入就暂停世界」，所以面板开
-    /// 着的时候玩法节点根本不在跑（本类的 <c>ProcessMode</c> 是 <c>Always</c>，玩法节点不是），
-    /// 手柄上「下面键＝跳跃＝ui_accept」那个共用物理位的歧义因此不存在。原先为它写的 `UI-11`
-    /// 遮挡层已随裁定作废删除。
+    /// 面板打开时这里不用遮任何东西。弹出界面接管输入时世界是暂停的，玩法节点不在跑（本类的
+    /// <c>ProcessMode</c> 是 <c>Always</c>，玩法节点不是），所以手柄上「下面键既是跳跃又是界面
+    /// 确认」那个歧义不会发生。暂停这条规则见设计仓 canon/gameplay/玩法定位.md。
     /// </remarks>
     public bool IsPressed(string action) =>
         !_modifiers.ShouldSuppress(action)
@@ -79,7 +73,7 @@ public partial class InputRouter : Node
     public bool IsJustReleased(string action) => Input.IsActionJustReleased(action);
 
     /// <summary>
-    /// 移动方向。**不受修饰键遮挡** —— 挑技能的时候还得能走位。
+    /// 移动方向。不受修饰键遮挡 —— 挑技能的时候还得能走位。
     /// </summary>
     public Vector2 MoveDirection() => Input.GetVector(
         InputActions.MoveLeft, InputActions.MoveRight,
@@ -118,7 +112,7 @@ public partial class InputRouter : Node
         }
     }
 
-    /// <summary>认出事件来自哪个设备族、是什么形状，交给规则层判要不要换提示。</summary>
+    /// <summary>认出事件来自哪个设备族、属于哪一类信号，交给规则层判要不要换提示。</summary>
     private void NoticeDevice(InputEvent @event)
     {
         var (device, kind, magnitude) = @event switch
@@ -167,11 +161,11 @@ public partial class InputRouter : Node
     /// 修饰键按住时，把面键的按下与松开翻译成技能位的按下与松开。
     /// </summary>
     /// <remarks>
-    /// 用 <c>InputEventAction</c> 合成技能位的按下（实测：合成后
-    /// <c>Input.IsActionPressed</c> 与 <c>IsActionJustPressed</c> 都为 true，且 <c>_Input</c> 收到
-    /// 该事件一次）。这样技能位对下游而言就是个普通动作，下游不必知道它是组合出来的。
+    /// 用 <c>InputEventAction</c> 合成技能位的按下。实测合成之后 <c>Input.IsActionPressed</c> 与
+    /// <c>IsActionJustPressed</c> 都为 true，<c>_Input</c> 也收到该事件一次 —— 于是技能位对下游
+    /// 就是个普通动作，下游不必知道它是组合出来的。
     ///
-    /// 同时把原事件消费掉。**消费只挡事件流不挡轮询**（见类注释），所以轮询那一半靠
+    /// 同时把原事件消费掉。消费只挡事件流、不挡轮询（见类注释），轮询那一半靠
     /// <see cref="IsPressed"/> 的遮挡判定，两边合起来才完整。
     /// </remarks>
     private void ResolveCombo(InputEvent @event)

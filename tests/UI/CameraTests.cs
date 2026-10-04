@@ -4,16 +4,15 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
-/// `UI-5` 相机五项行为的守卫：跟随死区、缩放与视野、边界钳制、震动、演出接管，加建造滚动与推镜。
+/// 相机：跟随死区、缩放与视野、边界钳制、屏幕震动、演出接管，以及建造时的滚动与边缘推镜。
 /// </summary>
 /// <remarks>
-/// 这几条为什么必须有测试：相机的失效**全都不报错**。死区写成 0 只表现为「镜头有点抖」；钳制少
-/// 一边只表现为「地图边上偶尔露白」；演出忘了归还只表现为「后面镜头不动了」；震动开关没关死只
-/// 表现为「关了还是有点晃」。这些在实机上都要凑巧遇到才看得见，而断言当场就判。
+/// 相机的失效全都不报错。死区写成 0 只表现为镜头有点抖；钳制少一边只表现为地图边上偶尔
+/// 露白；演出忘了归还只表现为后面镜头不动了；震动开关没关死只表现为关了还是有点晃。
+/// 这些在实机上都要凑巧遇到才看得见。
 ///
-/// **不测手感数值本身，只测量纲与区间。** 死区取 48 还是 40 屏幕像素只能实机收敛（`UI-12`），
-/// 所以这里钉的是「能被侧视缩放整除」「落在算得出来的区间里」这类关系 —— 改值不会让测试失败，
-/// 改坏关系会。
+/// 手感数值本身不测，只测量纲与区间 —— 死区取多少屏幕像素只能实机收敛。所以测的是
+/// 「能被侧视缩放整除」「落在算得出来的区间里」这类关系：改值不会失败，改坏关系才会。
 /// </remarks>
 public class CameraTests
 {
@@ -29,7 +28,8 @@ public class CameraTests
     [Fact]
     public void 只有两种视角且缩放取自正典而不是相机自己定的常量()
     {
-        // 正典写明「战斗与出征一律侧视、基地与城区一律俯视。无例外」—— 多出第三种视角就不成立了。
+        // 战斗与出征一律侧视、基地与城区一律俯视，没有例外，所以多出第三种视角这条就不成立了。
+        // 见设计仓 canon/gameplay/玩法定位.md 的「视角规则」一节。
         Assert.Equal(2, Enum.GetValues<CameraView>().Length);
 
         Assert.Equal(1, Rig(CameraView.TopDown).Zoom);
@@ -50,7 +50,7 @@ public class CameraTests
     [Fact]
     public void 逻辑宽度撑开后视野跟着变而不是按六百四十算()
     {
-        // aspect="expand" 下逻辑宽度是下限不是定值（UI-3 实测 3840×2130 得到 649×360）。
+        // 视口按 expand 拉伸时逻辑宽度是下限不是定值（实测 3840×2130 的窗口得到 649×360）。
         // 按 640 算钳制范围会让宽窗口上的镜头停得太早，地图边缘露白。
         var wide = Rig(CameraView.SideView, logicalWidth: 649);
 
@@ -94,7 +94,7 @@ public class CameraTests
     [Fact]
     public void 两种视角对同样的屏幕位移给出相同的镜头位移()
     {
-        // 这条是「两种视角共用同一份实现」的行为判据：目标在屏幕上走同样多的像素，镜头在屏幕上
+        // 这条验的是「两种视角共用同一份实现」：目标在屏幕上走同样多的像素，镜头在屏幕上
         // 就该走同样多的像素。各写一套的话两边迟早分叉，而分叉在实机上只表现为「侧视手感不一样」。
         var moved = new List<int>();
         foreach (var view in Enum.GetValues<CameraView>())
@@ -127,7 +127,7 @@ public class CameraTests
         Assert.Equal(1000 - (rig.VisibleWidth / 2), rig.CenterX);
         Assert.Equal(600 - (rig.VisibleHeight / 2), rig.CenterY);
 
-        // 判据不是「相机在边界内」而是「视口在边界内」—— 前者也会露白。
+        // 断的不是「相机在边界内」而是「视口在边界内」，前者也会露白。
         Assert.True(rig.CenterX + (rig.VisibleWidth / 2) <= 1000);
         Assert.True(rig.CenterY + (rig.VisibleHeight / 2) <= 600);
     }
@@ -187,7 +187,7 @@ public class CameraTests
     [Fact]
     public void 关掉震动后重击不产生任何位移()
     {
-        // 判据是**恒零**而不是「幅度调小」。对晕动敏感的玩家要的是不动，调小仍然会动。
+        // 断的是位移恒为零，不是「幅度调小」。对晕动敏感的玩家要的是不动，调小仍然会动。
         var rig = Rig(CameraView.SideView);
         rig.ShakeEnabled = false;
         rig.Shake();
@@ -205,7 +205,7 @@ public class CameraTests
     public void 震动幅度除不尽缩放时抛而不是产生半像素()
     {
         // 侧视缩放 2 下，奇数屏幕像素的幅度换算成世界像素就是半像素，而半像素会让最近邻采样把
-        // 像素块切成宽窄不一的条（UI-5 实测）。那看起来只是「画面有点脏」，不报错。
+        // 像素块切成宽窄不一的条（实测过）。那看起来只是「画面有点脏」，不报错。
         var side = Rig(CameraView.SideView);
         var ex = Assert.Throws<ArgumentOutOfRangeException>(
             () => side.Shake(3, CameraFeel.ShakeSeconds));

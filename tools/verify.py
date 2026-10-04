@@ -2,45 +2,39 @@
 # -*- coding: utf-8 -*-
 """代码仓验收总入口：命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物，串成一条命令。
 
-**范围由 `ADR-0009` 定死**：只保留「与编辑器里配什么无关」的那几步。素材守卫、代码形状守卫
-（界面无字面量、单一相机类型、整数缩放、世界空间 UI、输入不直接轮询）与五个图形探针都已删除
-—— 场景、碰撞区域、素材与参数归作者在 Godot 里配，画面上的事由他实机看。这里留下的是三类
-**实机看不出来**的东西：编译错、规则层逻辑回归、以及发行包里混进源码或产物压根启动不了。
+这里只留「与编辑器里配什么无关」的那几步。场景、碰撞区域、素材和参数归作者在 Godot 里配，
+画面上的事由他实机看，所以素材检查、代码形状检查和那几个图形探针都已经删了。留下的是三类实机
+看不出来的东西：编译错、规则层的逻辑回归、以及发行包里混进源码或者产物压根启动不了。
 
-为什么存在（`ENG-3`）：这几步此前是各自独立的命令，人工串有三种漏法 —— 漏跑一步、
-跑在旧产物上、**看退出码就当过了**。后一种本项目已经撞过两次，都记在设计仓
-`reference/踩坑记录.md`：
+为什么要有这个总入口：这几步原先是各自独立的命令，人工串有三种漏法——漏跑一步、跑在旧产物上、
+看退出码就当过了。最后一种本项目撞过两次：一次是测试摘要打着「Passed」，可其中一个测试压根
+没跑、总数悄悄少了一条；一次是导出正常退出，却把 rules 下的 .cs 和 obj/ 里的中间产物打进了
+发行包，而泄漏不报错。
 
-- 第 29 条：测试摘要打「Passed」，可其中一个测试压根没跑，`Total` 从 2 悄悄变成 1。
-- 第 33 条：导出正常退出，却把 `rules/**/*.cs` 与 `obj/project.assets.json` 打进了发行包，
-  资源包 182 KB 而该发行的只有 8.5 KB。**泄漏不会报错。**
+所以重点不是省几次敲键盘，而是每一步都另找一把尺去核对产物：
 
-所以本入口的重点不是省几次敲键盘，而是**每一步都另找一个量具核对产物**：
+    命名    磁盘上的名字 对 代码与预设里写死的 res:// 路径（逐段比大小写，不用 exists）
+    行尾    实际字节 对 git 自己解析出来的 .gitattributes 策略（规则不在本脚本里重写一遍）
+    构建    退出码，加上自己数错误行；认不出输出形状就判失败，不静默放过
+    测试    运行器报的条数 对 从测试源码静态数出来的条数，两个独立来源必须相等
+    导出    先清空 export/ 再导 → 产物必须存在 → 解开 .pck 逐条看清单查泄漏
+    跑产物  真启动导出的 exe，从日志确认 C# 那一侧跑到了内容载入完成
 
-    命名    磁盘上的名字 ≙ 代码与预设里写死的 `res://` 路径（逐段比大小写，不用 exists）
-    行尾    实际字节 ≙ git 自己解析出来的 `.gitattributes` 策略（规则不在本脚本里重写一遍）
-    构建    退出码 + 自己数错误行，认不出输出形状就判失败（不静默放过）
-    测试    运行器报的条数 ≙ 从测试源码静态数出来的条数（两个独立来源必须相等）
-    导出    先清空 export/ 再导 → 产物必须存在 → **解开 .pck 逐条看清单**查泄漏
-    跑产物  真启动导出的 exe，从日志确认 C# 侧跑到了内容载入完成
+用法（从代码仓根目录跑）：
 
-门禁只调本入口。用法（从**代码仓根目录**运行）：
-
-    python tools/verify.py               # 全跑，这是门禁用的形态
-    python tools/verify.py --upto test   # 只跑到测试；前置步骤一定跟着跑，跑不出旧产物
+    python tools/verify.py               # 全跑
+    python tools/verify.py --upto test   # 只跑到测试；前置步骤一定跟着跑，不会跑在旧产物上
     python tools/verify.py --manifest    # 不跑任何步骤，只把现有 .pck 的包内清单打出来
     python tools/verify.py --manifest <某个.pck>   # 看指定的包
 
-**本脚本不再有自证入口**（`selfcheck_verify.py` 随 `ADR-0009` 一起删了，「改了守卫必须自证」
-那条纪律同时取消）。代价写明：本入口自己坏了没有东西能发现，只能靠改它的人复核 —— 这是
-那次决定明知并接受的代价之一。
+本脚本没有自证入口，所以它自己坏了没有东西能发现，只能靠改它的人复核。
 
-输出约定（与设计仓 `tools/check_docs.py` 一致）：固定 UTF-8；标准输出**每步只有一行**，
-逐步的完整日志落盘到 `logs/verify/<时间戳>/`，同目录写一份带起止时间戳的 `summary.md`；
-末尾打覆盖量、结果与一行 `EXIT=`。日志由本脚本自己写 UTF-8，不靠 shell 重定向。
+输出约定：固定 UTF-8；标准输出每步只有一行，逐步的完整日志落到 logs/verify/<时间戳>/，
+同目录写一份 summary.md；末尾打覆盖量、结果和一行 EXIT=。日志由本脚本自己写 UTF-8，
+不靠 shell 重定向。
 
-Godot 可执行文件的定位顺序：环境变量 `TINDERHEARTH_GODOT` → `PATH` → 已知安装根下按
-`project.godot` 声明的引擎小版本搜 mono 版控制台 exe。找不到就判失败并给出补救命令。
+找 Godot 可执行文件的顺序：环境变量 TINDERHEARTH_GODOT → PATH → 已知安装根下按 project.godot
+声明的引擎小版本搜 mono 版控制台 exe。找不到就判失败，并给出补救命令。
 """
 
 from __future__ import annotations
@@ -88,36 +82,34 @@ GODOT_ENV = "TINDERHEARTH_GODOT"
 GODOT_SEARCH_ROOTS = (Path(r"D:\godot\4-7"),)
 GODOT_PATH_NAMES = ("godot", "godot4", "Godot_v4.7.2-stable_mono_win64_console")
 
-# ── 测试（踩坑记录 29）────────────────────────────────────────────────
-# 期望条数不写死成常量，从测试源码数出来。死数字已经烂过一次：ADR-0007 里记的是 8 条，
-# 现在实际 10 条 —— 写死就得每加一个测试改一次，忘了改就只能靠人判断「这次是该改还是
-# 真少了」，而那正是第 29 条放过测试的那种判断。
+# ── 测试 ──────────────────────────────────────────────────────────────
+# 期望条数不写死成常量，从测试源码数出来。写死过一次就烂过一次：写死之后每加一个测试都得改
+# 一次这个数，忘了改就只能靠人判断「这次是该改、还是真少跑了」，而那正是当初放过一条没跑的
+# 测试的那种判断。
 TEST_ATTR_RE = re.compile(r"\[\s*(Fact|Theory|InlineData|MemberData|ClassData)\b")
 BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
-# ── 包内清单（踩坑记录 33）────────────────────────────────────────────
+# ── 包内清单 ──────────────────────────────────────────────────────────
 PCK_MAGIC = 0x43504447  # "GDPC"
-# 只认实测过的包格式版本。Godot 4.7.2 导出的是 4，布局如 parse_pck() 注释所记。
-# 换了版本就**报错**而不是猜着解 —— 猜错的解析会把「压根没看」伪装成「没有泄漏」，
-# 那正是最坏的失效方向。
+# 只认实测过的包格式版本。Godot 4.7.2 导出的是 4，布局见 parse_pck() 的注释。换了版本就报错，
+# 不猜着解：猜错的解析会把「压根没看」伪装成「没有泄漏」，那是最坏的失效方向。
 PCK_FORMAT_KNOWN = 4
 
-# ── 随发行必须附带的东西（`ART-3`）────────────────────────────────────
-# OFL 第 2 条要求**每份拷贝**都带许可证与版权声明。字体进了发行包，许可证就必须跟着进去，
-# 而漏了不会报错 —— 只会变成上架后的法律问题。所以这里两头都判：
-#   1. 许可证是**允许**出现的（否则会被下面「文档与脚本」那条当泄漏拦掉）；
-#   2. 包里出现字体数据时，许可证**必须**在，否则判失败。
-# ADR-0008 另钉了第 3 条：将来做了子集化或改字形，输出的字体名不得沿用原名 ——
-# 那件事机器判不了（要读字体的 name 表并与「有没有改过」比对），只能人工验收，
-# 已写在 ADR-0008 的「落地要求」与素材登记表的授权那一栏里。
+# ── 随发行必须附带的东西 ──────────────────────────────────────────────
+# 字体用的 SIL OFL 1.1 要求每份拷贝都带许可证和版权声明。字体进了发行包，许可证就必须跟着进去，
+# 而漏了不报错，只会变成上架之后的法律问题。所以这里两头都判：
+#   1. 许可证是允许出现在包里的，否则会被下面「文档与脚本」那条当泄漏拦掉；
+#   2. 包里出现字体数据时，许可证必须在，不在就判失败。
+# 还有一条机器判不了：将来做了子集化或者改字形，输出的字体名不得沿用原名（要读字体的 name 表
+# 才比得出来）。那一条只能人工验收，写在字体选型那份决策记录里。
 FONT_DATA_RE = re.compile(r"\.(?:fontdata|ttf|otf)$", re.IGNORECASE)
-# 允许随发行附带的非资源文件，**连理由一起登记**。不登记的话「该带的」与「漏出去的」分不开。
+# 允许随发行附带的非资源文件，连理由一起登记。不登记的话「该带的」和「漏出去的」就分不开了。
 BUNDLED_FILES = {
     "assets/fonts/LICENSE-OFL.txt":
-        "SIL OFL 1.1 第 2 条：字体的每份拷贝都必须带许可证与版权声明（ART-3）",
+        "SIL OFL 1.1 要求字体的每份拷贝都带许可证与版权声明",
 }
 
-# 不该出现在发行包里的东西。命名说清是哪一类，报错才指得回踩坑记录那一条。
+# 不该出现在发行包里的东西。每条都带一个类别名，这样报错时看得出漏出去的是哪一类。
 LEAK_RULES = (
     ("构建中间产物", re.compile(r"(^|/)(obj|bin)/", re.IGNORECASE)),
     ("依赖与还原清单", re.compile(r"\.(deps|assets|runtimeconfig)\.json$", re.IGNORECASE)),
@@ -125,33 +117,31 @@ LEAK_RULES = (
     ("NuGet 配置", re.compile(r"(^|/)(nuget\.config|packages\.lock\.json)$", re.IGNORECASE)),
     ("版本库元数据", re.compile(r"(^|/)\.git", re.IGNORECASE)),
     ("文档与脚本", re.compile(r"\.(md|py|log|txt|ps1|sh)$", re.IGNORECASE)),
-    # 下面两条补的是同一个洞：**第三方编辑器插件会随发行包出去，而原先没有任何一条判据
-    # 看得见它。** 本项目是纯 C#（`ADR-0005`），仓里一个 `.gd` 都没有、也没有 `addons/`，
-    # 所以这两条现在是空跑的 —— 留着是因为装一个插件（社区的 Godot MCP 是典型）只要把目录
-    # 拖进 `res://` 就成立，而那一刻没有人会想起来查发行包。
+    # 下面两条补的是同一个洞：第三方编辑器插件会随发行包出去，而原先没有任何一条检查看得见它。
+    # 本项目是纯 C#，仓里一个 .gd 都没有、也没有 addons/，所以这两条现在是空跑的。留着是因为
+    # 装一个插件只要把目录拖进 res:// 就成立，而那一刻没有人会想起来查发行包。
     #
-    # **两条都要，因为它们漏的不是同一批**：`.gd` 管住「有人在这个 C# 工程里写了 GDScript」，
-    # 而 `addons/` 管住插件里那些**不是脚本**的文件（`plugin.cfg`、图标、`.tres`）—— 只判
-    # 扩展名的话它们一条都拦不住。方向按 `ENG-18` 的教训取「默认面是全部」：真有哪个插件
-    # 必须随发行出去，那时把它登记进 `BUNDLED_FILES`，而不是现在先把口子开着。
+    # 两条都要，因为它们漏的不是同一批：.gd 管住「有人在这个 C# 工程里写了 GDScript」，
+    # addons/ 管住插件里那些不是脚本的文件（plugin.cfg、图标、.tres），只判扩展名的话它们一条
+    # 都拦不住。方向取「默认全拦」：真有哪个插件必须随发行出去，那时把它登记进 BUNDLED_FILES，
+    # 而不是现在先把口子开着。
     ("GDScript 脚本", re.compile(r"\.gd$", re.IGNORECASE)),
     ("编辑器插件", re.compile(r"(^|/)addons/", re.IGNORECASE)),
 )
-# ⚠️ 上面那条 `.gd` 刻意锚在行尾（`\.gd$`），**不是 `\.gd`**。两个近亲不许被它扫到：
-# `.gdshader` 是运行时要用的着色器，本该在包里；`.gdignore` 是让引擎跳过目录的标记文件。
-# 写成不锚尾的话这两样都会被判成泄漏，而那种误报会让人把整条规则关掉。
-# `.cs` 单独判，因为它有一种**合法**形态。实测（见 3-export-manifest.txt）：引擎层的
-# `src/**/*.cs` 一定在包里，但预设的 `dotnet/include_scripts_content=false` 让它们只是
-# 1 字节空占位 —— Godot 需要这些 CSharpScript 条目存在，内容并不发行。
-# 所以判据是两条，都对着踩坑记录 33 记下的真实缺陷形状：
-#   1. `src/` 以外的 `.cs`（`rules/`、`tests/`）出现 = 子工程被扫进来了，`.gdignore` 没了；
-#   2. 任何 `.cs` 带内容 = `include_scripts_content` 被打开了，源码真的在发行包里。
+# 上面那条 .gd 刻意锚在行尾，不是写成 `\.gd`。两个近亲不许被它扫到：.gdshader 是运行时要用的
+# 着色器、本该在包里；.gdignore 是让引擎跳过目录的标记文件。写成不锚尾的话这两样都会被判成
+# 泄漏，而那种误报会让人把整条规则关掉。
+#
+# .cs 单独判，因为它有一种合法形态。实测：引擎层的 src 下那些 .cs 一定在包里，但导出预设的
+# include_scripts_content 关着，所以它们只是 1 字节空占位——Godot 需要这些脚本条目存在，
+# 内容并不发行。于是判两条，对着真撞过的那个缺陷：
+#   1. src/ 以外的 .cs（rules/、tests/）出现 = 子工程被扫进来了，.gdignore 没起作用；
+#   2. 任何 .cs 带内容 = include_scripts_content 被打开了，源码真的进了发行包。
 CS_PLACEHOLDER_MAX_BYTES = 1
 CS_ALLOWED_PREFIX = "src/"
 
-# 包里必须有的东西。只查「没有它就一定不是个能跑的包」的那几条，不做内容清单登记
-# （那要等素材登记表存在，归 `ENG-10`）。启动场景从 project.godot 读，不在这里写死 ——
-# 脚手架被替换时不该还得回来改一次。
+# 包里必须有的东西。只查「没有它就一定不是个能跑的包」的那几条，不做完整的内容清单。启动场景
+# 从 project.godot 读、不在这里写死，这样脚手架被替换时不用回来改一次。
 REQUIRED_PACK_ENTRIES = ("project.binary",)
 REQUIRED_PACK_PREFIXES = ("data/",)
 
@@ -176,12 +166,12 @@ STEP_TITLES = {
 
 # ── 输出与日志 ────────────────────────────────────────────────────────
 def ensure_logs_hidden_from_godot() -> None:
-    """保证 `logs/` 有 `.gdignore`。
+    """保证 logs/ 下有 .gdignore。
 
-    为什么这条不能省：`logs/` 长在 `res://` 里面，Godot 的资源扫描会看见它。踩坑记录 33
-    就是「`res://` 下的子目录被扫进发行包」，本入口自己往仓库里加目录，不能反倒成为
-    下一次泄漏的来源。`logs/` 不入库（`.gitignore` 忽略），所以这个 `.gdignore` 只能现场
-    补，不能靠提交 —— 任何往 `logs/` 写东西的入口都得先调它。
+    这条不能省，因为 logs/ 长在 res:// 里面、Godot 的资源扫描看得见它。那次源码泄漏进发行包
+    就是「res:// 下的子目录被扫进去了」，而本入口自己往仓库里加目录，不能反倒成为下一次泄漏
+    的来源。logs/ 不入库，所以这个 .gdignore 只能现场补、不能靠提交，任何往 logs/ 写东西的
+    入口都得先调它。
     """
     LOG_ROOT.parent.mkdir(parents=True, exist_ok=True)
     guard = LOG_ROOT.parent / ".gdignore"
@@ -223,7 +213,7 @@ class Report:
         ensure_logs_hidden_from_godot()
 
     def write_log(self, name: str, text: str) -> str:
-        """日志自己写 UTF-8，不经 shell 重定向（WORKFLOW §5）。"""
+        """日志由本脚本自己写成 UTF-8，不靠 shell 重定向攒。"""
         self.ensure_log_dir()
         (self.log_dir / name).write_text(text, encoding="utf-8", newline="\n")
         return name
@@ -239,10 +229,10 @@ class Report:
 
 # ── 子进程与解码 ──────────────────────────────────────────────────────
 def decode_output(raw: bytes) -> tuple[str, str]:
-    """拿 bytes 自己 decode，不走 shell 管道（踩坑记录 27）。
+    """拿 bytes 自己 decode，不走 shell 管道。
 
-    .NET 与 Godot 重定向时都写 UTF-8，所以先按 UTF-8 严格解；解不动才退到本机代码页，
-    并把**用了哪个编码**一起返回写进日志 —— 悄悄 replace 出一堆乱码比报错更坏。
+    .NET 和 Godot 重定向时都写 UTF-8，所以先按 UTF-8 严格解；解不动才退到本机代码页。
+    用了哪个编码会一起返回、写进日志：悄悄 replace 出一堆乱码比报错更坏。
     """
     for enc in ("utf-8", "cp936", "mbcs"):
         try:
@@ -304,11 +294,11 @@ def godot_banner(exe: Path) -> str:
 
 
 def locate_godot() -> tuple[Path | None, str]:
-    """找到本机的 Godot，并**核实它是对的那个**。返回 (路径, 说明或失败原因)。
+    """找到本机的 Godot，并核实它是对的那个。返回 (路径, 说明或失败原因)。
 
-    为什么定位到还要核一遍：`PATH` 上的 `godot` 很可能是标准版（非 .NET）或另一个小版本。
-    标准版编不了 C#，届时会在导出阶段报一句与真实原因无关的错。让它自己报版本号，当场
-    对不上就当场说清 —— 这比省一次 1 秒的调用值。
+    找到了还要核一遍，因为 PATH 上的 godot 很可能是标准版（不带 .NET）或者另一个小版本。
+    标准版编不了 C#，到导出那一步才会报一句跟真实原因无关的错。让它自己报版本号、当场对不上
+    就当场说清，比省那一秒的调用划算。
     """
     minor = engine_minor()
     if not minor:
@@ -353,14 +343,14 @@ DIAG_RE = re.compile(r"\b(error|warning) [A-Z]{2}\d{4}\b")
 
 # ── 命名 ──────────────────────────────────────────────────────────────
 def step_names(rep: Report) -> StepResult:
-    """命名守卫：文件名、目录名、场景节点名与写死的 `res://` 路径大小写。
+    """命名检查：文件名、目录名、场景节点名，以及写死的 res:// 路径大小写。
 
-    排在最前：纯 Python、无编译、无引擎，是整条流水线里最便宜的一步。
-    它判的东西**在 Godot 里看不出来** —— 导出后的 `.pck` 区分大小写而 Windows 不区分，
-    路径大小写写错在编辑器里一切正常，只在导出后或 Linux 上才找不到文件且不报编译错。
-    规则本体在 `CONVENTIONS.md` 的「文件与目录命名」一节。
+    排在最前，因为它纯 Python、不编译、不启引擎，是整条流水线里最便宜的一步。它判的东西在
+    Godot 里看不出来：导出后的 .pck 区分大小写而 Windows 不区分，路径大小写写错在编辑器里
+    一切正常，只在导出后或 Linux 上才找不到文件，而且不报编译错。规则本体在 CONVENTIONS.md
+    的「文件与目录命名」一节。
 
-    判定不只看退出码：认不出 `check_names.py` 的输出形状同样拒绝判过。
+    不只看退出码：认不出 check_names.py 的输出形状同样拒绝判过。
     """
     started = time.perf_counter()
     code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_names.py")],
@@ -382,15 +372,14 @@ def step_names(rep: Report) -> StepResult:
                       details=[f"命令 tools/check_names.py（输出编码 {enc}）"])
 
 
-# ── 行尾（`ENG-11`）──────────────────────────────────────────────────
+# ── 行尾 ──────────────────────────────────────────────────────────────
 def step_eol(rep: Report) -> StepResult:
-    """行尾守卫（`ENG-11`）：代码仓文本文件行尾必须符合 `.gitattributes`。
+    """行尾检查：代码仓文本文件的行尾必须符合 .gitattributes。
 
-    排在构建之前：`.sh` 与 git 钩子带 `\\r` 时 Git Bash 报
-    `bad interpreter: /bin/sh^M` 直接不执行（踩坑记录 28）。
-    纯 Python 无编译，与素材守卫同属「零成本的早期门槛」。
+    排在构建之前，因为 .sh 和 git 钩子带 \\r 时，Git Bash 报 `bad interpreter: /bin/sh^M`
+    直接不执行。它也是纯 Python、不编译，属于零成本的早期门槛。
 
-    判定不只看退出码：认不出 `check_eol.py` 的输出形状同样拒绝判过。
+    不只看退出码：认不出 check_eol.py 的输出形状同样拒绝判过。
     """
     started = time.perf_counter()
     code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_eol.py")],
@@ -421,16 +410,16 @@ def step_build(rep: Report) -> StepResult:
 
     counts = {kind: int(n) for n, kind in BUILD_COUNT_RE.findall(out)}
     shape_known = bool(BUILD_OK_RE.search(out) or BUILD_BAD_RE.search(out) or counts)
-    # 优先用 MSBuild 自己报的数；它不打（终端记录器换了形态之类）才退回数诊断行。
-    # 退路是**近似**的：MSBuild 会把同一条诊断在工程输出和末尾摘要里各打一次，所以可能
-    # 翻倍。这不影响判定 —— 通过与否只看「有没有错误」，不看错误正好几条。
+    # 优先用 MSBuild 自己报的数；它不打（比如终端记录器换了形态）才退回去数诊断行。
+    # 退路只是近似：MSBuild 会把同一条诊断在工程输出和末尾摘要里各打一次，所以可能翻倍。
+    # 这不影响判定，因为通过与否只看「有没有错误」，不看错误正好几条。
     diag = DIAG_RE.findall(out)
     errors = counts.get("Error", diag.count("error"))
     warnings = counts.get("Warning", diag.count("warning"))
 
     if not shape_known:
-        # 认不出输出形状就不许放过。退出码 0 不等于成功（WORKFLOW §7），而看不懂的
-        # 输出连「显式摘要」都没有，此时判过等于闭着眼签字。
+        # 认不出输出形状就不许放过。退出码 0 不等于成功，而看不懂的输出连一句摘要都没有，
+        # 这时判过等于闭着眼签字。
         return StepResult("build", False, "认不出 dotnet build 的输出形状，拒绝判过",
                           cost, log_names=["1-build.log"])
     if code != 0 or errors or BUILD_BAD_RE.search(out):
@@ -447,8 +436,8 @@ def step_build(rep: Report) -> StepResult:
 def expected_test_count() -> tuple[int, int, str | None]:
     """从测试源码静态数出用例条数，返回 (条数, 扫到的文件数, 出错原因)。
 
-    这是测试那一步的**第二个量具**：运行器自己报的数字来自它自己的发现流程，而发现
-    流程正是踩坑记录 29 里失灵的那一环，拿它证明自己等于没证明。
+    这是测试那一步的第二把尺。运行器自己报的数字来自它自己的发现流程，而发现流程正是曾经
+    失灵过的那一环，拿它证明自己等于没证明。
     """
     files = [p for p in sorted(TESTS_DIR.rglob("*.cs"))
              if not any(part in ("bin", "obj") for part in p.parts)]
@@ -544,8 +533,8 @@ class PackEntry:
 def parse_pck(path: Path) -> tuple[list[PackEntry], dict[str, int]]:
     """解开 .pck 读包内清单。
 
-    为什么要自己解而不是看导出日志：日志的详细程度跟引擎版本和开关有关，而清单是**产物
-    本身**。踩坑记录 33 那次泄漏没有任何报错，唯一能证明包干净的东西就是包里到底有什么。
+    自己解而不是看导出日志，因为日志的详细程度跟引擎版本和开关有关，而清单是产物本身。
+    那次源码泄漏进发行包没有任何报错，唯一能证明包干净的东西就是包里到底有什么。
 
     用 Godot 4.7.2 的导出产物实测出的布局（格式版本 4）：
 
@@ -554,16 +543,16 @@ def parse_pck(path: Path) -> tuple[list[PackEntry], dict[str, int]]:
         u32  引擎 major / u32 minor / u32 patch
         u32  pack_flags（实测 2 = 偏移相对 file_base）
         u64  file_base（实测 112，正好是文件头长度，也就是数据区起点）
-        u64  **目录表的绝对偏移**（实测 7504，目录在文件末尾而不是紧跟文件头）
+        u64  目录表的绝对偏移（实测 7504，目录在文件末尾、不是紧跟文件头）
         零填充到 112 字节，数据区，最后是目录表：
         u32  条数，随后每条：u32 路径字节数（按 4 字节对齐补零）、路径、
              u64 偏移（相对 file_base）、u64 大小、16 字节 md5、u32 flags
 
-    两处与常见说法不一样，写在这里免得下一个人再花一遍时间：**路径不带 `res://` 前缀**
-    （存的是 `data/config/game.json` 这种），**目录表在文件尾**。
+    有两处和常见说法不一样，写在这里免得下一个人再花一遍时间：路径不带 res:// 前缀（存的是
+    data/config/game.json 这种），以及目录表在文件尾。
 
-    解析失败一律抛异常，绝不返回空清单 —— 空清单会被下游读成「0 条泄漏」，那正是最坏
-    的失效方式：守卫报告干净，其实压根没看。
+    解析失败一律抛异常，绝不返回空清单。空清单会被下游读成「0 条泄漏」，那是最坏的失效方式：
+    报告说包是干净的，其实压根没看。
     """
     data = path.read_bytes()
     pos = 0
@@ -663,21 +652,20 @@ def classify_leak(entry: PackEntry) -> str | None:
     return None
 
 
-# ── 发行素材守卫（`ENG-12`）──────────────────────────────────────────
-# 落点在这一步而不是新开一条门禁：这里本来就解包看清单（`ENG-3`）。它守的是**授权**，与
-# 字体许可证那条同一性质 —— 借来的素材混进发行包是实机看不出来的，上架之后才是问题。
+# ── 发行素材检查 ──────────────────────────────────────────────────────
+# 放在这一步而不是新开一条命令，因为这里本来就解包看清单。它管的是授权，和字体许可证那条同
+# 一性质：借来的素材混进发行包实机看不出来，上架之后才是问题。
 #
-# **分类改看目录，不再看登记表**（`ADR-0009`）：素材登记表 `asset-registry.json` 连同它的双向
-# 比对一起删了 —— 裁切与导入归作者在 Godot 里做，再维护一份登记表只会天天跟他打架。而目录
-# 本身已经编码了这件事，且是作者往哪个文件夹放图时自然决定的，不需要第二处登记：
+# 分类看目录，不另维护一份素材登记表。裁切和导入归作者在 Godot 里做，再维护一份登记表只会天天
+# 跟他打架；而目录本身已经编码了这件事，还是作者往哪个文件夹放图时自然决定的：
 #
 #     assets/downloaded/**   借来的素材，发行前必须替换 → 不许进发行包
 #     assets/placeholder/**  生成的占位件，同上         → 不许进发行包
 #     assets/self-drawn/**   自绘件                     → 可进
 #     assets/fonts/**        永久依赖（授权另由 audit_fonts.py 核）→ 可进
 #
-# 原先刻意「不按路径判」的理由是「字体在 assets/fonts/ 下却可进包，按路径会误杀它」。那条顾虑
-# 在这个写法下不成立：判的是**黑名单那两个目录**，不是「凡不在 self-drawn 下就杀」，字体不受影响。
+# 「不按路径判」曾有过一条顾虑：字体在 assets/fonts/ 下却可进包，按路径会误杀它。那条顾虑在这个
+# 写法下不成立，因为判的是下面那两个黑名单目录，不是「凡不在 self-drawn 下就杀」。
 NOT_SHIPPABLE_DIRS = ("downloaded/", "placeholder/")
 
 
@@ -689,10 +677,10 @@ class AssetAudit:
 
 
 def audit_release_assets(entries: list[PackEntry]) -> AssetAudit:
-    """按目录审包里的素材（`ENG-12`）。
+    """按目录审包里的素材。
 
-    映射：包里每条 `assets/**.import` 就是一个源素材。只认 assets/ 下的 —— 根目录的
-    `icon.svg.import` 是应用图标，不在这个域内。
+    包里每条 assets/ 下的 .import 就对应一个源素材。只认 assets/ 下的：根目录那个
+    icon.svg.import 是应用图标，不在这个范围里。
     """
     shippable: list[str] = []
     replaceable: list[str] = []
@@ -734,8 +722,8 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
     elif not any(s in have for s in scenes):
         missing.append(f"启动场景 {scenes[0]}（或它的 .remap）")
 
-    # `ART-3`：包里有字体数据就必须有许可证。判据两边都取自**产物本身**，
-    # 不看源码也不看导出预设 —— 预设改坏了正是要拦的情形之一。
+    # 包里有字体数据就必须有许可证。两边都从产物本身读，不看源码也不看导出预设：预设被改坏
+    # 正是要拦的情形之一。
     fonts = [e for e in entries if FONT_DATA_RE.search(e.path)]
     font_bytes = sum(e.size for e in fonts)
     unlicensed: list[str] = []
@@ -755,18 +743,18 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
     notes = [f"包内 {meta['count']} 条／{meta['bytes'] / 1024:.1f} KB",
              f"泄漏 {len(leaks)} 条", f"必需条目缺 {len(missing)} 条",
              f"字体数据 {font_bytes / 1024:.0f} KB，许可证 "
-             + ("在" if not unlicensed else "**不在**")]
+             + ("在" if not unlicensed else "不在")]
     problems = []
     if leaks:
-        problems.append(f"泄漏 {len(leaks)} 条：{leaks[:3]}（踩坑记录 33，多半是缺 .gdignore）")
+        problems.append(f"泄漏 {len(leaks)} 条：{leaks[:3]}（多半是某个子工程缺 .gdignore）")
     if missing:
         problems.append(f"包里缺必需条目 {missing}")
     if unlicensed:
-        problems.append(f"包里有 {len(fonts)} 条字体数据却缺 {unlicensed} —— "
-                        f"OFL 第 2 条要求每份拷贝都带许可证与版权声明（ART-3）。"
+        problems.append(f"包里有 {len(fonts)} 条字体数据却缺 {unlicensed}。"
+                        f"SIL OFL 1.1 要求每份拷贝都带许可证与版权声明。"
                         f"补法：把它加进 export_presets.cfg 的 include_filter")
 
-    # `ENG-12`：按目录审素材。日常放行借件与占位件（只报数），--release 一律不许它们进包。
+    # 按目录审素材。日常只报数、放行借件与占位件；加了 --release 就一律不许它们进包。
     audit = audit_release_assets(entries)
     mode_label = "发行（--release）" if release else "日常"
     lines += ["", f"# 包内素材（{mode_label}）{audit.total} 条：可进包 {len(audit.shippable)}、"
@@ -780,7 +768,7 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
         problems.append(
             f"发行包（--release）含 {len(audit.replaceable)} 个非自绘素材："
             f"{audit.replaceable[:5]}{' …' if len(audit.replaceable) > 5 else ''} —— "
-            f"占位件与下载件一律不得进发行包（ENG-12）")
+            f"占位件与下载件一律不得进发行包")
     return not problems, (problems or notes), lines
 
 
@@ -874,9 +862,9 @@ def step_smoke(rep: Report) -> StepResult:
     # 导出的 release 包不带控制台包装器（预设 debug/export_console_wrapper=1 只给 debug），
     # 而 GUI 子系统的 exe 在本机不往管道写东西，所以用引擎自己的 --log-file 落盘再读。
     #
-    # 跑产物会让它建自己的 user:// 目录（mods 与 saves）。**本入口刻意不删它** —— 那将来
-    # 是玩家真正的存档位置，一个验收工具去删玩家存档是个很难收场的坑。它不是临时资源，
-    # 是产物正常启动的一部分；路径由产物自己打进 4-smoke-godot.log，需要时在那里看。
+    # 跑产物会让它建自己的 user:// 目录（mods 和 saves）。这里刻意不删它：那将来就是玩家真正
+    # 的存档位置，一个验收工具去删玩家存档是个很难收场的坑。它不算临时资源，是产物正常启动的
+    # 一部分；路径由产物自己打进 4-smoke-godot.log，要看就在那里看。
     game_log = rep.log_dir / "4-smoke-godot.log"
     rep.ensure_log_dir()
     code, out, enc = run(
@@ -932,7 +920,7 @@ def write_summary(rep: Report, started: datetime, ended: datetime,
         f"- 落点：`{ROOT}`",
         f"- Godot：`{godot}`" if godot else "- Godot：未定位",
         f"- 范围：{' → '.join(scope)}"
-        + ("（完整）" if full else "（**不完整，不能当一次验收**）"),
+        + ("（完整）" if full else "（不完整，不能当一次验收）"),
         f"- 结果：{sum(1 for r in rep.results if r.ok and not r.skipped)}/"
         f"{len([r for r in rep.results if not r.skipped])} 步通过／"
         f"{len(rep.fails)} 项必须修复",
@@ -991,14 +979,14 @@ def do_manifest(target: str | None, release: bool = False) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="代码仓验收总入口（ENG-3）")
+    ap = argparse.ArgumentParser(description="代码仓验收总入口")
     ap.add_argument("--upto", choices=STEPS, default=STEPS[-1],
                     help="跑到哪一步为止；前置步骤一定跟着跑（默认全跑）")
     ap.add_argument("--manifest", nargs="?", const="", metavar="PCK",
                     help="不跑步骤，只打包内清单；不给路径就看 export/ 下那个")
     ap.add_argument("--release", action="store_true",
-                    help="按发行档审素材：占位件与下载件一律不许进包（ENG-12）。"
-                         "默认日常档，只拦未登记素材、放行占位件")
+                    help="按发行档审素材：占位件与下载件一律不许进包。"
+                         "默认日常档，只报数、放行占位件")
     args = ap.parse_args()
 
     if args.manifest is not None:

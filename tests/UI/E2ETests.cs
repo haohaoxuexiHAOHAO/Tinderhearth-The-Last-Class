@@ -4,15 +4,14 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
-/// `UI-10`：`UI-1` 的端到端验证。走整条界面链路，确认各规则**合起来**成立，
-/// 而不是各自单测通过但组合失效。
+/// 界面的端到端验证：走整条链路，确认各条规则合起来仍然成立，不是各自单测通过但组合失效。
 /// </summary>
 /// <remarks>
-/// 测试边界：规则层。引擎层（节点摆放、实际渲染、窗口缩放）原先由启动探针验，探针随 `ADR-0009`
-/// 删除、改由作者实机看；这里测的是「规则层的合约能不能撑起那条链路」。
+/// 只测到规则层。节点摆放、实际渲染、窗口缩放这些引擎层的事由作者实机看，这里测的是规则层的
+/// 合约能不能撑起那条链路。
 ///
-/// 风格照 <see cref="HudTests"/> 与 <see cref="UISkeletonTests"/>：钉住关系、坏值反证、
-/// 边界钳制，不含任何玩法数值。
+/// 风格照 <see cref="HudTests"/> 和 <see cref="UISkeletonTests"/>：钉住关系、拿坏值反证、
+/// 检查边界钳制，不含任何玩法数值。
 /// </remarks>
 public class E2ETests
 {
@@ -45,7 +44,7 @@ public class E2ETests
         var hud = MakeHud();
 
         nav.Push(Backpack);
-        Assert.True(nav.WorldShouldPause);     // 弹界面接管输入就暂停 —— 正典判据
+        Assert.True(nav.WorldShouldPause);     // 弹界面接管输入就暂停世界，这是设计定的
 
         nav.Push(Wristband_);
         Assert.Equal(2, nav.Depth);

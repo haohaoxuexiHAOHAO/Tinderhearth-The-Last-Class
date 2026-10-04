@@ -1,29 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""代码仓行尾守卫（ENG-11）。
+"""代码仓行尾检查。
 
-为什么存在：`.gitattributes` 声明 `* text=auto eol=lf`，却没有任何机制在工作区里
-发现违反 —— 有声明、无执行体。同一机制在代码仓比设计仓更危险：`.sh` 与 git 钩子带
-`\\r` 时 Git Bash 报 `bad interpreter: /bin/sh^M` 直接不执行，文档准出检查静默失效
-（踩坑记录 28）。
+为什么要这个：.gitattributes 声明了 `* text=auto eol=lf`，但没有任何机制在工作区里发现违反，
+也就是有声明、没人执行。行尾错了在代码仓的后果很具体：.sh 和 git 钩子带 \\r 时，Git Bash 报
+`bad interpreter: /bin/sh^M` 直接不执行，而那是静默失效。
 
-这里的逻辑与设计仓 `tools/check_docs.py` 的行尾部分完全等价，唯一的差别是 ROOT
-指向代码仓。两份不合并成共享入口，是因为每份都自包含、能独立运行，合并反而要求
-执行时知道自己在哪个仓，那是一个新的依赖。
+它和设计仓 tools/check_docs.py 的行尾那部分逻辑一样，差别只是 ROOT 指向代码仓。两份不合并成
+一个共享入口，因为各自自包含、能独立跑；合并之后反倒要求运行时知道自己在哪个仓，那是新增依赖。
 
-两个方向都判：`eol=lf` 的文件里不许有 `\\r`；`eol=crlf` 的（`*.bat`／`*.cmd`）
-里不许有裸 `\\n`。只守一半等于只执行了半份 `.gitattributes`。
+两个方向都判：声明 eol=lf 的文件里不许有 \\r，声明 eol=crlf 的（.bat 和 .cmd）里不许有裸 \\n。
+只守一半等于只执行了半份 .gitattributes。
 
-二进制判定门槛与 git 自己一致：前若干字节内出现 NUL 就当二进制，跳过行尾检查。
-没有这条的话 `* text=auto` 在 PNG 等二进制文件上也会返回 `lf`，会误报。
+二进制的判法和 git 自己一致：前若干字节里出现 NUL 就当二进制、跳过检查。没有这一条的话，
+`* text=auto` 对 PNG 这类文件也会返回 lf，于是误报。
 
-用法（从代码仓根目录运行）：
-    python tools/check_eol.py        # 检查，退出码 0 = 全部符合
+用法（从代码仓根目录跑）：
+    python tools/check_eol.py        # 只检查，退出码 0 就是全部符合
     python tools/check_eol.py --fix  # 把行尾改回 .gitattributes 声明的样子
 
-接进门禁：`verify.py` 的 `step_eol` 调本脚本作为子进程，认「覆盖量：」前缀判过。
-自证入口随 `ADR-0009` 删除，改了本脚本只能靠改的人自己复核 —— 最省事的复核办法是
-临时把某个文件的行尾改反，确认它真的报出来，然后改回去。
+verify.py 的行尾那一步把本脚本当子进程调，认「覆盖量：」这个前缀判过。本脚本没有自证入口，
+改了它只能靠改的人自己复核：最省事的办法是临时把某个文件的行尾改反，确认真的报出来，再改回去。
 """
 
 from __future__ import annotations
@@ -43,11 +40,11 @@ BINARY_SNIFF_BYTES = 8_000
 
 
 def _git_managed_files() -> list[str] | None:
-    """git 会管的文件：已跟踪 + 未被忽略的未跟踪。返回 None 表示问不出来。
+    """git 会管的文件：已跟踪的，加上没被忽略的未跟踪文件。返回 None 表示问不出来。
 
-    用 `git ls-files` 而不是自己遍历目录，是为了让 `.gitignore` 自动生效 ——
-    否则 `__pycache__/`、`.vs/`、`obj/`、`bin/` 之类的产物都会被拖进行尾检查。
-    `-z` 分隔避免中文文件名被 `core.quotepath` 转成八进制（踩坑记录见 check_docs.py）。
+    用 git ls-files 而不是自己遍历目录，是为了让 .gitignore 自动生效，否则 __pycache__/、
+    obj/、bin/ 这些产物都会被拖进来检查。用 -z 分隔是因为中文文件名会被 git 的 core.quotepath
+    转成八进制转义，按行读就对不上了。
     """
     try:
         out = subprocess.run(
@@ -134,15 +131,15 @@ def _count_eol_violations(want: str, data: bytes) -> tuple[int, int]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="代码仓行尾守卫（ENG-11）")
+    ap = argparse.ArgumentParser(description="代码仓行尾检查")
     ap.add_argument("--fix", action="store_true",
                     help="把行尾改回 .gitattributes 声明的样子，不做其他检查")
     args = ap.parse_args()
 
     collected = _eol_targets()
     if collected is None:
-        print("[FAIL] 问不出 git 的文件清单或 `eol` 属性，这一轮行尾守卫"
-              "**没有执行**（不是通过）—— 确认装了 git 且在仓库内运行")
+        print("[FAIL] 问不出 git 的文件清单或 eol 属性，所以这一轮行尾检查"
+              "根本没有执行，不是通过。确认装了 git、而且是在仓库里运行的")
         print("EXIT=1")
         return 1
     targets, binary, unset = collected

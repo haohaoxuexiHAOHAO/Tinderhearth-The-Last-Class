@@ -8,15 +8,15 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Foundation;
 
 /// <summary>
-/// `ENG-5` 那四条零成本预留的守卫。
+/// 四条现在就留、以后才用得上的口子：数值从配置文件来、显示名走文本键、角色由谁驱动可以换、
+/// 内容可以被 mod 覆盖。
 /// </summary>
 /// <remarks>
-/// 为什么这几条要有测试而不只是写在文档里：这四条的失效方式都是**静默的** —— 有人图省事
-/// 写死一个数字或一句中文，代码照样能跑、游戏照样能玩，等到做 mod 或联机才发现要翻遍代码。
-/// 这里的断言就是让那种图省事当场失败。
+/// 这四条的失效方式都是静默的 —— 有人图省事写死一个数字或一句中文，代码照样能跑、游戏
+/// 照样能玩，等到做 mod 或联机才发现要翻遍代码。这里的断言让那种图省事当场失败。
 ///
-/// 这些测试**刻意不含任何玩法数值**：写进来的数字只会是猜的。它们测的是「数字从配置来」这个
-/// 结构，而不是「数字应该是几」。所以数值模型接进来之后它们不需要改。
+/// 它们刻意不含任何玩法数值：写进来的数字只会是猜的。测的是「数字从配置来」这个结构，
+/// 不是「数字应该是几」，所以数值定下来之后这些测试不需要改。
 /// </remarks>
 public class Eng5ReservationTests
 {
@@ -44,9 +44,8 @@ public class Eng5ReservationTests
     [Fact]
     public void 可建造区尺寸来自配置而不是写死在代码里()
     {
-        // PRD 的 FR-24：格数的家是正典，代码里不许出现那两个数 —— 改画布该是改一行 JSON 加
-        // 延伸地图，不是改代码。**这条测试正是那句话的执行体**：它比对的是「配置给什么，读出来
-        // 就是什么」，所以改画布只需改下面那两个期望值。
+        // 可建造区有多少格是内容，不是代码里的常量：想改画布该是改一行 JSON 加延伸地图，
+        // 不是改代码。这里比对的只是「配置给什么，读出来就是什么」。
         var canon = GameConfig.Parse(ConfigJson());
         Assert.Equal(80, canon.BuildableWidthCells);
         Assert.Equal(60, canon.BuildableHeightCells);
@@ -59,9 +58,9 @@ public class Eng5ReservationTests
     [Fact]
     public void 配置缺字段时当场抛而不是静默填零()
     {
-        // 这条钉的是 System.Text.Json 的实际行为：位置参数 record 遇到缺字段**不报错**，
-        // 会拿 default(int)=0 填进构造函数。0 名册容量表现为「谁都招不进来」，0 格可建造区
-        // 表现为「相机钳制退化」—— 两者都不报错，只是游戏不对。所以校验必须在构造时。
+        // 实测 System.Text.Json 的行为：位置参数 record 遇到缺字段不报错，会拿 default(int)
+        // 也就是 0 填进构造函数。名册容量 0 表现为谁都招不进来，可建造区 0 格表现为相机钳制
+        // 退化 —— 两者都不报错，只是游戏不对。所以校验必须放在构造时。
         var missing = Assert.Throws<ArgumentOutOfRangeException>(
             () => GameConfig.Parse("""{ "rosterCapacity": 9 }"""));
         Assert.Contains("buildableWidthCells", missing.Message, StringComparison.OrdinalIgnoreCase);
@@ -181,15 +180,15 @@ public class Eng5ReservationTests
         Assert.Contains("ember-modded", resolved["characters/ember.json"].Text);
         // 没被覆盖的仍来自基础内容
         Assert.Equal("base", resolved["characters/student-a.json"].SourceName);
-        // mod 新增的条目也在，且来源可追溯 —— `ENG-7` 的缺失提示要靠这个
+        // mod 新增的条目也在，且来源可追溯 —— 以后报「哪个 mod 少了什么」要靠这个
         Assert.Equal("mod:example", resolved["characters/extra.json"].SourceName);
     }
 
     [Fact]
     public void 文本按键合并_mod只改一句不会抹掉其余文本()
     {
-        // 这条对着一个实测撞出来的缺陷：最初文本走整文件覆盖，mod 提供 text/zh-CN.json 后
-        // 基础文本从 5 条掉到 3 条，boot.title 直接消失。整文件覆盖对角色对、对文本错。
+        // 这条对着一个实测撞出来的缺陷：最初文本走整文件覆盖，mod 提供自己那份 zh-CN.json 之后
+        // 基础文本大半消失。整文件覆盖对角色是对的，对文本是错的，所以文本按键合并。
         var merged = TextCatalog.Merge(
         [
             new Dictionary<string, string>

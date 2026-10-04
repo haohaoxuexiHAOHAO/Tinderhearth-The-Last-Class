@@ -4,15 +4,14 @@ namespace Tinderhearth.Platform;
 
 /// <summary>把内容来源按顺序叠成一份目录：基础内容在前，已安装的 mod 依次叠在后面。</summary>
 /// <remarks>
-/// **它存在的理由是这段装配有两个以上的调用方。** 启动流程要它，而单独跑一个场景（按 <c>F6</c>
-/// 试一片地那种）时那个场景也要它 —— 两处各写一份的话，往里加一个内容来源时漏改哪一处不报错，
-/// 表现只是「mod 在某些场景里不生效」。
+/// 单独抽出来是因为不止一处要用：启动流程要它，在编辑器里单独跑一个场景时那个场景也要它。
+/// 两处各写一份的话，往里加一个内容来源时漏改哪一处都不报错，表现只是「mod 在某些场景里不生效」。
 ///
-/// 顺序就是覆盖顺序，语义与两种覆盖形状的区别都在 <see cref="ContentCatalog"/>，本类不复述。
+/// 这里的先后顺序就是覆盖顺序；覆盖怎么算见 <see cref="ContentCatalog"/>，本类不重复一遍。
 /// </remarks>
 public static class ContentBootstrap
 {
-    /// <summary>建一份内容目录。基础内容在前，已安装的 mod 依次叠在后面 —— 后者覆盖前者。</summary>
+    /// <summary>建一份内容目录。基础内容在前，已安装的 mod 依次叠在后面，后面的覆盖前面的。</summary>
     public static ContentCatalog BuildCatalog()
     {
         var catalog = new ContentCatalog();

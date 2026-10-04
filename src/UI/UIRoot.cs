@@ -4,18 +4,18 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 界面根节点（`UI-6`）：六层画布、导航栈、返回键与暂停。**层级只在这里定义一次。**
+/// 界面根节点：按固定层级建好每层画布，管导航栈、返回键与暂停。画布层只在这里建一次。
 /// </summary>
 /// <remarks>
-/// 分工是刻意的：**规则在规则层，节点在这里。** 「按返回键回到哪」「关卡内哪些页能用」
-/// 「打开这一层要不要暂停」都由 <see cref="NavigationStack"/> 与 <see cref="UISurface"/> 判，
-/// 有单元测试盯着；本类只负责把判定结果翻译成节点的显隐与 <c>SceneTree.Paused</c>。
+/// 规则都在规则层：按返回键回到哪、关卡内哪些页能用、打开这一层要不要暂停，都由
+/// <see cref="NavigationStack"/> 与 <see cref="UISurface"/> 判，本类只负责把结论翻译成节点的
+/// 显隐与 <c>SceneTree.Paused</c>。
 ///
-/// 为什么不让各场景自己摆 CanvasLayer：那样每个界面会自己挑一个层号，迟早出现「弹窗被 HUD
-/// 挡住」，而排查时得翻遍所有场景才知道谁用了哪个号。
+/// 不让各场景自己摆 CanvasLayer：那样每个界面会自己挑一个层号，迟早出现「弹窗被 HUD 挡住」，
+/// 而排查时得翻遍所有场景才知道谁用了哪个号。
 ///
-/// <see cref="UILayer.WorldSpace"/> 那一层开了 <c>FollowViewportEnabled</c> —— 它要跟着相机
-/// 走并随缩放变化，因为正典要求读条画在执行者身上而不是界面角落。
+/// <see cref="UILayer.WorldSpace"/> 那一层开了 <c>FollowViewportEnabled</c>，因为挂在它上面的
+/// 东西（读条这类）要画在执行者身上、跟着相机走并随缩放变化。
 /// </remarks>
 public partial class UIRoot : Node
 {
@@ -23,10 +23,10 @@ public partial class UIRoot : Node
     private readonly Dictionary<string, Control> _surfaces = [];
     private readonly NavigationStack _nav = new();
 
-    /// <summary>当前场合。切场景时由场景设置，决定手环哪些页可用。</summary>
+    /// <summary>当前场合（基地还是关卡里）。切场景时由场景设置，决定手环哪些页可用。</summary>
     public UIContext Context { get; set; } = UIContext.Base;
 
-    /// <summary>导航栈。只读暴露给需要查询的地方，压弹一律走本类的方法。</summary>
+    /// <summary>导航栈。只给需要查询的地方读，压栈与弹栈一律走本类的方法。</summary>
     public NavigationStack Navigation => _nav;
 
     public override void _Ready()
@@ -69,15 +69,13 @@ public partial class UIRoot : Node
     /// 登记一个界面：把它挂到自己声明的层上，初始隐藏。
     /// </summary>
     /// <remarks>
-    /// 布局一律靠锚点与容器 —— 这里强制铺满所属层，具体位置由界面内部的容器决定。
-    /// 正典要求不写死绝对像素坐标，理由是 `aspect="expand"` 下逻辑宽度会变（`UI-3` 实测：
-    /// 3840×2130 的窗口得到逻辑 649×360），写死坐标的界面在宽窗口上会错位。
+    /// 布局一律靠锚点与容器：这里强制铺满所属层，具体位置由界面内部的容器决定。不写死绝对像素
+    /// 坐标，因为逻辑宽度会变 —— 实测 3840×2130 的窗口得到逻辑 649×360，写死坐标的界面在宽
+    /// 窗口上会错位。
     ///
-    /// **铺满用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`，且顺序无关。**
-    /// 实测出来的：对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，
-    /// 引擎会把偏移改写成负的视口尺寸以保住当前那个 0×0 矩形 —— 锚点对了，尺寸还是 0×0，
-    /// 而且不报错。原先这行写在 `AddChild` 之前，碰巧躲过了（不在树里时那段改写不执行），
-    /// 于是它的正确性依赖两行代码的先后顺序。改成显式设偏移之后就不依赖了。
+    /// 铺满用 <c>SetAnchorsAndOffsetsPreset</c> 而不是 <c>SetAnchorsPreset</c>：实测对已经在树里
+    /// 的节点调后者，引擎会把偏移改写成负的视口尺寸去保住当前那个 0×0 矩形，锚点对了尺寸还是
+    /// 0×0，而且不报错。
     /// </remarks>
     public void Register(UISurface surface, Control control)
     {
@@ -91,12 +89,12 @@ public partial class UIRoot : Node
         control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
     }
 
-    /// <summary>打开一层。关卡内不可用的层会被拒绝并说明原因，而不是静默不动。</summary>
+    /// <summary>打开一个界面。关卡内不可用的会被拒绝并说明原因，而不是静默不动。</summary>
     public bool Open(UISurface surface)
     {
         if (Context == UIContext.Level && !surface.AvailableInLevel)
         {
-            GD.Print($"[界面] 关卡内不可用：{surface.Id}（管理功能，见玩法定位 · 跨系统约定）");
+            GD.Print($"[界面] 关卡内不可用：{surface.Id} —— 它是管理功能，关卡里只许查看");
             return false;
         }
 
@@ -105,7 +103,7 @@ public partial class UIRoot : Node
         return true;
     }
 
-    /// <summary>关掉指定层。</summary>
+    /// <summary>关掉一个界面。</summary>
     public void Close(UISurface surface)
     {
         _nav.Close(surface);
@@ -114,8 +112,8 @@ public partial class UIRoot : Node
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        // 只处理返回：栈空时**不消费**这次输入，交给上层去开暂停菜单。
-        // 吞掉的表现是「按了没反应」，玩家会以为卡死（NavigationStack 有测试盯这条）。
+        // 只处理返回。栈空时不消费这次输入，交给上层去开暂停菜单 —— 吞掉的表现是「按了没反应」，
+        // 玩家会以为卡死。
         if (@event.IsActionPressed("ui_cancel") && _nav.HandleBack())
         {
             Sync();
@@ -131,8 +129,8 @@ public partial class UIRoot : Node
             control.Visible = _nav.Surfaces.Any(s => s.Id == id);
         }
 
-        // 暂停由栈整体决定，不由某个面板自己设。正典的判据是「弹界面接管输入就暂停世界」，
-        // 所以栈里有层就暂停 —— 判定在 NavigationStack，本类只负责翻译成 SceneTree.Paused。
+        // 暂停由整个栈决定，不由某个面板自己设：弹出界面接管输入就暂停世界，所以栈里有东西就暂停。
+        // 这个判定在 NavigationStack，本类只负责把它翻译成 SceneTree.Paused。
         GetTree().Paused = _nav.WorldShouldPause;
     }
 }

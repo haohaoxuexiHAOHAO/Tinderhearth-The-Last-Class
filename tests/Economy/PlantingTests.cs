@@ -5,15 +5,14 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>
-/// `GP-128` 播种取随身栏选中那一格：一块地里种得下两种作物，三条被拒路径各说得出是哪一种。
+/// 播种取随身栏选中那一格：一块地里种得下两种作物，三条被拒路径各说得出是哪一种。
 /// </summary>
 /// <remarks>
-/// **这几条用例自己准备与清理数据，不启动引擎。** 每个方法各造自己那几格地与那两份作物定义，
-/// 所以顺序无关、可重复跑。
+/// 每个方法各造自己那几格地与那两份作物定义，不启动引擎，所以顺序无关、可重复跑。
 ///
-/// **它们为什么要有**：三条被拒路径合并成一个「失败」之后，玩家按下去没反应而界面说不出该换格、
-/// 换东西还是先锄地 —— 而合并这件事不报错。另外「一块地里种得下两种」正是整条需求的成功判据，
-/// 而在这之前它是检查器里写死的一个标识。
+/// 三条被拒路径要是合并成一个「失败」，玩家按下去没反应而界面说不出该换格、换东西
+/// 还是先锄地，而合并这件事不报错。「一块地里种得下两种」则是这套改动的目标本身 ——
+/// 在这之前播哪一种是检查器里写死的一个标识。
 /// </remarks>
 public class PlantingTests
 {
@@ -29,7 +28,7 @@ public class PlantingTests
         YieldItemId = $"{id}_yield",
     };
 
-    /// <summary>两种作物的清单。**只认这两种** —— 别的标识一律不是种子。</summary>
+    /// <summary>两种作物的清单。只认这两种，别的标识一律不是种子。</summary>
     private static Func<string, CropDefinition?> Seeds()
     {
         var table = new Dictionary<string, CropDefinition>(StringComparer.Ordinal)
@@ -47,7 +46,7 @@ public class PlantingTests
     [Fact]
     public void 换一种种子再播另一格长出来的是各自那一种()
     {
-        // **整条需求的成功判据。** 在这之前播哪一种是检查器里写死的，想种第二种要停下来改参数重跑。
+        // 这是整套改动要达到的效果。在这之前播哪一种是检查器里写死的，想种第二种得停下来改参数重跑。
         var bar = CarrySlotBar.Empty();
         bar.Fill([
             new CarrySlot(Turnip, 1), new CarrySlot(Herb, 1),
@@ -143,8 +142,8 @@ public class PlantingTests
     [Fact]
     public void 那一格状态不许播时被拒()
     {
-        // **这一条在游戏里到不了**：动作是按格子状态派发的，已锄的格才派发到播种。
-        // 它只在规则层被测到 —— 而那正是这条用例存在的理由（口径见 FarmField 的类注释）。
+        // 这一条在游戏里走不到：动作按格子状态派发，只有已锄的格才派发到播种。
+        // 规则层仍然要能单独拒掉它，这样换派发方式时不会悄悄放过去。口径见 FarmField 的类注释。
         var plot = new Plot(PlotState.Cleared);   // 清过但没锄
         var bar = CarrySlotBar.Empty();
         bar.Fill([
@@ -159,7 +158,7 @@ public class PlantingTests
     [Fact]
     public void 三条被拒原因两两分得开()
     {
-        // 承重项。合并成一个「失败」之后三种的补救办法就分不出来了：换格、换东西、先锄地。
+        // 三种原因合并成一个「失败」之后，三种补救办法就分不出来了：换格、换东西、先锄地。
         var results = new[]
         {
             PlantResult.NothingSelected, PlantResult.NotASeed, PlantResult.CellNotReady,
@@ -204,7 +203,7 @@ public class PlantingTests
             () => Planting.TryPlant(Tilled(), Turnip, null!));
     }
 
-    /// <summary>把「手上那一格」翻译成播种那一下，与 `FarmField` 里那一步同一个形状。</summary>
+    /// <summary>把「手上那一格」翻译成播种那一下，与 <c>FarmField</c> 里那一步写法相同。</summary>
     private static PlantResult Plant(
         Plot plot, CarrySlotBar bar, Func<string, CropDefinition?> seeds)
     {

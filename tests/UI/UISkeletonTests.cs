@@ -3,16 +3,13 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
-/// <summary>
-/// `UI-6` 界面骨架的守卫：层级、导航栈、手环可用性与排版单位。
-/// </summary>
+/// <summary>界面骨架：层级顺序、导航栈、手环在不同场合的可用性，以及排版单位。</summary>
 /// <remarks>
-/// 这几条为什么要有测试，而不是写在文档里就算：它们的失效方式都**不会报错**。
-/// 返回键被吞掉表现为「按了没反应」；关卡内忘了禁用派工要打到一半才发现；栅格被人从 8 改成
-/// 6 只表现为某些界面对不齐。散文管不住这些，断言能。
+/// 这几件事的失效都不报错：返回键被吞掉表现为「按了没反应」；关卡内忘了禁用派工要打到
+/// 一半才发现；排版栅格被人从一个数改成另一个，只表现为某些界面对不齐。
 ///
-/// **不含任何玩法数值**（`GP-2` 归他自己）。这里测的是排版单位之间的**关系**与界面规则，
-/// 不是「某个数应该是几」—— 所以改分辨率或字号时，该失败的是关系被破坏的那一条。
+/// 这里不含任何玩法数值。测的是排版单位之间的关系与界面规则，不是某个数应该是几 ——
+/// 改分辨率或字号时，该失败的是关系被破坏的那一条。
 /// </remarks>
 public class UISkeletonTests
 {
@@ -81,8 +78,9 @@ public class UISkeletonTests
     [Fact]
     public void 栈里有任何一层就暂停世界_全关才恢复()
     {
-        // 正典判据：任何弹出界面并接管输入的东西一律暂停世界。进了导航栈的按定义就是这样的东西，
-        // 所以不再按面板逐个声明「要不要暂停」—— 那个恒为真的开关已删（原 UI-11 的前提）。
+        // 口径是：任何弹出界面并接管输入的东西一律暂停世界。进了导航栈的按定义就是这样的东西，
+        // 所以不再按面板逐个声明要不要暂停 —— 那个恒为真的开关已经删掉了。
+        // 见设计仓 canon/gameplay/玩法定位.md 的「弹界面接管输入就暂停世界，世界里的动作不暂停」一节。
         var nav = new NavigationStack();
         Assert.False(nav.WorldShouldPause);   // 空栈：世界在跑
 
@@ -113,7 +111,7 @@ public class UISkeletonTests
         var inBase = Wristband.AvailableIn(UIContext.Base).Select(t => t.Id).ToList();
 
         Assert.Equal(Wristband.Tabs.Count, inBase.Count);        // 基地里全开
-        Assert.Contains("codex", inLevel);                       // 图鉴：正典明说可查看
+        Assert.Contains("codex", inLevel);                       // 图鉴：只是查看，关卡内可用
         Assert.Contains("party", inLevel);                       // 队伍状态：同上
         Assert.DoesNotContain("assign", inLevel);                // 派工
         Assert.DoesNotContain("order", inLevel);                 // 订货
@@ -151,7 +149,7 @@ public class UISkeletonTests
     [Fact]
     public void 侧视有效视野是逻辑分辨率的一半且能被基础单位整除()
     {
-        // 正典把侧视相机定为 2 倍整数缩放，所以能看到的世界只有一半宽高。
+        // 侧视相机是 2 倍整数缩放，所以屏幕上能看到的世界只有逻辑分辨率的一半宽高。
         Assert.Equal(320, UIMetrics.SideViewWorldWidth);
         Assert.Equal(180, UIMetrics.SideViewWorldHeight);
         Assert.Equal(0, UIMetrics.SideViewWorldWidth % UIMetrics.BaseUnit);

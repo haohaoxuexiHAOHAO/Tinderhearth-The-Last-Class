@@ -3,16 +3,14 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
-/// <summary>
-/// `UI-8` 关卡 HUD 的守卫：排版关系、放置候选、视图模型契约与像素字体取值。
-/// </summary>
+/// <summary>关卡 HUD 的测试：排版关系、放置候选、视图模型契约与像素字体取值。</summary>
 /// <remarks>
-/// 这些为什么要有测试：失效方式全都不报错。块高从行高倍数变成随手取的数，只表现为某一行文字
-/// 与旁边的条差半格；居中偏移落到半像素上，只表现为「在某些窗口尺寸下有点糊」；视图模型少给
-/// 一条资源，只表现为界面上少一根条 —— 而没人记得本来有几根。
+/// 这些要有测试，因为失效方式全都不报错。块高从行高倍数变成随手取的数，只表现为某一行文字与
+/// 旁边的条差半格；居中偏移落到半像素上，只表现为在某些窗口尺寸下有点糊；视图模型少给一条资源，
+/// 只表现为界面上少一根条，而没人记得本来有几根。
 ///
-/// **不含任何玩法数值。** 这里测的是排版量之间的关系与界面契约，不是「HP 上限该是几」。
-/// 视图模型里的数字都是当场编的假值，用来撞契约。
+/// 这里不含任何玩法数值，测的是排版量之间的关系和界面契约，不是「生命上限该是几」。视图模型里
+/// 的数字都是当场编的假值，用来撞契约。
 /// </remarks>
 public class HudTests
 {
@@ -123,7 +121,7 @@ public class HudTests
     [Fact]
     public void 一块都不压角色可能出现的那块()
     {
-        // 本条的硬判据。角色 32px 在侧视 2 倍下占屏 64px，加上死区允许的偏移，
+        // 这是 HUD 排版最要紧的一条。角色 32px 在侧视 2 倍下占屏 64px，加上死区允许的偏移，
         // 中间那块必须一块 HUD 都不压。
         Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
     }
@@ -132,7 +130,7 @@ public class HudTests
     public void 留出一条通到两端的可读横带()
     {
         // 侧视关卡是一条水平走廊，左右两端的敌人与平台跟正中间一样要紧，
-        // 所以判据是「整幅宽的横带」而不是「最大空白面积」。
+        // 所以量的是「整幅宽的横带」而不是「最大空白面积」。
         var band = HudLayout.ClearBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
         Assert.Equal(UIMetrics.BaseWidth, band.Width);
         // 下限取五分之三：它必须比角色可读区（128px）宽出一截，否则「不压角色」这条就靠得太紧，
@@ -153,7 +151,7 @@ public class HudTests
     [Fact]
     public void 逻辑宽度撑开时左锚点不动右锚点跟着走()
     {
-        // `aspect="expand"` 下逻辑宽度是变量（`UI-3` 实测 3840×2130 得到 649×360）。
+        // 视口按 expand 拉伸时逻辑宽度是个变量（实测 3840×2130 的窗口得到 649×360）。
         // 这条把「用锚点而不是写死坐标」变成算得出来的性质。
         const int wide = 649;
         var delta = wide - UIMetrics.BaseWidth;
@@ -177,7 +175,7 @@ public class HudTests
     public void 没有居中锚点所以横坐标不会落在半格上()
     {
         // 立项时另一套候选把技能条摆在底边居中，奇数逻辑宽度下它落在 .5 上（649 宽时实测 −35.5）。
-        // 选定的是四角，居中那套删掉了。**这条挡的是「有人把居中加回来」** ——
+        // 选定的是四角，居中那套删掉了。这条挡的是「有人把居中加回来」：
         // 加回来会让它失败，逼人先读 HudAnchor 的注释（那里写明要先补一次 ×3 缩放下的测量）。
         Assert.DoesNotContain("Center", string.Join(",", Enum.GetNames<HudAnchor>()));
 
@@ -245,7 +243,7 @@ public class HudTests
     [Fact]
     public void 横跨屏幕中心线时可读横带判成零()
     {
-        // 反证：判据不能只会说「通过」。矩形重叠判定本身也顺带撞一次。
+        // 反证：上面那条检查不能只会说「通过」。矩形重叠判定本身也顺带撞一次。
         var band = new HudRect(0, UIMetrics.BaseHeight / 2, UIMetrics.BaseWidth, 0);
         Assert.Equal(0, band.Height);
         var center = new HudRect(0, (UIMetrics.BaseHeight / 2) - 1, UIMetrics.BaseWidth, 2);
@@ -454,7 +452,7 @@ public class HudTests
     public void 像素字体的十项取值与ADR0008一致()
     {
         // 这一条把期望值钉住。真正生效的设置在 .ttf.import 里，引擎层读回实际值与本表比对 ——
-        // 改设置会让启动判据失败，改本表会让这条测试失败。两边都动不了才叫钉住。
+        // 改设置会让启动时的检查失败，改本表会让这条测试失败。两边都动不了才叫钉住。
         Assert.Equal(FontAntialiasing.None, PixelFont.Antialiasing);
         Assert.Equal(FontHinting.None, PixelFont.Hinting);
         Assert.Equal(FontSubpixelPositioning.Disabled, PixelFont.SubpixelPositioning);
@@ -472,7 +470,7 @@ public class HudTests
     public void 字体文件与许可证都指在同一个目录下()
     {
         // OFL 第 2 条要求每份拷贝都带许可证。放在一起是为了让「漏了它」看得出来，
-        // 真正的执行体在 tools/verify.py 的解包清单那一步（`ART-3`）。
+        // 真正检查导出包里有没有许可证的是 tools/verify.py 的解包清单那一步。
         var dir = PixelFont.ResourcePath[..PixelFont.ResourcePath.LastIndexOf('/')];
         Assert.StartsWith(dir, PixelFont.LicensePath);
         Assert.EndsWith(".ttf", PixelFont.ResourcePath);

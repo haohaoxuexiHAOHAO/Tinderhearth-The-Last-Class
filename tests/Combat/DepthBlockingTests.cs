@@ -5,10 +5,13 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Combat;
 
 /// <summary>
-/// `GP-17` 带纵深的实体阻挡守卫。**不测阈值那个数手感对不对** —— 它是未校准初值，归 `GP-6`。
-/// 这里钉的是改值也不该动的四件事：三条阵营规则、两个条件必须都成立、阈值边界，以及
-/// 「凡是挡住你的你都打得着」那条不变量。
+/// 带纵深的实体阻挡：阵营规则、阵营与纵深两个条件必须都成立、阈值边界，
+/// 以及「凡是挡住你的你都打得着」那条不变量。
 /// </summary>
+/// <remarks>
+/// 阈值那个数手感对不对这里不测，它是还没校准的初值、要实机调。
+/// 测的是调了它也不该动的那几件事。
+/// </remarks>
 public class DepthBlockingTests
 {
     /// <summary>本文件里当「够近／不够近」用的阈值。与手感初值无关，改初值不该让这些关系失败。</summary>
@@ -17,11 +20,11 @@ public class DepthBlockingTests
     /// <summary>纵深上贴在一起，于是结论只由阵营决定 —— 用来单独测阵营那一半。</summary>
     private const double SameSpot = DepthBand.CenterWorldPx;
 
-    /// <summary>
-    /// 同阵营不挡（作者裁定）。否则队友会卡住玩家、敌群会互相卡死挤不到玩家面前。
-    /// **两个方向都测** —— 阻挡是对称关系，写成单向的表现是「A 挡 B 而 B 不挡 A」，那在画面上
-    /// 是一方能推着另一方走，不报错。
-    /// </summary>
+    /// <summary>同阵营互不阻挡，两个方向各测一遍。</summary>
+    /// <remarks>
+    /// 同阵营要是互挡，队友会卡住玩家、敌群会互相卡死挤不到玩家面前。
+    /// 阻挡是对称关系，写成单向的表现是一方能推着另一方走，而那不报错。
+    /// </remarks>
     [Theory]
     [InlineData(CombatSide.Ally)]
     [InlineData(CombatSide.Enemy)]
@@ -31,10 +34,7 @@ public class DepthBlockingTests
         Assert.False(DepthBlocking.BlocksAtDepth(side, side, SameSpot, SameSpot, Threshold));
     }
 
-    /// <summary>
-    /// 敌对双方互相阻挡：敌群要能形成需要绕开或打退的「墙」，
-    /// **纵深挪步因此才有意义**。
-    /// </summary>
+    /// <summary>敌对双方互相阻挡：敌群要能挡成一道得绕开或打退的墙，纵深挪步因此才有意义。</summary>
     [Fact]
     public void 敌对双方互相阻挡()
     {
@@ -44,10 +44,11 @@ public class DepthBlockingTests
             SameSpot, SameSpot, Threshold));
     }
 
-    /// <summary>
-    /// 中立物件挡所有人，正典的「物件在纵深上作阻挡与掩体、**绕行而不是跳上去**」靠这条成立。
-    /// 中立对中立也挡（先判中立）—— 它们不会动，判哪边都不影响画面。
-    /// </summary>
+    /// <summary>中立物件挡所有人，包括另一个中立物件。</summary>
+    /// <remarks>
+    /// 物件要能当阻挡与掩体、让玩家绕行而不是跳上去，靠的就是这条。
+    /// 中立对中立也挡，而它们都不会动，所以判哪边都不影响画面。
+    /// </remarks>
     [Theory]
     [InlineData(CombatSide.Ally)]
     [InlineData(CombatSide.Enemy)]
@@ -58,11 +59,12 @@ public class DepthBlockingTests
         Assert.True(DepthBlocking.Blocks(other, CombatSide.Neutral));
     }
 
-    /// <summary>
-    /// 本条的口径：**两个条件都成立才挡**。阵营说该挡但纵深错开时不挡 —— 这正是「不能顺手补碰撞
-    /// 层」那条理由的可测形状：画面上明显不在一排的两个实体不许互相卡住。
-    /// 单独测阵营那一半测不出「合起来」这件事，忘了取合的代码在阵营单测下照样全绿。
-    /// </summary>
+    /// <summary>阵营与纵深两个条件都成立才挡：阵营说该挡但纵深错开时不挡。</summary>
+    /// <remarks>
+    /// 这是「画面上明显不在一排的两个实体不许互相卡住」的可测版本，也是不能只靠碰撞层
+    /// 解决阻挡的原因。只测阵营那一半测不出「两个条件取合」这件事：忘了取合的代码在
+    /// 阵营单测下照样全绿。
+    /// </remarks>
     [Theory]
     [InlineData(CombatSide.Ally, CombatSide.Enemy, Threshold / 2, true)]      // 该挡 + 够近 → 挡
     [InlineData(CombatSide.Ally, CombatSide.Enemy, Threshold * 2, false)]     // 该挡 + 隔开 → 不挡
@@ -79,10 +81,8 @@ public class DepthBlockingTests
             SameSpot, SameSpot - depthGap, Threshold));
     }
 
-    /// <summary>
-    /// 阈值边界含在内（口径同 <see cref="DepthOverlap"/>）：差**正好**等于阈值仍然挡，超出一丝就不挡。
-    /// 开区间会让有效窗口宽度取决于浮点末位，那种差别既调不出来也测不稳。
-    /// </summary>
+    /// <summary>纵深差正好等于阈值仍然挡，超出一丝就不挡，与 <see cref="DepthOverlap"/> 一致。</summary>
+    /// <remarks>换成开区间，有效窗口的宽度就取决于浮点末位，那种差别既调不出来也测不稳。</remarks>
     [Fact]
     public void 阈值边界含在内()
     {
@@ -93,10 +93,11 @@ public class DepthBlockingTests
             here, here + Threshold + 1e-9, Threshold));
     }
 
-    /// <summary>
-    /// 非法阈值必须抛，**同阵营那一对也要抛**。写成 <c>Blocks(...) &amp;&amp; Within(...)</c> 会把它
-    /// 短路掉，于是「阈值配错了」要等到场上真出现敌对双方才暴露 —— 而那时它看起来是玩法问题。
-    /// </summary>
+    /// <summary>非法阈值必须抛，同阵营那一对也要抛。</summary>
+    /// <remarks>
+    /// 写成 <c>Blocks(...) &amp;&amp; Within(...)</c> 会把校验短路掉，于是阈值配错了要等到场上
+    /// 真出现敌对双方才暴露，而那时它看起来像玩法问题而不像配置问题。
+    /// </remarks>
     [Theory]
     [InlineData(-0.001)]
     [InlineData(double.NaN)]
@@ -108,10 +109,8 @@ public class DepthBlockingTests
             CombatSide.Ally, CombatSide.Ally, SameSpot, SameSpot, threshold));
     }
 
-    /// <summary>
-    /// 阻挡阈值的选值理由，写成算式（`GP-17`）：**同一排挡得住、隔一排不挡**。
-    /// 阈值是 `GP-6` 的未校准初值，可以改；改到让这条关系不成立就是改坏了，所以这里钉关系不钉数。
-    /// </summary>
+    /// <summary>阻挡阈值要让同一排挡得住、隔一排不挡 —— 这就是它为什么取现在这个数。</summary>
+    /// <remarks>阈值还没校准、可以实机改；改到让这条关系不成立就是改坏了，所以测关系不测数。</remarks>
     [Fact]
     public void 阻挡阈值让同排挡住而隔一排不挡()
     {
@@ -128,20 +127,12 @@ public class DepthBlockingTests
             here, here - DepthBand.RowSpacingWorldPx, threshold));
     }
 
-    /// <summary>
-    /// **不变量：阻挡阈值 ≤ 命中容差。** 反过来会出现「被挡住却打不着」—— 玩家贴着一个够不到的
-    /// 东西，他读不出原因。
-    /// </summary>
+    /// <summary>从纵深方向靠近会被停在阈值边界上，两侧各测一遍。</summary>
     /// <remarks>
-    /// 这条是那个决策的执行体。两个数都归 `GP-6` 各自单独调（一个是「打得着」的宽容量、一个是
-    /// 「占同一格」的物理量，刻意不共用常量），正因为能各自动，才需要一条判据盯住它们之间必须保持的
-    /// 关系 —— 把阻挡阈值调大过命中容差不会有任何报错，只会让玩家在某个距离上推不动也打不着。
+    /// 这是实机撞出来的洞：左右走被引擎挡住，而纵深上走进去原先没有任何东西拦 ——
+    /// 引擎碰撞只覆盖 Godot 的两个轴，纵深上压根没有碰撞体。
+    /// 只测一侧的话，符号写反那一半不会被发现。
     /// </remarks>
-    /// <summary>
-    /// 纵深方向靠近会被停在阈值边界上（实机发现的洞）：左右走被引擎挡住，而纵深上
-    /// 走进去原先没有任何东西拦 —— 引擎碰撞只覆盖 Godot 的两个轴，纵深没有碰撞体。
-    /// **两侧各测一遍**：只测一侧的话，符号写反那一半不会被发现。
-    /// </summary>
     [Theory]
     [InlineData(1)]
     [InlineData(-1)]
@@ -158,10 +149,11 @@ public class DepthBlockingTests
         Assert.Equal(blocker + (side * Threshold), clamped, 8);
     }
 
-    /// <summary>
-    /// **一帧跨过对方也被挡住**，不许穿到另一侧。夹逼取的是边界而不是「上一帧位置加位移」，所以位移
-    /// 再大也停在靠近侧。当前纵深每帧最多走 1px，撞不到这种情形，但符号写错时它就是穿模。
-    /// </summary>
+    /// <summary>一帧跨过对方也停在靠近那一侧，不许穿到另一侧去。</summary>
+    /// <remarks>
+    /// 夹逼取的是边界，不是「上一帧位置加位移」，所以位移再大也停在靠近侧。按现在的纵深
+    /// 速度一帧走不了这么远、撞不到这种情形，但符号写错时它表现出来就是穿模。
+    /// </remarks>
     [Fact]
     public void 一帧跨过对方也停在靠近侧的边界上()
     {
@@ -172,10 +164,11 @@ public class DepthBlockingTests
             DepthBlocking.ClampDepthOutOf(acrossToFarSide, blocker, from, Threshold), 8);
     }
 
-    /// <summary>
-    /// **已经在里面的不许被关死。** 正常操作到不了这个状态（上面那条就是拦它的），但摆位、出场与将来
-    /// 的击退都可能造出来，而把玩家关在原地比让他走出来更糟。往外挪放行，往里挤才拦。
-    /// </summary>
+    /// <summary>已经重叠着的时候往外挪放行，只拦往里挤。</summary>
+    /// <remarks>
+    /// 正常操作到不了这个状态，但摆位、出场与将来的击退都可能造出来。
+    /// 一律拦的话玩家会被关在原地，那比让他自己走出来更糟。
+    /// </remarks>
     [Fact]
     public void 已经重叠时往外挪放行往里挤才拦()
     {
@@ -192,10 +185,11 @@ public class DepthBlockingTests
         Assert.Equal(inside, DepthBlocking.ClampDepthOutOf(deeper, blocker, inside, Threshold), 8);
     }
 
-    /// <summary>
-    /// 完全同深时放过：无从判断该往哪一侧推。这种状态交给引擎层那条迟滞（已重叠就先不挡），
-    /// 在这里硬推一个方向出来会变成「凭符号决定把玩家弹向哪边」。
-    /// </summary>
+    /// <summary>两者完全同深时放过，不替玩家选一个方向推开。</summary>
+    /// <remarks>
+    /// 同深时无从判断该往哪一侧推，硬推就等于凭符号决定把玩家弹向哪边。
+    /// 这种状态交给引擎层那条迟滞处理：已经重叠着就先不挡。
+    /// </remarks>
     [Fact]
     public void 完全同深时不硬推方向()
     {
@@ -203,7 +197,7 @@ public class DepthBlockingTests
         Assert.Equal(here, DepthBlocking.ClampDepthOutOf(here, here, here, Threshold), 8);
     }
 
-    /// <summary>非法阈值必须抛，理由同 <see cref="DepthOverlap"/>：配错了要响着坏，不静默放过每一次。</summary>
+    /// <summary>纵深夹逼收到非法阈值也要抛，理由同 <see cref="DepthOverlap"/>：配错了要当场报错，不静默放过每一次。</summary>
     [Theory]
     [InlineData(-0.001)]
     [InlineData(double.NaN)]
@@ -213,6 +207,12 @@ public class DepthBlockingTests
             DepthBand.CenterWorldPx, DepthBand.CenterWorldPx, DepthBand.FrontWorldPx, threshold));
     }
 
+    /// <summary>阻挡阈值不得大于命中容差，否则会出现「被挡住却打不着」。</summary>
+    /// <remarks>
+    /// 玩家贴着一个推不动又够不到的东西时读不出原因，所以这条关系要一直成立。
+    /// 两个数刻意不共用常量、各自实机调（一个是打得着的宽容量，一个是占同一格的物理量），
+    /// 正因为能各自动，才需要一条测试盯住它们之间的关系：调反了不会有任何报错。
+    /// </remarks>
     [Fact]
     public void 凡是挡住你的都打得着()
     {

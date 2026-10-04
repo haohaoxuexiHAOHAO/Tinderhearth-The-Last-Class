@@ -4,9 +4,12 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Combat;
 
 /// <summary>
-/// `GP-10` 运动状态机的守卫：跳跃初速与重力、落地归零、移动与面朝、冲刺、闪避无敌窗与方向锁定
-/// （`GP-9`）、出招时地面定身且封锁跳闪冲。运动学的失效在实机上只表现为「手感不对」，不报错。
+/// 运动状态机：跳跃初速与重力、落地归零、移动与面朝、冲刺、闪避的无敌窗与方向锁定、
+/// 出招时地面定身并封锁跳闪冲。
 /// </summary>
+/// <remarks>
+/// 运动学失效在实机上只表现为「手感不对」，没有一行报错，所以靠这些测试盯着。
+/// </remarks>
 public class MotorStateTests
 {
     private static CombatInput Move(int dir) => new(dir, 0, false, false, false, false, false);
@@ -24,7 +27,7 @@ public class MotorStateTests
     private static CombatInput MoveDepth(int dir, int depthDir) =>
         new(dir, depthDir, false, false, false, false, false);
 
-    /// <summary>带二维方向的闪避起手（`GP-9` 取按下瞬间）。</summary>
+    /// <summary>带二维方向的闪避起手。方向取按下那一瞬间的输入。</summary>
     private static CombatInput DodgeInto(int dir, int depthDir) =>
         new(dir, depthDir, false, false, false, true, false);
 
@@ -252,18 +255,18 @@ public class MotorStateTests
 
         Assert.Equal(0.0, m.HorizontalVelocity, 3);
         Assert.Equal(0.0, m.VerticalVelocity, 3);
-        // 纵深与横向一同定身（`GP-15`）：出招时纵深速度归零、位置一像素都不动。
+        // 纵深与横向一同定身：出招时纵深速度归零、位置一像素都不动。
         Assert.Equal(0.0, m.DepthVelocity, 8);
         Assert.Equal(DepthBand.CenterWorldPx, m.DepthWorldPx, 8);
         Assert.Equal(MotorPhase.Grounded, m.Phase);
         Assert.False(m.IsInvulnerable);
     }
 
-    // ── `GP-15` 纵深轴 ──────────────────────────────────────────────────
+    // ── 纵深轴 ──────────────────────────────────────────────────────────
     //
-    // 下面这些判据对着的失效都是**不报错**的：纵深飘出带外（角色站在没有地面的地方）、
-    // 纵深被按成固定轨道（「往里挪半步」变成「换道」）、某个轴的输入串到另一轴（跳一下顺带
-    // 往里挪了）、空中还能挪纵深（跳跃与纵深挪步这两种对策失去区别）。
+    // 下面这些测试对着的失效都不报错：纵深飘出带外（角色站在没有地面的地方）、纵深被按成
+    // 固定轨道（「往里挪半步」变成「换道」）、某个轴的输入串到另一轴（跳一下顺带往里挪了）、
+    // 空中还能挪纵深（跳跃与纵深挪步这两种对策失去区别）。
 
     [Fact]
     public void 纵深起点在带中线且不按方向不动()
@@ -417,7 +420,7 @@ public class MotorStateTests
 
         for (var frame = 0; frame < CombatFeel.DodgeDurationFrames; frame++)
         {
-            // 第 1 帧起把纵深输入反过来按：`GP-9` 口径下它不该有任何影响。
+            // 第 1 帧起把纵深输入反过来按：方向锁在起手那一瞬间，之后改向不该有任何影响。
             m.Tick(frame == 0 ? DodgeInto(0, 1) : Depth(-1), isOnFloor: true, attacking: false);
             Assert.Equal((double)CombatFeel.DodgeDepthSpeedPixelsPerSecond, m.DepthVelocity, 8);
             moved += m.DepthVelocity * CombatFeel.FrameSeconds;
@@ -461,10 +464,10 @@ public class MotorStateTests
         Assert.Equal(0.0, m.DepthVelocity, 8);
     }
 
-    // ── `GP-14` 受击硬直（接入的 GP-18 一小片）────────────────────────────
+    // ── 受击硬直 ────────────────────────────────────────────────────────
     //
-    // 失效同样不报错：挨打却还能被输入推着走（硬直没锁输入）、击退把纵深也带跑（`GP-16` 定只沿
-    // 横向）、硬直到期还在滑（尾滑）。训练房的靶用这条：命中经 <see cref="MotorState.Stagger"/> 进硬直。
+    // 失效同样不报错：挨打却还能被输入推着走（硬直没锁输入）、击退把纵深也带跑（击退只沿
+    // 横向）、硬直到期还在滑。训练房的靶走的也是这条路：命中经 MotorState.Stagger 进硬直。
 
     [Fact]
     public void 受击进入硬直相位且按硬直帧数计时()

@@ -1,51 +1,41 @@
 namespace Tinderhearth.Rules.UI;
 
-/// <summary>HUD 的四块内容。**一块一个锚点**，块内靠容器排。</summary>
+/// <summary>HUD 的几块内容。一块一个锚点，块内靠容器排。</summary>
 public enum HudBlock
 {
-    /// <summary>目标进度。正典要求**始终可见**，为 0 或已达成时也不隐藏。</summary>
+    /// <summary>目标进度。它要始终可见，进度为 0 或已达成时也不隐藏。</summary>
     Objective,
 
-    /// <summary>主角资源：HP、体力、MP 与精力。</summary>
+    /// <summary>主角资源：生命、体力、法力与精力。</summary>
     Resources,
 
-    /// <summary>
-    /// 底边右侧那条**六格横排**。装什么由场景决定，尺寸与锚点两边完全一样。
-    /// </summary>
+    /// <summary>底边右侧那条横排格子。装什么由场景决定，尺寸和锚点两边完全一样。</summary>
     /// <remarks>
-    /// **关卡里装六个技能位**（含冷却表现与当前修饰键组的提示）；**经营场景里装随身栏那六格**
-    /// （`UI-34`，图标加件数）—— 俯视场景没有技能位，所以那一块在那里正好空着给它。
+    /// 关卡里装技能位（带冷却表现和当前修饰键组的提示），经营场景里装随身栏（图标加件数）。
+    /// 俯视场景没有技能位，所以那一块在那里正好空着给随身栏。
     ///
-    /// **两种内容共用这一块，不是两块。** 它们的格数同源（<see cref="CarrySlotBar.SlotCount"/>
-    /// 取的就是 <see cref="InputActions.Skills"/> 的条数），所以「同宽」这件事**由算式保证** ——
-    /// 不是两处各写一个常量再指望它们一直相等。因此 <see cref="BlocksOverActorBand"/> 那条硬判据
-    /// 的输入一个字没变，随身栏进来时不用重跑一次占屏账。
+    /// 两种内容共用这一块，不是两块。它们的格数同源（<see cref="CarrySlotBar.SlotCount"/> 取的
+    /// 就是 <see cref="InputActions.Skills"/> 的条数），所以「同宽」由算式保证，不是两处各写一个
+    /// 常量再指望它们一直相等。于是 <see cref="BlocksOverActorBand"/> 的输入不受影响。
     ///
-    /// **它原先叫 `Skills`。** 改名是因为那个名字会让「经营场景里这一块装什么」读不出来，
-    /// 而取值个数一个没变 —— 随身栏**没有新开 HUD 块**。
-    ///
-    /// ⚠️ **关卡里两行并存的那一天要重跑那笔账。** 正典那条「用道具不暂停」在关卡里落地就得让
-    /// 随身栏与技能位同时在场（上行技能、下行随身），而那会改这一块的高度。**现在刻意不做** ——
-    /// 关卡里一个道具都还没有，为一个没有内容的场合排版是白排。
+    /// 将来关卡里要让技能位和随身栏两行并存时，这一块的高度会变，那时要重算一遍占屏。现在不做，
+    /// 因为关卡里一个道具都还没有。
     /// </remarks>
     ActionBar,
 
-    /// <summary>队友状态，容纳编队上限 4 名学生；为 0 时整块收起。</summary>
+    /// <summary>队友状态，最多容纳编队上限那么多名学生；一个都没有时整块收起。</summary>
     Teammates,
 }
 
-/// <summary>
-/// 一块贴在屏幕的哪个角。**这就是引擎层用的东西** —— 它翻译成锚点预设加安全边距偏移。
-/// </summary>
+/// <summary>一块贴在屏幕的哪个角。引擎层用的就是这个，它翻译成锚点预设加安全边距偏移。</summary>
 /// <remarks>
-/// 刻意只有「贴哪个角」这么粗的粒度，没有坐标：`aspect="expand"` 下逻辑宽度是变量
-/// （`UI-3` 实测 3840×2130 的窗口得到 649×360），任何横向坐标都会在宽窗口上错位。
+/// 粒度只到「贴哪个角」、没有坐标，因为视口按 expand 拉伸时逻辑宽度是个变量（实测
+/// 3840×2130 的窗口得到的逻辑尺寸是 649×360），任何横向坐标都会在宽窗口上错位。
 ///
-/// **刻意没有「居中」。** 另一套候选是「底边一条、技能居中」，选的是四角这套。留下一条实测事实
-/// 免得将来有人重新发明它：逻辑宽度为奇数时（649 就是），居中块的横坐标**落在半个逻辑像素上**
-/// （实测 −35.5）。×2 缩放下它正好是 1 物理像素、没有
-/// 后果；×3 下是 1.5 —— 素材边界不再落在物理像素格上。**后半句是推断，没实测**：验法是在 ×3
-/// 窗口下看居中块的边缘有没有糊掉半格。所以将来真要用居中，先实机看一眼，再决定要不要显式取整。
+/// 这里没有「居中」这个取值。另一套候选是「底边一条、技能居中」，选的是四角这套。留一条实测
+/// 事实免得将来有人重新发明它：逻辑宽度为奇数时，居中块的横坐标会落在半个逻辑像素上。两倍缩放
+/// 下那正好是一个物理像素、没有后果；三倍下是一个半，素材边界就不再落在物理像素格上。
+/// 后半句是推断、没实测，验法是在三倍窗口下看居中块的边缘有没有糊掉半格。
 /// </remarks>
 public enum HudAnchor
 {
@@ -62,7 +52,7 @@ public enum HudAnchor
     BottomRight,
 }
 
-/// <summary>屏幕上的一个整数矩形。**只用来算占屏与可读区**，不用来摆节点。</summary>
+/// <summary>屏幕上的一个整数矩形。只用来算占屏比例和可读区，不用来摆节点。</summary>
 public readonly record struct HudRect(int X, int Y, int Width, int Height)
 {
     /// <summary>右边界（不含）。</summary>
@@ -79,68 +69,55 @@ public readonly record struct HudRect(int X, int Y, int Width, int Height)
         X < other.Right && other.X < Right && Y < other.Bottom && other.Y < Bottom;
 }
 
-/// <summary>
-/// HUD 的排版尺寸与放置（`UI-8`）。**尺寸全部从 <see cref="UIMetrics"/> 推，不新定一套。**
-/// </summary>
+/// <summary>HUD 的排版尺寸与放置。尺寸全部从 <see cref="UIMetrics"/> 推，不另定一套。</summary>
 /// <remarks>
-/// 为什么这些数在规则层：与 <see cref="UIMetrics"/> 同一条理由 —— 它们之间有**可以判死的关系**
-/// （块高是行高的整数倍、块不许压到角色所在的可读区、居中偏移是不是整数），放这里就能用单元测试
-/// 盯住。更要紧的是引擎层因此**一个数字字面量都不需要** —— 「HUD 里没有写死的数」这条原先有静态
-/// 扫描守着，守卫随 `ADR-0009` 删除，现在是 `CONVENTIONS.md` 里的一条约定。
+/// 这些数放在规则层，是因为它们之间有判得出来的关系：块高是行高的整数倍、块不许压到角色所在的
+/// 可读区、居中偏移是不是整数。放这里就能用单元测试盯住，引擎层也因此一个数字字面量都不需要。
 ///
-/// **这里没有任何玩法数值。** HP 上限、冷却时长归 `design/数值模型.md`，由视图模型传入
-/// （<see cref="HudViewModel"/>）。本文件里的数全是**排版量**：几个格子、多宽、贴哪条边。
+/// 这里没有任何玩法数值。生命上限、冷却时长归设计仓 design/数值模型.md，由
+/// <see cref="HudViewModel"/> 传入。本文件里的数全是排版量：几个格子、多宽、贴哪条边。
 ///
-/// **块尺寸是定值而不是随内容伸缩**，这是有意的：定值让 <see cref="RectOf"/> 的预测等于实际，
-/// 于是占屏比例与可读区算得出来、也测得出来。内容比框长时截断（目标进度那一行按最长文案定宽）。
+/// 块尺寸是定值而不是随内容伸缩。定值让 <see cref="RectOf"/> 算出来的等于实际摆出来的，于是占屏
+/// 比例和可读区算得出来、也测得出来。内容比框长时截断，目标进度那一行因此按最长文案定宽。
 /// </remarks>
 public static class HudLayout
 {
-    /// <summary>编队上限。正典：常规出征编队是主角 + 1 至 4 名学生。</summary>
+    /// <summary>编队上限：常规出征是主角带这么多名学生。</summary>
     public const int MaxTeammates = 4;
 
-    /// <summary>资源条的条数：HP、体力、MP、精力。正典那张资源表三条，加经营侧的当日预算一条。</summary>
+    /// <summary>资源条的条数：生命、体力、法力，再加经营侧的当日预算一条。</summary>
     public const int GaugeCount = 4;
 
-    /// <summary>
-    /// 资源条标签占几个全宽汉字。取 2 —— 最长的标签是「体力」与「精力」，都是两个字。
-    /// </summary>
+    /// <summary>资源条标签占几个全宽汉字。最长的标签是「体力」和「精力」，都是两个字。</summary>
     /// <remarks>
-    /// 中文名已经定下来（`DOC-18`）：战斗那条资源叫**体力**（缩写仍是 SP，参数键仍是 `sp`），
-    /// 经营那条当日预算叫**精力**，派生它们上限的属性叫**体质**。三个词互不为前缀，所以
-    /// 「体力上限」只会指战斗那条。HP 与 MP 沿用正典的缩写。
-    ///
-    /// 西文在这款字体里宽 8px，两个字母 16px，比两个汉字的 24px 窄，所以标签列按汉字算就够宽 ——
-    /// 改名前最长标签也是两个汉字，宽度因此没变。
+    /// 西文在这款字体里宽 8 像素，两个字母比两个汉字窄，所以标签列按汉字算就够宽。
     /// </remarks>
     public const int GaugeLabelChars = 2;
 
     /// <summary>资源条的填充部分宽几个基础单位。</summary>
     /// <remarks>
-    /// 取 4 个基础单位（64px）。下限受可读性管着：条太短时一格像素代表的量太大，玩家看不出变化；
-    /// 上限受占屏管着 —— 资源块总宽 92px 已占逻辑宽度的 14%，再宽就开始挤中间那块可读区。
+    /// 下限受可读性管着：条太短时一格像素代表的量太大，玩家看不出变化。上限受占屏管着：资源块
+    /// 再宽就开始挤中间那块可读区。
     /// </remarks>
     public const int GaugeBarUnits = 4;
 
-    /// <summary>资源条高 6px。**这是素材 `bar-track.png` 的高**（登记表 4×6），不是随手取的。</summary>
+    /// <summary>资源条高几像素。这个数是素材 bar-track.png 的高，不是随手取的。</summary>
     public const int GaugeBarHeight = 6;
 
-    /// <summary>队友头像框边长 20px。**素材 `portrait-frame.png` 的尺寸**（16px 头像 + 2px 框）。</summary>
+    /// <summary>队友头像框边长几像素。这个数是素材 portrait-frame.png 的尺寸，头像加一圈框。</summary>
     public const int PortraitSize = 20;
 
-    /// <summary>
-    /// 目标进度那一行最长几个全宽汉字。取 11 ——「已达成，返回入口点撤离」。
-    /// </summary>
+    /// <summary>目标进度那一行最长几个全宽汉字，按达成后那句最长的文案定。</summary>
     /// <remarks>
-    /// 按**最长的那句**定宽，而不是按常态的「素材 3／5」。理由是达成态那句更长，按短的定宽会让
-    /// 它在最需要看清的时刻被截断，而正典要求进度始终可见。
+    /// 按最长那句定宽而不是按常态那句，因为达成态那句更长；按短的定宽会让它在最需要看清的时刻
+    /// 被截断，而进度要始终可见。
     /// </remarks>
     public const int ObjectiveMaxChars = 11;
 
     /// <summary>一组修饰键覆盖几个技能位，与 <see cref="InputActions.SkillsPerGroup"/> 同源。</summary>
     public static int SkillsPerGroup => InputActions.SkillsPerGroup;
 
-    /// <summary>技能位分几组。6 个位 ÷ 每组 3 个 ＝ 2 组，正好对上两个扳机。</summary>
+    /// <summary>技能位分几组。算出来正好对上两个扳机。</summary>
     public static int SkillGroupCount => InputActions.Skills.Count / SkillsPerGroup;
 
     /// <summary>资源条标签列宽。</summary>
@@ -155,45 +132,36 @@ public static class HudLayout
     /// <summary>一个技能位单元的高：手柄按键提示叠在图标内，不另占一行。</summary>
     public static int SkillCellHeight => UIMetrics.IconSmall;
 
-    /// <summary>
-    /// 随身栏有几格（`UI-34`）。**与技能位同一个数**，所以两种内容同宽由算式保证。
-    /// </summary>
+    /// <summary>随身栏有几格。与技能位同一个数，所以两种内容同宽由算式保证。</summary>
     /// <remarks>
-    /// 它读 <see cref="CarrySlotBar.SlotCount"/>，而那个又读 <see cref="InputActions.Skills"/>
-    /// 的条数 —— **一条链到底，中间一处都没有抄出来的 6**。抄一个 6 的后果是将来改格数时
-    /// 两块宽度悄悄分叉，而分叉只在拉宽窗口时看得出来。
+    /// 它读 <see cref="CarrySlotBar.SlotCount"/>，而那个又读 <see cref="InputActions.Skills"/> 的
+    /// 条数，一条链到底，中间一处都没有抄出来的数字。抄一个的后果是将来改格数时两块宽度悄悄分叉，
+    /// 而分叉只在拉宽窗口时看得出来。
     /// </remarks>
     public static int CarrySlotCount => CarrySlotBar.SlotCount;
 
-    /// <summary>随身栏六格紧邻横排占的宽。**它不含两组之间那道分界** —— 随身栏没有组。</summary>
+    /// <summary>随身栏那几格紧邻横排占的宽。它不含两组之间那道分界，因为随身栏没有组。</summary>
     /// <remarks>
-    /// 所以它比 <see cref="HudBlock.ActionBar"/> 那一块的内容宽**窄一个栅格**：随身栏沿用同一个
-    /// 框，多出来的那一格空隙留在中间，与技能位那道分界对齐。这样两种内容的格子落在同一批
-    /// 横坐标上，换场景时格位不跳。
+    /// 所以它比 <see cref="HudBlock.ActionBar"/> 那一块的内容窄一个栅格。随身栏沿用同一个框，
+    /// 多出来的那一格空隙留在中间、与技能位那道分界对齐，这样两种内容的格子落在同一批横坐标上，
+    /// 换场景时格位不跳。
     /// </remarks>
     public static int CarryRowWidth => CarrySlotCount * UIMetrics.IconSmall;
 
-    /// <summary>
-    /// 一组技能位横排占的宽：三个紧邻的图标格。
-    /// </summary>
+    /// <summary>一组技能位横排占的宽：几个紧邻的图标格。</summary>
     /// <remarks>
-    /// 六个位**一行横排、112×24**。
+    /// 技能位排成一行，不另给修饰键开一列记号。那一列在键鼠下永远是空的，因为键鼠没有扳机这一层。
     ///
-    /// 记号列为什么能去：那两个 12px 的列在键鼠下永远是空的（键鼠没有扳机这一层），作者盯着的正是
-    /// 这块空白。手柄要辨「哪三个归哪个扳机」不再靠这一列，而靠三样：**两组之间那一个栅格的间隔**
-    /// （看得出是 3+3）、**按住扳机时那一组三格连着高亮**（`FR-17`，立即确认）、以及**每个图标内叠的
-    /// 面键记号**。左组＝左扳机、右组＝右扳机是位置约定，按住任一扳机时的高亮会当场教会玩家。
-    /// 手柄呈现效果由脚手架 `G` 键（不接手柄也能预览）人工验收，见 `UI-8` 待确认。
+    /// 手柄要辨「哪几个归哪个扳机」靠三样：两组之间那一个栅格的间隔（看得出是均分两组）、按住扳机
+    /// 时那一组连着高亮、以及每个图标内叠的面键记号。左组对左扳机、右组对右扳机是位置约定，按住
+    /// 任一扳机时的高亮会当场教会玩家。这一条要作者实机看。
     /// </remarks>
     public static int SkillGroupWidth => SkillsPerGroup * UIMetrics.IconSmall;
 
-    /// <summary>
-    /// 取一块的**内容区**尺寸（不含面板内边距）。
-    /// </summary>
+    /// <summary>取一块的内容区尺寸，不含面板内边距。</summary>
     /// <remarks>
-    /// 内容区与外框分开，是因为每块都坐在一张面板底上：面板给 1px 描边加一圈内边距，好让
-    /// 12px 文字压在杂乱的关卡背景上仍读得清 —— 而「读不读得清」正是本条要作者实机判的那件事。
-    /// 两个尺寸分开算，占屏比例才不会把内边距漏掉。
+    /// 内容区和外框分开算，因为每块都坐在一张面板底上：面板给一圈描边加内边距，好让小字压在杂乱
+    /// 的关卡背景上仍读得清。两个尺寸分开算，占屏比例才不会把内边距漏掉。读不读得清要作者实机看。
     /// </remarks>
     public static HudRect ContentSizeOf(HudBlock block) => block switch
     {
@@ -208,9 +176,9 @@ public static class HudLayout
             Width: GaugeLabelWidth + UIMetrics.ItemGap + GaugeBarWidth,
             Height: GaugeCount * GaugeRowHeight),
 
-        // 六个格一行横排，两组之间空一个栅格。关卡里那道空隙是「这三个归左扳机、那三个归右扳机」
-        // 的视觉分界；经营侧的随身栏没有组，但它**沿用同一个框**（`UI-34`）—— 两种内容长得像
-        // 同一条栏，玩家换场景时不用重新学它是什么。
+        // 格子一行横排，两组之间空一个栅格。关卡里那道空隙是「这一组归左扳机、那一组归右扳机」
+        // 的视觉分界。经营侧的随身栏没有组，但它沿用同一个框，这样两种内容长得像同一条栏，
+        // 玩家换场景时不用重新学它是什么。
         HudBlock.ActionBar => new HudRect(
             X: 0, Y: 0,
             Width: (SkillGroupCount * SkillGroupWidth)
@@ -225,7 +193,7 @@ public static class HudLayout
         _ => throw new ArgumentOutOfRangeException(nameof(block), $"没有这一块：{block}"),
     };
 
-    /// <summary>取一块的**外框**尺寸：内容区加两边内边距。这是它在屏幕上真正占的地方。</summary>
+    /// <summary>取一块的外框尺寸：内容区加两边内边距。这是它在屏幕上真正占的地方。</summary>
     public static HudRect SizeOf(HudBlock block)
     {
         var content = ContentSizeOf(block);
@@ -233,13 +201,11 @@ public static class HudLayout
         return new HudRect(0, 0, content.Width + both, content.Height + both);
     }
 
-    /// <summary>
-    /// 这一块贴哪个角。**引擎层只用这个**，不用坐标。
-    /// </summary>
+    /// <summary>这一块贴哪个角。引擎层只用这个，不用坐标。</summary>
     /// <remarks>
-    /// **四角贴边**，从两套候选里选定（另一套是「底边一条、技能居中」）。
-    /// 四角这套的两条好处是算得出来的：贯通两端的可读横带 640×238，而且**一个居中锚点都不用**，
-    /// 于是任何逻辑宽度下四块都落在整数像素上（见 <see cref="HudAnchor"/>）。
+    /// 四角贴边，从两套候选里选定的（另一套是「底边一条、技能居中」）。四角这套有两条算得出来的
+    /// 好处：中间留出一条贯通左右的可读横带（高度由 <see cref="ClearBand"/> 算），而且一个居中锚点
+    /// 都不用，于是任何逻辑宽度下各块都落在整数像素上（见 <see cref="HudAnchor"/>）。
     /// </remarks>
     public static HudAnchor AnchorOf(HudBlock block) => block switch
     {
@@ -252,21 +218,18 @@ public static class HudLayout
         // 资源在左下：手放在键盘左手区，眼睛往左下扫最短。
         HudBlock.Resources => HudAnchor.BottomLeft,
 
-        // 那条六格横排在右下：与资源同在底边，两者构成「我还有多少／我能用什么」这一对。
-        // 关卡里是技能、经营侧是随身栏，两边同一个角 —— 换场景时眼睛不用换地方找。
+        // 那条横排格子在右下：与资源同在底边，两者构成「我还有多少、我能用什么」这一对。
+        // 关卡里是技能、经营侧是随身栏，两边同一个角，换场景时眼睛不用换地方找。
         HudBlock.ActionBar => HudAnchor.BottomRight,
 
         _ => throw new ArgumentOutOfRangeException(nameof(block), $"没有这一块：{block}"),
     };
 
-    /// <summary>
-    /// 算一块在给定视口下占哪个矩形。**只是量具** —— 节点位置由锚点决定，不由这里设。
-    /// </summary>
+    /// <summary>算一块在给定视口下占哪个矩形。它只是一把尺，节点位置由锚点决定、不由这里设。</summary>
     /// <remarks>
-    /// 它与引擎层是两条独立的路径：这里按锚点与安全边距算出**应该**在哪，引擎层按锚点摆。
-    /// 原先有启动探针把节点的实际屏幕矩形读回来与这里逐块比对，探针随 `ADR-0009` 删除。
-    /// **注意这一条的失效形状**：锚点摆错在窄窗口上看不出来，只在宽窗口上错位 —— 所以实机确认
-    /// HUD 时要拉一下窗口宽度，别只在默认尺寸下看。
+    /// 这里按锚点和安全边距算出它应该在哪，引擎层按锚点摆，两条路径独立，没有东西自动核对它们
+    /// 一致。失效的样子是：锚点摆错在窄窗口上看不出来，只在宽窗口上错位。所以实机确认 HUD 时要
+    /// 拉一下窗口宽度，别只在默认尺寸下看。
     /// </remarks>
     public static HudRect RectOf(HudBlock block, int viewportWidth, int viewportHeight)
     {
@@ -284,25 +247,24 @@ public static class HudLayout
         return new HudRect(x, y, size.Width, size.Height);
     }
 
-    /// <summary>四块的矩形。</summary>
+    /// <summary>每一块各占哪个矩形。</summary>
     public static IReadOnlyList<(HudBlock Block, HudRect Rect)> RectsOf(
         int viewportWidth, int viewportHeight) =>
         [.. Enum.GetValues<HudBlock>()
                 .Select(b => (b, RectOf(b, viewportWidth, viewportHeight)))];
 
-    /// <summary>四块合起来占视口的几成。队友区收起时不算它 —— 那时它真的不占地方。</summary>
+    /// <summary>各块合起来占视口的几成。队友区收起时不算它，那时它真的不占地方。</summary>
     public static double CoverageRatio(int viewportWidth, int viewportHeight) =>
         (double)RectsOf(viewportWidth, viewportHeight).Sum(r => r.Rect.Area)
         / (viewportWidth * viewportHeight);
 
-    /// <summary>
-    /// 主角**可能出现的那块**。HUD 压到它就是压掉了该看的东西。
-    /// </summary>
+    /// <summary>主角可能出现的那一块。HUD 压到它就是压掉了该看的东西。</summary>
     /// <remarks>
-    /// 它不是「角色现在在哪」，而是「相机死区允许它跑到哪」：相机把角色留在死区内不动镜头，
-    /// 所以角色相对屏幕中心的偏移上限就是死区半宽高，再各向外扩一个精灵格（角色本体占的地方）。
-    /// 死区那两个数本来就是**屏幕像素**（见 <see cref="CameraFeel"/>），所以这里不必换算缩放；
-    /// 精灵格要换算 —— 32 世界像素在侧视 2 倍下占屏 64。
+    /// 它算的不是「角色现在在哪」，而是「相机死区允许他跑到哪」。相机把角色留在死区内不动镜头，
+    /// 所以角色相对屏幕中心的偏移上限就是死区的半宽半高，再各向外扩一个精灵格。
+    ///
+    /// 死区那两个数本来就是屏幕像素（见 <see cref="CameraFeel"/>），不用换算缩放；精灵格是世界
+    /// 像素，要乘侧视的缩放倍数。
     /// </remarks>
     public static HudRect ActorBand(int viewportWidth, int viewportHeight)
     {
@@ -314,7 +276,7 @@ public static class HudLayout
                            halfW * 2, halfH * 2);
     }
 
-    /// <summary>有没有哪一块压到了 <see cref="ActorBand"/>。**这是本条的硬判据。**</summary>
+    /// <summary>有没有哪一块压到了 <see cref="ActorBand"/>。这条有单元测试盯着，必须是空的。</summary>
     public static IReadOnlyList<HudBlock> BlocksOverActorBand(int viewportWidth, int viewportHeight)
     {
         var band = ActorBand(viewportWidth, viewportHeight);
@@ -323,12 +285,12 @@ public static class HudLayout
     }
 
     /// <summary>
-    /// 含屏幕中心、**整幅宽**、且一块 HUD 都不压的最高那条横带。选放置方案时比的就是这个数。
+    /// 含屏幕中心、占满整幅宽度、且一块 HUD 都不压的最高那条横带。比较放置方案时比的就是这个数。
     /// </summary>
     /// <remarks>
-    /// 为什么用「整幅宽的横带」而不是「最大空白面积」：侧视关卡里玩家要读的是一条水平走廊，
-    /// 左右两端的敌人和平台跟正中间一样要紧。面积大但被切成两块的空白，读起来不如一条通的横带。
-    /// 有块横跨中心线时返回高度 0 —— 那说明这套方案把可读区切断了。
+    /// 用「整幅宽的横带」而不是「最大空白面积」，因为侧视关卡里玩家要读的是一条水平走廊，左右
+    /// 两端的敌人和平台跟正中间一样要紧。面积大但被切成两块的空白，读起来不如一条通的横带。
+    /// 有块横跨中心线时返回高度 0，那说明这套方案把可读区切断了。
     /// </remarks>
     public static HudRect ClearBand(int viewportWidth, int viewportHeight)
     {

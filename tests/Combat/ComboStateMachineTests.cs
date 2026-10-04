@@ -4,9 +4,12 @@ using Xunit;
 namespace Tinderhearth.Rules.Tests.Combat;
 
 /// <summary>
-/// `GP-10` 连段状态机的守卫：三相时序、判定框只在命中相开、后摇取消窗续段、窗外回落、
-/// 末段不再续、空中落地打断、轻重不混连。这些错了在实机上只表现为「手感怪」，不报错。
+/// 连段状态机：三相时序、判定框只在命中相开、后摇取消窗续段、窗外回落、末段不再续、
+/// 空中落地打断、轻重不混连。
 /// </summary>
+/// <remarks>
+/// 这些错了在实机上只表现为「手感怪」，没有一行报错，所以靠这些测试盯着。
+/// </remarks>
 public class ComboStateMachineTests
 {
     private static ComboStateMachine StartLight()
@@ -65,7 +68,7 @@ public class ComboStateMachineTests
     public void 后摇取消窗内命中后按同键续下一段()
     {
         var m = StartLight();
-        m.RegisterHit();   // 轻击续段要命中确认（方案 b）
+        m.RegisterHit();   // 轻击续段要先命中确认
         AdvanceToComboWindow(m);
 
         Assert.True(m.IsComboWindowOpen);
@@ -96,7 +99,7 @@ public class ComboStateMachineTests
         var m = StartLight();
         for (var step = 0; step < CombatFeel.LightChainLength - 1; step++)
         {
-            m.RegisterHit();   // 每段命中才能续（方案 b）
+            m.RegisterHit();   // 每段都要命中才能续
             AdvanceToComboWindow(m);
             m.Tick(true, false, true);
         }
@@ -160,7 +163,7 @@ public class ComboStateMachineTests
         Assert.True(m.IsComboWindowOpen);
 
         m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
-        Assert.Equal(0, m.Step);   // 打空不能续段（方案 b）
+        Assert.Equal(0, m.Step);   // 打空不能续段
 
         for (var i = 0; i < 80 && m.IsAttacking; i++)
         {
@@ -173,8 +176,8 @@ public class ComboStateMachineTests
     [Fact]
     public void 续段窗开前按下的轻攻击被缓冲到窗内续段()
     {
-        // `GP-14` 阶段 1 实机：狂点轻攻击一直停在第一段。根因是续段只认「续段窗那几帧内的当帧边沿」，
-        // 窗开前一点按下的会丢。加了输入缓冲后，窗开前几帧内按下的同键应被带进窗内续段。
+        // 实测过的毛病：狂点轻攻击一直停在第一段。根因是续段只认续段窗那几帧内的当帧边沿，
+        // 窗开前一点按下的会丢。缓冲要把窗开前几帧内按下的同键带进窗内续段。
         var m = StartLight();
         m.RegisterHit();
         var guard = 0;
@@ -200,7 +203,7 @@ public class ComboStateMachineTests
     [Fact]
     public void 缓冲的续段仍需命中确认()
     {
-        // 缓冲只解决时机，不绕过命中确认（方案 b）：本段打空，窗开前按下的键被缓冲住也不续段。
+        // 缓冲只解决时机，不绕过命中确认：本段打空，窗开前按下的键被缓冲住也不续段。
         var m = StartLight();   // 不调 RegisterHit：本段打空
         var guard = 0;
         while (m.Phase != AttackPhase.Recovery && guard++ < 200)

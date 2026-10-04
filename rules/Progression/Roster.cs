@@ -1,6 +1,6 @@
 namespace Tinderhearth.Rules.Progression;
 
-/// <summary>名册：当前在册的角色。容量**从配置来**，不是代码里的常量（`ENG-5`）。</summary>
+/// <summary>名册：当前在册的角色。容量从配置来，不是代码里的常量。</summary>
 public sealed class Roster
 {
     private readonly List<string> _actorIds = [];
@@ -15,7 +15,7 @@ public sealed class Roster
         Capacity = capacity;
     }
 
-    /// <summary>容量。构造时传入，来自 <c>config/game.json</c>。</summary>
+    /// <summary>容量。构造时传入，值来自 <c>data/config/game.json</c>。</summary>
     public int Capacity { get; }
 
     public IReadOnlyList<string> ActorIds => _actorIds;

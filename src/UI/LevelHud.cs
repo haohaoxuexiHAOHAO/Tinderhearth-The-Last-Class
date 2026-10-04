@@ -4,25 +4,19 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 关卡 HUD 的屏幕空间部分（`UI-8`）：资源、技能位、目标进度、队友状态。
+/// 关卡 HUD 的屏幕空间部分：资源条、技能位、目标进度、队友状态。
 /// </summary>
 /// <remarks>
-/// **本文件里一个「量」都没有。** 尺寸与放置全部从 <see cref="HudLayout"/> 与
-/// <see cref="UIMetrics"/> 取，显示的数值全部从 <see cref="HudViewModel"/> 取，颜色从
-/// <see cref="HudPalette"/> 取。这不是风格洁癖，是让两条会静默退化的规则有执行体：
+/// 本文件里不自己定任何「量」：尺寸与放置从 <see cref="HudLayout"/> 与 <see cref="UIMetrics"/> 取，
+/// 显示的数值从 <see cref="HudViewModel"/> 取，颜色从 <see cref="HudPalette"/> 取。除 0 与 1
+/// 之外不写数字字面量，这两个是结构量（第一个元素、间距为零、加一取编号），不是玩法数值。
 ///
-/// - **没有绝对像素坐标。** 位置一律走 <see cref="Control.SetAnchorsAndOffsetsPreset"/>，
-///   本文件不出现 <c>Position</c>。`aspect="expand"` 下逻辑宽度是变量（`UI-3` 实测
-///   3840×2130 的窗口得到 649×360），写死横向坐标的界面在宽窗口上会错位，而**窄窗口上看不出来**。
-/// - **数值全部由视图模型传入。** 本文件里除 0 与 1 之外不出现数字字面量（0 与 1 留着是因为它们
-///   是结构量：第一个元素、间距为零、加一取编号，不是玩法数值）。
+/// 位置一律走 <see cref="Control.SetAnchorsAndOffsetsPreset"/>，不写 <c>Position</c>。逻辑宽度
+/// 不是定值：实测 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在
+/// 640 宽的窗口上完全看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
-/// 这两条原先由静态扫描加行为核两头拦，守卫随 `ADR-0009` 删除，现在是 `CONVENTIONS.md` 里的约定。
-/// **它们的失效形状值得记住**：写死坐标在 640 宽窗口上完全正常、只在宽窗口错位；写死数值则要等
-/// 真数值接进来才发现有两份矛盾的事实。所以实机验 HUD 时拉一下窗口宽度，并确认数字真的在变。
-///
-/// **世界空间那一半不在这里。** 读条、精英血条与伤害数字归 `UI-9`，挂
-/// <see cref="UILayer.WorldSpace"/> —— 正典明确否掉「读条画在界面角落」，要求画在执行者身上。
+/// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见
+/// <see cref="WorldSpaceUI"/>。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
@@ -34,7 +28,8 @@ public sealed partial class LevelHud : Control
     private const string PortraitPath = "res://assets/placeholder/ui/portrait-frame.png";
 
     /// <summary>
-    /// 倒地记号。**是符号不是文案**，所以不进文本表（同按键记号那条，见 <see cref="InputHints"/>）。
+    /// 倒地记号。它是个符号、不是一句要翻译的话，所以不进文本表（按键记号同理，见
+    /// <see cref="InputHints"/>）。
     /// </summary>
     private const string DownMark = "×";
 
@@ -47,7 +42,7 @@ public sealed partial class LevelHud : Control
     private Label _objective = null!;
     private HudViewModel _model;
 
-    /// <summary>装一份 HUD。视图模型由调用方给 —— 本类不挑数据。</summary>
+    /// <summary>装一份 HUD。视图模型由调用方给，本类不挑数据。</summary>
     public LevelHud(InputRouter router, HudViewModel model)
     {
         _router = router;
@@ -75,8 +70,8 @@ public sealed partial class LevelHud : Control
     /// HUD 根节点自己占的矩形。
     /// </summary>
     /// <remarks>
-    /// 它必须铺满视口，否则贴下边与贴右边的块会按一个错的父矩形算偏移、落到屏幕外去 ——
-    /// 实测踩过一次，见 <see cref="_Ready"/> 里那段注释。所以它自己也是一条判据。
+    /// 它必须铺满视口。不铺满的话，贴下边与贴右边的块会按一个错的父矩形算偏移、落到屏幕外去 ——
+    /// 实测踩过，细节见 <see cref="_Ready"/> 里那段注释。
     /// </remarks>
     public Rect2 RootRect => GetGlobalRect();
 
@@ -84,17 +79,16 @@ public sealed partial class LevelHud : Control
     public bool IsShown(HudBlock block) => _roots[block].Visible;
 
     /// <summary>
-    /// 某一块的**容器自己要的**最小尺寸（不含 <c>CustomMinimumSize</c>）。
+    /// 某一块的容器自己要多大，单位是界面像素（不含 <c>CustomMinimumSize</c>）。
     /// </summary>
     /// <remarks>
-    /// 它是「排版算式与实现漂移」那条的**病根级判据**。只比实际矩形与预测矩形不够：贴上边的块
-    /// 算式偏大时只会往下多长几像素、位置一点不变，于是两边照样对得上，漂移看不出来
-    /// （实测撞出来的）。而容器要多少是它自己按间距与内边距算的 —— 拿它与
-    /// <see cref="HudLayout.SizeOf"/> 比，任何一块的算式与实现分叉都逃不掉，与贴哪个角无关。
+    /// 用它核对排版算式和实际摆出来的东西有没有分叉。光比实际矩形与预测矩形不够：贴上边的块
+    /// 算式偏大时只会往下多长几像素、位置一点不变，两边照样对得上（实测撞出来的）。容器要多少
+    /// 是它自己按间距与内边距算的，拿它与 <see cref="HudLayout.SizeOf"/> 比就与贴哪个角无关。
     /// </remarks>
     public Vector2 ContentMinOf(HudBlock block) => _roots[block].GetMinimumSize();
 
-    // ── 下面几个把「屏幕上到底显示了什么」暴露成可读的值（原先给启动探针读，探针已删）──
+    // ── 下面几个把「屏幕上到底显示了什么」暴露成能读的值 ──
 
     /// <summary>目标进度那一行现在显示的字。</summary>
     public string ObjectiveText => _objective.Text;
@@ -117,15 +111,9 @@ public sealed partial class LevelHud : Control
 
     public override void _Ready()
     {
-        // HUD 铺满所属层，块靠锚点各自贴边。**不吃鼠标** —— 它是常驻显示，不是可操作面板。
-        //
-        // **必须用 `SetAnchorsAndOffsetsPreset` 而不是 `SetAnchorsPreset`。** 实测：
-        // 对**已经在树里**的节点调 `SetAnchorsPreset(FullRect)`，引擎会把偏移改写成
-        // −640,−360 以保住当前那个 0×0 的矩形 —— 锚点确实变成了 0,0,1,1，尺寸却还是 0×0。
-        // 那个 `keepOffsets` 参数的含义与名字给人的印象相反：`false` 是「改写偏移、保住视觉位置」，
-        // `true` 才是「原样留着偏移数字」。加进树之前调它碰巧没事（那时 `_size_changed` 早退），
-        // 所以这个坑只在「先 AddChild 再设锚点」的写法里出现，而且**不报错** —— 表现是贴下边与
-        // 贴右边的块落到负坐标、画在屏幕外，存图里只看得出「少了几块」。
+        // 铺满所属层，块靠锚点各自贴边。不吃鼠标 —— 它是常驻显示，不是可操作面板。
+        // 必须用 SetAnchorsAndOffsetsPreset：实测对已经在树里的节点调 SetAnchorsPreset，引擎会
+        // 改写偏移去保住当前那个 0×0 的矩形，于是锚点对了、尺寸还是 0×0，而且不报错。
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
 
@@ -134,17 +122,14 @@ public sealed partial class LevelHud : Control
         BuildSkills();
         BuildTeammates();
 
-        // **必须等自己的尺寸定下来再摆块。** 实测踩到的：`_Ready` 里 HUD 根节点的
-        // 尺寸还是 0×0（那一刻视口的拉伸尚未算完，与 `Main.PrintDisplayMetrics` 那条「读早了」
-        // 是同一件事），而块的锚点偏移是拿**当时的父矩形**算的 —— 于是贴下边与贴右边的三块全落到
-        // 负坐标上，画在屏幕外，只有贴左上角那块看起来是对的。**这种错在存图里只表现为「少了三块」，
-        // 不报错。** 挂 Resized 之后尺寸每次变都重摆一遍；我们用的几个锚点预设算出的偏移与父尺寸
-        // 无关，所以重复摆是幂等的。
+        // 等自己的尺寸定下来再摆块：实测 _Ready 这一刻根节点还是 0×0（视口拉伸没算完），而块的
+        // 偏移是拿当时的父矩形算的，于是贴下边与贴右边的块落到负坐标、画在屏幕外，还不报错。
+        // 挂上 Resized 之后尺寸每变一次重摆一遍；这几个锚点预设算出的偏移与父尺寸无关，重摆幂等。
         Resized += AnchorBlocks;
         AnchorBlocks();
         Refresh();
 
-        // **订阅事件而不是每帧轮询**（`UI-7` 的门面把这两件事都准备好了）。
+        // 订阅门面的事件，不每帧轮询。
         _router.SkillGroupChanged += OnSkillGroupChanged;
         _router.DeviceChanged += OnDeviceChanged;
     }
@@ -162,8 +147,8 @@ public sealed partial class LevelHud : Control
     /// 目标进度：一个图标加一行字。
     /// </summary>
     /// <remarks>
-    /// 宽度按最长那句（达成态）定，并开 <see cref="Label.ClipText"/> —— 内容比框长时截断而不是
-    /// 把整块撑开。撑开会让占屏比例与可读区的预测失效，而那两个数是选放置方案的依据。
+    /// 宽度按最长那句（达成时那句）定，并开 <see cref="Label.ClipText"/>：内容比框长时截断，
+    /// 不把整块撑开。撑开会改掉这一块占多大屏，而块占多大屏是当初挑放置方案的依据。
     /// </remarks>
     private void BuildObjective()
     {
@@ -225,15 +210,11 @@ public sealed partial class LevelHud : Control
     }
 
     /// <summary>
-    /// 6 个技能位：**一行横排**，两组之间空一个栅格，每组前面一个修饰键记号。
+    /// 技能位：横排一行，两组之间空一个栅格。
     /// </summary>
     /// <remarks>
-    /// 技能位横排一行。`FR-17` 靠两样东西成立：按住修饰键时**那一组
-    /// 三个连着高亮**（横排下是连续的三格，比两行更像「一组」），以及每组前面的记号列
-    /// 「L」「R」告诉玩家没按住时哪三个归哪个扳机。
-    ///
-    /// 记号列在键鼠下是空的（六个键一一对应，没有修饰键这一层），但**列宽照留** ——
-    /// 换设备时块宽不变，四块的位置就不会跟着跳。
+    /// 玩家要能看出哪几个归哪个扳机，靠的是两组之间那道空隙，加上按住修饰键时那一组连着高亮 ——
+    /// 横排下连续的几格比分成两行更像「一组」。
     /// </remarks>
     private void BuildSkills()
     {
@@ -242,8 +223,8 @@ public sealed partial class LevelHud : Control
 
         for (var group = 0; group < HudLayout.SkillGroupCount; group++)
         {
-            // 槽框本身已有边界，同组三格紧邻；空隙只留给两组之间的分界。
-            // 不再画「L」「R」记号列：键鼠下它永远是空的，手柄靠组间距 + 高亮 + 图标内面键记号分辨。
+            // 槽框本身已有边界，同一组的格子紧邻；空隙只留给两组之间那道分界。
+            // 这里不画「L」「R」记号列：键鼠下它永远是空的，手柄靠组间距、高亮与图标上的面键记号分辨。
             var triad = new HBoxContainer { Name = $"Group{group}" };
             triad.AddThemeConstantOverride("separation", 0);
             line.AddChild(triad);
@@ -272,8 +253,8 @@ public sealed partial class LevelHud : Control
                 icon.SetAnchorsPreset(LayoutPreset.FullRect);
                 frame.AddChild(icon);
 
-                // 冷却遮罩：**不透明**，从上往下遮住图标的一部分，退完即可用。
-                // 用遮住而不是压暗，理由见 PixelColor —— 半透明会在屏幕上造出插值像素。
+                // 冷却遮罩：不透明色块，从上往下遮住图标的一部分，退完即可用。
+                // 用遮住而不是压暗，因为半透明会在屏幕上造出插值出来的中间色（见 PixelColor）。
                 var mask = new ColorRect
                 {
                     Name = "Cooldown",
@@ -283,7 +264,7 @@ public sealed partial class LevelHud : Control
                 };
                 frame.AddChild(mask);
 
-                // 键鼠不重复画固定数字；手柄面键提示仍需保留，但叠在图标内而不另占一行。
+                // 手柄的面键提示叠在图标里，不另占一行 —— 多一行会改块高。
                 var hint = new Label
                 {
                     Name = "Hint",
@@ -304,9 +285,9 @@ public sealed partial class LevelHud : Control
     /// 队友：头像框加一根血条，横排。为 0 时整块收起。
     /// </summary>
     /// <remarks>
-    /// 格里没有名字 —— 20px 装不下 12px 的两个汉字，而识别本来就该靠头像（见
-    /// <see cref="HudTeammate"/>）。于是倒地这个状态另加一个记号盖在头像上，不只靠颜色
-    /// （[像素绘制原则 §4]：相反语义要有不同符号）。
+    /// 格里不写名字：头像那么宽装不下 12px 的两个汉字，而认人本来就该靠头像（见
+    /// <see cref="HudTeammate"/>）。倒地于是另加一个记号盖在头像上，不只换颜色 —— 相反的两个
+    /// 意思要有不同的符号，见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
     /// </remarks>
     private void BuildTeammates()
     {
@@ -365,9 +346,8 @@ public sealed partial class LevelHud : Control
     /// 按当前方案把四块贴到各自那条边上。
     /// </summary>
     /// <remarks>
-    /// 用引擎自己的锚点预设 API，尺寸取每块的最小尺寸、边距取安全边距。**这里没有一个坐标** ——
-    /// 于是逻辑宽度撑开时右侧那两块自动跟着走。原先由启动探针在两种宽高比下各量一遍来证明，
-    /// 探针已删：**验法是实机把窗口拉宽**，右侧两块该跟着贴住右边。
+    /// 走引擎自己的锚点预设，尺寸取每块的最小尺寸、边距取安全边距。这里没有一个坐标，所以逻辑
+    /// 宽度撑开时靠右那几块自动跟着走 —— 实机把窗口拉宽，它们该一直贴住右边。
     /// </remarks>
     private void AnchorBlocks()
     {
@@ -428,13 +408,11 @@ public sealed partial class LevelHud : Control
     /// 技能位：图标、冷却遮罩、按键记号，加当前生效那一组的高亮。
     /// </summary>
     /// <remarks>
-    /// `FR-17` 的落点。记号从 <see cref="InputHints"/> 推，而它又从绑定表推 —— 改键位时提示
-    /// 自动跟着改，不会一直教玩家按错的键。
+    /// 记号从 <see cref="InputHints"/> 来，它又从绑定表来 —— 改键位时提示自动跟着改，
+    /// 不会一直教玩家按错的键。
     ///
-    /// **键鼠不画记号**：六个技能键与六个槽位从左到右一一对应（`H` `Y` `U` `I` `O` `L`，
-    /// 顺序即编号），再在每个槽下画一遍字母，只是给屏幕底边添一行字，而冷却中的槽记号为空还会让
-    /// 这一行看起来像「H U I」这种断号。手柄不同，`LT`／`RT` 加面键推不出来，那个记号照画。
-    /// 键鼠那六个键仍由绑定表持有，改键位后手柄提示与实际按键照样同源。
+    /// 键鼠下不画记号：技能键与槽位从左到右一一对应，再在每格上画一遍字母只是多一行字，而冷却中
+    /// 的格记号为空还会让这一行看起来缺号。手柄不同，扳机加面键的组合玩家推不出来，记号照画。
     /// </remarks>
     private void RefreshSkills()
     {
@@ -467,13 +445,13 @@ public sealed partial class LevelHud : Control
 
     // ── 小工具 ──────────────────────────────────────────────────────────
 
-    /// <summary>比例换算成整数像素长度。**取整在这一处**，别处不许再算一遍。</summary>
+    /// <summary>比例换算成整数像素长度。取整只在这一处做，别处不要再算一遍。</summary>
     private static int Extent(double ratio, int full) => (int)Math.Round(ratio * full);
 
     private static void Paint(Label label, PixelColor color) =>
         label.AddThemeColorOverride("font_color", PixelTheme.ToColor(color));
 
-    /// <summary>第 N 个槽位的素材路径。编号从 1 起 —— 登记表与美术槽位都是这么编的。</summary>
+    /// <summary>第 N 个槽位的素材路径。文件名里的编号从 1 起，与美术给的槽位编号一致。</summary>
     private static string Numbered(string format, int index) =>
         string.Format(format, index + 1);
 
@@ -481,7 +459,7 @@ public sealed partial class LevelHud : Control
     /// 一块的外框：面板底 + 描边 + 一圈内边距，里面横排。
     /// </summary>
     /// <param name="block">哪一块。</param>
-    /// <param name="separation">列距。**必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致**，理由见 <see cref="Column"/>。</param>
+    /// <param name="separation">列距，单位是界面像素。必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致，理由见 <see cref="Column"/>。</param>
     private HBoxContainer Row(HudBlock block, int separation)
     {
         var box = new HBoxContainer { Name = "Content" };
@@ -495,11 +473,9 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <param name="block">哪一块。</param>
     /// <param name="separation">
-    /// 行距。**必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致** —— 两边不一致时块会比
-    /// 预测的矮或高几像素，而 <c>set_offsets_preset</c> 是按**内容最小尺寸**算偏移、实际尺寸却按
-    /// 「内容最小与 <c>CustomMinimumSize</c> 取大」定的，于是块会整体偏出安全边距几像素。
-    /// 实测撞过一次（技能块行距写 0、算式按一个间距，块低了 4px），当时由启动探针的
-    /// 「实际矩形与预测逐块一致」抓出来；探针已删，改这个数时请实机看一眼块有没有偏出边距。
+    /// 行距，单位是界面像素。必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致：偏移是按
+    /// 内容最小尺寸算的，而实际尺寸取「内容最小尺寸与 <c>CustomMinimumSize</c> 里较大的那个」，
+    /// 两边不一致时整块会偏出安全边距几像素（实测撞过）。改这个数之后实机看一眼块有没有偏出去。
     /// </param>
     private VBoxContainer Column(HudBlock block, int separation)
     {
@@ -513,10 +489,9 @@ public sealed partial class LevelHud : Control
     /// 造一块的面板底。
     /// </summary>
     /// <remarks>
-    /// 用 <see cref="StyleBoxFlat"/> 而不是九宫格素材，两条理由：描边宽度与内边距要从
-    /// <see cref="UIMetrics"/> 取（素材一旦换尺寸，九宫格边距就得跟着改，那是第二份真相）；
-    /// 而且**抗锯齿必须关掉** —— 圆角与抗锯齿会造出半透明边，违反[像素绘制原则 §9]。
-    /// 面板素材 `panel.png` 留给对话框与弹窗，那里真需要九宫格花纹。
+    /// 用 <see cref="StyleBoxFlat"/> 而不是九宫格素材：描边宽度与内边距要从 <see cref="UIMetrics"/>
+    /// 取，而九宫格的边距跟着素材尺寸走，换一张素材就多出一份说法。抗锯齿必须关掉 —— 圆角加抗
+    /// 锯齿会造出半透明边，见设计仓 production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
     /// </remarks>
     private PanelContainer Frame(HudBlock block)
     {
@@ -542,7 +517,7 @@ public sealed partial class LevelHud : Control
         return frame;
     }
 
-    /// <summary>一张定尺寸的图。**不碰 <c>TextureFilter</c>** —— 项目级最近邻是文字清晰的唯一依靠。</summary>
+    /// <summary>一张定尺寸的图。不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是文字清晰的唯一依靠。</summary>
     private static TextureRect Picture(string path, int width, int height) => new()
     {
         Name = "Art",

@@ -1,4 +1,13 @@
-"""Run a repository Python check with disposable user directories off the system drive."""
+"""跑 tools/ 下某个 Python 入口，但把它的用户目录换成工作区里一份用完就删的临时目录。
+
+这样做是为了不往系统盘写东西：被换掉的是 TEMP、TMP、APPDATA、LOCALAPPDATA 四个环境变量，
+跑完连目录一起删。
+
+用法：
+    python tools/run_local_check.py verify.py           # 跑 verify.py
+    python tools/run_local_check.py verify.py --upto test
+    python tools/run_local_check.py --clean local-check-xxxx   # 手动清掉某次残留
+"""
 from __future__ import annotations
 
 import os
