@@ -20,6 +20,9 @@ obj/
 *.trx
 coverage*.xml
 
-# Python 字节码。tools/selfcheck_verify.py 会 import verify.py，于是有了 tools/__pycache__/。
+# Python 字节码。tools/verify.py 会 import 同目录的 loglib，于是有了 tools/__pycache__/。
 __pycache__/
 *.py[cod]
+
+# 编辑器的本机设置。godot-tools 往这里写引擎的绝对路径，那是一台机器的事实而不是仓库内容。
+/.vscode/
