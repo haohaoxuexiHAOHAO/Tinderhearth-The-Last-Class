@@ -329,6 +329,16 @@ row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
 **不覆盖 `TextureFilter`。** 项目级最近邻纹理过滤在 `project.godot` 里统一设置，
 代码和场景里不许覆盖它（`ENG-13`）——覆盖成线性过滤会让像素糊掉，这一条作者实机看得出来。
 
+## 工具脚本
+
+**`[Tool]` 脚本导出的自定义 `Resource` 类型，那个类型自己也要带 `[Tool]`。**
+编辑器只构造工具脚本，非工具的 C# 资源类在编辑器里会以普通 `Godot.Resource` 回来，于是
+`Array<那个类型>` 一取元素就抛 `InvalidCastException`，`_Ready` 整条断在那里。
+上游说明这是预期行为而非缺陷（`godotengine/godot#119603`）。
+
+**这个错只在编辑器里出现**，运行时与无头跑场景都是干净的——所以 `verify.py` 判不到它，
+照着跑也复现不出来。范本：`src/World/Terrain/DualGridPair.cs`。
+
 ## 事件订阅
 
 订阅事件必须在 `_ExitTree` 里解绑，与订阅成对出现：

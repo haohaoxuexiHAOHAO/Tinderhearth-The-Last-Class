@@ -13,7 +13,15 @@ namespace Tinderhearth.World.Terrain;
 /// 看图集里四角全同的那两张：全是 <see cref="TerrainA"/> 的那一张编码为 0000。
 ///
 /// 画法出自设计仓 production/场景绘制约定.md 的「双网格」一节。
+///
+/// <c>[Tool]</c> 不能去掉，哪怕这个类自己在编辑器里不干活：编辑器只构造工具脚本，非工具的 C#
+/// 资源类在编辑器里会以普通 <c>Godot.Resource</c> 回来，于是 <see cref="DualGridPainter"/> 那个
+/// <c>Array&lt;DualGridPair&gt;</c> 一取元素就抛 <c>InvalidCastException</c>，整条 <c>_Ready</c>
+/// 断在那里、显示层一格都不画。上游说明这是预期行为而非缺陷
+/// （godotengine/godot#119603）。运行时不受影响，所以**这个错只在编辑器里出现** —— 无头跑场景
+/// 是干净的，照着跑不出来。
 /// </remarks>
+[Tool]
 [GlobalClass]
 public partial class DualGridPair : Resource
 {
