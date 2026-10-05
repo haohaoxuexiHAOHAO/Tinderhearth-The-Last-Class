@@ -12,7 +12,7 @@
            —— 表从 C# 里解析，不在本文件里再抄一份
   四、外圈：每格最外一圈要与规范边逐像素相同
 
-规范边只在本文件 SHADES 与 build_strips() 一处定义；`--emit-ring` 按同一定义写出可直接
+规范边只在本文件 SETS 与 build_strips() 一处定义；`--emit-ring` 按同一定义写出可直接
 贴进 Aseprite 的外圈模板，所以「检查用的」与「画画用的」不会飘。
 
 用法（从代码仓根目录跑）：
@@ -47,10 +47,37 @@ SIDE = 4                      # 4x4 共 16 张
 HALF = TILE // 2
 EDGES = ("上边", "右边", "下边", "左边")
 
-# 两侧各自的阴影色。这是美术选择，必须声明 —— 受光的两种地形色从素材的角像素反推，不写死。
-SHADES = {
-    "grass-dirt.png": {"a": (116, 131, 21), "b": (171, 104, 60)},
-    "grass-water.png": {"a": (116, 131, 21), "b": (63, 132, 141)},
+# 地形名到受光色。**跨套共用的地形在这里只出现一次**，这是「同一种地形在两套素材里必须同色」
+# 那条判据的全部实现 —— 一格四角只有一种地形时，它落给第一个认得它的那一对，所以两套画得不
+# 同色会让同一片纯水出现两种蓝，而引擎不报错。
+#
+# 这是世界侧配色的一个部分落点。正式色板归 `ART-15`，那条落地之后这张表要搬过去，不要在两处各存。
+TERRAINS = {
+    "草": (163, 179, 64),
+    "裸土": (220, 151, 78),
+    "浅水": (100, 165, 173),
+    "深水": (37, 88, 116),
+}
+
+# 每套素材是哪一对地形，外加两侧各自的过渡像素（这是美术选择，必须声明）。
+#
+# `shade_a` 与 `shade_b` 各是一串颜色，**按「从外侧往界线方向」排**，归哪一侧按它是谁的影判：
+# 草土那两套里深绿是草自己的阴影（草侧），棕与蓝是投在对侧地面上的影（对侧）。
+# 深浅水之间没有投影，只有一格混色，它更接近深水所以归深水侧 —— 于是浅水侧为空。
+# 空列表是合法的：那一侧就从纯色直接接到界线。
+SETS = {
+    "grass-dirt.png": {
+        "a": "草", "b": "裸土",
+        "shade_a": [(116, 131, 21)], "shade_b": [(171, 104, 60)],
+    },
+    "grass-shallow.png": {
+        "a": "草", "b": "浅水",
+        "shade_a": [(116, 131, 21)], "shade_b": [(63, 132, 141)],
+    },
+    "shallow-deep.png": {
+        "a": "浅水", "b": "深水",
+        "shade_a": [], "shade_b": [(53, 106, 135)],
+    },
 }
 
 fails: list[str] = []
@@ -106,9 +133,13 @@ def build_strips(lit: tuple, shade: dict) -> dict:
     几何上就在图块边的正中。两端同色的边整条纯色，于是装饰性碎像素不许落在边上。
     """
     a, b = lit
-    sa, sb = shade["a"], shade["b"]
-    mixed_ab = [a] * (HALF - 1) + [sa, sb] + [b] * (HALF - 1)
-    mixed_ba = [b] * (HALF - 1) + [sb, sa] + [a] * (HALF - 1)
+    sa, sb = list(shade["a"]), list(shade["b"])
+    # 每一侧「纯色 + 自己那几格过渡」正好占半条边，于是界线落在正中。过渡都贴着界线放：
+    # 前一侧的排在它那半的末尾，后一侧的排在它那半的开头。
+    mixed_ab = ([a] * (HALF - len(sa)) + sa
+                + sb + [b] * (HALF - len(sb)))
+    mixed_ba = ([b] * (HALF - len(sb)) + sb[::-1]
+                + sa[::-1] + [a] * (HALF - len(sa)))
     out = {}
     for axis in ("竖", "横"):
         out[(axis, (0, 0))] = [a] * TILE
@@ -164,6 +195,15 @@ def check_set(name: str, table: list | None, emit_dir: Path | None) -> None:
         return
     ok(f"四角只用了 2 种纯地形色，各 {list(seen.values())} 次")
 
+    cfg = SETS[name]
+    declared = {TERRAINS[cfg["a"]], TERRAINS[cfg["b"]]}
+    if set(seen) != declared:
+        fail(f"四角用的色与声明的不符：实测 {sorted(seen)}，"
+             f"而 {cfg['a']}＝{TERRAINS[cfg['a']]}、{cfg['b']}＝{TERRAINS[cfg['b']]}"
+             "（同一种地形在各套素材里必须同色，否则纯色格会出现两种颜色）")
+        return
+    ok(f"四角用的色与声明一致（{cfg['a']}、{cfg['b']}）")
+
     # 素材本身没有「谁是 A」这回事 —— 那是场景里 DualGridPair.TerrainA/TerrainB 填的。
     # 所以两种标法都试，能对上 C# 那张表的就是这套素材的 A/B，并把结论报出来供填检查器。
     def measure(a_rgb, b_rgb) -> dict:
@@ -202,10 +242,10 @@ def check_set(name: str, table: list | None, emit_dir: Path | None) -> None:
     notes.append(f"{name}：A（编码里的 0）={a}　B（编码里的 1）={b}"
                  f" —— 场景里这一对的 TerrainA 要填 A 那种地形")
 
-    shade = SHADES.get(name)
-    if shade is None:
-        fail(f"SHADES 里没有 {name} 的阴影色声明，外圈那一关没法判")
-        return
+    # 阴影色跟着 A／B 哪一侧走，而 A／B 是上面比对出来的，所以这里按实测的 a 判方向。
+    flipped = a != TERRAINS[cfg["a"]]
+    shade = ({"a": cfg["shade_b"], "b": cfg["shade_a"]} if flipped
+             else {"a": cfg["shade_a"], "b": cfg["shade_b"]})
     strips = build_strips((a, b), shade)
 
     nm = ("A", "B")
@@ -269,19 +309,19 @@ def main() -> int:
     emit = Path(args.emit_ring).resolve() if args.emit_ring else None
 
     table = code_to_atlas()
-    for name in SHADES:
+    for name in SETS:
         check_set(name, table, emit)
 
     print()
     for n in notes:
         print(f"覆盖量：{n}")
-    print(f"覆盖量：检查 {len(SHADES)} 套素材、每套 16 张、每张 4 条边")
+    print(f"覆盖量：检查 {len(SETS)} 套素材、每套 16 张、每张 4 条边")
     if fails:
         print(f"结果：{len(fails)} 项必须修复")
         print("EXIT=1")
         return 1
     print("结果：0 项必须修复")
-    print("[OK] 两套素材的外圈都与规范边一致")
+    print(f"[OK] {len(SETS)} 套素材的外圈都与规范边一致")
     print("EXIT=0")
     return 0
 
