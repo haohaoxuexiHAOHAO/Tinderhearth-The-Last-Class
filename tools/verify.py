@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""代码仓验收总入口：命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物，串成一条命令。
+"""代码仓验收总入口：命名 → 行尾 → 双网格素材 → 构建 → 测试 → 导出 → 跑产物，串成一条命令。
 
 这里只留「与编辑器里配什么无关」的那几步。场景、碰撞区域、素材和参数归作者在 Godot 里配，
 画面上的事由他实机看，所以素材检查、代码形状检查和那几个图形探针都已经删了。留下的是三类实机
@@ -15,6 +15,7 @@
 
     命名    磁盘上的名字 对 代码与预设里写死的 res:// 路径（逐段比大小写，不用 exists）
     行尾    实际字节 对 git 自己解析出来的 .gitattributes 策略（规则不在本脚本里重写一遍）
+    双网格  素材里量出的四角 对 DualGridPainter.cs 那张映射表（表从 C# 解析，不抄第二份）
     构建    退出码，加上自己数错误行；认不出输出形状就判失败，不静默放过
     测试    运行器报的条数 对 从测试源码静态数出来的条数，两个独立来源必须相等
     导出    先清空 export/ 再导 → 产物必须存在 → 解开 .pck 逐条看清单查泄漏
@@ -153,10 +154,11 @@ SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 
-STEPS = ("names", "eol", "build", "test", "export", "smoke")
+STEPS = ("names", "eol", "dualgrid", "build", "test", "export", "smoke")
 STEP_TITLES = {
     "names": "命名",
     "eol": "行尾",
+    "dualgrid": "双网格素材",
     "build": "构建",
     "test": "测试",
     "export": "导出",
@@ -399,6 +401,37 @@ def step_eol(rep: Report) -> StepResult:
     return StepResult("eol", True, gauge.removeprefix("覆盖量："), cost,
                       log_names=["1-eol.log"],
                       details=[f"命令 tools/check_eol.py（输出编码 {enc}）"])
+
+
+# ── 双网格素材 ────────────────────────────────────────────────────────
+def step_dualgrid(rep: Report) -> StepResult:
+    """双网格素材检查：16 张的四角、映射，以及每格外圈与规范边逐像素相同。
+
+    和前两步同一类：纯 Python、不编译、不启引擎，所以排在构建之前。它判的东西在 Godot 里
+    只看得出「接缝不好看」，看不出是哪一张的哪条边偏了几像素 —— 而双网格的图块是可互换的，
+    哪两张挨在一起由玩家刷地决定，所以「同一对角的那条边必须完全一样」是硬约束。
+
+    不只看退出码：认不出 check_dualgrid.py 的输出形状同样拒绝判过。
+    """
+    started = time.perf_counter()
+    code, out, enc = run([sys.executable, str(ROOT / "tools" / "check_dualgrid.py")],
+                         ROOT, timeout=120)
+    rep.write_log("1-dualgrid.log", f"# 编码 {enc}\n# 退出码 {code}\n\n{out}")
+    cost = time.perf_counter() - started
+
+    gauges = [ln for ln in out.splitlines() if ln.startswith("覆盖量：")]
+    if not gauges:
+        return StepResult("dualgrid", False,
+                          "认不出 check_dualgrid.py 的输出形状，拒绝判过",
+                          cost, log_names=["1-dualgrid.log"])
+    if code != 0:
+        first = next((ln for ln in out.splitlines() if ln.startswith("  [FAIL]")),
+                     "详见日志")
+        return StepResult("dualgrid", False, f"失败：{first.strip().removeprefix('[FAIL] ')}",
+                          cost, log_names=["1-dualgrid.log"], details=gauges)
+    return StepResult("dualgrid", True, gauges[-1].removeprefix("覆盖量："), cost,
+                      log_names=["1-dualgrid.log"],
+                      details=[f"命令 tools/check_dualgrid.py（输出编码 {enc}）"] + gauges[:-1])
 
 
 # ── 构建 ──────────────────────────────────────────────────────────────
@@ -1023,6 +1056,8 @@ def main() -> int:
             result = step_names(rep)
         elif name == "eol":
             result = step_eol(rep)
+        elif name == "dualgrid":
+            result = step_dualgrid(rep)
         elif name == "build":
             result = step_build(rep)
         elif name == "test":
