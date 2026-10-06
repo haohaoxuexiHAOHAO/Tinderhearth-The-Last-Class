@@ -260,6 +260,27 @@ def check_set(name: str, table: list | None, emit_dir: Path | None) -> None:
             strip = [tiles[pos].getpixel(p) for p in coords(edge)]
             groups.setdefault((axis, pairs[edge]), []).append((pos, edge, strip))
 
+    # 「四角同色」那两张会被盖在每一格开阔地面上，所以它们必须是整条纯色。
+    #
+    # 两个后果各自都够：**铺开会显出方格纸** —— 带几个细节像素的话，整片水或整片土的每一格
+    # 都在同一位置有同样几个点；**跨套会不一致** —— 同一种地形出现在两套里时，纯色格落给
+    # 第一个认得它的那一对，两套画得不同就是同一片地两种长相。
+    #
+    # 细节不是不许画，是不许画在这一张上：开阔地面的高光与碎石归装饰层（多个备选图块随机刷，
+    # 顺带把重复感压掉），交界那几张的收边与阴影照旧画在图里 —— 覆盖层按整格贴，
+    # 贴不出「只在水那一侧」。判据见设计仓 production/场景绘制约定.md 的「俯视布景」一节。
+    for code, label in ((0, cfg["a"]), (15, cfg["b"])):
+        pos = next(p for c, p in enumerate(table) if c == code)
+        colors = {tiles[pos].getpixel((x, y))
+                  for y in range(TILE) for x in range(TILE)}
+        if len(colors) != 1:
+            extra = len(colors) - 1
+            fail(f"四角全是{label}那一张（图集 {pos}）不是纯色，混了 {extra} 种别的颜色。"
+                 "开阔地面每一格都用它，带细节会按格重复成方格纸，"
+                 "而同一种地形出现在两套里时还会两边长得不一样")
+        else:
+            ok(f"四角全是{label}那一张是整条纯色")
+
     off = []
     for (axis, key), members in sorted(groups.items()):
         want_strip = strips[(axis, key)]
