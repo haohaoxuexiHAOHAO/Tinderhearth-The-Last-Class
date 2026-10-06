@@ -84,6 +84,9 @@ public partial class DualGridPainter : Node
     private bool _repaintQueued;
     private bool _reportedUncoveredCorner;
 
+    /// <summary>这次重画时数据层占的范围。<see cref="TerrainAt"/> 拿它把范围外的角钳到边缘上。</summary>
+    private Rect2I _used;
+
     public override void _Ready()
     {
         if (!TryBind(out var reason))
@@ -253,10 +256,14 @@ public partial class DualGridPainter : Node
             return;
         }
 
-        // 显示层要比数据层多刷一圈：最外面那一圈显示格的四个角有一半压在数据层范围之外。
-        for (var y = used.Position.Y; y <= used.End.Y + 1; y++)
+        _used = used;
+
+        // 显示层比数据层多一行一列，且只多在右下。显示格往左上挪了半格，所以第一行第一列那些格
+        // 已经盖住了数据区上边与左边探出去的半格；右下那半格要再多一行一列才盖得住。
+        // 注意 End 是开区间端点，所以末行末列的下标正好是 End 本身，再往外一格连一个角都挨不上。
+        for (var y = used.Position.Y; y <= used.End.Y; y++)
         {
-            for (var x = used.Position.X; x <= used.End.X + 1; x++)
+            for (var x = used.Position.X; x <= used.End.X; x++)
             {
                 PaintDisplayCell(new Vector2I(x, y));
             }
@@ -289,11 +296,22 @@ public partial class DualGridPainter : Node
         _display!.SetCell(cell, pair.DisplaySourceId, pair.AtlasOrigin + CodeToAtlasOffset[code]);
     }
 
-    /// <summary>某个数据格是哪种地形。空格和没标地形的都算 -1。</summary>
-    private int TerrainAt(Vector2I cell) => _data!.GetCellTileData(cell) is TileData data
-        && data.TerrainSet == DataTerrainSet
+    /// <summary>某个数据格是哪种地形。范围外的按最近的边缘格算，范围内空着的算 -1。</summary>
+    /// <remarks>
+    /// 最外一圈显示格有一半角落在数据层范围之外（见 <see cref="Repaint"/>），那些角按最近的边缘格
+    /// 取值，等于把地图边缘的地形往外延伸一格。不能让它们算 -1：-1 在
+    /// <see cref="DualGridPair.BitOf"/> 那里得到 0，而 0 是地形 A，于是地图边上会凭空多出一条
+    /// 地形 A 的镶边 —— 一片贴着地图边的深水，外面会被包上一圈浅水。
+    ///
+    /// 范围内的空格照旧算 -1。那是作者漏标，该让 <see cref="PairFor"/> 按原样处理，不在这里抹平。
+    /// </remarks>
+    private int TerrainAt(Vector2I cell)
+    {
+        Vector2I sample = cell.Clamp(_used.Position, _used.End - Vector2I.One);
+        return _data!.GetCellTileData(sample) is TileData data && data.TerrainSet == DataTerrainSet
             ? data.Terrain
             : -1;
+    }
 
     /// <summary>这四个角该用哪一对的素材。四角全空时返回 <c>null</c>，那一格不画。</summary>
     /// <remarks>
