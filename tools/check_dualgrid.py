@@ -41,42 +41,81 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parent.parent
 TILES = ROOT / "assets" / "self-drawn" / "tiles"
+PALETTE = ROOT / "assets" / "self-drawn" / "palette.gpl"
 PAINTER = ROOT / "src" / "World" / "Terrain" / "DualGridPainter.cs"
 TILE = 16
 SIDE = 4                      # 4x4 共 16 张
 HALF = TILE // 2
 EDGES = ("上边", "右边", "下边", "左边")
 
-# 地形名到受光色。**跨套共用的地形在这里只出现一次**，这是「同一种地形在两套素材里必须同色」
-# 那条判据的全部实现 —— 一格四角只有一种地形时，它落给第一个认得它的那一对，所以两套画得不
-# 同色会让同一片纯水出现两种蓝，而引擎不报错。
+def palette() -> dict[str, tuple[int, int, int]]:
+    """读世界侧色板，返回「色板项名 → RGB」。
+
+    色值的唯一来源是那个 `.gpl`，本脚本只引项名、不抄数字。原先这里硬写着四个地形的 RGB，
+    而色板落地之后那就是第二份副本 —— 改了色板而忘了改这里不报错，表现只是守卫拿旧色去比，
+    把对的素材判成错的（实测撞过一次：重映射之后这一关整个失败）。
+
+    顺带多了一条判据：地形色必须是色板里**真有**的一项，拼错项名直接在这里停。
+    """
+    if not PALETTE.exists():
+        raise SystemExit(f"[FAIL] 找不到 {PALETTE.relative_to(ROOT)}，颜色那几关没法判")
+    out: dict[str, tuple[int, int, int]] = {}
+    for line in PALETTE.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith(("#", "GIMP", "Name", "Columns")):
+            continue
+        parts = line.split("\t")
+        rgb = tuple(int(v) for v in parts[0].split())
+        if len(rgb) != 3 or len(parts) < 2:
+            raise SystemExit(f"[FAIL] 色板里这一行解析不出来：{line!r}")
+        out[parts[1].strip()] = rgb
+    if not out:
+        raise SystemExit(f"[FAIL] 色板里一条色项都没解析到，这一关根本没有执行，不是通过")
+    return out
+
+
+PALETTE_ENTRIES = palette()
+
+
+def pick(entry: str) -> tuple[int, int, int]:
+    if entry not in PALETTE_ENTRIES:
+        raise SystemExit(f"[FAIL] 色板里没有「{entry}」这一项，"
+                         f"有的是：{'、'.join(sorted(PALETTE_ENTRIES))}")
+    return PALETTE_ENTRIES[entry]
+
+
+# 地形名到它在色板里是哪一项。**跨套共用的地形在这里只出现一次**，这是「同一种地形在两套素材里
+# 必须同色」那条判据的全部实现 —— 一格四角只有一种地形时，它落给第一个认得它的那一对，所以两套
+# 画得不同色会让同一片纯水出现两种蓝，而引擎不报错。
 #
-# 这是世界侧配色的一个部分落点。正式色板归 `ART-15`，那条落地之后这张表要搬过去，不要在两处各存。
+# 这里只说「哪种地形用色板的哪一档」，不说那一档是什么颜色 —— 后者在 `.gpl` 里。两件事，两个家。
 TERRAINS = {
-    "草": (163, 179, 64),
-    "裸土": (220, 151, 78),
-    "浅水": (100, 165, 173),
-    "深水": (37, 88, 116),
+    "草": pick("moss 5"),
+    "裸土": pick("soil 7"),
+    "浅水": pick("water 5"),
+    "深水": pick("water 3"),
 }
 
 # 每套素材是哪一对地形，外加两侧各自的过渡像素（这是美术选择，必须声明）。
 #
-# `shade_a` 与 `shade_b` 各是一串颜色，**按「从外侧往界线方向」排**，归哪一侧按它是谁的影判：
+# `shade_a` 与 `shade_b` 各是一串色板项，**按「从外侧往界线方向」排**，归哪一侧按它是谁的影判：
 # 草土那两套里深绿是草自己的阴影（草侧），棕与蓝是投在对侧地面上的影（对侧）。
-# 深浅水之间没有投影，只有一格混色，它更接近深水所以归深水侧 —— 于是浅水侧为空。
 # 空列表是合法的：那一侧就从纯色直接接到界线。
+#
+# ⚠️ **深浅水那一套的过渡像素现在是空的，而它原先有一格混色。** 按色板重映射时那一格与深水
+# 落进了同一档（两者明度只差 17，而水青那条色带在那一段的步距是 25），于是它在素材里消失了。
+# 这是一处真的美术损失，不是声明写错 —— 要把它找回来得给水青补一档，或者作者重画那一格。
 SETS = {
     "grass-dirt.png": {
         "a": "草", "b": "裸土",
-        "shade_a": [(116, 131, 21)], "shade_b": [(171, 104, 60)],
+        "shade_a": [pick("moss 4")], "shade_b": [pick("soil 5")],
     },
     "grass-shallow.png": {
         "a": "草", "b": "浅水",
-        "shade_a": [(116, 131, 21)], "shade_b": [(63, 132, 141)],
+        "shade_a": [pick("moss 4")], "shade_b": [pick("water 4")],
     },
     "shallow-deep.png": {
         "a": "浅水", "b": "深水",
-        "shade_a": [], "shade_b": [(53, 106, 135)],
+        "shade_a": [], "shade_b": [],
     },
 }
 
