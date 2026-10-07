@@ -4,7 +4,7 @@ using Tinderhearth.UI;
 
 namespace Tinderhearth.World.Farm;
 
-/// <summary>俯视场景里走动的角色。只管移动和朝向。</summary>
+/// <summary>俯视场景里走动的角色。管移动、朝向，以及按朝向切精灵。</summary>
 /// <remarks>
 /// 它和侧视关卡那个 <see cref="PlayerActor"/> 是两套，不合并。原因是轴不一样：侧视关卡的纵深是
 /// 一条独立的轴、位置由规则层持有；俯视没有独立纵深轴，屏幕的纵向就是纵深。硬凑成一个类之后，
@@ -14,9 +14,34 @@ namespace Tinderhearth.World.Farm;
 /// </remarks>
 public partial class FarmWalker : CharacterBody2D
 {
+    private const string IdleAction = "idle";
+    private const string WalkAction = "walk";
+
+    /// <summary>代码会请求的动作，与下面那组朝向配对成全部动画名。</summary>
+    /// <remarks>
+    /// 载入时核的就是这两组的配对结果，所以「代码请求的」与「载入核过的」永远是同一份 ——
+    /// 另写一份清单的话会出现核了八个却请求第九个，而那一下要等玩家真的转到那一向才炸。
+    /// </remarks>
+    private static readonly string[] Actions = [IdleAction, WalkAction];
+
+    private static readonly Vector2I[] Facings =
+        [Vector2I.Down, Vector2I.Up, Vector2I.Left, Vector2I.Right];
+
     /// <summary>输入门面。玩法代码一律经它问输入，不直接轮询 <c>Input</c>。</summary>
     [Export]
     public InputRouter? Router { get; set; }
+
+    /// <summary>角色的精灵。它那份 SpriteFrames 由作者在编辑器里建，这里只负责切到哪一个。</summary>
+    /// <remarks>
+    /// 动画名是「动作_朝向」，朝向取 down、up、left、right 四个词之一，所以这份表要有八个动画：
+    /// idle 与 walk 各四向。缺哪一个在 <see cref="_Ready"/> 里点名报错。
+    ///
+    /// 每个朝向各一套，代码不做水平翻转，也没有「这个角色翻不翻」的开关 —— 主角缺一条手臂，
+    /// 镜像会让空袖子每次转身换边。想省就在绘图软件里镜像后导出，那是绘制决定，代码看到的只是
+    /// 两套长得镜像的图。理由在设计仓 decisions/ADR-0021-每个朝向各画一套不做水平翻转.md。
+    /// </remarks>
+    [Export]
+    public AnimatedSprite2D? Body { get; set; }
 
     /// <summary>走动速度，世界像素每秒。</summary>
     /// <remarks>
@@ -36,12 +61,22 @@ public partial class FarmWalker : CharacterBody2D
     public Vector2I Facing { get; private set; } = Vector2I.Down;
 
     private InputRouter _router = null!;
+    private AnimatedSprite2D _body = null!;
+
+    // 上一次切动画时的动作与朝向。Play 会把帧号与帧内进度归零，所以每帧调一次等于动画永远停在
+    // 第 0 帧 —— 而那不报错，只表现为「角色站着不动也不呼吸」。
+    private string _playingAction = "";
+    private Vector2I _playingFacing;
 
     public override void _Ready()
     {
         _router = Router ?? throw new InvalidOperationException(
             $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
                 + $"请在场景里放一个挂了 {nameof(InputRouter)} 脚本的节点，再把它拖到这一格上");
+
+        _body = Body ?? throw new InvalidOperationException(
+            $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(Body)} 没接上 —— "
+                + "请在它下面放一个 AnimatedSprite2D，再把那个节点拖到这一格上");
 
         if (SpeedPixelsPerSecond <= 0f)
         {
@@ -51,9 +86,29 @@ public partial class FarmWalker : CharacterBody2D
                     + "（填多少实机试）");
         }
 
+        if (_body.SpriteFrames is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmWalker)}（节点 {Name}）接的那个精灵（{_body.Name}）还没有 SpriteFrames —— "
+                    + "在检查器里新建一份，再到底部那个面板里按「动作_朝向」加动画");
+        }
+
+        string[] missing = [.. Actions
+            .SelectMany(action => Facings.Select(facing => AnimationName(action, facing)))
+            .Where(name => !_body.SpriteFrames.HasAnimation(name))];
+        if (missing.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmWalker)}（节点 {Name}）接的那份 SpriteFrames 缺这几个动画："
+                    + $"{string.Join("、", missing)} —— 每个朝向各要一套，"
+                    + "代码不拿另一向镜像凑；想省画量就在绘图软件里镜像后导出");
+        }
+
         // 俯视没有地板和天花板，所以用浮空模式。接地模式会把「往上走」当成跳，表现是纵向移动
         // 卡顿或者干脆不动，而引擎不报错。
         MotionMode = MotionModeEnum.Floating;
+
+        Play(IdleAction, Facing);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -62,6 +117,9 @@ public partial class FarmWalker : CharacterBody2D
         Velocity = direction * SpeedPixelsPerSecond;
         UpdateFacing(direction);
         MoveAndSlide();
+        // 按输入判在不在走，不按移动后的速度判。顶着障碍物推的时候仍然播行走 —— 改用实际位移的话
+        // 贴着墙按方向键会显示待机，玩家会以为自己没按上。
+        Play(direction == Vector2.Zero ? IdleAction : WalkAction, Facing);
     }
 
     /// <summary>按这一帧的输入更新朝向。某个轴更强时才换，两轴相等时不变。</summary>
@@ -84,4 +142,33 @@ public partial class FarmWalker : CharacterBody2D
             Facing = direction.Y > 0f ? Vector2I.Down : Vector2I.Up;
         }
     }
+
+    /// <summary>切到这个动作与朝向对应的那个动画。动作与朝向都没变时一个字不做。</summary>
+    private void Play(string action, Vector2I facing)
+    {
+        if (action == _playingAction && facing == _playingFacing)
+        {
+            return;
+        }
+        _playingAction = action;
+        _playingFacing = facing;
+        _body.Play(AnimationName(action, facing));
+    }
+
+    /// <summary>一个动作加一个朝向对应哪个动画名。</summary>
+    private static string AnimationName(string action, Vector2I facing) =>
+        $"{action}_{FacingWord(facing)}";
+
+    /// <summary>朝向对应的那个英文词。这四个词只在这里定，别处都从这里取。</summary>
+    /// <remarks>
+    /// 与输入动作名（<see cref="InputActions.MoveDown"/> 那一组）用同一组词，所以「按下的键」与
+    /// 「播的动画」读起来对得上，不是两套词。
+    /// </remarks>
+    private static string FacingWord(Vector2I facing) => facing switch
+    {
+        _ when facing == Vector2I.Up => "up",
+        _ when facing == Vector2I.Left => "left",
+        _ when facing == Vector2I.Right => "right",
+        _ => "down",
+    };
 }
