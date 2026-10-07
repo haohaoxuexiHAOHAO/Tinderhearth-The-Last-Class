@@ -78,6 +78,10 @@ public partial class FarmCellCursor : Node2D
 
     public override void _Ready()
     {
+        // 先停掉每帧回调，全部校验过了再开。_Ready 抛出之后引擎并不会停掉这个节点，_Process
+        // 照旧每帧跑而下面那几个字段还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走。
+        SetProcess(false);
+
         _grid = GridLayer ?? throw new InvalidOperationException(
             $"{nameof(FarmCellCursor)}（节点 {Name}）的 {nameof(GridLayer)} 没接上 —— "
                 + "它要靠一层 TileMapLayer 把世界坐标换成格坐标");
@@ -104,6 +108,8 @@ public partial class FarmCellCursor : Node2D
                     + "这个量没有默认值，要在检查器里填一个至少为 1 的数"
                     + "（形状固定是十字、不含斜角，这个数只决定伸多远，填多少实机试）");
         }
+
+        SetProcess(true);
     }
 
     public override void _Process(double delta)

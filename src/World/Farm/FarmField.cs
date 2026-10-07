@@ -140,6 +140,10 @@ public partial class FarmField : Node
 
     public override void _Ready()
     {
+        // 先停掉每帧回调，全部校验过了再开。_Ready 抛出之后引擎并不会停掉这个节点，_Process
+        // 照旧每帧跑而下面那几个字段还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走。
+        SetProcess(false);
+
         _tilled = TilledLayer ?? throw Missing(nameof(TilledLayer), "耕地那一层（叠在天然地形之上的 TileMapLayer）");
         _crops = CropsContainer ?? throw Missing(nameof(CropsContainer), "放作物精灵的那个节点");
         _cursor = Cursor ?? throw Missing(nameof(Cursor), $"当前操作格（挂了 {nameof(FarmCellCursor)} 的节点）");
@@ -178,6 +182,8 @@ public partial class FarmField : Node
         FillCarryBarWithSeeds();
         BuildPlots();
         RefreshAll();
+
+        SetProcess(true);
     }
 
     public override void _Process(double delta)
