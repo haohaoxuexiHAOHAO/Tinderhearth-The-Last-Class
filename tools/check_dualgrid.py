@@ -19,7 +19,7 @@
     python tools/check_dualgrid.py
     python tools/check_dualgrid.py --emit-ring <输出目录>
 
-本脚本没有自证入口，也没有接进 verify.py。
+本脚本没有自证入口。它是 verify.py 的一步。
 """
 
 from __future__ import annotations
@@ -39,48 +39,25 @@ except ImportError:
     print("EXIT=1")
     raise SystemExit(1)
 
+from palettelib import pick as palette_pick, read_palette
+
 ROOT = Path(__file__).resolve().parent.parent
 TILES = ROOT / "assets" / "self-drawn" / "tiles"
-PALETTE = ROOT / "assets" / "self-drawn" / "palette.gpl"
 PAINTER = ROOT / "src" / "World" / "Terrain" / "DualGridPainter.cs"
 TILE = 16
 SIDE = 4                      # 4x4 共 16 张
 HALF = TILE // 2
 EDGES = ("上边", "右边", "下边", "左边")
 
-def palette() -> dict[str, tuple[int, int, int]]:
-    """读世界侧色板，返回「色板项名 → RGB」。
-
-    色值的唯一来源是那个 `.gpl`，本脚本只引项名、不抄数字。原先这里硬写着四个地形的 RGB，
-    而色板落地之后那就是第二份副本 —— 改了色板而忘了改这里不报错，表现只是守卫拿旧色去比，
-    把对的素材判成错的（实测撞过一次：重映射之后这一关整个失败）。
-
-    顺带多了一条判据：地形色必须是色板里**真有**的一项，拼错项名直接在这里停。
-    """
-    if not PALETTE.exists():
-        raise SystemExit(f"[FAIL] 找不到 {PALETTE.relative_to(ROOT)}，颜色那几关没法判")
-    out: dict[str, tuple[int, int, int]] = {}
-    for line in PALETTE.read_text(encoding="utf-8").splitlines():
-        if not line or line.startswith(("#", "GIMP", "Name", "Columns")):
-            continue
-        parts = line.split("\t")
-        rgb = tuple(int(v) for v in parts[0].split())
-        if len(rgb) != 3 or len(parts) < 2:
-            raise SystemExit(f"[FAIL] 色板里这一行解析不出来：{line!r}")
-        out[parts[1].strip()] = rgb
-    if not out:
-        raise SystemExit(f"[FAIL] 色板里一条色项都没解析到，这一关根本没有执行，不是通过")
-    return out
-
-
-PALETTE_ENTRIES = palette()
+# 色板的读取与度量在 palettelib，**本脚本只引项名、不抄数字也不自己解析**。
+# 原先这一段自己读 `.gpl`，而加色带时要问的那两个问题（取不取得到、撞不撞既有的）
+# 要读同一份表 —— 两份解析迟早漂移，而漂移不报错，表现只是两个工具对同一个色板
+# 给出不同答案。那条「不抄数字」的理由连同它撞过的那一次都在 palettelib 里。
+PALETTE_ENTRIES = read_palette()
 
 
 def pick(entry: str) -> tuple[int, int, int]:
-    if entry not in PALETTE_ENTRIES:
-        raise SystemExit(f"[FAIL] 色板里没有「{entry}」这一项，"
-                         f"有的是：{'、'.join(sorted(PALETTE_ENTRIES))}")
-    return PALETTE_ENTRIES[entry]
+    return palette_pick(PALETTE_ENTRIES, entry)
 
 
 # 地形名到它在色板里是哪一项。**跨套共用的地形在这里只出现一次**，这是「同一种地形在两套素材里
