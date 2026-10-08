@@ -11,6 +11,11 @@ namespace Tinderhearth.World.Farm;
 /// 侧视那套纵深钳制在俯视场景里无处可落。
 ///
 /// 地块和当前操作格不在这里，分别在 <see cref="FarmField"/> 和 <see cref="FarmCellCursor"/>。
+///
+/// 接地影子也不在这里，它画进素材本身的每一帧里。原先这个类画过一块几何椭圆，删掉的理由是
+/// 它不跟着走路变形：腿迈开而影子钉在正中，人看起来在影子上横向滑。影子进了素材之后形状逐帧
+/// 由作者定，而且天然落在整像素上。代价是它不再知道脚下是什么地面，所以那个色要挑在比所有
+/// 地面都暗一截的区间里 —— 色板里有一条专门的影子色带。
 /// </remarks>
 public partial class FarmWalker : CharacterBody2D
 {
@@ -50,42 +55,6 @@ public partial class FarmWalker : CharacterBody2D
     /// </remarks>
     [Export]
     public float SpeedPixelsPerSecond { get; set; }
-
-    /// <summary>脚下那块接地影子的宽，世界像素。没有默认值。</summary>
-    /// <remarks>
-    /// 影子代表的是他占的那块地，所以它**不**跟着动画帧变宽变窄。侧视那一侧量过：走路摆手会让
-    /// 整帧的不透明宽度从 20 像素掉到 11，逐帧照抄的话影子会随走路缩到一半，而他占的地根本没变。
-    ///
-    /// 俯视这一侧比侧视少两样：没有跳跃所以不按离地高度缩放，没有高低差所以不用射线找地面。
-    /// </remarks>
-    [Export]
-    public int ShadowWidthPx { get; set; }
-
-    /// <summary>脚下那块接地影子的高，世界像素。没有默认值。</summary>
-    /// <remarks>扁一点才像贴在地上；多扁只能实机看，所以这个数也没有默认值。</remarks>
-    [Export]
-    public int ShadowHeightPx { get; set; }
-
-    /// <summary>影子的颜色。alpha 必须是 1，不是 1 当场报错。</summary>
-    /// <remarks>
-    /// 像素只许全透明或全不透明，所以影子是一块不透明的暗色，不是半透明黑 —— 半透明会在屏幕上
-    /// 留下插值出来的中间色，和最近邻过滤、整数缩放对不上。
-    ///
-    /// 代价写明：同一个颜色要同时在草地、裸土与浅水上读成影子。在一种地面上调对了而在另一种上
-    /// 发脏时，这个值救不了，要改的是地形那几套素材的明度关系。
-    /// </remarks>
-    [Export]
-    public Color ShadowColor { get; set; } = Colors.Black;
-
-    /// <summary>影子相对脚底原点的偏移，世界像素。</summary>
-    /// <remarks>
-    /// 取整数而不是浮点：偏到半个像素上，椭圆的边就落在像素之间。
-    ///
-    /// 填零就是纯接地影（正下方）。外部光源统一来自右上，所以往左下偏一点会更贴光源方向 ——
-    /// 偏多少由你实机看，设计仓 production/场景绘制约定.md 只定了方向、没定量。
-    /// </remarks>
-    [Export]
-    public Vector2I ShadowOffsetPx { get; set; }
 
     /// <summary>角色此刻朝哪一向，取值只有上下左右四个之一。</summary>
     /// <remarks>
@@ -127,21 +96,6 @@ public partial class FarmWalker : CharacterBody2D
                     + "（填多少实机试）");
         }
 
-        if (ShadowWidthPx <= 0 || ShadowHeightPx <= 0)
-        {
-            throw new InvalidOperationException(
-                $"{nameof(FarmWalker)}（节点 {Name}）的影子尺寸是 {ShadowWidthPx}x{ShadowHeightPx} —— "
-                    + "两个都要在检查器里填一个大于零的数，它们没有默认值（扁多少、多宽只能实机看）");
-        }
-
-        if (!Mathf.IsEqualApprox(ShadowColor.A, 1f))
-        {
-            throw new InvalidOperationException(
-                $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(ShadowColor)} 的 alpha 是 "
-                    + $"{ShadowColor.A}，必须是 1 —— 像素只许全透明或全不透明，半透明影子会在屏幕上"
-                    + "留下插值出来的中间色。要更淡就挑一个更亮的暗色，不要降 alpha");
-        }
-
         if (_body.SpriteFrames is null)
         {
             throw new InvalidOperationException(
@@ -166,46 +120,7 @@ public partial class FarmWalker : CharacterBody2D
 
         Play(IdleAction, Facing);
 
-        // 影子尺寸是定值，所以只要排一次重画 —— 之后它跟着节点自己走，不用每帧算。
-        QueueRedraw();
-
         SetPhysicsProcess(true);
-    }
-
-    /// <summary>画脚下那块接地影子。</summary>
-    /// <remarks>
-    /// 它画在这里而不是单独一个子节点上，是因为父节点自己的绘制一定排在它的子节点之前 —— 于是
-    /// 影子必然在精灵底下，没有「作者把影子摆到人上面」这种配错法。
-    ///
-    /// 逐行画矩形，而不是画一个多边形椭圆：多边形的边会落在非整数像素上，而这一屏是最近邻过滤加
-    /// 整数缩放，边落在像素之间就会糊出一圈中间色。逐行算左右沿再取整，边永远在整像素上。
-    /// </remarks>
-    public override void _Draw()
-    {
-        var halfWidth = ShadowWidthPx / 2.0;
-        var halfHeight = ShadowHeightPx / 2.0;
-        var centerY = ShadowOffsetPx.Y;
-        var topRow = (int)Math.Round(centerY - halfHeight);
-
-        for (var i = 0; i < ShadowHeightPx; i++)
-        {
-            var y = topRow + i;
-            // 取这一行的中心到椭圆中心的纵向距离，代进椭圆方程求这一行的半宽。
-            var dy = y + 0.5 - centerY;
-            var inside = 1.0 - (dy * dy / (halfHeight * halfHeight));
-            if (inside <= 0.0)
-            {
-                continue;
-            }
-            var reach = halfWidth * Math.Sqrt(inside);
-            var left = (float)Math.Round(ShadowOffsetPx.X - reach);
-            var right = (float)Math.Round(ShadowOffsetPx.X + reach);
-            if (right - left < 1f)
-            {
-                continue;
-            }
-            DrawRect(new Rect2(left, y, right - left, 1f), ShadowColor);
-        }
     }
 
     public override void _PhysicsProcess(double delta)
