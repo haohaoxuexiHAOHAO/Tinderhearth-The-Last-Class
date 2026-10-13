@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import colorsys
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -73,6 +74,39 @@ def read_ramps() -> dict[str, list[tuple[int, int, int]]]:
             raise SystemExit(f"[FAIL] 色带「{ramp_name}」的档号不是 1..N 连续：{idx}")
         out[ramp_name] = [rgb for _, rgb in items]
     return out
+
+
+def read_families() -> list[tuple[str, list[str]]]:
+    """读色板里的族划分，返回 [(族名, [色带名...])]，顺序与文件一致。
+
+    族是文件里 `# ==== 名 ====` 那种分隔注释划出来的。它存在的理由是 Aseprite 不理
+    `Columns`、按侧边栏宽度自己换行 —— 顺序是唯一还能安排的东西，所以同族的色挨着放。
+
+    **族不等于「画一个物件要哪几条」**：画一张草土交界的图块要苔绿加土褐，那是两族。
+    所以按族拆出来的分表不一定够用，`palette_probe.py split` 因此也收色带名。
+    """
+    families: list[tuple[str, list[str]]] = []
+    current: str | None = None
+    for line in PALETTE.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^#\s*=+\s*(.+?)\s*=+\s*$", line)
+        if m:
+            current = m.group(1)
+            families.append((current, []))
+            continue
+        if line.startswith(("#", "GIMP", "Name", "Columns")) or not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        ramp = parts[1].strip().rsplit(" ", 1)[0]
+        if current is None:
+            raise SystemExit(f"[FAIL] 色带「{ramp}」排在第一个族标记之前 —— "
+                             "每条色带都要落在某一族里，不然 split 取不到它")
+        if ramp not in families[-1][1]:
+            families[-1][1].append(ramp)
+    if not families:
+        raise SystemExit("[FAIL] 色板里一个族标记都没有（形如 `# ==== 名 ====`）")
+    return families
 
 
 def chroma(rgb: tuple[int, int, int]) -> float:
