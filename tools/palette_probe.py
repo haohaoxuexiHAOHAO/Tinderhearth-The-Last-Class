@@ -10,6 +10,8 @@
        距离大就说明色板这一片没有人，画那样东西时无色可取。
   二、**这条新色带撞不撞** —— 按色相生成一条候选，逐档报最近邻。
        撞上的后果是两份近似色并存，迟早各画一半素材，而没有任何东西会报错。
+       改了一条**已有**色带的值之后用 `check`：它把那条自己排掉再比 —— `near` 拿整张表比，
+       查表里已有的色只会报出它自己、距离 0。
 
 ⚠️ **距离档（已有／凑得出／真缺）是人定的判断，不是实测出来的阈值**，所以本脚本一律把
 距离本身打出来。另有一条更要紧的：**拿真实照片的色当目标会判错** —— 真实宝石的彩度远高于
@@ -20,8 +22,9 @@
 整张表一百多色找起来慢）。
 
 用法（从代码仓根目录跑）：
-    python tools/palette_probe.py                              列现有色带与各自的区间
+    python tools/palette_probe.py                              列现有色带的区间与色相分布
     python tools/palette_probe.py near "#6E767E" "#3A3F45"     查这几个色取不取得到
+    python tools/palette_probe.py check spirit                 改了一条色带的值之后，查它离别的色带多近
     python tools/palette_probe.py ramp 210 5 46 232 0.04 0.11  生成一条候选并查撞色
     python tools/palette_probe.py image temp/ref --crop 0.7    统计一批图的色彩分布
     python tools/palette_probe.py split 植被 土木                切一份小色板
@@ -62,23 +65,71 @@ def cmd_ramps() -> int:
     """列现有色带：档数、明度区间、彩度峰值、色相。
 
     彩度峰值那一列是定上限时唯一要看的东西 —— 新色带该不该比它艳，得先知道它是多少。
+    色相那一列答「借得到吗」的前半步：想画一件黄的东西，先看表里这一片色相上有哪几条。
     """
     ramps = read_ramps()
     print(f"色板共 {sum(len(v) for v in ramps.values())} 色、{len(ramps)} 条色带\n")
     print(f"{'色带':14s} {'档':>3s}  {'明度区间':>13s}  {'彩度峰值':>9s}  {'峰值档':>5s}  "
-          f"{'相邻明度差':>10s}  冷暖走向")
+          f"{'相邻明度差':>10s}  {'色相':>6s}  冷暖走向")
     for name, cols in ramps.items():
         lums = [luma(c) for c in cols]
         chromas = [chroma(c) for c in cols]
         peak = max(range(len(chromas)), key=lambda i: chromas[i])
         diffs = [lums[i + 1] - lums[i] for i in range(len(lums) - 1)]
         gap = f"{min(diffs):.0f}–{max(diffs):.0f}" if diffs else "—"
+        h = ramp_hue(cols)
+        hcol = "无彩" if h is None else f"{h:.0f}°"
         print(f"{name:14s} {len(cols):>3d}  {lums[0]:>5.0f} → {lums[-1]:<5.0f}  "
-              f"{chromas[peak]:>9.3f}  {peak + 1:>5d}  {gap:>10s}  {warmth(cols)}")
+              f"{chromas[peak]:>9.3f}  {peak + 1:>5d}  {gap:>10s}  {hcol:>6s}  {warmth(cols)}")
     print("\n冷暖那一列按每档的 R−B 定（正为暖、负为冷）。**一条色带中途翻冷暖是要注意的**：")
     print("  它对有些材质是对的（混凝土暗处冷、受光面暖），但钢不行 —— 暖色调的世界里钢只有用冷色")
     print("  才和金、铜分得开，翻暖之后会读成旧锡或水泥。")
+    hue_spread(ramps)
     return 0
+
+
+def ramp_hue(cols: list[tuple[int, int, int]]) -> float | None:
+    """一条色带的代表色相，低彩度的档不参与平均；整条都发灰时返回 None。
+
+    发灰的色算出来的色相是噪声（`winter` 各档会报出一串互不相干的角度），拿它排进
+    色环会凭空多出几条「占了位」的色带。所以中性那几条宁可不给色相。
+    """
+    hues = [hue_deg(c) for c in cols if chroma(c) >= 0.12]
+    if not hues:
+        return None
+    return sum(hues) / len(hues)
+
+
+def hue_spread(ramps: dict[str, list[tuple[int, int, int]]]) -> None:
+    """按色相绕色环排一遍，报每条到下一条的间距。
+
+    这一段要有，是因为上面那张表一条一条看不出分布：条数相当的两片色相，挤在一处的那几条
+    只换得到对比度、换不到色相，铺得开的那几条每条都读作另一种颜色 —— 差别全在色相间距上，
+    **而加色带那两问答不出这件事**，它们只判一个具体色有没有被占。
+
+    ⚠️ **色相角上的空隙不等于 RGB 空间里的空隙。** 邻居的色带够长时，它的亮档会漫进
+    空隙里；反过来一组明度区间撞了，错开一截明度往往就不撞。所以这一段只告诉你「哪一片挤、
+    哪一片空」，空的那片能不能填还得跑 `ramp` 查撞色，并且换几组明度区间。
+    """
+    rows = [(h, n, len(c)) for n, c in ramps.items() if (h := ramp_hue(c)) is not None]
+    rows.sort()
+    neutral = [n for n, c in ramps.items() if ramp_hue(c) is None]
+    print(f"\n色相分布（{len(rows)} 条有彩色带绕色环排一圈）")
+    print(f"{'色相':>6s}  {'色带':14s} {'档':>3s}  {'到下一条':>9s}")
+    for i, (h, name, steps) in enumerate(rows):
+        nxt = rows[(i + 1) % len(rows)][0]
+        gap = (nxt - h) % 360
+        print(f"{h:>5.0f}°  {name:14s} {steps:>3d}  {gap:>8.0f}°")
+    widest = sorted(
+        ((rows[(i + 1) % len(rows)][0] - h) % 360, name, rows[(i + 1) % len(rows)][1])
+        for i, (h, name, _) in enumerate(rows)
+    )[-3:]
+    print("\n间距最大的三处：" + "、".join(
+        f"{a} → {b} 之间 {g:.0f}°" for g, a, b in reversed(widest)))
+    print(f"低彩度那几条不进色环（色相算出来是噪声）：{'、'.join(neutral)}")
+    print("⚠️ **色相角上空着不等于那一片填得进去** —— 邻居色带的亮档会漫进来，")
+    print("  要填先跑 `ramp <色相> …` 查撞色，并换几组明度区间：一组撞了不等于这个色相没地方。")
+    print("  反过来「这一片挤」是这一段判得死的事。")
 
 
 def warmth(cols: list[tuple[int, int, int]]) -> str:
@@ -106,6 +157,31 @@ def cmd_near(colors: list[str]) -> int:
     return 0
 
 
+def cmd_check(ramp_name: str) -> int:
+    """一条已有色带逐档离色板里别的色带多近 —— 它自己那条除外。
+
+    这一个要单独有，是因为 `near` 拿整张表比：查一个已经在表里的色，报出来的最近邻就是
+    它自己、距离 0。**改了一条已有色带的值之后**要问的是「它现在离别人多近」，而那只有
+    把它自己那条排掉才答得出来。
+    """
+    ramps = read_ramps()
+    if ramp_name not in ramps:
+        raise SystemExit(f"[FAIL] 色板里没有「{ramp_name}」这条色带，有的是：{'、'.join(ramps)}")
+    others = {k: v for k, v in read_palette().items() if k.rsplit(" ", 1)[0] != ramp_name}
+    print(f"「{ramp_name}」逐档的最近邻（它自己那条除外）。"
+          f"距离是 RGB 欧氏距离，档是人定的判断 —— 自己看数。\n")
+    worst: tuple[float, str] | None = None
+    for i, rgb in enumerate(ramps[ramp_name], 1):
+        name, _, dist = nearest(rgb, others)
+        print(f"  第 {i} 档 {show(rgb)}  明度 {luma(rgb):5.1f}  彩度 {chroma(rgb):.3f}  "
+              f"色相 {hue_deg(rgb):5.1f}°  → {name:16s} {dist:5.1f}  {verdict(dist)}")
+        if worst is None or dist < worst[0]:
+            worst = (dist, f"第 {i} 档 vs {name}")
+    assert worst is not None
+    print(f"\n最近的一对：{worst[1]}，距离 {worst[0]:.1f}")
+    return 0
+
+
 def cmd_ramp(hue: float, steps: int, lum_lo: float, lum_hi: float,
              chroma_lo: float, chroma_hi: float) -> int:
     entries = read_palette()
@@ -129,7 +205,10 @@ def cmd_ramp(hue: float, steps: int, lum_lo: float, lum_hi: float,
             worst = (dist, f"第 {i} 档 vs {name}")
     assert worst is not None
     print(f"\n最近的一对：{worst[1]}，距离 {worst[0]:.1f}")
-    print("  太近说明这一片已经有人占了 —— 先问「借得到吗」，别新开两份近似色。")
+    print("  太近说明这一组明度与彩度上已经有人了 —— 先问「借得到吗」，别新开两份近似色。")
+    # 这一行要有：撞了一组就判「这个色相满了」是会犯的错 —— 实测纯黄压在作物黄那段明度上撞、
+    # 整条往亮处错开一截就不撞，而缺的恰好是亮的那一截。
+    print("  ⚠️ 它判的只是这一组：同一个色相换一段明度区间往往就不撞，下结论前换几组再跑。")
     return 0
 
 
@@ -353,6 +432,9 @@ def main() -> int:
     p_near = sub.add_parser("near", help="查这几个色在色板里取不取得到")
     p_near.add_argument("colors", nargs="+", metavar="#RRGGBB")
 
+    p_check = sub.add_parser("check", help="查一条已有色带逐档离别的色带多近（它自己那条除外）")
+    p_check.add_argument("ramp", metavar="色带名")
+
     p_ramp = sub.add_parser("ramp", help="按色相生成一条候选色带并查撞色")
     p_ramp.add_argument("hue", type=float, help="色相角（度）")
     p_ramp.add_argument("steps", type=int, help="档数")
@@ -368,6 +450,8 @@ def main() -> int:
         return cmd_image(args.target, args.top, args.crop, args.only)
     if args.cmd == "near":
         return cmd_near(args.colors)
+    if args.cmd == "check":
+        return cmd_check(args.ramp)
     if args.cmd == "ramp":
         return cmd_ramp(args.hue, args.steps, args.lum_lo, args.lum_hi,
                         args.chroma_lo, args.chroma_hi)
