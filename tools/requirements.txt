@@ -5,7 +5,7 @@
 # run_local_check.py）全是纯标准库 —— 一台干净机器上 clone 完就能跑，不装本文件也能验收。
 #
 # **用 pillow 的是读写 PNG 的那几个入口**：双网格检查 check_dualgrid.py（verify.py 的一步）、
-# 界面素材生成器 ui_art.py，以及 palette_probe.py 的 image 命令。
+# 界面素材生成器 ui_art.py、交图核对 check_art.py，以及 palette_probe.py 的 image 命令。
 # 不手写 PNG 解码器的理由：那种解码器只认 RGBA8，遇到调色板／16 位／灰度带 alpha／隔行扫描会
 # **静默跳过**，而会静默跳过的检查比没有检查更坏。
 #

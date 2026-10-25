@@ -7,8 +7,9 @@
 三类件：
   切   —— 从模板原样取，像素不动；九宫格件按边距拼回最小画布。
   派生 —— 同一件的其他状态或配套的那一层，由原件算出来：按色板换档（形状不变），或取线稿围住的格。
-  手画 —— 作者没画的小件，字符格在 ui_art_sprites.py。作者修过的那几张照作者那一版誊回字符格，
-          格子上方注明「作者修过」，不为改画法重画。
+  手画 —— 早先画的一批小件，字符格在 ui_art_sprites.py，原样留着由作者审查修改。作者修过的那几张
+          照作者那一版誊回了字符格，格子上方注明「作者修过」。**往后不再加新的手画件**：要画的东西
+          由作者画，生成器只做拆解与拼接（设计仓 production/界面绘制约定.md「界面件从哪来」）。
   誊   —— 作者画在模板里、却没法原样切的件（图标按钮上的图标与按钮底画在一起），照作者那一版
           逐像素誊成字符格，也在 ui_art_sprites.py。
 
@@ -1017,8 +1018,28 @@ def build_glyph() -> None:
 # ── 校验、写盘、总览 ─────────────────────────────────────────────────────────
 
 ALLOWED = set(PAL.values())
-# 放在同一批目录里、但由作者直接画的那几张：生成器不碰，也不把它们报成多余
-AUTHOR_OWNED = {"menu/logo.png", "menu/menu_bg.png"}
+# 主菜单底图四周比一屏多画的那一圈出血：逻辑宽度会随窗口宽高比撑开一点，不留出血就露底
+MENU_BG_BLEED = 16
+
+
+def viewport() -> Pt:
+    """逻辑分辨率，读 project.godot，不另存一份。"""
+    text = (ROOT / "project.godot").read_text(encoding="utf-8")
+    w = re.search(r"^window/size/viewport_width=(\d+)", text, re.MULTILINE)
+    h = re.search(r"^window/size/viewport_height=(\d+)", text, re.MULTILINE)
+    if not (w and h):
+        raise SystemExit("[FAIL] project.godot 里找不到 viewport_width／viewport_height")
+    return int(w.group(1)), int(h.group(1))
+
+
+def author_owned() -> dict[str, Pt | None]:
+    """放在同一批目录里、由作者直接画的那几张：生成器不碰，也不报成多余。值是画布尺寸，None 是不限。"""
+    vw, vh = viewport()
+    return {"menu/logo.png": None,
+            "menu/menu_bg.png": (vw + 2 * MENU_BG_BLEED, vh + 2 * MENU_BG_BLEED)}
+
+
+AUTHOR_OWNED = set(author_owned())
 
 
 def validate(piece: Piece) -> list[str]:
@@ -1210,6 +1231,22 @@ def listing() -> None:
         if p.text:
             nine += f"  放一行字至少高 {p.nine[1] + line + p.nine[3]}"
         print(f"{p.group}/{p.name}.png  {p.image.width}×{p.image.height}  [{p.source}]{nine}  {p.use}")
+    for rel, size in author_owned().items():
+        shown = "尺寸不限" if size is None else f"{size[0]}×{size[1]}"
+        print(f"{rel}  {shown}  [作者画]  生成器不碰")
+
+
+BUILDS = (build_kit_frames, build_kit_buttons, build_kit_slots, build_kit_tabs, build_kit_sliders,
+          build_kit_glyphs, build_hud, build_world, build_world_markers, build_panel, build_menu,
+          build_glyph)
+
+
+def build_all() -> list[Piece]:
+    """把清单建一遍（只在内存里，不写盘）。交图核对也从这里拿每一件该多大、九宫格边距多少。"""
+    if not PIECES:
+        for build in BUILDS:
+            build()
+    return PIECES
 
 
 def main() -> int:
@@ -1232,10 +1269,7 @@ def main() -> int:
                 print(f'    "{row}",')
         return 0
 
-    for build in (build_kit_frames, build_kit_buttons, build_kit_slots, build_kit_tabs,
-                  build_kit_sliders, build_kit_glyphs, build_hud, build_world, build_world_markers,
-                  build_panel, build_menu, build_glyph):
-        build()
+    build_all()
     failed = [(p, msg) for p in PIECES for msg in validate(p)]
     for p, msg in failed:
         print(f"[FAIL] {p.group}/{p.name}：{msg}")

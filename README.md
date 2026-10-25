@@ -75,8 +75,8 @@ python tools/verify.py
 现存入口（`verify.py`、`check_names.py`、`check_eol.py`、`loglib.py`、`run_local_check.py`）全是**纯标准库**，
 clone 完直接能跑，不装任何东西就能验收。
 
-`tools/requirements.txt` 里钉着 Pillow，但**当前没有使用者** —— 需要它的是「读别人的 PNG」那一类
-素材守卫，那条链已删。先留着不删的理由写在那个文件里（下次真要读图时会撞上同一个坑）。
+`tools/requirements.txt` 里钉着 Pillow，给读写 PNG 的那几个入口用；是哪几个、为什么不手写解码器，
+写在那个文件里。
 
 下面四节是构建、测试、导出与行尾四步各自的原始命令，单独调试时用得上。行尾那一步是
 `python tools/check_eol.py`（修复行尾：`python tools/check_eol.py --fix`）。
@@ -163,7 +163,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口（命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物）、`check_names.py` 命名守卫、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑；`ui_art.py` 界面素材生成器（把工作区根 `art-source/self-material/ui/` 里的模板切成 `assets/self-drawn/ui/` 下的件，用法在它文件头）。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口（命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物）、`check_names.py` 命名守卫、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑；`ui_art.py` 界面素材生成器（把工作区根 `art-source/self-material/ui/` 里的模板切成 `assets/self-drawn/ui/` 下的件，只做拆解与拼接，用法在它文件头）；`check_art.py` 交图核对（作者交图后按需跑，核色板、硬 alpha、尺寸这类事实，不进 `verify.py`）。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
