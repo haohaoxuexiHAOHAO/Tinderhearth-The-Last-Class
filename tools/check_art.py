@@ -11,6 +11,9 @@
   文件名  与 check_names.py 同一条规矩。
 最后列出清单里有、磁盘上还没有的 —— 只列代码仓自己知道的那些，内容图标等内容数据引用它们再说。
 
+已知的占位（下面 PLACEHOLDERS 那张表）不核：整套画在色板之前、迟早整套换掉，核了只会每次报同一批，
+把作者新交的图里真有的问题淹掉。它们每次都列在「[占位]」那几行；点名给到占位目录里的照核。
+
 不进 verify.py：它核的是交图那一刻的事。留它的理由是色板外的近似色在 Godot 里看不出来
 （ADR-0009：判断一个入口该不该留，看它判的东西在 Godot 里看不看得出来）。
 
@@ -39,6 +42,12 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 ART = ROOT / "assets" / "self-drawn"
+# 已知的占位：相对 assets/self-drawn 的目录 → 为什么不核。目录不在了就报这一项该删 —— 过期的一项会
+# 悄悄罩住将来放进同名目录的正式素材，而那不报错。
+# 不另设发行守卫：主角还是这套测试角色，在 Godot 里一眼看得出来（ADR-0009）。
+PLACEHOLDERS = {
+    "test-role/": "主角动作帧的测试角色，画在色板之前；正式美术归 ART-6，换掉时删这一项",
+}
 # 状态后缀：同一件的几张图按「名字去掉它」归成一组，比画布大小
 STATES = ("normal", "focus", "pressed", "disabled", "selected", "locked", "open", "empty", "full", "on", "off")
 Pt = tuple[int, int]
@@ -62,6 +71,16 @@ def changed_pngs() -> list[Path]:
         if "D" not in status and rel.lower().endswith(".png"):
             paths.append(ROOT / rel)
     return sorted(set(paths))
+
+
+def placeholder_of(path: Path) -> str | None:
+    """path（文件或目录）落在哪个占位目录里（含它本身）；不在任何一个里、或不在 assets/self-drawn 下就是 None。"""
+    try:
+        rel = path.resolve().relative_to(ART).as_posix()
+    except ValueError:
+        return None
+    rel += "/" if path.is_dir() else ""
+    return next((p for p in PLACEHOLDERS if rel.startswith(p)), None)
 
 
 def expectations() -> tuple[dict[str, tuple[Pt | None, str]], dict[str, ui_art.Piece]]:
@@ -176,6 +195,7 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="核 assets/self-drawn 下全部 PNG")
     args = ap.parse_args()
 
+    named: set[Path] = set()      # 点名给到占位目录里的：照核
     if args.all:
         files = sorted(ART.rglob("*.png"))
     elif args.targets:
@@ -184,12 +204,24 @@ def main() -> int:
             t = (ROOT / t) if not t.is_absolute() else t
             if not t.exists():
                 raise SystemExit(f"[FAIL] 没有 {t}")
-            files += sorted(t.rglob("*.png")) if t.is_dir() else [t]
+            found = sorted(t.rglob("*.png")) if t.is_dir() else [t]
+            if placeholder_of(t):
+                named.update(found)
+            files += found
     else:
         files = changed_pngs()
     outside = [f for f in files if ART not in f.resolve().parents]
     if outside:
         raise SystemExit(f"[FAIL] 只核 assets/self-drawn 下的素材，这几张不在：{', '.join(map(str, outside))}")
+    held: dict[str, int] = {}     # 占位目录 → 这次跳过了几张
+    kept: list[Path] = []
+    for f in files:
+        prefix = placeholder_of(f)
+        if prefix and f not in named:
+            held[prefix] = held.get(prefix, 0) + 1
+        else:
+            kept.append(f)
+    files = kept
 
     sizes, pieces = expectations()
     palette = read_palette()
@@ -204,15 +236,24 @@ def main() -> int:
                 print(f"       {p}")
         else:
             print(f"[OK]   {rel}")
+    stale = 0
+    for prefix, why in PLACEHOLDERS.items():
+        if not (ART / prefix).is_dir():
+            stale += 1
+            print(f"[FAIL] 占位清单里的 {prefix} 已经不在了：删掉 check_art.py 里 PLACEHOLDERS 那一项")
+        elif held.get(prefix):
+            print(f"[占位] {prefix}（{held[prefix]} 张，未核）：{why}")
     missing = [(rel, want) for rel, (want, _) in sizes.items() if not (ART / rel).exists()]
     for rel, want in missing:
         shown = "尺寸不限" if want is None else f"{want[0]}×{want[1]}"
         print(f"[缺]   {rel}（{shown}）")
-    if not files:
+    if not files and not held:
         print("工作区里没有新加或改过的 PNG；要核全部加 --all，或者给文件、目录")
-    print(f"结果：核了 {len(files)} 张，通过 {len(files) - bad} 张，有问题 {bad} 张；清单里还缺 {len(missing)} 张")
-    print(f"EXIT={1 if bad else 0}")
-    return 1 if bad else 0
+    extra = (f"；占位未核 {sum(held.values())} 张" if held else "") + (f"；占位清单过期 {stale} 项" if stale else "")
+    print(f"结果：核了 {len(files)} 张，通过 {len(files) - bad} 张，有问题 {bad} 张{extra}；清单里还缺 {len(missing)} 张")
+    failed = bool(bad or stale)
+    print(f"EXIT={1 if failed else 0}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
