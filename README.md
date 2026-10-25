@@ -163,7 +163,7 @@ dotnet run --project tests
 | `tests/` | 规则层测试 |
 | `data/` | 外置内容：配置、文本、角色定义 |
 | `scenes/` | 场景文件 |
-| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口（命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物）、`check_names.py` 命名守卫、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
+| `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口（命名 → 行尾 → 构建 → 测试 → 导出 → 跑产物）、`check_names.py` 命名守卫、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑；`ui_art.py` 界面素材生成器（把工作区根 `art-source/self-material/ui/` 里的模板切成 `assets/self-drawn/ui/` 下的件，用法在它文件头）。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
 
 分层的理由、mod 加载路径与各系统的模块边界都在 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
