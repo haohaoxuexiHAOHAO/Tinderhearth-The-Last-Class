@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.UI;
@@ -24,6 +25,12 @@ public partial class Main : Node2D
 {
     public override void _Ready()
     {
+        // 数字照游戏的语言印、不照玩家系统的区域设置印，理由在 GameLanguage。要排在第一行：
+        // 下面每一行日志都在格式化数字。
+        var systemCulture = CultureInfo.CurrentCulture.Name;
+        var culture = GameLanguage.PinCulture();
+        GD.Print("[启动] 区域设置 ", culture.Name, "（系统是 ", systemCulture, "，数字照前者印）");
+
         GD.Print("[启动] 引擎 ", Engine.GetVersionInfo()["string"]);
         GD.Print("[启动] .NET ", System.Environment.Version);
 
@@ -192,9 +199,8 @@ public partial class Main : Node2D
     /// </summary>
     private static TextCatalog LoadText(ContentCatalog catalog)
     {
-        // 选哪种语言属于玩家自己的偏好，它跨存档位、不进任何存档分片，见设计仓
-        // design/存档系统.md 的「玩家级偏好：第三样东西，不是分片」一节。这里先固定读简体中文。
-        const string wanted = "text/zh-CN.json";
+        // 读哪种语言的文本表由 GameLanguage 定，以后改成读玩家级偏好也在那里改。
+        var wanted = GameLanguage.TextTablePath;
         var tables = catalog.ResolveAll("text")
             .Where(e => e.RelativePath == wanted)
             .Select(e => (IReadOnlyDictionary<string, string>)
