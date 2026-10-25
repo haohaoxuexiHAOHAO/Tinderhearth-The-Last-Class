@@ -1,7 +1,5 @@
 using Godot;
 using Tinderhearth.Rules.Combat;
-using Tinderhearth.Rules.UI;
-using Tinderhearth.UI;
 
 namespace Tinderhearth.World;
 
@@ -19,16 +17,6 @@ public interface IDepthActor
     /// <summary>纵深位置，世界像素。坐标口径见 <see cref="DepthBand"/>（0 最靠后）。</summary>
     double DepthWorldPx { get; }
 
-    /// <summary>
-    /// 当前姿态贴着地面的那一段水平范围，世界像素，相对脚底锚点、已经含了朝向镜像。影子按它取宽窄。
-    /// </summary>
-    /// <remarks>
-    /// 给一段范围而不是给一个宽度：只有宽度的话影子只能对称画在脚底上，出拳那一帧就会与身体错开。
-    /// 「本体」怎么量交给实现者 —— 有精灵的按当前帧的不透明边界量，几何体按自己的尺寸。放进接口
-    /// 而不是让影子自己猜，是因为只有角色知道自己此刻摆的是什么姿态。
-    /// </remarks>
-    GroundSpan BodySpanWorldPx { get; }
-
     /// <summary>排序要用的那两个量。实现者转发自己的 <see cref="DepthVisual.Subject"/>，不自己拼。</summary>
     /// <remarks>
     /// 放进接口，而不是让排序层去角色的子节点里找 <see cref="DepthVisual"/>：找的那一步每帧都要
@@ -39,7 +27,7 @@ public interface IDepthActor
 }
 
 /// <summary>
-/// 角色的纵深可视根：按纵深把画面上下挪一段、画影子、报排序要用的量。
+/// 角色的纵深可视根：按纵深把画面上下挪一段、把影子摆在地上、报排序要用的量。
 /// </summary>
 /// <remarks>
 /// 角色的可视子节点都挂在这里，不挂在角色本体上。于是「纵深偏移」只有一处来源（本节点的
@@ -52,20 +40,18 @@ public interface IDepthActor
 /// </remarks>
 public partial class DepthVisual : Node2D
 {
-    private static readonly Color ShadowColor = PixelTheme.ToColor(HudPalette.GroundShadow);
-
-    /// <summary>影子那个椭圆用几个顶点画。</summary>
-    /// <remarks>
-    /// 16 个在这个逻辑分辨率下看着已经够圆，再多的顶点在几像素宽的影子上看不出区别。
-    /// </remarks>
-    private const int ShadowVertices = 16;
-
-    private readonly Vector2[] _shadow = new Vector2[ShadowVertices];
     private RayCast2D _ground = null!;
     private Node2D _host = null!;
 
     /// <summary>纵深从哪个角色读。建节点时给，本节点不缓存纵深值。</summary>
     public required IDepthActor Actor { get; init; }
+
+    /// <summary>脚下那套影子图，按离地高度从大到小排：第一张贴地，往后一张比一张小。</summary>
+    /// <remarks>
+    /// 建本节点时给，侧视角色从 <see cref="LoadShadowSteps"/> 取。空的就不画：不离地的物件把影子画进
+    /// 自己的图里，用不着单画的这一张；缺图时也是空的，载入那一步已经点名报过缺哪张。
+    /// </remarks>
+    public required IReadOnlyList<Texture2D> ShadowSteps { get; init; }
 
     /// <summary>找地面的射线往下探多远，世界像素。够穿过一层地形就行。</summary>
     public int GroundProbeWorldPx { get; init; } = 256;
@@ -78,6 +64,48 @@ public partial class DepthVisual : Node2D
 
     /// <summary>排序要用的两个量。没有地面时把脚底当成与角色同高。</summary>
     public DepthSubject Subject => new(Actor.DepthWorldPx, GroundYWorldPx ?? _host.GlobalPosition.Y);
+
+    /// <summary>
+    /// 载入一套侧视影子图，按序号排好：第一张贴地，往后一张比一张小。一张都没有时返回空的。
+    /// </summary>
+    /// <param name="set">哪一套，也就是文件名去掉序号的那一截，例如体型表里「人」那一档是 <c>human</c>。</param>
+    /// <remarks>
+    /// 一套是 <c>&lt;套名&gt;1.png</c>、<c>&lt;套名&gt;2.png</c>……序号从 1 连着往下排，同一档的角色共用一套。
+    /// 交付约定在设计仓 production/像素绘制原则.md 的「侧视里会离地的，影子单画一张」一节。
+    ///
+    /// 按路径找、不在检查器里拖：用它的角色现在还是代码建的，检查器够不着（训练房等着改成作者搭的
+    /// 节点树，设计仓台账 ENG-21）。
+    ///
+    /// 缺图只打警告、不抛：缺了在画面上一眼看得出来（脚下没有影子），抛的话图画出来之前整个训练房都
+    /// 打不开 —— 缺精灵表时 <see cref="PlayerActor"/> 也是这个口径。序号断了一格同样点名，不点的话
+    /// 断口后面那几张静默不用，画面上只是「跳起来影子没变」。
+    /// </remarks>
+    public static IReadOnlyList<Texture2D> LoadShadowSteps(string set)
+    {
+        var steps = new List<Texture2D>();
+        while (ResourceLoader.Exists(ShadowPath(set, steps.Count + 1)))
+        {
+            var path = ShadowPath(set, steps.Count + 1);
+            steps.Add(GD.Load<Texture2D>(path)
+                ?? throw new InvalidOperationException($"[影子] {path} 在，但载入不出一张图 —— 在 Godot 里看它的导入设置"));
+        }
+
+        if (steps.Count == 0)
+        {
+            GD.PushWarning($"[影子] 缺侧视影子图 {ShadowPath(set, 1)}，用这一套的角色脚下不画影子");
+        }
+        else if (ResourceLoader.Exists(ShadowPath(set, steps.Count + 2)))
+        {
+            GD.PushWarning($"[影子] 侧视影子 {set} 那一套缺 {ShadowPath(set, steps.Count + 1)}，"
+                + "它后面那几张没有载入 —— 序号要从 1 连着往下排");
+        }
+
+        return steps;
+    }
+
+    /// <summary>一套影子图里第 <paramref name="step"/> 张（从 1 起）的资源路径。</summary>
+    private static string ShadowPath(string set, int step) =>
+        $"res://assets/self-drawn/shadow_side/{set}{step}.png";
 
     public override void _Ready()
     {
@@ -124,31 +152,28 @@ public partial class DepthVisual : Node2D
         QueueRedraw();
     }
 
-    /// <summary>影子：一个不透明的扁椭圆，画在角色正下方的地面上，离地越高画得越小。</summary>
+    /// <summary>影子：从那套图里按离地高度挑一张，摆在角色正下方的地面上。</summary>
     /// <remarks>
     /// 局部 y 取「地面 Y 减角色 Y」：两边各自都带着同一份纵深偏移，相减正好抵掉，所以这里不必
-    /// 再管纵深 —— 贴地时得 0（影子与脚底重合），跳起来时得正数（影子留在地面上）。
+    /// 再管纵深 —— 贴地时得 0（影子中线与脚底重合），跳起来时得正数（影子留在地面上）。
     ///
-    /// 用不透明色而不是半透明，理由见 <see cref="DepthRendering.ShadowScaleAt"/>。
+    /// 图的中心对着那一点，摆在整数的局部坐标上。精灵的左上角也落在整数的局部坐标上（见
+    /// <see cref="PlayerActor"/> 里精灵的偏移），所以两者是同一套像素格、跟着角色一起走 —— 哪天精灵挪到
+    /// 半像素上，这一条就不成立了。不另去对齐世界的整像素：角色本身停在小数位置上，影子单独对齐世界的话
+    /// 会和脚差出不到一像素，走动时在脚下来回跳。代价是跳起来时影子离真实地面最多差半像素。
+    ///
+    /// 不按朝向翻转：影子对称落在脚底中线上（光源在正上方正中），朝左朝右本来就是同一张。
+    /// 本节点的 <c>_Draw</c> 先于子节点画，所以影子压在身体下面，不必另管先后。
     /// </remarks>
     public override void _Draw()
     {
-        if (GroundYWorldPx is not double ground)
+        if (GroundYWorldPx is not double ground || ShadowSteps.Count == 0)
         {
             return;
         }
 
-        var scale = DepthRendering.ShadowScaleAt(HeightAboveGroundWorldPx);
-        var span = DepthRendering.ShadowSpanAt(Actor.BodySpanWorldPx);
-        var radiusX = (float)(span.Width * scale / 2.0);
-        var radiusY = (float)(CombatFeel.ShadowHeightWorldPx * scale / 2.0);
-        // 横向中心跟着身体的中点走（出拳时会偏向拳那一侧），纵向仍落在地面上。
-        var center = new Vector2((float)span.Center, (float)(ground - _host.GlobalPosition.Y));
-        for (var i = 0; i < ShadowVertices; i++)
-        {
-            var angle = Mathf.Tau * i / ShadowVertices;
-            _shadow[i] = center + new Vector2(radiusX * Mathf.Cos(angle), radiusY * Mathf.Sin(angle));
-        }
-        DrawColoredPolygon(_shadow, ShadowColor);
+        var shadow = ShadowSteps[DepthRendering.ShadowStepAt(HeightAboveGroundWorldPx, ShadowSteps.Count)];
+        var groundY = (int)Math.Round(ground - _host.GlobalPosition.Y);
+        DrawTexture(shadow, new Vector2(-(shadow.GetWidth() / 2), groundY - (shadow.GetHeight() / 2)));
     }
 }

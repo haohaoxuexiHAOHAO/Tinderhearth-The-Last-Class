@@ -37,7 +37,7 @@ public partial class SceneObstacle : StaticBody2D, IBlockingActor
 
     private double _depthWorldPx = DepthBand.CenterWorldPx;
 
-    /// <summary>障碍物宽度，世界像素。碰撞框、绘制与影子范围共用它，不各写一个数。</summary>
+    /// <summary>障碍物宽度，世界像素。碰撞框与绘制共用它，不各写一个数。</summary>
     public int WidthWorldPx { get; init; } = 20;
 
     /// <summary>障碍物高度，世界像素。碰撞框与绘制共用它。</summary>
@@ -47,7 +47,7 @@ public partial class SceneObstacle : StaticBody2D, IBlockingActor
     /// <remarks>中立：谁都挡、谁都不帮，见 <see cref="DepthBlocking.Blocks"/>。</remarks>
     public CombatSide Side => CombatSide.Neutral;
 
-    /// <summary>纵深可视根：几何挂在它下面，纵深偏移与影子都由它管。</summary>
+    /// <summary>纵深可视根：几何挂在它下面，纵深偏移由它管。</summary>
     public DepthVisual Visual { get; private set; } = null!;
 
     /// <inheritdoc />
@@ -59,10 +59,6 @@ public partial class SceneObstacle : StaticBody2D, IBlockingActor
 
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
-
-    /// <inheritdoc />
-    /// <remarks>它是几何体、没有精灵，所以贴地范围就是自己那个宽度、以脚底为中心。</remarks>
-    public GroundSpan BodySpanWorldPx => GroundSpan.Centered(WidthWorldPx);
 
     /// <summary>把障碍物摆到某个纵深上。超出可行走纵深范围的值会被钳回范围内。</summary>
     public void PlaceDepth(double depthWorldPx)
@@ -83,9 +79,10 @@ public partial class SceneObstacle : StaticBody2D, IBlockingActor
             Shape = new RectangleShape2D { Size = new Vector2(WidthWorldPx, HeightWorldPx) },
             Position = new Vector2(0, -HeightWorldPx / 2f),
         });
-        Visual = new DepthVisual { Actor = this };
+        // 障碍物不离地，所以影子画进它自己的图里，用不着单画的那一张。
+        Visual = new DepthVisual { Actor = this, ShadowSteps = [] };
         AddChild(Visual);
-        // 几何挂在可视根下面：纵深偏移因此只有一处来源，而且影子天然排在身体下面。
+        // 几何挂在可视根下面：纵深偏移因此只有一处来源。
         var half = WidthWorldPx / 2f;
         Visual.AddChild(new Polygon2D
         {

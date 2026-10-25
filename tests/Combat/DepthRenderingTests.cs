@@ -107,118 +107,61 @@ public class DepthRenderingTests
         Assert.Equal(-DepthBand.CenterWorldPx, DepthRendering.DrawOffsetWorldPx(-1000), 8);
     }
 
-    [Fact]
-    public void 影子贴地是原尺寸_到峰高缩到最小()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void 影子贴地用第一张_到参考高度换到最后一张(int steps)
     {
-        Assert.Equal(1.0, DepthRendering.ShadowScaleAt(0), 8);
-        Assert.Equal(CombatFeel.ShadowMinScalePercent / 100.0,
-            DepthRendering.ShadowScaleAt(CombatFeel.ShadowShrinkHeightWorldPx), 8);
+        Assert.Equal(0, DepthRendering.ShadowStepAt(0, steps));
+        Assert.Equal(steps - 1, DepthRendering.ShadowStepAt(CombatFeel.ShadowShrinkHeightWorldPx, steps));
     }
 
-    [Fact]
-    public void 影子缩放单调不回头且两端都钳住()
+    /// <summary>越高只往小的那张换、不回头，两端钳住：张号永远是那套图里真有的一张。</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void 影子换张单调不回头且两端都钳住(int steps)
     {
-        var previous = double.MaxValue;
-        for (var height = 0; height <= CombatFeel.ShadowShrinkHeightWorldPx * 2; height++)
+        var previous = 0;
+        for (var height = 0.0; height <= CombatFeel.ShadowShrinkHeightWorldPx * 2; height += 0.25)
         {
-            var scale = DepthRendering.ShadowScaleAt(height);
-            Assert.True(scale <= previous);
-            Assert.InRange(scale, CombatFeel.ShadowMinScalePercent / 100.0, 1.0);
-            previous = scale;
+            var step = DepthRendering.ShadowStepAt(height, steps);
+            Assert.True(step >= previous);
+            Assert.InRange(step, 0, steps - 1);
+            previous = step;
         }
 
-        // 超过缩到底的高度不再继续缩；负高度（不该出现）也不放大。
-        Assert.Equal(CombatFeel.ShadowMinScalePercent / 100.0, DepthRendering.ShadowScaleAt(1000), 8);
-        Assert.Equal(1.0, DepthRendering.ShadowScaleAt(-1000), 8);
+        // 超过参考高度一直是最后一张；负高度（不该出现）按贴地算。
+        Assert.Equal(steps - 1, DepthRendering.ShadowStepAt(1000, steps));
+        Assert.Equal(0, DepthRendering.ShadowStepAt(-1000, steps));
     }
 
-    /// <summary>影子不许比一排纵深还厚，否则相邻两排的影子会连成一片、读不出排位。</summary>
-    [Fact]
-    public void 影子尺寸与角色和排间距的关系()
-    {
-        Assert.True(CombatFeel.ShadowHeightWorldPx > 0);
-        Assert.True(CombatFeel.ShadowHeightWorldPx < DepthBand.RowSpacingWorldPx);
-        Assert.InRange(CombatFeel.ShadowMinScalePercent, 1, 99);
-        Assert.True(CombatFeel.ShadowShrinkHeightWorldPx > 0);
-        // 影子比本体略窄：站着时不从脚边露出来，但也不能窄到看不出是这个角色的影子。
-        Assert.InRange(CombatFeel.ShadowWidthPercentOfBody, 50, 100);
-    }
-
+    /// <summary>每一张都轮得到，而且各占同样高的一段 —— 作者多画的那一张不会被跳过。</summary>
     [Theory]
-    [InlineData(19)]    // 待机
-    [InlineData(36)]    // 重击伸展到最远
-    public void 影子按本体范围取_比本体略窄且同中点(int bodyWidth)
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void 参考高度以内等分给每一张(int steps)
     {
-        var body = GroundSpan.Centered(bodyWidth);
-        var shadow = DepthRendering.ShadowSpanAt(body);
+        // 参考高度不为正时下面那段一次都不进，这条会空跑通过。
+        Assert.True(CombatFeel.ShadowShrinkHeightWorldPx > 0);
+        const double sample = 0.25;
+        var samplesPerStep = new int[steps];
+        for (var height = 0.0; height < CombatFeel.ShadowShrinkHeightWorldPx; height += sample)
+        {
+            samplesPerStep[DepthRendering.ShadowStepAt(height, steps)]++;
+        }
 
-        Assert.True(shadow.Width < body.Width);
-        Assert.True(shadow.Width > 0);
-        Assert.Equal(bodyWidth * CombatFeel.ShadowWidthPercentOfBody / 100.0, shadow.Width, 8);
-        Assert.Equal(body.Center, shadow.Center, 8);
-    }
-
-    /// <summary>本体越宽影子越宽 —— 攻击与闪避时影子要跟着变，靠的就是这条。</summary>
-    [Fact]
-    public void 本体变宽影子跟着变宽()
-    {
-        var wide = DepthRendering.ShadowSpanAt(GroundSpan.Centered(36)).Width;
-        var narrow = DepthRendering.ShadowSpanAt(GroundSpan.Centered(19)).Width;
-
-        Assert.True(wide > narrow);
-        // 空中缩小与本体宽度是两件独立的事，乘在一起不互相抵消。
-        Assert.True(wide * DepthRendering.ShadowScaleAt(32)
-            > narrow * DepthRendering.ShadowScaleAt(32));
-    }
-
-    /// <summary>影子跟着本体的中点偏，不强行画在脚底锚点上。</summary>
-    /// <remarks>
-    /// 实机报过「攻击时左侧影子没有了」：出拳那一帧本体从锚点向右伸出去，
-    /// 以锚点为中心的对称椭圆会在后腿那侧盖过头、在拳那侧不够长。
-    /// </remarks>
-    [Fact]
-    public void 本体偏向一侧时影子跟着偏过去()
-    {
-        // 出拳：从锚点左侧 8px 伸到右侧 20px。
-        var punching = new GroundSpan(-8, 20);
-        var shadow = DepthRendering.ShadowSpanAt(punching);
-
-        Assert.True(shadow.Center > 0);
-        Assert.Equal(punching.Center, shadow.Center, 8);
-        // 影子仍整体落在本体范围内（比本体窄且同中点，所以两端都不越界）。
-        Assert.True(shadow.Left > punching.Left);
-        Assert.True(shadow.Right < punching.Right);
-        // 对称的画法会把影子摆在 0 附近 —— 那正是被否掉的做法。
-        Assert.NotEqual(0.0, shadow.Center, 3);
+        var expected = CombatFeel.ShadowShrinkHeightWorldPx / sample / steps;
+        Assert.All(samplesPerStep, count => Assert.InRange(count, expected - 1, expected + 1));
     }
 
     [Fact]
-    public void 范围的并集与镜像()
+    public void 一张都没有的那套当场报错()
     {
-        var floor = GroundSpan.Centered(18);
-        var punching = new GroundSpan(-8, 20);
-
-        // 并集：实体范围与姿态范围都要被盖住 —— 走动时手臂收回也不让影子缩到实体宽以内。
-        var union = punching.Union(floor);
-        Assert.Equal(-9, union.Left, 8);
-        Assert.Equal(20, union.Right, 8);
-
-        // 镜像：朝左时姿态跟着翻，边界是在未翻转的图上量的。
-        var mirrored = punching.Mirrored();
-        Assert.Equal(-20, mirrored.Left, 8);
-        Assert.Equal(8, mirrored.Right, 8);
-        Assert.Equal(punching.Width, mirrored.Width, 8);
-        Assert.Equal(-punching.Center, mirrored.Center, 8);
-        Assert.Equal(punching, mirrored.Mirrored());
-    }
-
-    [Fact]
-    public void 左右反了的范围当空的_不返回负宽度()
-    {
-        var reversed = new GroundSpan(10, -10);
-
-        Assert.Equal(0.0, reversed.Width, 8);
-        Assert.Equal(0.0, DepthRendering.ShadowSpanAt(reversed).Width, 8);
-        Assert.Equal(0.0, DepthRendering.ShadowSpanAt(GroundSpan.Centered(0)).Width, 8);
+        Assert.Throws<ArgumentOutOfRangeException>(() => DepthRendering.ShadowStepAt(0, 0));
     }
 }

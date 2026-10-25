@@ -114,7 +114,7 @@ public sealed class DepthBlocker
     /// <summary>实体碰撞框的半宽，世界像素，从引擎实际在用的那个形状上读。</summary>
     /// <remarks>
     /// 不让调用方把宽度再报一遍 —— 报第二遍就多了一处会跟不上的地方。角色的碰撞框宽度本来就来自
-    /// <c>PlayerActor.BodyWidthFloorWorldPx</c>，这里读回来的正是那个数。
+    /// <c>PlayerActor.BodyWidthWorldPx</c>，这里读回来的正是那个数。
     ///
     /// 形状不是单个矩形时当场抛，不静默按 0 算。按 0 算的话「已经重叠着」永远判不成立，
     /// <see cref="Resolve"/> 里那条迟滞就永远不生效，而它看起来还在 —— 那比没有它更糟。

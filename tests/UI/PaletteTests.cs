@@ -53,7 +53,7 @@ public class PaletteTests
         var found = NamedEntries().Select(e => e.Entry).ToList();
 
         Assert.Contains(HudPalette.Ink, found);
-        Assert.Contains(HudPalette.GroundShadow, found);
+        Assert.Contains(HudPalette.Cooldown, found);
     }
 
     [Fact]

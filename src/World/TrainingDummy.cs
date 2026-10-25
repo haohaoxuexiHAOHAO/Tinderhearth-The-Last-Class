@@ -33,7 +33,7 @@ public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
     private static readonly Color PostColor = new("b85450");
     private static readonly Color ArmColor = new("d99863");
 
-    /// <summary>柱子宽度，世界像素。碰撞框、绘制与影子范围共用它，不各写一份。</summary>
+    /// <summary>柱子宽度，世界像素。碰撞框与绘制共用它，不各写一份。</summary>
     private const int PostWidthWorldPx = 18;
 
     /// <summary>柱子高度，世界像素。碰撞框、绘制与受击框共用它，不各写一份。</summary>
@@ -44,7 +44,7 @@ public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
     /// </remarks>
     private const int PostHeightWorldPx = 32;
 
-    /// <summary>纵深可视根：木桩的两块几何挂在它下面，纵深偏移与影子都由它管。</summary>
+    /// <summary>纵深可视根：木桩的两块几何挂在它下面，纵深偏移由它管。</summary>
     public DepthVisual Visual { get; private set; } = null!;
 
     /// <summary>受击区域。调试叠层从它身上取几何画框。</summary>
@@ -59,10 +59,6 @@ public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
 
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
-
-    /// <inheritdoc />
-    /// <remarks>它是几何体、没有精灵，所以贴地范围就是那根柱子，以脚底为中心。</remarks>
-    public GroundSpan BodySpanWorldPx => GroundSpan.Centered(PostWidthWorldPx);
 
     /// <summary>把木桩摆到某个纵深上。超出可行走纵深范围的值会被钳回范围内。</summary>
     public void PlaceDepth(double depthWorldPx)
@@ -82,10 +78,10 @@ public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
         });
         Hurtbox = new Hurtbox { Actor = this, HeightWorldPx = PostHeightWorldPx };
         AddChild(Hurtbox);
-        Visual = new DepthVisual { Actor = this };
+        // 木桩不离地（击退只推横向），所以影子画进它自己的图里，用不着单画的那一张。
+        Visual = new DepthVisual { Actor = this, ShadowSteps = [] };
         AddChild(Visual);
-        // 身体做成挂在可视根下的几何节点，而不是在 _Draw 里画：纵深偏移因此只有一处来源，
-        // 而且影子（画在可视根自己的 _Draw 里）天然排在身体下面，不必再管两者的先后。
+        // 身体做成挂在可视根下的几何节点，而不是在 _Draw 里画：纵深偏移因此只有一处来源。
         const int half = PostWidthWorldPx / 2;
         _post = new Polygon2D
         {
@@ -120,7 +116,7 @@ public partial class TrainingDummy : CharacterBody2D, IBlockingActor, IHittable
         if (moving) MoveAndCollide(new Vector2(_step, 0));
         if (!Statuses.Has(StatusKind.Hitstun)) _step = 0;
         if (FlashRemaining > 0) FlashRemaining--;
-        // 位置定下来之后才刷纵深偏移与影子：找地面那条射线要问的是这一帧的最终位置。
+        // 位置定下来之后才刷纵深偏移与地面：找地面那条射线要问的是这一帧的最终位置。
         Visual.Sync();
         ApplyFlash();
     }

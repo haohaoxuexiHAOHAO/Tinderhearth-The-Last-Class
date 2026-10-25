@@ -85,15 +85,6 @@ public static class HudPalette
     /// </remarks>
     public static PaletteEntry Cooldown { get; } = new("outline 2", PixelColor.FromHex(0x110F1C));
 
-    /// <summary>
-    /// 侧视战斗里角色脚下那个影子，现在还是 <c>DepthVisual</c> 画的一个实心椭圆。色板 <c>shadow 1</c>：接地影那一条最暗的一档。
-    /// </summary>
-    /// <remarks>
-    /// 它不是界面件，放在这里是因为它同样是代码设的颜色 —— 按名字取色板的那几档都在这一处，读的人不用满仓找。
-    /// 这个影子要改成作者画的（设计仓台账 <c>ENG-26</c>），换掉时这一档随之删。
-    /// </remarks>
-    public static PaletteEntry GroundShadow { get; } = new("shadow 1", PixelColor.FromHex(0x272337));
-
     /// <summary>倒地队友的头像框色。明度压到与次要信息同档，但色相偏冷，与「还活着」分得开。占位色。</summary>
     public static PixelColor Down => PixelColor.FromHex(0x4A4A52);
 

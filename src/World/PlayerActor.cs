@@ -26,18 +26,14 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     /// <remarks>精灵的偏移量就是把这一行对到节点原点上算出来的，而节点原点就是脚底。</remarks>
     private const int GroundRow = 30;
 
-    /// <summary>角色身体的宽度，世界像素。碰撞框用它，影子的宽度下限也用它。</summary>
+    /// <summary>角色身体的宽度，世界像素。碰撞框用它。</summary>
     /// <remarks>
     /// 只有本类读它。实体阻挡要的半宽是从引擎实际在用的那个碰撞形状上读回来的，不是读这个常量
     /// （见 <see cref="DepthBlocker"/> 的 HalfWidthOf），所以这里不必放宽成 internal。
     ///
     /// 贴着实测轮廓来：站立姿量出来约 19 像素宽，取 18 当身体宽。
-    ///
-    /// 影子不许比它更窄。整帧的不透明宽度含四肢，而手臂前后摆会让它在走动中从 20 像素掉到 11
-    /// 像素 —— 逐帧照抄的话，影子会随着走路动画缩到一半，而角色占的那块地根本没变。影子代表的是
-    /// 占地，所以取「身体宽与当前姿态宽的较大者」：走动时稳定在身体宽，出拳时跟着伸出去。
     /// </remarks>
-    private const int BodyWidthFloorWorldPx = 18;
+    private const int BodyWidthWorldPx = 18;
 
     /// <summary>主角站立时的身体高度，世界像素。实体碰撞框与受击框共用它，不各写一个数。</summary>
     /// <remarks>
@@ -53,6 +49,13 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     internal const int BodyHeightWorldPx = 28;
 
     private const string SheetDir = "res://assets/self-drawn/test-role";
+
+    /// <summary>脚下用哪一套影子图（见 <see cref="DepthVisual.LoadShadowSteps"/>）。</summary>
+    /// <remarks>
+    /// 主角是人形，走体型表里「人」那一档；体型表在设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。
+    /// 帧框改成按角色各自声明时（设计仓台账 ENG-24），这一项跟着进那份声明。
+    /// </remarks>
+    private const string ShadowSet = "human";
 
     // 已经接进玩法的那些精灵表。轻击三段各有一张（light、light2、light3），由 UpdateVisual 按当前
     // 打到第几段来选；受击分轻重两张，命中时放受击帧作反馈。
@@ -176,78 +179,6 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
 
-    /// <summary>各动作逐帧的身体左右边界，单位是帧内像素列号。指向下面那份按表共享的缓存。</summary>
-    private readonly Dictionary<string, (int Left, int Right)[]> _bodyBounds = [];
-
-    /// <summary>逐帧身体边界的缓存，键是精灵表的完整路径。同一张表只扫一次，所有角色共享结果。</summary>
-    /// <remarks>
-    /// 不缓存的话每个角色实例都要把同一批图重扫一遍 —— 同屏二十个角色就是上百万个像素。键取完整
-    /// 路径而不是动作名，好让将来不同角色用不同表时各自命中；现在所有角色共用同一套表。
-    ///
-    /// 这个开销不影响任何结果，只是载入变慢，所以它不会以报错的形式冒出来。发现它靠的是启动日志里
-    /// 同一行打了好几遍。所以那一行只在真正扫的时候才打 —— 打几遍就说明扫了几遍。
-    /// </remarks>
-    private static readonly Dictionary<string, (int Left, int Right)[]> BodyBoundsCache = [];
-
-    /// <inheritdoc />
-    /// <remarks>
-    /// 取「这一帧的不透明边界」与「身体宽」两者的并集，理由见 <see cref="BodyWidthFloorWorldPx"/>。
-    /// 边界是在没翻转的图上量的，所以角色朝左时要镜像一下。缺图退回占位框时只有身体宽可用。
-    /// </remarks>
-    public GroundSpan BodySpanWorldPx
-    {
-        get
-        {
-            var floor = GroundSpan.Centered(BodyWidthFloorWorldPx);
-            if (!_bodyBounds.TryGetValue(VisualAction, out var bounds) || bounds.Length == 0)
-            {
-                return floor;
-            }
-            var (left, right) = bounds[Math.Clamp(Sprite.Frame, 0, bounds.Length - 1)];
-            if (right < left)
-            {
-                return floor;   // 整帧全透明，没有可量的边界
-            }
-            // 精灵居中绘制，所以帧的横向中点落在节点原点上；第 x 列像素覆盖 [x, x+1) 这一段。
-            var span = new GroundSpan(left - (FrameWidth / 2.0), right + 1 - (FrameWidth / 2.0));
-            return (Sprite.FlipH ? span.Mirrored() : span).Union(floor);
-        }
-    }
-
-    /// <summary>逐帧扫出身体的左右边界：每一帧里不透明像素最左与最右那一列，单位是帧内像素列号。</summary>
-    /// <remarks>
-    /// 运行时从纹理直接扫，而不是预先存一份数字：存下来的那份得跟着素材改，而它不会自动跟。直接扫
-    /// 的话素材一换结果就跟着变，不会有第二份过期的数据。
-    ///
-    /// 开销可以忽略：几十帧、几万个像素，只在 <see cref="_Ready"/> 里扫一次，而且同一张表只扫一次。
-    /// </remarks>
-    private static (int Left, int Right)[] MeasureBodyBounds(Texture2D texture, int frames)
-    {
-        var image = texture.GetImage();
-        var bounds = new (int Left, int Right)[frames];
-        for (var frame = 0; frame < frames; frame++)
-        {
-            var left = int.MaxValue;
-            var right = int.MinValue;
-            for (var x = 0; x < FrameWidth; x++)
-            {
-                for (var y = 0; y < FrameHeight; y++)
-                {
-                    if (image.GetPixel((frame * FrameWidth) + x, y).A <= 0)
-                    {
-                        continue;
-                    }
-                    left = Math.Min(left, x);
-                    right = Math.Max(right, x);
-                    break;
-                }
-            }
-            // 全透明的帧留成一个左大于右的反向区间，读的人据此退回身体宽，而不是编一个 0 宽度出来。
-            bounds[frame] = (left, right);
-        }
-        return bounds;
-    }
-
     /// <summary>哪些动作因为缺图退回了几何占位。空的就表示每个动作都有真图。</summary>
     public IReadOnlyList<string> MissingSheets => _missing;
     private readonly List<string> _missing = [];
@@ -262,7 +193,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         // 碰撞框贴实测轮廓，底边落在节点原点上 —— 原点就是脚底，精灵的偏移也对到同一处。
         AddChild(new CollisionShape2D
         {
-            Shape = new RectangleShape2D { Size = new Vector2(BodyWidthFloorWorldPx, BodyHeightWorldPx) },
+            Shape = new RectangleShape2D { Size = new Vector2(BodyWidthWorldPx, BodyHeightWorldPx) },
             Position = new Vector2(0, -14),
         });
         Sprite.SpriteFrames = new SpriteFrames();
@@ -290,23 +221,15 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
                     Region = new Rect2(frame * FrameWidth, 0, FrameWidth, FrameHeight),
                 });
             }
-            var path = $"{SheetDir}/{name}.png";
-            if (!BodyBoundsCache.TryGetValue(path, out var bounds))
-            {
-                bounds = MeasureBodyBounds(texture, count);
-                BodyBoundsCache[path] = bounds;
-                GD.Print($"[主角] 逐帧身体边界 {name}="
-                    + $"[{string.Join(",", bounds.Select(b => $"{b.Left}:{b.Right}"))}]");
-            }
-            _bodyBounds[name] = bounds;
             // 把每张表的帧数打进启动日志，方便对照精灵表确认切图没切错。
             GD.Print($"[主角] 精灵表 {name} 有 {count} 帧");
         }
         GD.Print(_missing.Count == 0
             ? $"[主角] 全部动作都有真图；帧框 {FrameWidth}x{FrameHeight}，帧内地面行 {GroundRow}"
             : $"[主角] 这些动作缺图、退回几何占位：{string.Join(", ", _missing)}");
-        // 精灵挂在纵深可视根下面，于是纵深偏移只有一处来源。
-        Visual = new DepthVisual { Actor = this };
+        // 精灵挂在纵深可视根下面，于是纵深偏移只有一处来源。会跳、会被打飞的角色，影子单画一张由
+        // 可视根摆在地上，动作帧里不画。
+        Visual = new DepthVisual { Actor = this, ShadowSteps = DepthVisual.LoadShadowSteps(ShadowSet) };
         AddChild(Visual);
         Visual.AddChild(Sprite);
         UpdateVisual();
