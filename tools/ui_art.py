@@ -6,23 +6,27 @@
 
 三类件：
   切   —— 从模板原样取，像素不动；九宫格件按边距拼回最小画布。
-  派生 —— 同一件的其他状态，由原件按色板换档得到，形状不变。
-  手画 —— 作者没画的小件，字符格在 ui_art_sprites.py。
+  派生 —— 同一件的其他状态或配套的那一层，由原件算出来：按色板换档（形状不变），或取线稿围住的格。
+  手画 —— 作者没画的小件，字符格在 ui_art_sprites.py。作者修过的那几张照作者那一版誊回字符格，
+          格子上方注明「作者修过」，不为改画法重画。
+  誊   —— 作者画在模板里、却没法原样切的件（图标按钮上的图标与按钮底画在一起），照作者那一版
+          逐像素誊成字符格，也在 ui_art_sprites.py。
 
 写盘之前每一张判三件事：alpha 只有 0 与 255、每个不透明像素都是色板里的一档、尺寸与清单一致。
 有一张不过就停，不写半套。
 
 模板在工作区根的 art-source/self-material/ui/，不在任何仓库里（见那里的 README）。
 
-生成物默认不覆盖：磁盘上已有、内容又和这次生成的不一样的文件会跳过并列出来 —— 那多半是在
-Godot 或画图软件里手改过。确认要覆盖时加 --force。
+谁改过一张图靠像素指纹认：生成器写出的每张 PNG 里记一条按像素算的指纹（见 FINGERPRINT_KEY）。
+磁盘上那张的像素与它记的指纹对得上，就是生成器自己写的、没人动过，可以换成新的；没有指纹或对不上，
+就是作者手改过，跳过并列出来。要换回生成器那一版，删掉那张再跑。
 
 用法（从代码仓根目录跑）：
     python tools/ui_art.py                   生成、校验、写盘
-    python tools/ui_art.py --force           连已存在且不同的文件一起覆盖
-    python tools/ui_art.py --list            列每一件的尺寸、九宫格边距、来源与用途
-    python tools/ui_art.py --preview <png>   另写一张带名字的总览图（放大 3 倍）给人看
-    python tools/ui_art.py --dry-run         只生成与校验，不写盘
+    python tools/ui_art.py --list            列每一件的尺寸、九宫格边距、来源与用途（不写盘）
+    python tools/ui_art.py --preview <png>   另写一张带名字的总览图（放大 3 倍）给人看（界面件不写盘）
+    python tools/ui_art.py --grid panel/coin 把磁盘上那张誊成字符格打出来（作者改过的图跟进生成器时用）
+    python tools/ui_art.py --dry-run         只生成与校验，报每张会写、认领、不变还是跳过，不写盘
 
 本脚本不是守卫，不进 verify.py：它判的是它自己生成的东西。本脚本没有自证入口。
 """
@@ -30,6 +34,7 @@ Godot 或画图软件里手改过。确认要覆盖时加 --force。
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import sys
 from collections import deque
@@ -37,6 +42,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
+from PIL.PngImagePlugin import PngInfo
 
 import ui_art_sprites as sp
 from palettelib import ROOT, luma, pick, read_palette
@@ -223,6 +229,43 @@ def rings(pts: set[Pt], count: int) -> list[set[Pt]]:
     return out
 
 
+def grid_points(rows: list[str]) -> set[Pt]:
+    """字符格里不是 `.` 的那些格。只要形状、颜色由调用方给的时候用。"""
+    return {(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch != "."}
+
+
+def inside(im: Image.Image) -> set[Pt]:
+    """线稿围住的格：从画布外一圈沿透明格 4 邻接灌进去，灌不到的透明格就是里面。
+
+    品质星的填充就取这一片 —— 填充与线稿各抄一份，改了线稿就会对不上（线里漏填、填到线下）。
+    """
+    w, h = im.size
+    seen: set[Pt] = set()
+    todo = [(-1, -1)]
+    while todo:
+        x, y = todo.pop()
+        if (x, y) in seen or not (-1 <= x <= w and -1 <= y <= h):
+            continue
+        if 0 <= x < w and 0 <= y < h and im.getpixel((x, y))[3]:
+            continue
+        seen.add((x, y))
+        todo += [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+    return {(x, y) for y in range(h) for x in range(w)
+            if (x, y) not in seen and not im.getpixel((x, y))[3]}
+
+
+def tip(im: Image.Image) -> Pt:
+    """最上一行最左那个不透明像素：箭头的箭尖、手形的食指尖，就是它们的热点。
+
+    从图上取、不另抄一份：作者把箭头挪了位置，热点跟着走。
+    """
+    for y in range(im.height):
+        for x in range(im.width):
+            if im.getpixel((x, y))[3]:
+                return x, y
+    raise SystemExit("[FAIL] 指针整张透明，取不到热点")
+
+
 def shrink9(im: Image.Image, l: int, t: int, r: int, b: int, cw: int = 4, ch: int = 4,
             sx: int | None = None, sy: int | None = None) -> Image.Image:
     """把一张大图收成最小的九宫格：四角原样，四边各取一条重复，中间取一个像素铺满。
@@ -364,13 +407,12 @@ def check_frame_against_template() -> None:
         raise SystemExit(f"[FAIL] 重画的面板外框与模板对不上 {len(bad)} 处，前几处：{bad[:5]}")
 
 
-def bevel(shape: set[Pt], size: int, line: str, hi: str, lo: str, fill: str) -> Image.Image:
-    """一圈描边、里面一圈斜面（左上亮、右下暗）、再里面是底色。按钮与小框都这么画。"""
+def ringed(shape: set[Pt], size: int, line: str, ring: str, fill: str) -> Image.Image:
+    """一圈描边、里面一整圈同一色的边、再里面是底色 —— 照作者的图标按钮：框类件不分左右亮暗。"""
     out_edge, rim, core = rings(shape, 2)
-    im = blank(size, size) if isinstance(size, int) else blank(*size)
+    im = blank(size, size)
     paint(im, out_edge, line)
-    paint(im, {(x, y) for x, y in rim if x + y < im.width - 1}, hi)
-    paint(im, {(x, y) for x, y in rim if x + y >= im.width - 1}, lo)
+    paint(im, rim, ring)
     return paint(im, core, fill)
 
 
@@ -445,32 +487,22 @@ def build_kit_frames() -> None:
 
 # ── kit/：按钮、图标按钮与它们的图标 ─────────────────────────────────────────
 
-# button1.png 那 32 格，按行排；None 是空白底那一格
-BUTTON_GLYPHS = [
-    ["arrow_left", "arrow_right", "close", "confirm"],
-    [None, "pause", "mail", "menu"],
-    ["settings", "sound_off", "sound_on", "help"],
-    ["minus", "plus", "lock", "unlock"],
-    ["star", "arrow_up", "arrow_down", "alert"],
-    ["play", "refresh", "fast_forward", "music"],
-    ["trash", "shop", "energy", "trophy"],
-    ["camera", "gift", "stats", "battery"],
-]
-
-
 def build_kit_buttons() -> None:
+    # 带字的按钮照作者的图标按钮画：里面那圈边比底深一档，焦点那一态这一圈换亮（作者的焦点也是亮这一圈）。
+    # 底色不动 —— 按钮上的字配 ember 4 底，对比度在界面绘制约定那张字色表里
     btn = octagon(12, 12, 3)
     states = {
-        "normal": ("ember 5", "ember 3", "ember 4"),
-        "focus": ("ember 6", "ember 4", "ember 5"),
-        "pressed": ("ember 2", "ember 4", "ember 3"),
-        "disabled": ("wood 5", "wood 3", "wood 4"),
+        "normal": ("ember 3", "ember 4"),
+        "focus": ("ember 6", "ember 5"),
+        "pressed": ("ember 2", "ember 3"),
+        "disabled": ("wood 3", "wood 4"),
     }
-    for state, (hi, lo, fill) in states.items():
-        add("kit", f"button_{state}", bevel(btn, 12, "ember 1", hi, lo, fill),
+    for state, (ring, fill) in states.items():
+        add("kit", f"button_{state}", ringed(btn, 12, "ember 1", ring, fill),
             "带字的按钮；焦点与鼠标悬停同一张；字由字体画" if state == "normal" else "带字的按钮",
             "手画", nine=(4, 4, 4, 4), size=(12, 12), text=True)
 
+    # 按钮底取模板里空着的那一格（第二行第一格）。图标不从模板里减底取，见 ui_art_sprites.BUTTON_ICONS
     sheet = tpl("button1.png")
     base = crop(sheet, 0, 32, 16, 16)
     add("kit", "iconbutton_normal", base, "图标按钮的底（作者那批八角按钮）", "切", size=(16, 16))
@@ -480,15 +512,9 @@ def build_kit_buttons() -> None:
         "图标按钮：按下（图标由代码下移一像素）", "派生", size=(16, 16))
     add("kit", "iconbutton_disabled", recolor(base, {"ember 3": "wood 3", "ember 2": "wood 2"}),
         "图标按钮：不可用", "派生", size=(16, 16))
-    for r, row in enumerate(BUTTON_GLYPHS):
-        for c, name in enumerate(row):
-            if name is None:
-                continue
-            glyph = diff_layer(crop(sheet, c * 32, r * 32, 16, 16), base)
-            add("kit", f"button_icon_{name}", glyph, "叠在图标按钮底上的那一层", "切",
-                size=(16, 16))
-    add("kit", "button_icon_skip", from_grid(sp.BUTTON_ICON_SKIP), "对话的「跳过」；与快进分得开",
-        "手画", size=(16, 16))
+    for name, rows in sp.BUTTON_ICONS.items():
+        use = "对话的「跳过」；与快进分得开" if name == "skip" else "叠在图标按钮底上的那一层"
+        add("kit", f"button_icon_{name}", from_grid(rows), use, "誊", size=(16, 16))
 
     box = octagon(12, 12, 2, 2, 2)
     off = blank(16, 16)
@@ -538,10 +564,11 @@ def build_kit_slots() -> None:
 
     hole = disc(11, 11, 10.8)
     out_edge, rim, core = rings(hole, 2)
+    # 孔是凹下去的：光从上面来，照亮的是孔里靠下的那一段内壁，左右对称
     socket = blank(22, 22)
     paint(socket, out_edge, "ember 1")
-    paint(socket, {(x, y) for x, y in rim if x + y < 21}, "ember 1")
-    paint(socket, {(x, y) for x, y in rim if x + y >= 21}, "ember 4")
+    paint(socket, {(x, y) for x, y in rim if y < 14}, "ember 1")
+    paint(socket, {(x, y) for x, y in rim if y >= 14}, "ember 4")
     paint(socket, core, "ember 2")
     add("kit", "socket_open", socket, "宝石孔（两种孔共用）：圆的，与装物品的方格分得开", "手画",
         size=(22, 22))
@@ -552,27 +579,37 @@ def build_kit_slots() -> None:
         add("kit", name, paint(blank(2 + i, 2 + i), {(x, y) for x in range(2 + i) for y in range(2 + i)},
                                 "highlight 2"),
             "品质点：纯白、代码染，落在格子左下角", "手画", size=(2 + i, 2 + i))
-    add("kit", "star_fill", from_grid(sp.STAR_FILL), "品质星的填充：纯白、代码染", "手画", size=(8, 8))
-    add("kit", "star_line", from_grid(sp.STAR_LINE), "品质星的线稿：叠在填充上，不染", "手画", size=(8, 8))
+    star_line = from_grid(sp.STAR_LINE)
+    add("kit", "star_fill", paint(blank(8, 8), inside(star_line), "highlight 2"),
+        "品质星的填充：纯白、代码染；取线稿围住的格", "派生", size=(8, 8))
+    add("kit", "star_line", star_line, "品质星的线稿：叠在填充上，不染", "手画", size=(8, 8))
     for name, rows in (("heart_empty", sp.HEART_EMPTY), ("heart_full", sp.HEART_FULL),
                        ("heart_entrust_empty", sp.ENTRUST_EMPTY), ("heart_entrust_full", sp.ENTRUST_FULL),
                        ("pip_enhance_empty", sp.ENHANCE_EMPTY), ("pip_enhance_full", sp.ENHANCE_FULL)):
         add("kit", name, from_grid(rows), "关系爱心／托付／强化点；每一对外轮廓一样", "手画", size=(8, 8))
 
 
-def tab_base(fill: str) -> Image.Image:
-    """顶层页签的底：作者那张面板上的形（顶上圆角、底边一行就是面板顶边那条线）。"""
-    shape = {(x, y) for y in range(20) for x in range(20)
-             if not (y == 0 and (x < 2 or x > 17)) and not (y == 1 and (x < 1 or x > 18))}
+def tab_base(fill: str, round_bottom: bool) -> Image.Image:
+    """顶层页签的底，三态共用这一个外形：顶上两角各切三格（作者那张面板上的形），一圈 ember 1 描边。
+
+    round_bottom 时底下两角照顶上那样切 —— 没选中、不可用的那几个像放在面板上的牌子；
+    选中那一个底边方的，整行描边落在面板顶边那条线上，看着接进面板。
+    """
+    cut = {(0, 0), (1, 0), (0, 1)}
+    corners = {(x, y) for x, y in cut} | {(19 - x, y) for x, y in cut}
+    if round_bottom:
+        corners |= {(x, 19 - y) for x, y in corners}
+    shape = {(x, y) for y in range(20) for x in range(20)} - corners
     im = paint(blank(20, 20), shape, fill)
-    paint(im, edge(shape), "ember 1")
-    return paint(im, {(x, 19) for x in range(20)}, "ember 1")
+    return paint(im, edge(shape), "ember 1")
 
 
 def build_kit_tabs() -> None:
-    for state, fill in (("normal", "soil 4"), ("selected", "soil 8"), ("disabled", "wood 2")):
-        add("kit", f"tab_{state}", tab_base(fill),
-            "顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上；图标放 (2,2)",
+    for state, fill, round_bottom in (("normal", "soil 4", True), ("selected", "soil 8", False),
+                                      ("disabled", "wood 2", True)):
+        look = "底边方的，接进面板顶边" if not round_bottom else "底下两角也切掉，像放在面板上的牌子"
+        add("kit", f"tab_{state}", tab_base(fill, round_bottom),
+            f"顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，{look}；图标放 (2,2)",
             "切（按模板重画）", size=(20, 20))
 
     person = tpl("interface-person1.png")
@@ -662,9 +699,10 @@ def build_kit_glyphs() -> None:
         size=(100, 12))
 
     for name in ("cursor_arrow", "cursor_hand", "cursor_blocked"):
-        hx, hy = sp.CURSOR_HOTSPOT[name]
-        add("kit", name, from_grid(getattr(sp, name.upper())),
-            f"鼠标指针，1× 原图，代码按整数倍放大；热点 ({hx},{hy})", "手画", size=(16, 16))
+        image = from_grid(getattr(sp, name.upper()))
+        hx, hy = sp.CURSOR_HOTSPOT.get(name) or tip(image)
+        add("kit", name, image, f"鼠标指针，1× 原图，代码按整数倍放大；热点 ({hx},{hy})", "手画",
+            size=(16, 16))
 
     for name, rows in sp.MINI.items():
         add("kit", f"mini_{name}", from_grid(rows), "迷你记号", "手画", size=(8, 8))
@@ -768,9 +806,9 @@ def build_hud() -> None:
 
     frame = octagon(20, 20, 1)
     out_edge, rim, _ = rings(frame, 2)
+    # 里面那一圈与 HUD 细框挨着描边的那一圈同色，一整圈、不分左右亮暗
     portrait = paint(blank(20, 20), out_edge, "ember 1")
-    paint(portrait, {(x, y) for x, y in rim if x + y < 19}, "ember 5")
-    paint(portrait, {(x, y) for x, y in rim if x + y >= 19}, "ember 3")
+    paint(portrait, rim, "ember 4")
     add("hud", "portrait_frame", portrait, "队友那一块的头像框：中间 16×16 透明放小头像", "手画",
         size=(20, 20))
 
@@ -828,8 +866,7 @@ def build_world_markers() -> None:
                "cropgreen 4", "可摆"),
         "blocked": ("gemred 2", {(i, i) for i in range(16)} | {(i, 15 - i) for i in range(16)},
                     "gemred 2", "被拒"),
-        "door": ("ember 5", {(7, y) for y in range(5, 12)} | {(8, y) for y in range(5, 12)}
-                 | {(6, 6), (9, 6), (5, 7), (10, 7)}, "ember 5", "门前那一格"),
+        "door": ("ember 5", grid_points(sp.PLACE_DOOR_ARROW), "ember 5", "门前那一格"),
         "occupied": ("ash 5", {(x, y) for x in range(1, 15) for y in range(1, 15) if (x + y) % 4 == 0},
                      "ash 5", "施工中已被占"),
     }
@@ -857,18 +894,63 @@ TAB_IDS = ["character", "students", "backpack", "quests", "map", "relations", "c
 TAB_USE = dict(zip(TAB_IDS, ["个人界面", "学生列表", "背包", "任务列表", "地图", "关系列表", "百科全书"]))
 
 
+def outline_color(im: Image.Image) -> tuple[int, int, int, int] | None:
+    """图标那一圈描边的颜色：挨着透明的不透明像素里最多的那一色（只看窗口里面，不算窗口边）。"""
+    px = im.load()
+    w, h = im.size
+    counts: dict[tuple[int, int, int, int], int] = {}
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] and any(0 <= x + dx < w and 0 <= y + dy < h and not px[x + dx, y + dy][3]
+                                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                counts[px[x, y]] = counts.get(px[x, y], 0) + 1
+    return max(counts, key=counts.get) if counts else None
+
+
+def cut_icon(sheet: Image.Image, x: int, y: int, bg: set[str], label: str, size: int = 16,
+             slack: int = 2) -> Image.Image:
+    """从模板切一个 size×size 的图标，默认窗口左上角在 (x, y)；切到了图标就把窗口挪到刚好不切。
+
+    模板里同一排的图标不一定对齐（背包那个页签图标比同排的低一像素），按固定坐标切会切掉一行。
+    「切到了」的判法：窗口边上有一个不是描边色的图标像素，而它朝外那一格还是图标（不是底色）——
+    描边没在窗口边上合上，图标还往外走。只认非描边色，是因为图标的描边常常贴着页签或面板的框线，
+    那不算切到。往切到的那边挪一格再判，挪出 slack 格还切、或两头都切到，就停下报是哪一件。
+    """
+    under = {rgba(n) for n in bg} | {CLEAR}
+    wx, wy = x, y
+    while True:
+        win = flood_clear(crop(sheet, wx, wy, size, size), bg)
+        line = outline_color(win)
+        sides = {
+            "上": [((i, 0), (wx + i, wy - 1)) for i in range(size)],
+            "下": [((i, size - 1), (wx + i, wy + size)) for i in range(size)],
+            "左": [((0, j), (wx - 1, wy + j)) for j in range(size)],
+            "右": [((size - 1, j), (wx + size, wy + j)) for j in range(size)],
+        }
+        cut = {side for side, cells in sides.items()
+               if any(win.getpixel(p)[3] and win.getpixel(p) != line and sheet.getpixel(q) not in under
+                      for p, q in cells)}
+        if not cut:
+            return win
+        dx = ("右" in cut) - ("左" in cut)
+        dy = ("下" in cut) - ("上" in cut)
+        if {"上", "下"} <= cut or {"左", "右"} <= cut or abs(wx + dx - x) > slack or abs(wy + dy - y) > slack:
+            raise SystemExit(f"[FAIL] {label}：{size}×{size} 的切图窗口装不下这个图标（{'、'.join(sorted(cut))}边被切到）")
+        wx, wy = wx + dx, wy + dy
+
+
 def build_panel() -> None:
     person = tpl("interface-person1.png")
     add("panel", "profile_frame", flood_clear(crop(person, 26, 58, 76, 76), {"ember 2"}),
         "个人界面左上的立绘框：64×64 立绘放在 (6,6)", "切", size=(76, 76))
     stats = tpl("interface-person2.png")
     for key, (x, y) in ATTR_ICONS.items():
-        add("panel", f"attr_{key}", flood_clear(crop(stats, x, y, 16, 16), {"ember 3"}),
+        add("panel", f"attr_{key}", cut_icon(stats, x, y, {"ember 3"}, f"panel/attr_{key}"),
             f"属性页：{ATTR_USE[key]}", "切", size=(16, 16))
     for k, tab_id in enumerate(TAB_IDS):
         x0 = 35 + 22 * k
         fill = "soil 8" if k == 0 else "soil 4"
-        icon = flood_clear(crop(person, x0 + 2, 31, 16, 16), {fill})
+        icon = cut_icon(person, x0 + 2, 31, {fill}, f"tab/{tab_id}")
         add("tab", tab_id, icon, f"顶层页签图标：{TAB_USE[tab_id]}", "切", size=(16, 16))
         add("tab", f"{tab_id}_disabled", to_gray(icon), f"顶层页签图标：{TAB_USE[tab_id]}（不可用）",
             "派生", size=(16, 16))
@@ -958,34 +1040,94 @@ def validate(piece: Piece) -> list[str]:
     return problems
 
 
-def write(force: bool) -> None:
-    written, same, skipped = 0, 0, []
+# 生成器在自己写出的每张 PNG 里记的那条文字块。按像素算、不按文件字节算：画图软件另存时丢不丢这条
+# 文字块、压缩率变没变，都不影响「像素是不是生成器写的那一版」这个判断。
+FINGERPRINT_KEY = "ui_art"
+
+
+def fingerprint(im: Image.Image) -> str:
+    rgba_im = im.convert("RGBA")
+    return hashlib.sha256(f"{rgba_im.width}x{rgba_im.height}:".encode() + rgba_im.tobytes()).hexdigest()[:16]
+
+
+def save_owned(im: Image.Image, path: Path) -> None:
+    info = PngInfo()
+    info.add_text(FINGERPRINT_KEY, fingerprint(im))
+    im.save(path, pnginfo=info)
+
+
+def write(dry: bool = False) -> None:
+    """一张一张定：像素与这次生成的一样就不动（没记指纹的补记上，叫认领）；像素不同时，记的指纹对得上
+    就是生成器上回写的、换成新的，没有指纹或对不上就是作者手改过、跳过。dry 时只报会怎么定，不写。"""
+    written, adopted, same, skipped = [], 0, 0, []
     produced = set()
     for p in PIECES:
         path = OUT / p.group / f"{p.name}.png"
         produced.add(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        new = fingerprint(p.image)
         if path.exists():
-            old = Image.open(path).convert("RGBA")
-            if old.size == p.image.size and old.tobytes() == p.image.tobytes():
-                same += 1
+            with Image.open(path) as old:
+                recorded = getattr(old, "text", {}).get(FINGERPRINT_KEY)
+                actual = fingerprint(old)
+            if actual == new:
+                if recorded == new:
+                    same += 1
+                else:
+                    if not dry:
+                        save_owned(p.image, path)
+                    adopted += 1
                 continue
-            if not force:
+            if recorded != actual:
                 skipped.append(path.relative_to(ROOT).as_posix())
                 continue
-        p.image.save(path)
-        written += 1
+        if not dry:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            save_owned(p.image, path)
+        written.append(path.relative_to(ROOT).as_posix())
     stale = sorted(f.relative_to(ROOT).as_posix() for f in OUT.rglob("*.png")
                    if f not in produced and f.relative_to(OUT).as_posix() not in AUTHOR_OWNED)
-    print(f"写入 {written} 张，未变 {same} 张，共 {len(PIECES)} 张。")
+    head = "（预演，没写盘）要写" if dry else "写入"
+    print(f"{head} {len(written)} 张，认领 {adopted} 张（像素没变、补记指纹），未变 {same} 张，"
+          f"共 {len(PIECES)} 张。")
+    for s in written:
+        print(f"    {s}")
     if skipped:
-        print(f"[跳过] {len(skipped)} 张已存在且与这次生成的不同（多半手改过）；要覆盖加 --force：")
+        print(f"[跳过] {len(skipped)} 张作者手改过（没有指纹，或像素与记下的指纹对不上），生成器不碰；"
+              "要换回生成器那一版，删掉那张再跑：")
         for s in skipped:
             print(f"    {s}")
     if stale:
         print(f"[多余] {len(stale)} 张不在清单里（改过名或删掉的件），要不要删由人决定：")
         for s in stale:
             print(f"    {s}")
+
+
+def grid_of(path: Path) -> list[str]:
+    """磁盘上一张图 → 字符格。作者改完一批、生成器跟上时用：誊出来贴进 ui_art_sprites.py。
+
+    图例里没有字母的颜色、半透明像素都当场停 —— 前者先在 LEGEND 里加一个字母，后者本来就不许有。
+    """
+    letter = {rgba(name): ch for ch, name in sp.LEGEND.items()}
+    names = {rgb: name for name, rgb in PAL.items()}
+    im = Image.open(path).convert("RGBA")
+    rows, missing = [], set()
+    for y in range(im.height):
+        row = ""
+        for x in range(im.width):
+            px = im.getpixel((x, y))
+            if px[3] not in (0, 255):
+                raise SystemExit(f"[FAIL] {path.name} 在 ({x},{y}) 有半透明像素")
+            if px[3] == 0:
+                row += "."
+            elif px in letter:
+                row += letter[px]
+            else:
+                missing.add(names.get(px[:3], f"色板外 #{px[0]:02X}{px[1]:02X}{px[2]:02X}"))
+                row += "?"
+        rows.append(row)
+    if missing:
+        raise SystemExit(f"[FAIL] {path.name} 里这几色在 LEGEND 里没有字母：{'、'.join(sorted(missing))}")
+    return rows
 
 
 def render9(im: Image.Image, nine: tuple[int, int, int, int], w: int, h: int,
@@ -1072,11 +1214,23 @@ def listing() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="界面素材生成器")
-    ap.add_argument("--force", action="store_true", help="覆盖已存在且内容不同的文件")
-    ap.add_argument("--dry-run", action="store_true", help="只生成与校验，不写盘")
+    ap.add_argument("--dry-run", action="store_true", help="只生成与校验、报会怎么写，不写盘")
     ap.add_argument("--list", action="store_true", help="列出清单")
     ap.add_argument("--preview", type=Path, help="另写一张总览图到这个路径")
+    ap.add_argument("--grid", nargs="+", metavar="组/名",
+                    help="把磁盘上那几张誊成字符格打出来，例如 kit/cursor_arrow；作者改过的图跟进生成器时用")
     args = ap.parse_args()
+
+    if args.grid:
+        for rel in args.grid:
+            path = OUT / f"{rel}.png"
+            if not path.exists():
+                raise SystemExit(f"[FAIL] 没有 {path.relative_to(ROOT).as_posix()}")
+            rows = grid_of(path)
+            print(f"# {rel}  {len(rows[0])}×{len(rows)}")
+            for row in rows:
+                print(f'    "{row}",')
+        return 0
 
     for build in (build_kit_frames, build_kit_buttons, build_kit_slots, build_kit_tabs,
                   build_kit_sliders, build_kit_glyphs, build_hud, build_world, build_world_markers,
@@ -1092,8 +1246,8 @@ def main() -> int:
         listing()
     if args.preview:
         preview(args.preview)
-    if not args.dry_run:
-        write(args.force)
+    # --list、--preview 是拿来看的，看的时候不写盘；要写就不带它们再跑一次
+    write(dry=args.dry_run or args.list or args.preview is not None)
     print(f"[OK] {len(PIECES)} 张全部过了三项校验（硬 alpha、色板内、尺寸）。")
     return 0
 
