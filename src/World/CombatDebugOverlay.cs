@@ -25,6 +25,10 @@ public partial class CombatDebugOverlay : Node2D
 {
     // 全不透明的颜色。本项目的像素素材只用全透明或全不透明，调试线也照这条办，见设计仓
     // production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
+    //
+    // 这两个色刻意不出自 assets/self-drawn/palette.gpl：叠层是调帧用的工具、不是画面，要的是压在
+    // 任何底色与特效上都扎眼。色板里最近的红（fruitred 3）也差 51（palette_probe.py near）；
+    // 色板里那几条红又各有含义（火是 flame，生命条借 gemred），框取它们容易混进去。
     private static readonly Color HitboxColor = new("ff4d4d");
     private static readonly Color HurtboxColor = new("4db8ff");
 
