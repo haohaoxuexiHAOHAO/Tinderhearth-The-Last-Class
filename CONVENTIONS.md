@@ -324,7 +324,7 @@ row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
 理由是绕过门面会让「面板打开时屏蔽玩法动作」这类门控在某一处失效，且**不报错**。
 
 **界面里除 0 与 1 之外无数字字面量。** 排版量从 `UIMetrics` 和 `HudLayout` 取，
-颜色从 `HudPalette` 取，字体参数从 `PixelFont` 取。
+颜色从 `HudPalette` 取（新加一个颜色就写成 `PaletteEntry`，带上色板里那一项的名字），字体参数从 `PixelFont` 取。
 
 **不覆盖 `TextureFilter`。** 项目级最近邻纹理过滤在 `project.godot` 里统一设置，
 代码和场景里不许覆盖它（`ENG-13`）——覆盖成线性过滤会让像素糊掉，这一条作者实机看得出来。
@@ -369,3 +369,7 @@ public override void _ExitTree()
 （踩坑记录 29）。
 
 每加一条新测试，先跑 `dotnet run --project tests` 确认条数多了那一条。
+
+**要读仓库里的文件时只读不写**，仓库根从测试程序所在目录往上找 `project.godot`，不写死路径、不靠当前
+工作目录 —— 谁从哪个目录启动测试，测试控制不了。反证在内存里改，不改那份文件。范本：
+`tests/UI/PaletteTests.cs`。

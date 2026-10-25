@@ -52,7 +52,7 @@ public interface IDepthActor
 /// </remarks>
 public partial class DepthVisual : Node2D
 {
-    private static readonly Color ShadowColor = PixelTheme.ToColor(HudPalette.Charcoal);
+    private static readonly Color ShadowColor = PixelTheme.ToColor(HudPalette.GroundShadow);
 
     /// <summary>影子那个椭圆用几个顶点画。</summary>
     /// <remarks>

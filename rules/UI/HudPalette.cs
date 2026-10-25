@@ -22,51 +22,79 @@ public readonly record struct PixelColor(byte R, byte G, byte B)
 }
 
 /// <summary>
-/// HUD 的占位色板。正式色板还没定，这一套是临时的。
+/// 色板里的一档：代码仓 <c>assets/self-drawn/palette.gpl</c> 里那一项的名字，加它的色值。
 /// </summary>
 /// <remarks>
-/// 先给一套占位，是因为不给颜色就画不出 HUD，而定色板反过来要先看到界面长什么样 —— 互相等着
-/// 等于都不动。色板定稿时改这一个文件就行，不必翻界面代码。
+/// 值抄在代码里、不在运行时读那份色板：<c>.gpl</c> 不是引擎资源，导出包里没有它（实测：
+/// <c>tools/verify.py</c> 写出的导出清单里查不到）。抄一份就多一个家，所以由测试拿名字去色板里逐项对
+/// （<c>tests/UI/PaletteTests.cs</c>）—— 色板改了值而这里没跟，或者名字拼错，那条测试点名报出是哪一档。
 ///
-/// 取值不是现编的：暖炭底、面板、边、正文、次要、强调这一组沿用当初判定 12px 中文可读性时那个
-/// 字体对比工程（设计仓 tools/font-preview/main.gd）里的配色。换一套等于让那次判断作废。
+/// 能直接当 <see cref="PixelColor"/> 用：名字只给测试核对，用色的地方不必管它。
+/// </remarks>
+/// <param name="Name">色板里那一项的名字，例如 <c>sky 5</c>。</param>
+/// <param name="Color">它的色值，必须与色板里那一项一致。</param>
+public readonly record struct PaletteEntry(string Name, PixelColor Color)
+{
+    /// <summary>取色值。</summary>
+    public static implicit operator PixelColor(PaletteEntry entry) => entry.Color;
+}
+
+/// <summary>
+/// 代码里设的颜色，只在这一处。
+/// </summary>
+/// <remarks>
+/// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
+/// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
+/// 一档：面板底与边随作者画的框（设计仓台账 <c>UI-44</c>），条底与资源条的染色随画的填充（<c>UI-45</c>、
+/// <c>UI-48</c>），倒地头像色随那张倒地记号（<c>UI-46</c>）。
+///
+/// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
+/// 那次判断大体还成立；换色之后照样要实机重看一遍（台账 <c>UI-48</c>）。
 ///
 /// 资源条的颜色按明度挑，各条明度都不相同，所以色觉有差异也分得出来；而且每条旁边都有文字标签，
 /// 颜色不是唯一的区分手段。依据见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
 /// </remarks>
 public static class HudPalette
 {
-    /// <summary>暖炭底。整屏最暗的一档，条底与遮罩都从它派生。</summary>
-    public static PixelColor Charcoal => PixelColor.FromHex(0x211A17);
-
-    /// <summary>面板底。九宫格面板与技能位空框的填充。</summary>
+    /// <summary>面板底。九宫格面板与技能位空框的填充。占位色。</summary>
     public static PixelColor Panel => PixelColor.FromHex(0x332822);
 
-    /// <summary>面板边。1px 描边。</summary>
+    /// <summary>面板边。1px 描边。占位色。</summary>
     public static PixelColor Edge => PixelColor.FromHex(0x6B523C);
 
-    /// <summary>正文。</summary>
-    public static PixelColor Ink => PixelColor.FromHex(0xEADFC8);
+    /// <summary>正文。色板 <c>sky 5</c>：深底上的字色。</summary>
+    public static PaletteEntry Ink { get; } = new("sky 5", PixelColor.FromHex(0xE3DBCC));
 
-    /// <summary>次要信息：按键记号、未解锁的技能位标签。</summary>
-    public static PixelColor Dim => PixelColor.FromHex(0x9A8B74);
+    /// <summary>次要信息：按键记号、未解锁的技能位标签、不可用按钮的字。色板 <c>stone 4</c>。</summary>
+    public static PaletteEntry Dim { get; } = new("stone 4", PixelColor.FromHex(0x92897B));
 
-    /// <summary>强调：当前生效的技能组、目标达成那句话。</summary>
-    public static PixelColor Hot => PixelColor.FromHex(0xE09A4E);
+    /// <summary>
+    /// 强调：当前生效的技能组、目标达成那句话、随身栏选中格的件数，伤害数字也用它。色板 <c>ember 4</c>。
+    /// </summary>
+    public static PaletteEntry Hot { get; } = new("ember 4", PixelColor.FromHex(0xD99240));
 
-    /// <summary>资源条的底槽。比暖炭底再暗一档，好让空槽与背景分得开。</summary>
+    /// <summary>资源条的底槽。占位色。</summary>
     public static PixelColor Track => PixelColor.FromHex(0x14100E);
 
     /// <summary>
-    /// 冷却遮罩。不透明，从上往下抹掉图标的一部分，抹完即可用。
+    /// 冷却遮罩。色板 <c>outline 2</c>。不透明，从上往下抹掉图标的一部分，抹完即可用。
     /// </summary>
     /// <remarks>
     /// 用遮住而不是压暗，理由见 <see cref="PixelColor"/>：压暗要 alpha，而 alpha 会在屏幕上留下
     /// 插值像素。遮住也更好认 —— 玩家看的是「还剩多少没退下去」那一块。
     /// </remarks>
-    public static PixelColor Cooldown => PixelColor.FromHex(0x1A1512);
+    public static PaletteEntry Cooldown { get; } = new("outline 2", PixelColor.FromHex(0x110F1C));
 
-    /// <summary>倒地队友的头像框色。明度压到与次要信息同档，但色相偏冷，与「还活着」分得开。</summary>
+    /// <summary>
+    /// 侧视战斗里角色脚下那个影子，现在还是 <c>DepthVisual</c> 画的一个实心椭圆。色板 <c>shadow 1</c>：接地影那一条最暗的一档。
+    /// </summary>
+    /// <remarks>
+    /// 它不是界面件，放在这里是因为它同样是代码设的颜色 —— 按名字取色板的那几档都在这一处，读的人不用满仓找。
+    /// 这个影子要改成作者画的（设计仓台账 <c>ENG-26</c>），换掉时这一档随之删。
+    /// </remarks>
+    public static PaletteEntry GroundShadow { get; } = new("shadow 1", PixelColor.FromHex(0x272337));
+
+    /// <summary>倒地队友的头像框色。明度压到与次要信息同档，但色相偏冷，与「还活着」分得开。占位色。</summary>
     public static PixelColor Down => PixelColor.FromHex(0x4A4A52);
 
     /// <summary>HP。暗红，四条资源里明度最低。</summary>

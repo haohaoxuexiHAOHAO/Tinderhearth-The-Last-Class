@@ -16,7 +16,7 @@ namespace Tinderhearth.UI;
 /// 那种毛病在自己机器上永远看不到。
 ///
 /// 字号与行高不在这里定，在 <see cref="UIMetrics"/>；配色也不在这里，在
-/// <see cref="HudPalette"/>（现在还是占位色）。本类只负责把它们装进 <see cref="Theme"/>。
+/// <see cref="HudPalette"/>。本类只负责把它们装进 <see cref="Theme"/>。
 /// </remarks>
 public static class PixelTheme
 {
@@ -31,7 +31,7 @@ public static class PixelTheme
     }
 
     /// <summary>
-    /// 装好主题：把像素字体设成全局回退字体，并造一份带占位配色的 <see cref="Theme"/>。
+    /// 装好主题：把像素字体设成全局回退字体，并造一份带界面配色的 <see cref="Theme"/>。
     /// </summary>
     /// <remarks>
     /// 用 <see cref="ThemeDB.FallbackFont"/> 而不是只给每个界面挂 <see cref="Theme"/>：回退字体
