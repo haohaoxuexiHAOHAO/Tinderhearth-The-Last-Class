@@ -46,6 +46,56 @@ public sealed class ContentCatalog
     }
 
     /// <summary>
+    /// 解析「一个文件一个实体」的内容并按标识建表。同一路径照旧整文件覆盖（见 <see cref="Resolve"/>）；
+    /// 不同的文件用了同一个标识则当场抛，撞上的每一组连同各自的来源一次列全。
+    /// </summary>
+    /// <remarks>
+    /// 标识是存档、mod 与别的内容找它用的键，一个标识只许对应一份定义。不拦的话，撞上之后后读到的那份
+    /// 会顶掉前一份、或者进不了名册，而这不报错 —— 表现只是某个角色或作物不见了。角色的标识取名字的
+    /// 拼音，同音的名字就会撞上；撞了怎么改在设计仓 production/界面绘制约定.md 的「文件放哪、叫什么」一节。
+    ///
+    /// 同一路径不算撞：那是 mod 有意整份替换，分不出是有意还是碰巧同名，所以这里也不拦；让它看得见归
+    /// 设计仓台账 <c>ENG-32</c>。
+    /// 报错里的文件按路径排，同一份内容每次报得都一样。
+    /// </remarks>
+    /// <param name="relativeDirectory">内容目录，例如 <c>characters</c>。</param>
+    /// <param name="parse">把一条内容文件解析成定义；解析失败照旧由它自己抛。</param>
+    /// <param name="idOf">从定义上取标识。</param>
+    public IReadOnlyDictionary<string, T> ResolveById<T>(
+        string relativeDirectory, Func<ContentEntry, T> parse, Func<T, string> idOf)
+    {
+        ArgumentNullException.ThrowIfNull(parse);
+        ArgumentNullException.ThrowIfNull(idOf);
+
+        var parsed = new List<(ContentEntry Entry, string Id, T Definition)>();
+        foreach (var entry in Resolve(relativeDirectory).Values.OrderBy(e => e.RelativePath, StringComparer.Ordinal))
+        {
+            var definition = parse(entry);
+            var id = idOf(definition);
+            if (string.IsNullOrEmpty(id))
+            {
+                throw new InvalidDataException($"{entry.RelativePath}（来自 {entry.SourceName}）没有标识");
+            }
+
+            parsed.Add((entry, id, definition));
+        }
+
+        var clashes = parsed
+            .GroupBy(p => p.Id, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => $"「{group.Key}」在 "
+                + string.Join("、", group.Select(p => $"{p.Entry.RelativePath}（来自 {p.Entry.SourceName}）")))
+            .ToList();
+        if (clashes.Count > 0)
+        {
+            throw new InvalidDataException(
+                $"{relativeDirectory} 下有标识被不止一份文件用了，一个标识只许对应一份定义：{string.Join("；", clashes)}");
+        }
+
+        return parsed.ToDictionary(p => p.Id, p => p.Definition, StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// 按加载顺序返回全部内容文件，不去重。同名文件会出现多次，先基础后 mod。
     /// </summary>
     /// <remarks>

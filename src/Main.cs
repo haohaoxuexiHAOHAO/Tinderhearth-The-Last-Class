@@ -209,7 +209,8 @@ public partial class Main : Node2D
         return TextCatalog.Merge(tables);
     }
 
+    /// <summary>读全部角色定义。两份文件用了同一个标识在这里当场报错，理由见 <see cref="ContentCatalog.ResolveById"/>。</summary>
     private static List<CharacterDefinition> LoadCharacters(ContentCatalog catalog) =>
-        [.. catalog.Resolve(CharacterDefinition.ContentDirectory).Values
-                .Select(e => CharacterDefinition.Parse(e.Text, e.RelativePath))];
+        [.. catalog.ResolveById(CharacterDefinition.ContentDirectory,
+                e => CharacterDefinition.Parse(e.Text, e.RelativePath), c => c.Id).Values];
 }

@@ -313,10 +313,11 @@ public partial class FarmField : Node
     private void LoadCropDefinitions()
     {
         var catalog = ContentBootstrap.BuildCatalog();
-        foreach (var entry in catalog.Resolve(CropDefinition.ContentDirectory).Values)
+        // 两份文件用了同一个标识在 ResolveById 里当场报错，不让后读到的那份静默顶掉前一份。
+        foreach (var (id, crop) in catalog.ResolveById(CropDefinition.ContentDirectory,
+                     e => CropDefinition.Parse(e.Text, e.RelativePath), c => c.Id))
         {
-            var crop = CropDefinition.Parse(entry.Text, entry.RelativePath);
-            _cropDefs[crop.Id] = crop;
+            _cropDefs[id] = crop;
         }
 
         if (_cropDefs.Count == 0)

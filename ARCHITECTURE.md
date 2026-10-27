@@ -224,6 +224,9 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 对应代码：`ContentCatalog.Resolve` 是整文件覆盖，`ContentCatalog.ResolveAll` 不去重、由调用方
 决定合并方式；文本走 `TextCatalog.Merge`。两条语义都有测试盯着。
 
+一个文件一个实体的内容读成定义时走 `ContentCatalog.ResolveById`：在整文件覆盖之上按标识建表，不同
+文件用了同一个标识当场报错（同一路径仍是整份替换）。角色与作物都走它，新的内容类型照这条接。
+
 ### 每条内容记得来自哪个来源
 
 `ContentEntry` 带 `SourceName`。这不是为了诊断好看：待办 `ENG-7` 要求卸载 mod 后能列出「因缺少 mod

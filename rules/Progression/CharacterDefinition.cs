@@ -26,6 +26,43 @@ public sealed record CharacterDefinition(
 {
     public const string ContentDirectory = "characters";
 
-    public static CharacterDefinition Parse(string json, string whatForDiagnostics) =>
-        ContentJson.Parse<CharacterDefinition>(json, whatForDiagnostics);
+    /// <summary>解析一份角色定义，并核标识的写法。</summary>
+    /// <remarks>
+    /// 标识取名字的拼音：全小写、不带声调、不分隔，同音撞了的那个在末尾接数字；取法在设计仓
+    /// production/界面绘制约定.md 的「文件放哪、叫什么」一节。这里核的只是写法 —— 一串小写字母，末尾
+    /// 可以接数字。核它是为了让「拼音相同」就等于「字符串相同」：混进大写、声调或分隔符的那一份，会和
+    /// 另一份同音的绕开 <see cref="ContentCatalog.ResolveById"/> 的撞名检查，而那不报错。
+    ///
+    /// 是不是真的拼音判不了（一个英文单词也全是小写字母），那一半靠写的人。
+    /// </remarks>
+    public static CharacterDefinition Parse(string json, string whatForDiagnostics)
+    {
+        var definition = ContentJson.Parse<CharacterDefinition>(json, whatForDiagnostics);
+        if (!IsWellFormedId(definition.Id))
+        {
+            throw new InvalidDataException(
+                $"{whatForDiagnostics} 的标识「{definition.Id ?? "（没写）"}」写法不对：只许小写字母，"
+                    + "同音撞了才在末尾接数字（例如 yunyi2）。取法在设计仓 production/界面绘制约定.md 的"
+                    + "「文件放哪、叫什么」一节");
+        }
+
+        return definition;
+    }
+
+    /// <summary>一串小写字母，末尾可以接数字。</summary>
+    private static bool IsWellFormedId(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return false;
+        }
+
+        var letters = 0;
+        while (letters < id.Length && char.IsAsciiLetterLower(id[letters]))
+        {
+            letters++;
+        }
+
+        return letters > 0 && id[letters..].All(char.IsAsciiDigit);
+    }
 }
