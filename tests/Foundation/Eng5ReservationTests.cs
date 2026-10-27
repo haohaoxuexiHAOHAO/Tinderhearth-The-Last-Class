@@ -77,10 +77,10 @@ public class Eng5ReservationTests
     {
         var roster = new Roster(capacity: 2);
 
-        Assert.True(roster.TryAdd("ember"));
+        Assert.True(roster.TryAdd("jin"));
         Assert.True(roster.TryAdd("student-a"));
         Assert.False(roster.TryAdd("student-b"));   // 满了
-        Assert.False(roster.TryAdd("ember"));       // 重复
+        Assert.False(roster.TryAdd("jin"));       // 重复
         Assert.Equal(2, roster.ActorIds.Count);
     }
 
@@ -89,22 +89,22 @@ public class Eng5ReservationTests
     {
         const string json = """
             {
-              "id": "ember",
-              "displayNameKey": "character.ember.name",
+              "id": "jin",
+              "displayNameKey": "character.jin.name",
               "traitIds": ["trait.example"]
             }
             """;
 
         var definition = CharacterDefinition.Parse(json, "测试用角色定义");
 
-        Assert.Equal("ember", definition.Id);
-        Assert.Equal("character.ember.name", definition.DisplayNameKey);
+        Assert.Equal("jin", definition.Id);
+        Assert.Equal("character.jin.name", definition.DisplayNameKey);
         Assert.Single(definition.TraitIds);
 
         // 显示名必须经文本表解析出来，而不是定义里直接写着中文。
         var text = new TextCatalog(new Dictionary<string, string>
         {
-            ["character.ember.name"] = "烬",
+            ["character.jin.name"] = "烬",
         });
         Assert.Equal("烬", text[definition.DisplayNameKey]);
     }
@@ -133,7 +133,7 @@ public class Eng5ReservationTests
     public void 主角可以被换成AI驱动_证明玩家没有写死成主角()
     {
         // 这条是四条预留里最容易被写死的一条，所以直接拿主角来试。
-        const string protagonistId = "ember";
+        const string protagonistId = "jin";
         var registry = new ActorControllerRegistry();
 
         registry.Assign(protagonistId, new StubController(ActorControllerKind.LocalPlayer));
@@ -163,12 +163,12 @@ public class Eng5ReservationTests
         var catalog = new ContentCatalog();
         catalog.AddSource(new InMemoryContentSource("base", new Dictionary<string, string>
         {
-            ["characters/ember.json"] = "{ \"id\": \"ember\" }",
+            ["characters/jin.json"] = "{ \"id\": \"jin\" }",
             ["characters/student-a.json"] = "{ \"id\": \"student-a\" }",
         }));
         catalog.AddSource(new InMemoryContentSource("mod:example", new Dictionary<string, string>
         {
-            ["characters/ember.json"] = "{ \"id\": \"ember-modded\" }",
+            ["characters/jin.json"] = "{ \"id\": \"jin-modded\" }",
             ["characters/extra.json"] = "{ \"id\": \"extra\" }",
         }));
 
@@ -176,8 +176,8 @@ public class Eng5ReservationTests
 
         Assert.Equal(3, resolved.Count);
         // 后登记的来源覆盖前面的同名条目
-        Assert.Equal("mod:example", resolved["characters/ember.json"].SourceName);
-        Assert.Contains("ember-modded", resolved["characters/ember.json"].Text);
+        Assert.Equal("mod:example", resolved["characters/jin.json"].SourceName);
+        Assert.Contains("jin-modded", resolved["characters/jin.json"].Text);
         // 没被覆盖的仍来自基础内容
         Assert.Equal("base", resolved["characters/student-a.json"].SourceName);
         // mod 新增的条目也在，且来源可追溯 —— 以后报「哪个 mod 少了什么」要靠这个
@@ -194,15 +194,15 @@ public class Eng5ReservationTests
             new Dictionary<string, string>
             {
                 ["boot.title"] = "火种：最后一届",
-                ["character.ember.name"] = "烬",
+                ["character.jin.name"] = "烬",
             },
             new Dictionary<string, string>
             {
-                ["character.ember.name"] = "烬（mod 改过）",
+                ["character.jin.name"] = "烬（mod 改过）",
             },
         ]);
 
-        Assert.Equal("烬（mod 改过）", merged["character.ember.name"]); // 同键被覆盖
+        Assert.Equal("烬（mod 改过）", merged["character.jin.name"]); // 同键被覆盖
         Assert.Equal("火种：最后一届", merged["boot.title"]);           // 未提到的键仍在
         Assert.Equal(2, merged.Count);
     }
@@ -215,18 +215,18 @@ public class Eng5ReservationTests
         var catalog = new ContentCatalog();
         catalog.AddSource(new InMemoryContentSource("base", new Dictionary<string, string>
         {
-            ["characters/ember.json"] = """{ "id": "ember", "displayNameKey": "a", "traitIds": ["t1"] }""",
+            ["characters/jin.json"] = """{ "id": "jin", "displayNameKey": "a", "traitIds": ["t1"] }""",
         }));
         catalog.AddSource(new InMemoryContentSource("mod", new Dictionary<string, string>
         {
-            ["characters/ember.json"] = """{ "id": "ember", "displayNameKey": "b", "traitIds": [] }""",
+            ["characters/jin.json"] = """{ "id": "jin", "displayNameKey": "b", "traitIds": [] }""",
         }));
 
         var resolved = catalog.Resolve("characters");
-        var ember = CharacterDefinition.Parse(resolved["characters/ember.json"].Text, "test");
+        var jin = CharacterDefinition.Parse(resolved["characters/jin.json"].Text, "test");
 
-        Assert.Equal("b", ember.DisplayNameKey);
-        Assert.Empty(ember.TraitIds);   // 整份被替换，基础里的 t1 不残留
+        Assert.Equal("b", jin.DisplayNameKey);
+        Assert.Empty(jin.TraitIds);   // 整份被替换，基础里的 t1 不残留
 
         // ResolveAll 不去重，两份都在，顺序是先基础后 mod
         var all = catalog.ResolveAll("characters");

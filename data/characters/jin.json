@@ -1,8 +1,9 @@
 {
   "//": "主角。displayNameKey 是文本表里的键，不是名字本身 —— 名字走 data/text/。",
   "//假名": "玩家开局可自定义主角假名，届时由存档覆盖显示名，见玩法正典「开局」。",
+  "//id": "标识取名字的拼音，取法在设计仓 production/界面绘制约定.md 的「文件放哪、叫什么」一节；小头像的文件名就是它。",
 
-  "id": "ember",
-  "displayNameKey": "character.ember.name",
+  "id": "jin",
+  "displayNameKey": "character.jin.name",
   "traitIds": []
 }

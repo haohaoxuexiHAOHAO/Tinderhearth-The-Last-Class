@@ -3,7 +3,7 @@
   "//禁译": "专有名词的禁译与母语审校要求见设计仓 canon/characters/人物.md。",
   "//HUD": "hud.* 是关卡 HUD 的文字（UI-8）。三条量各有一个名（DOC-18）：战斗那条叫体力条、经营那条当日预算叫精力条、派生它们上限的属性叫体质。HP 与 MP 沿用正典的缩写。按键记号（1–6、左／上／下、L／R）与倒地记号（×）是符号不是文案，刻意不在这里。",
 
-  "character.ember.name": "烬",
+  "character.jin.name": "烬",
   "boot.title": "火种：最后一届",
   "boot.contentReady": "内容已载入",
 
