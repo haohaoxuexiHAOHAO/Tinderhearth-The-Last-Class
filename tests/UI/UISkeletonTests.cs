@@ -16,8 +16,8 @@ public class UISkeletonTests
     private static readonly UISurface Backpack =
         new("backpack", UILayer.Panel, SurfaceKind.Carried);
 
-    private static readonly UISurface Roster =
-        new("roster", UILayer.Panel, SurfaceKind.Manage);
+    private static readonly UISurface Assign =
+        new("assign", UILayer.Panel, SurfaceKind.Manage);
 
     private static readonly UISurface Confirm =
         new("confirm", UILayer.Dialog, SurfaceKind.View);
@@ -68,7 +68,7 @@ public class UISkeletonTests
     {
         var nav = new NavigationStack();
         nav.Push(Backpack);
-        nav.Push(Roster);
+        nav.Push(Assign);
         nav.Push(Backpack);
 
         Assert.Equal(2, nav.Depth);
@@ -101,28 +101,79 @@ public class UISkeletonTests
     public void 背包在关卡内可用而管理类面板不可用()
     {
         Assert.True(Backpack.AvailableInLevel);      // 随身物不算管理功能
-        Assert.False(Roster.AvailableInLevel);       // 派工属于经营侧操作
+        Assert.False(Assign.AvailableInLevel);       // 派工属于经营侧操作
     }
 
     [Fact]
-    public void 关卡内手环只留查看类标签页()
+    public void 关卡里操作类的子页灰着而查看类与随身物照常可用()
     {
-        var inLevel = Wristband.AvailableIn(UIContext.Level).Select(t => t.Id).ToList();
-        var inBase = Wristband.AvailableIn(UIContext.Base).Select(t => t.Id).ToList();
+        static WristbandPageState InLevel(string pageId) => Wristband.PageById(pageId).StateIn(UIContext.Level);
 
-        Assert.Equal(Wristband.Tabs.Count, inBase.Count);        // 基地里全开
-        Assert.Contains("codex", inLevel);                       // 图鉴：只是查看，关卡内可用
-        Assert.Contains("party", inLevel);                       // 队伍状态：同上
-        Assert.DoesNotContain("assign", inLevel);                // 派工
-        Assert.DoesNotContain("order", inLevel);                 // 订货
-        Assert.DoesNotContain("build", inLevel);                 // 建造下单
+        Assert.Equal(WristbandPageState.Disabled, InLevel("assign"));       // 派工
+        Assert.Equal(WristbandPageState.Disabled, InLevel("board"));        // 委托板
+        Assert.Equal(WristbandPageState.Disabled, InLevel("order"));        // 订货与收购
+        Assert.Equal(WristbandPageState.Disabled, InLevel("build"));        // 建造下单
+        Assert.Equal(WristbandPageState.Available, InLevel("codex_enemy")); // 图鉴：只是查看
+        Assert.Equal(WristbandPageState.Available, InLevel("roster"));      // 名册，即队伍状态：同上
+        Assert.Equal(WristbandPageState.Available, InLevel("bag"));         // 背包：随身物
+        Assert.Equal(WristbandPageState.Available, InLevel("treasures"));   // 角色面板那一套也是随身物
     }
 
     [Fact]
-    public void 手环标签页拼错时抛而不是静默判成不可用()
+    public void 关卡里没有的那一页不显示而不是灰着()
     {
-        // 静默返回 false 会让「拼错 id」和「这里确实不可用」长得一模一样。
-        Assert.Throws<KeyNotFoundException>(() => Wristband.IsEnabled("assgin", UIContext.Base));
+        // 灰着说的是「它在，回基地就能用」；关卡里根本没有仓库，灰着摆在那就是一个永远点不开的东西。
+        Assert.Equal(WristbandPageState.Hidden, Wristband.PageById("storage").StateIn(UIContext.Level));
+        Assert.Equal(WristbandPageState.Available, Wristband.PageById("storage").StateIn(UIContext.Base));
+    }
+
+    [Fact]
+    public void 基地里手环每一页都可用()
+    {
+        Assert.All(Wristband.Pages, p => Assert.Equal(WristbandPageState.Available, p.StateIn(UIContext.Base)));
+    }
+
+    [Fact]
+    public void 顶层页签的状态取它下面最好的那一页()
+    {
+        var view = new WristbandPage("v", SurfaceKind.View, ExistsInLevel: true);
+        var manage = new WristbandPage("m", SurfaceKind.Manage, ExistsInLevel: true);
+        var absent = new WristbandPage("a", SurfaceKind.Manage, ExistsInLevel: false);
+
+        Assert.Equal(WristbandPageState.Available, new WristbandTab("t", [manage, view]).StateIn(UIContext.Level));
+        Assert.Equal(WristbandPageState.Disabled, new WristbandTab("t", [absent, manage]).StateIn(UIContext.Level));
+        Assert.Equal(WristbandPageState.Hidden, new WristbandTab("t", [absent]).StateIn(UIContext.Level));
+    }
+
+    [Fact]
+    public void 打开顶层页签落在第一个可用的子页()
+    {
+        var view = new WristbandPage("v", SurfaceKind.View, ExistsInLevel: true);
+        var manage = new WristbandPage("m", SurfaceKind.Manage, ExistsInLevel: true);
+        var tab = new WristbandTab("t", [manage, view]);
+
+        Assert.Same(manage, tab.LandingIn(UIContext.Base));                       // 基地里就是第一个子页
+        Assert.Same(view, tab.LandingIn(UIContext.Level));                        // 关卡里第一个灰着，往后找
+        Assert.Null(new WristbandTab("t", [manage]).LandingIn(UIContext.Level));  // 一页都用不了就点不开
+    }
+
+    [Fact]
+    public void 手环的页签与子页标识都不重复且每个页签至少一页()
+    {
+        // 子页标识是文本键的后缀，也是导航范式那张表认页的依据；重了就有两页共用一个名字，而那不报错。
+        var tabIds = Wristband.Tabs.Select(t => t.Id).ToList();
+        var pageIds = Wristband.Pages.Select(p => p.Id).ToList();
+
+        Assert.Equal(tabIds.Count, tabIds.Distinct().Count());
+        Assert.Equal(pageIds.Count, pageIds.Distinct().Count());
+        Assert.All(Wristband.Tabs, t => Assert.NotEmpty(t.Pages));
+    }
+
+    [Fact]
+    public void 手环子页拼错时抛而不是静默判成不可用()
+    {
+        // 静默判成不可用会让「拼错 id」和「这里确实不可用」长得一模一样。
+        Assert.Throws<KeyNotFoundException>(() => Wristband.PageById("assgin"));
     }
 
     [Fact]

@@ -627,17 +627,17 @@ public class InputMappingTests
     public void 列表与标签页走焦点网格摆放走光标()
     {
         Assert.Equal(PanelNavigationMode.Cursor, PanelNavigation.ModeFor("build"));
-        Assert.Equal(PanelNavigationMode.Focus, PanelNavigation.ModeFor("codex"));
+        Assert.Equal(PanelNavigationMode.Focus, PanelNavigation.ModeFor("codex_treasure"));
         Assert.Equal(PanelNavigationMode.Focus, PanelNavigation.ModeFor("assign"));
     }
 
     [Fact]
-    public void 走光标的标签页每个都真的是手环的标签页()
+    public void 走光标的子页每个都真的是手环的子页()
     {
         // 拼错 id 会静默退回焦点导航，实机上只表现为「有点难用」。
-        foreach (var tabId in PanelNavigation.CursorNavigatedTabs)
+        foreach (var pageId in PanelNavigation.CursorNavigatedPages)
         {
-            Assert.Contains(tabId, Wristband.Tabs.Select(t => t.Id));
+            Assert.Contains(pageId, Wristband.Pages.Select(p => p.Id));
         }
     }
 

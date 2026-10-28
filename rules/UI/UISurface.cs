@@ -16,7 +16,20 @@ namespace Tinderhearth.Rules.UI;
 public sealed record UISurface(string Id, UILayer Layer, SurfaceKind Kind)
 {
     /// <summary>这一层在关卡内能不能用。</summary>
-    public bool AvailableInLevel => Kind != SurfaceKind.Manage;
+    public bool AvailableInLevel => Kind.AvailableInLevel();
+}
+
+/// <summary>用途分类上的那一条判定。</summary>
+public static class SurfaceKindExtensions
+{
+    /// <summary>
+    /// 这一类界面在关卡内能不能用：操作类不能，查看类与随身物能。
+    /// </summary>
+    /// <remarks>
+    /// 导航栈管的界面（<see cref="UISurface"/>）与手环的子页（<see cref="WristbandPage"/>）都按这一条判，
+    /// 所以它只写在这里 —— 两处各写一遍，改了一处另一处不报错。
+    /// </remarks>
+    public static bool AvailableInLevel(this SurfaceKind kind) => kind != SurfaceKind.Manage;
 }
 
 /// <summary>界面的用途分类。关卡内能不能用由它决定，不由各面板自己判断。</summary>

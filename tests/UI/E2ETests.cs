@@ -83,18 +83,27 @@ public class E2ETests
     }
 
     [Fact]
-    public void 主路径_手环关卡内只允许查看类标签页()
+    public void 主路径_关卡里手环灰着的只有操作类而不显示的只有关卡里没有的页()
     {
-        // 侧视关卡里打开手环，操作类页必须禁用
-        var inLevel = Wristband.AvailableIn(UIContext.Level).ToList();
-        var inBase  = Wristband.AvailableIn(UIContext.Base).ToList();
+        // 侧视关卡里打开手环：每一页按用途分类各判各的，三种显示各对一条判据，互不串
+        var pages = Wristband.Pages.ToList();
+        List<WristbandPage> In(WristbandPageState state) =>
+            [.. pages.Where(p => p.StateIn(UIContext.Level) == state)];
 
-        Assert.True(inLevel.Count < inBase.Count);    // 关卡内可用页少于基地
-        Assert.All(inLevel, t => Assert.Equal(SurfaceKind.View, t.Kind));
-        Assert.Contains(inLevel, t => t.Id == "codex");
-        Assert.Contains(inLevel, t => t.Id == "party");
-        Assert.DoesNotContain(inLevel, t => t.Id == "assign");
-        Assert.DoesNotContain(inLevel, t => t.Id == "build");
+        Assert.NotEmpty(In(WristbandPageState.Disabled));
+        Assert.All(In(WristbandPageState.Disabled), p => Assert.Equal(SurfaceKind.Manage, p.Kind));
+        Assert.All(In(WristbandPageState.Available), p => Assert.NotEqual(SurfaceKind.Manage, p.Kind));
+        Assert.All(In(WristbandPageState.Hidden), p => Assert.False(p.ExistsInLevel));
+        Assert.Contains(In(WristbandPageState.Hidden), p => p.Id == "storage");
+
+        // 能打开的顶层页签落得到一页，而且那一页就在它自己下面
+        foreach (var tab in Wristband.Tabs.Where(t => t.StateIn(UIContext.Level) == WristbandPageState.Available))
+        {
+            var landing = tab.LandingIn(UIContext.Level);
+            Assert.NotNull(landing);
+            Assert.Contains(landing, tab.Pages);
+            Assert.Equal(WristbandPageState.Available, landing.StateIn(UIContext.Level));
+        }
     }
 
     [Fact]
@@ -274,8 +283,9 @@ public class E2ETests
     [Fact]
     public void 独立性_Wristband标签页列表是只读的()
     {
-        // 确保不同测试读到的是同一份定义，没有被前一条测试改写
-        Assert.Equal(7, Wristband.Tabs.Count);
+        // 确保不同测试读到的是同一份定义：两级清单都改不动，没有哪条测试能把它改了留给下一条
+        Assert.False(Wristband.Tabs is IList<WristbandTab> { IsReadOnly: false });
+        Assert.All(Wristband.Tabs, t => Assert.False(t.Pages is IList<WristbandPage> { IsReadOnly: false }));
     }
 
     // ── 综合约束 ─────────────────────────────────────────────────────

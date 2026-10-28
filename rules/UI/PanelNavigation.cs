@@ -26,17 +26,17 @@ public enum PanelNavigationMode
 public static class PanelNavigation
 {
     /// <summary>
-    /// 走光标移动的手环标签页。其余一律走焦点移动。
+    /// 走光标移动的手环子页（<see cref="WristbandPage"/> 的标识）。其余一律走焦点移动。
     /// </summary>
     /// <remarks>
     /// id 拼错不会报错，只会静默退回焦点移动，而那在实机上看起来只是「这一页有点难用」。
-    /// 所以有测试盯着这里每个 id 都真的是手环的标签页。
+    /// 所以有测试盯着这里每个 id 都真的是手环的子页。
     /// </remarks>
-    public static readonly IReadOnlyList<string> CursorNavigatedTabs = ["build"];
+    public static readonly IReadOnlyList<string> CursorNavigatedPages = ["build"];
 
-    /// <summary>某个标签页该用哪种导航。</summary>
-    public static PanelNavigationMode ModeFor(string tabId) =>
-        CursorNavigatedTabs.Contains(tabId) ? PanelNavigationMode.Cursor : PanelNavigationMode.Focus;
+    /// <summary>手环的某一个子页该用哪种导航。</summary>
+    public static PanelNavigationMode ModeFor(string pageId) =>
+        CursorNavigatedPages.Contains(pageId) ? PanelNavigationMode.Cursor : PanelNavigationMode.Focus;
 }
 
 /// <summary>
