@@ -5,7 +5,8 @@
   色板    每个不透明像素都是 assets/self-drawn/palette.gpl 里的一档；不是的报出离它最近的那一档。
   透明度  alpha 只有 0 与 255。
   尺寸    界面件照生成器的清单（python tools/ui_art.py --list，作者自画的那几张也列在那里）；
-          icons/ 下按档，building 是大图标、其余是小图标（rules/UI/UIMetrics.cs）。别处没有尺寸规矩，不核。
+          icons/ 下按档，building 是大图标、其余是小图标（rules/UI/UIMetrics.cs）。一个文件可以只画一个图标，
+          也可以是一整张表，所以核的是「画布是整格」。别处没有尺寸规矩，不核。
   几态    同一件的几种状态（_normal、_focus、_pressed、_disabled……）画布一样大。
   九宫格  清单里标了边距的件，沿拉伸方向那几行、几列每一格都一样；中段按 Tile 铺的不核横向。
   文件名  与 check_names.py 同一条规矩。
@@ -96,15 +97,17 @@ def expectations() -> tuple[dict[str, tuple[Pt | None, str]], dict[str, ui_art.P
     return sizes, pieces
 
 
-def tier_size(rel: str) -> tuple[Pt | None, str]:
-    """icons/ 下按档：建筑是大图标，其余（物品、技能、状态、季节、天气、小头像……）是小图标。"""
+def tier_cell(rel: str) -> tuple[int, str] | None:
+    """icons/ 下按档给一格的边长：建筑是大图标，其余（物品、技能、状态、季节、天气、小头像……）是小图标。
+
+    内容图标可以一张一个，也可以画成整张表、在 Godot 里每格框一个 AtlasTexture（设计仓
+    production/界面绘制约定.md「文件放哪、叫什么」），所以调用方核的是画布是不是整格，不是一格那么大。
+    """
     if rel.startswith("icons/building/"):
-        n = ui_art.ui_metric("IconLarge")
-        return (n, n), "大图标"
+        return ui_art.ui_metric("IconLarge"), "大图标"
     if rel.startswith("icons/"):
-        n = ui_art.ui_metric("IconSmall")
-        return (n, n), "小图标"
-    return None, ""
+        return ui_art.ui_metric("IconSmall"), "小图标"
+    return None
 
 
 def family(path: Path) -> tuple[Path, str]:
@@ -171,9 +174,16 @@ def check_one(path: Path, sizes, pieces, palette) -> list[str]:
     with Image.open(path) as raw:
         im = raw.convert("RGBA")
     problems += pixel_problems(im, palette)
-    want, basis = sizes.get(rel) or tier_size(rel)
-    if want and im.size != want:
-        problems.append(f"画布 {im.width}×{im.height}，应为 {want[0]}×{want[1]}（{basis}）")
+    cell = tier_cell(rel)
+    if rel in sizes:
+        want, basis = sizes[rel]
+        if want and im.size != want:
+            problems.append(f"画布 {im.width}×{im.height}，应为 {want[0]}×{want[1]}（{basis}）")
+    elif cell:
+        n, basis = cell
+        if im.width % n or im.height % n:
+            problems.append(f"画布 {im.width}×{im.height} 不是 {n} 的整数倍（{basis}一格 {n}×{n}，"
+                            "一张一个或整张表都按格算）")
     piece = pieces.get(rel)
     if piece and piece.nine and im.size == piece.image.size:
         problems += nine_problems(im, piece.nine, tiled="Tile" in piece.use)
