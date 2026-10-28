@@ -9,8 +9,7 @@ namespace Tinderhearth.Rules.Tests.UI;
 /// 色值抄在代码里（色板不进发行包，理由在 <see cref="PaletteEntry"/>），所以这里是那两个家之间唯一的
 /// 对照：色板改了值而代码没跟、或者名字拼错，都不报编译错，表现只是屏幕上的颜色悄悄不在色板里。
 ///
-/// 本类是测试里第一处读盘的地方：只读不写，仓库根从测试程序所在目录往上找 <c>project.godot</c>。
-/// 反证都在内存里改，不碰那份文件。
+/// 读那份文件只读不写，仓库根见 <see cref="RepoFiles"/>。反证都在内存里改，不碰那份文件。
 /// </remarks>
 public class PaletteTests
 {
@@ -89,7 +88,7 @@ internal static class PaletteFile
 {
     /// <summary>读那份色板。找不到仓库根或文件就抛，不当成「色板是空的」。</summary>
     public static IReadOnlyDictionary<string, PixelColor> Read() =>
-        Parse(File.ReadAllLines(Path.Combine(RepoRoot(), "assets", "self-drawn", "palette.gpl")));
+        Parse(File.ReadAllLines(Path.Combine(RepoFiles.Root(), "assets", "self-drawn", "palette.gpl")));
 
     /// <summary>解析色板文本。一行解析不出来、同名出现两次、一项都没有，都抛。</summary>
     public static IReadOnlyDictionary<string, PixelColor> Parse(IEnumerable<string> lines)
@@ -142,19 +141,5 @@ internal static class PaletteFile
         {
             yield return $"{owner} 取的「{entry.Name}」：色板里是 {actual}，代码里是 {entry.Color}";
         }
-    }
-
-    /// <summary>仓库根：从测试程序所在目录往上找 <c>project.godot</c>。</summary>
-    private static string RepoRoot()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "project.godot")))
-            {
-                return dir.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException($"从 {AppContext.BaseDirectory} 往上找不到 project.godot");
     }
 }

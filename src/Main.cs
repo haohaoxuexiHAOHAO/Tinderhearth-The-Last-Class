@@ -23,6 +23,14 @@ namespace Tinderhearth;
 /// </remarks>
 public partial class Main : Node2D
 {
+    /// <summary>素材资源。界面件一律从它取。</summary>
+    /// <remarks>
+    /// 主场景的节点树是代码搭的，所以这一格由代码那一侧在 <c>scenes/main.tscn</c> 里填好，接的是
+    /// <c>assets/self-drawn/ui/ui_art.tres</c>；缺了、或那一份缺格，启动时当场报错并一次列全。
+    /// </remarks>
+    [Export]
+    public UIArt? Art { get; set; }
+
     public override void _Ready()
     {
         // 数字照游戏的语言印、不照玩家系统的区域设置印，理由在 GameLanguage。要排在第一行：
@@ -69,6 +77,10 @@ public partial class Main : Node2D
 
         GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
                  " 人，控制器 ", controllers.Count, " 个");
+
+        // 素材资源在搭界面之前核：缺一张图是这里一条说清缺哪几格的报错，不是画面上悄悄空一块。
+        var art = UIArtGuard.Require(Art, $"{nameof(Main)}（节点 {Name}）");
+        GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", art.ResourcePath, "）");
 
         BuildUI();
         BuildInputRouter();
