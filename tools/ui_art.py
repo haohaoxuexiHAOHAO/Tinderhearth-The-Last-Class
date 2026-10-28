@@ -890,9 +890,10 @@ ATTR_ICONS = {
     "point": (176, 207),
 }
 ATTR_USE = {"level": "等级", "str": "力量", "int": "智力", "agi": "敏捷", "con": "体质", "point": "属性点"}
-# 顶层页签从左到右：个人界面、学生列表、背包、任务列表、地图、关系列表、百科全书
-TAB_IDS = ["character", "students", "backpack", "quests", "map", "relations", "codex"]
-TAB_USE = dict(zip(TAB_IDS, ["个人界面", "学生列表", "背包", "任务列表", "地图", "关系列表", "百科全书"]))
+# 顶层页签的图标，按模板里页签那一排从左到右的槽位取。名字就是页签的标识，有哪几个页签的家在
+# rules/UI/Wristband.cs，两边要对得上。
+TAB_IDS = ["character", "students", "backpack", "quests", "map", "relations", "codex", "business"]
+TAB_USE = dict(zip(TAB_IDS, ["个人界面", "学生列表", "背包", "任务列表", "地图", "关系列表", "百科全书", "经营"]))
 
 
 def outline_color(im: Image.Image) -> tuple[int, int, int, int] | None:
