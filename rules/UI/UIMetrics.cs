@@ -50,11 +50,47 @@ public static class UIMetrics
     public const int SafeMargin = Grid;
 
     /// <summary>
-    /// 图标两档：界面符号 16，角色与大件 32。中间档不设 —— 这两个数一个是基础单位、
-    /// 一个是精灵格边长，中间任何尺寸在世界里都没有对应物。
+    /// 图标两档：小图标 16，大图标 32。
     /// </summary>
+    /// <remarks>
+    /// 16 是一个基础单位（图块、背包图标），32 是两个（俯视本体与界面图标的大档都是两单位，见设计仓
+    /// canon/gameplay/玩法定位.md 的「像素基准」）。中间档不设：中间任何尺寸在世界里都没有对应物。
+    /// 格子与详情框那一格落在两档之间，但它们是装一个小图标的框，不是一档图标（见下面的格子）。
+    ///
+    /// 改这两个数要回去重算设计仓 production/界面绘制约定.md「尺寸阶梯」那张表：那里的尺寸引的是这里，
+    /// 这边一改它就静默过期，而能提醒改的人的只有这一段。
+    /// </remarks>
     public const int IconSmall = 16;
     public const int IconLarge = 32;
+
+    /// <summary>格子的描边，一个像素。</summary>
+    public const int CellOutline = 1;
+
+    /// <summary>格子里描边与图标之间的留白。</summary>
+    /// <remarks>
+    /// 取 2 而不是 1：选中框画在格子外面，焦点框与稀有度框画在里面那两圈，三样同时在也要都看得出来。
+    /// 详情框那一格不可点，用不着给那两圈腾地方，所以它只空一像素（那一格不进本类，尺寸在绘制约定里）。
+    /// </remarks>
+    public const int CellPadding = 2;
+
+    /// <summary>格内边距：描边加留白。图标就放在格子里 (CellInset, CellInset) 那一点上。</summary>
+    public const int CellInset = CellOutline + CellPadding;
+
+    /// <summary>
+    /// 格子边长：一个小图标两侧各加一个格内边距。技能栏、随身栏、背包、仓库、宝物栏与两种孔共用这一档。
+    /// </summary>
+    /// <remarks>
+    /// 作者画的格子照这个数画。改它（或改它由来的那几个数）要回去重算设计仓
+    /// production/界面绘制约定.md「尺寸阶梯」那张表，画好的格子也得跟着重画。
+    /// </remarks>
+    public const int Cell = IconSmall + (CellInset * 2);
+
+    /// <summary>迷你档：一个排版栅格。只给界面符号用（爱心、星、强化点、增减、锁、翻页箭头），不进世界。</summary>
+    /// <remarks>
+    /// 世界里的东西最小也占一个基础单位，所以世界那一层的提示取小图标那一档，不取这一档。改它要回去
+    /// 重算设计仓 production/界面绘制约定.md「尺寸阶梯」那张表。
+    /// </remarks>
+    public const int Mini = Grid;
 
     /// <summary>侧视关卡的相机缩放倍数。有效世界视野因此是逻辑分辨率的一半。</summary>
     /// <remarks>

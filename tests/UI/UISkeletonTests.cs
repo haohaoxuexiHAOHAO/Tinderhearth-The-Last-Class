@@ -135,6 +135,22 @@ public class UISkeletonTests
     }
 
     [Fact]
+    public void 格子是小图标两侧各加一个格内边距()
+    {
+        // 格内边距是一像素描边加两像素留白，图标放在 (格内边距, 格内边距)。作者画的格子照这个数，
+        // 有人把格子改成一个写死的数、或改了小图标而格子不跟，这条就红。
+        Assert.Equal(UIMetrics.CellOutline + UIMetrics.CellPadding, UIMetrics.CellInset);
+        Assert.Equal(UIMetrics.IconSmall + (UIMetrics.CellInset * 2), UIMetrics.Cell);
+    }
+
+    [Fact]
+    public void 迷你档就是一个排版栅格()
+    {
+        // 迷你记号落在栅格上，摆进任何界面都不出半格。改栅格而迷你不跟，这条就红。
+        Assert.Equal(UIMetrics.Grid, UIMetrics.Mini);
+    }
+
+    [Fact]
     public void 行高与字号的关系保持整数且面板装得下一行文字()
     {
         Assert.Equal(0, UIMetrics.LineHeight % 2);
