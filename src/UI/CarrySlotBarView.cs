@@ -17,30 +17,46 @@ namespace Tinderhearth.UI;
 ///
 /// 它不接管输入，所以按它不暂停世界：按一下只换手上那一格，不弹面板。因此鼠标过滤是忽略，
 /// 输入是每帧问门面而不是等信号，与 <c>src/World/Farm/FarmField.cs</c> 的做法一致。物品图标由
-/// 调用方给的解析器答 —— 物品定义是会被 mod 换掉的内容，界面层不持有一张「标识对图标」的表。
+/// 往格子里装东西的那一方给（<see cref="Icons"/>）—— 物品定义是会被 mod 换掉的内容，界面层不持有
+/// 一张「标识对图标」的表。
+///
+/// 作者把它摆进场景：摆成 <see cref="UIRoot"/> 的子节点，接上 <see cref="Router"/>；界面根就绪时
+/// 把它挪到常驻显示那一层（<see cref="IPlacedUI"/>）。要读手上那一格的玩法节点在自己的检查器里
+/// 接它。格子那几层仍由本类自己搭，与 <see cref="LevelHud"/> 同一个理由：HUD 的尺寸与放置归规则层、
+/// 由测试判，作者摆的是这一个节点，不是格子。
 /// </remarks>
-public sealed partial class CarrySlotBarView : Control
+public sealed partial class CarrySlotBarView : Control, IPlacedUI
 {
     /// <summary>格框素材，与技能位共用同一批 —— 两处都是 16px 的框，本来就是同一样东西。</summary>
     private const string SlotPathFormat = "res://assets/placeholder/ui/skill-slot-{0}.png";
 
-    private readonly InputRouter _router;
-    private readonly CarrySlotBar _bar;
-    private readonly CarryIconResolver _icons;
+    // 随身栏本体在构造时就有，不等 _Ready：读它、往里装东西的玩法节点可能排在本节点前面就绪，
+    // 那时它得已经在。全空是它接上背包之前的正常样子（见 CarrySlotBar.Empty）。
+    private readonly CarrySlotBar _bar = CarrySlotBar.Empty();
     private readonly List<Cell> _cells = [];
 
-    private Control _frame = null!;
+    private InputRouter _router = null!;
+    private Control? _frame;
 
-    /// <summary>装一条随身栏。状态与图标来源都由调用方给，本类不挑数据。</summary>
-    public CarrySlotBarView(InputRouter router, CarrySlotBar bar, CarryIconResolver icons)
-    {
-        _router = router;
-        _bar = bar;
-        _icons = icons;
-    }
+    /// <summary>输入门面。换格的按键一律经它问，缺了当场报错。</summary>
+    [Export]
+    public InputRouter? Router { get; set; }
 
     /// <summary>拿一个物品标识换一张图标；没有图标就返回 <c>null</c>，那一格画空框。</summary>
     public delegate Texture2D? CarryIconResolver(string itemId);
+
+    /// <summary>
+    /// 图标从哪来。往格子里装东西的那一方在装之前设好。
+    /// </summary>
+    /// <remarks>
+    /// 它不是检查器里的格子：标识对图标的那张表属于内容，由装东西的那一方持有。没设就往格子里装了
+    /// 东西，画到那一格时当场报错 —— 不悄悄画成空框，否则「没给图标」看起来就像「这件东西没有图标」。
+    /// 全空的格子用不到它，所以接上背包之前不设也不报错。
+    /// </remarks>
+    public CarryIconResolver? Icons { get; set; }
+
+    /// <summary>这个界面挂在常驻显示那一层。</summary>
+    public UILayer Layer => UILayer.Hud;
 
     /// <summary>
     /// 那条随身栏本体。玩法侧从这里读「玩家手上是哪一格」。
@@ -52,7 +68,7 @@ public sealed partial class CarrySlotBarView : Control
     public CarrySlotBar Bar => _bar;
 
     /// <summary>这一块现在占屏幕的哪个矩形。可与 <see cref="HudLayout.RectOf"/> 的预测比对。</summary>
-    public Rect2 BlockRect => _frame.GetGlobalRect();
+    public Rect2 BlockRect => _frame?.GetGlobalRect() ?? default;
 
     /// <summary>第 N 格现在显示的件数文字。为 1 或为空时是空串。</summary>
     public string CountText(int index) => _cells[index].Count.Text;
@@ -66,19 +82,30 @@ public sealed partial class CarrySlotBarView : Control
 
     public override void _Ready()
     {
+        // 先停掉每帧回调，校验过了再开。_Ready 抛出之后引擎并不会停掉这个节点，_Process 照旧
+        // 每帧跑而门面还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走。
+        SetProcess(false);
+
+        _router = Router ?? throw new InvalidOperationException(
+            $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
+                + $"换格的按键要经输入门面问（挂了 {nameof(InputRouter)} 的那个节点）");
+
         // 铺满所属层、块靠锚点贴角。必须用 SetAnchorsAndOffsetsPreset：对已经在树里的节点调
         // SetAnchorsPreset 会改写偏移、保住那个 0×0 的矩形，而且不报错（同 LevelHud 那一段）。
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
 
         Build();
-
-        // 等自己的尺寸定下来再摆块，之后每次尺寸变都重摆一遍（幂等）。
-        // 不做的话贴右下角的块会拿 0×0 的父矩形算偏移、落到屏幕外去，而那只表现为「少了一块」。
-        Resized += AnchorBlock;
         AnchorBlock();
         Refresh();
+
+        SetProcess(true);
     }
+
+    // 尺寸一变就重摆那一块（幂等）。不摆的话贴右下角的块会拿 0×0 的父矩形算偏移、落到屏幕外去，
+    // 而那只表现为「少了一块」。订阅跟着进出树走而不写在 _Ready 里：界面根会把本节点挪到常驻
+    // 显示那一层，挪的时候它离开再进一次树，_Ready 却不再跑（见 IPlacedUI）。
+    public override void _EnterTree() => Resized += AnchorBlock;
 
     public override void _ExitTree() => Resized -= AnchorBlock;
 
@@ -158,10 +185,15 @@ public sealed partial class CarrySlotBarView : Control
         AddChild(panel);
         _frame = panel;
 
+        // 内容区撑满到那一块的内容尺寸，不只是格子那么宽。贴角的偏移是按内容最小尺寸算的，而块的
+        // 实际宽度取「内容最小与 CustomMinimumSize 里较大的那个」（ARCHITECTURE.md 那两个坑的第二个）：
+        // 格子比内容区窄一个栅格，不撑满的话整块就往外偏这一格、压进安全边距。实测撞过：右边贴到了屏幕边。
+        var content = HudLayout.ContentSizeOf(HudBlock.ActionBar);
         var row = new HBoxContainer
         {
             Name = "Content",
             Alignment = BoxContainer.AlignmentMode.Center,
+            CustomMinimumSize = new Vector2(content.Width, content.Height),
         };
         row.AddThemeConstantOverride("separation", 0);
         panel.AddChild(row);
@@ -201,8 +233,9 @@ public sealed partial class CarrySlotBarView : Control
     }
 
     /// <summary>把那一块贴到它该贴的角上。这里没有一个坐标，逻辑宽度撑开时它自动跟着走。</summary>
+    /// <remarks>进树早于 <c>_Ready</c>，那时块还没搭，尺寸变了也没东西可摆。</remarks>
     private void AnchorBlock() =>
-        _frame.SetAnchorsAndOffsetsPreset(
+        _frame?.SetAnchorsAndOffsetsPreset(
             HudLayout.AnchorOf(HudBlock.ActionBar) switch
             {
                 HudAnchor.TopLeft => LayoutPreset.TopLeft,
@@ -233,7 +266,7 @@ public sealed partial class CarrySlotBarView : Control
             cell.Slot.SelfModulate = PixelTheme.ToColor(lit ? HudPalette.Hot : HudPalette.Ink);
 
             // 空格不画图标，但框照画 —— 格位固定不动，玩家才记得住哪一格是哪一格。
-            cell.Icon.Texture = slot.IsEmpty ? null : _icons(slot.ItemId);
+            cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot.ItemId);
             cell.Icon.Visible = cell.Icon.Texture is not null;
 
             cell.Count.Text = slot.ShowsCount ? slot.Count.ToString() : string.Empty;
@@ -241,6 +274,14 @@ public sealed partial class CarrySlotBarView : Control
                 PixelTheme.ToColor(lit ? HudPalette.Hot : HudPalette.Ink));
         }
     }
+
+    private Texture2D? IconOf(string itemId) =>
+        Icons is { } icons
+            ? icons(itemId)
+            : throw new InvalidOperationException(
+                $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Icons)} 没设，格子里却装了「{itemId}」—— "
+                    + "往随身栏里装东西的那一方要在装之前给一个按物品标识取图标的办法"
+                    + "（这件东西没有图标就返回 null，那一格只画框）");
 
     /// <summary>一张 16px 的图。不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是像素清晰的唯一依靠。</summary>
     private static TextureRect Picture(string? path) => new()

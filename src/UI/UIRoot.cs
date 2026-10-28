@@ -14,6 +14,11 @@ namespace Tinderhearth.UI;
 /// 不让各场景自己摆 CanvasLayer：那样每个界面会自己挑一个层号，迟早出现「弹窗被 HUD 挡住」，
 /// 而排查时得翻遍所有场景才知道谁用了哪个号。
 ///
+/// 界面有两条路挂上来：代码建的走 <see cref="Register"/>（或直接挂到 <see cref="LayerOf"/> 上）；
+/// 作者在编辑器里摆的，摆成本节点的子节点，就绪时按它自己声明的层挪过去（<see cref="IPlacedUI"/>）。
+/// 后一条只认那种节点，摆了别的东西当场报错 —— 不认的话它会留在本节点下面、画在世界坐标里，
+/// 有相机之后跟着地面一起滚走，而那不报错。
+///
 /// <see cref="UILayer.WorldSpace"/> 那一层开了 <c>FollowViewportEnabled</c>，因为挂在它上面的
 /// 东西（读条这类）要画在执行者身上、跟着相机走并随缩放变化。
 /// </remarks>
@@ -31,6 +36,9 @@ public partial class UIRoot : Node
 
     public override void _Ready()
     {
+        // 先记下作者摆在下面的那几个，再建层 —— 层也是本节点的子节点，建完再数就分不清谁是谁。
+        var placed = GetChildren().ToList();
+
         foreach (UILayer layer in Enum.GetValues<UILayer>())
         {
             if (layer == UILayer.World)
@@ -49,6 +57,11 @@ public partial class UIRoot : Node
             _layers[layer] = canvas;
         }
 
+        foreach (var child in placed)
+        {
+            Adopt(child);
+        }
+
         GD.Print("[界面] 层级 ", string.Join(" → ",
             Enum.GetValues<UILayer>().Select(l => $"{l}({(int)l})")));
         GD.Print("[界面] 排版单位 栅格 ", UIMetrics.Grid,
@@ -57,6 +70,24 @@ public partial class UIRoot : Node
                  "｜安全边距 ", UIMetrics.SafeMargin,
                  "｜图标 ", UIMetrics.IconSmall, "/", UIMetrics.IconLarge,
                  "｜满宽汉字下限 ", UIMetrics.MaxFullWidthChars);
+    }
+
+    /// <summary>把作者摆在本节点下面的一个界面挪到它声明的那一层上，铺满那一层。</summary>
+    /// <remarks>
+    /// 铺满的做法与 <see cref="Register"/> 一样，理由也一样（见那里）。挪过去之后它的 <c>_Ready</c>
+    /// 不会再跑，所以这里只挪、不碰它的内容：它在自己的 <c>_Ready</c> 里已经把自己搭好了。
+    /// </remarks>
+    private void Adopt(Node child)
+    {
+        if (child is not (Control control and IPlacedUI placed))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(UIRoot)}（节点 {Name}）下面只能放界面节点（挂了随身栏这类脚本的 Control），"
+                    + $"「{child.Name}」不是 —— 别的东西摆到场景里别处去");
+        }
+
+        control.Reparent(LayerOf(placed.Layer), keepGlobalTransform: false);
+        control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
     }
 
     /// <summary>取某一层的画布，用来往上挂节点。</summary>

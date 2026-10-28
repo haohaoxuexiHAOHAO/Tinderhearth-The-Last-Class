@@ -382,6 +382,9 @@ public partial class FarmField : Node
             seeds.Add(CarrySlot.Empty);
         }
 
+        // 种子还没有图标：物品定义和它上面图标那一格都还不存在（设计仓台账 GP-22），所以格子先只
+        // 画框。到那时这里换成按标识查那一格 —— 装东西的和给图标的仍是同一处，不另开一张表。
+        _carry.Icons = static _ => null;
         _carry.Bar.Fill(seeds);
         _carry.OnContentChanged();
     }

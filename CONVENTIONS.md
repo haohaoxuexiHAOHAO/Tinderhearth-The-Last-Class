@@ -360,6 +360,10 @@ public override void _ExitTree()
 解绑用**具名方法**，而不是 lambda——lambda 解绑时需要保存同一个委托实例，
 用具名方法就不需要。同一个节点里的订阅用 `_ExitTree` 统一解绑。
 
+**会被挪到别的父节点下的节点，订阅写在 `_EnterTree`。** 挪的时候它离开再进一次树：`_ExitTree`
+照常解绑，`_Ready` 却不再跑，写在那里的订阅挪完就丢了，而那不报错。界面根认领的那种节点就是这样
+（`src/UI/IPlacedUI.cs`）。`_EnterTree` 早于 `_Ready`，所以回调里要容得下「还没搭好」。
+
 ## 测试
 
 测试只在 `tests/` 里，只测规则层（`rules/`）。`tests/` 不引用 `src/`。
