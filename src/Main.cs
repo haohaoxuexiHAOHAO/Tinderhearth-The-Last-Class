@@ -79,14 +79,15 @@ public partial class Main : Node2D
                  " 人，控制器 ", controllers.Count, " 个");
 
         // 素材资源在搭界面之前核：缺一张图是这里一条说清缺哪几格的报错，不是画面上悄悄空一块。
-        var art = UIArtGuard.Require(Art, $"{nameof(Main)}（节点 {Name}）");
-        GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", art.ResourcePath, "）");
+        _art = UIArtGuard.Require(Art, $"{nameof(Main)}（节点 {Name}）");
+        GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", _art.ResourcePath, "）");
 
         BuildUI();
         BuildInputRouter();
         BuildHud();
     }
 
+    private UIArt _art = null!;
     private UIRoot _ui = null!;
     private InputRouter _router = null!;
     private LevelHud _hud = null!;
@@ -103,7 +104,7 @@ public partial class Main : Node2D
     /// </remarks>
     private void BuildHud()
     {
-        var theme = PixelTheme.Install(out var fontChecks);
+        var theme = PixelTheme.Install(_art, out var fontChecks);
         _fontChecks = fontChecks;
         GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
                  fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
@@ -130,7 +131,7 @@ public partial class Main : Node2D
         AddChild(ui);
         _ui = ui;
 
-        var wristband = new WristbandPanel();
+        var wristband = new WristbandPanel { Art = _art, Catalog = _text };
         ui.Register(Wristband.Surface, wristband);
         _wristband = wristband;
         ui.Open(Wristband.Surface);

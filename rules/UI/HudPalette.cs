@@ -73,6 +73,15 @@ public static class HudPalette
     /// </summary>
     public static PaletteEntry Hot { get; } = new("ember 4", PixelColor.FromHex(0xD99240));
 
+    /// <summary>浅底上的正文：内容区、左栏的盒子、选中的子页签。色板 <c>rust 1</c>。</summary>
+    public static PaletteEntry PaperInk { get; } = new("rust 1", PixelColor.FromHex(0x3D1714));
+
+    /// <summary>带字按钮上的字，按下那一态也够亮。色板 <c>outline 1</c>。</summary>
+    public static PaletteEntry ButtonInk { get; } = new("outline 1", PixelColor.FromHex(0x0A0815));
+
+    /// <summary>没选中的子页签上的字（底是 <c>soil 3</c>）。色板 <c>soil 8</c>。</summary>
+    public static PaletteEntry SubTabInk { get; } = new("soil 8", PixelColor.FromHex(0xDCC68F));
+
     /// <summary>资源条的底槽。占位色。</summary>
     public static PixelColor Track => PixelColor.FromHex(0x14100E);
 

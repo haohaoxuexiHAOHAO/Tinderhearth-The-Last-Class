@@ -1,33 +1,42 @@
 using Godot;
+using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 手环面板的骨架：一排顶层页签、当前那个页签的一排子页签、一块内容区。每一页里面显示什么还没做。
+/// 手环面板的外壳：一圈厚框、压在外框顶边上的一排图标页签、当前那个页签的一排子页签、一块浅底内容区。
+/// 每一页里面显示什么还没做。
 /// </summary>
 /// <remarks>
 /// 有哪些页、各自在什么场合怎么显示，都从规则层的 <see cref="Wristband"/> 读，本类只把结论翻译成按钮的
 /// <c>Disabled</c> 与 <c>Visible</c>：灰着的页按钮禁用，关卡里没有的页按钮藏起来。
 ///
-/// 布局全靠容器套起来：<c>MarginContainer</c> 留安全边距，<c>VBoxContainer</c> 从上往下放两排页签与内容，
-/// <c>HBoxContainer</c> 排每一排的按钮。这里没有一个绝对像素坐标，因为逻辑宽度会变。
+/// 排法照作者画的模板与 <see cref="WristbandLayout"/>：外壳 560×328 那一块（含顶上那排页签）在屏幕里居中，
+/// 页签最下面一行压在外框顶边那条线上，所以页签那一排在外框后面加、画在它上面。样子全从主题取
+/// （<see cref="PixelTheme"/> 用素材资源组装的那几种类型变体），本类不设一个颜色、不载一张图 ——
+/// 只有页签上那张图标按页签的标识从素材资源里取。
 ///
-/// 按钮与内容区上放的是文本键，不是中文字面量 —— 全部文案都外置在文本表里；骨架先显示键，缺文案一眼
-/// 看得出来。顶层页签换成图标、外加一行当前页标题归设计仓台账 `UI-44`。
-///
-/// 主题由外面挂进来（<see cref="Control.Theme"/>），本类不自己载字体。
+/// 子页签上的字从文本表取（<c>ui.wristband.page.*</c>），缺了显成缺文本的占位，一眼看得出来。
 /// </remarks>
 public partial class WristbandPanel : Control
 {
     private readonly Dictionary<string, Button> _tabButtons = [];
     private readonly Dictionary<string, Button> _pageButtons = [];
     private readonly Dictionary<string, HBoxContainer> _pageRows = [];
+    private UIArt _art = null!;
+    private TextCatalog _text = null!;
     private Label _content = null!;
     private WristbandTab? _activeTab;
     private WristbandPage? _activePage;
     private UIContext _context = UIContext.Base;
     private bool _built;
+
+    /// <summary>素材资源。页签上的图标从这里取。代码搭这个面板的那一方在挂上之前给。</summary>
+    public UIArt? Art { get; set; }
+
+    /// <summary>文本表。子页签上的字从这里取。代码搭这个面板的那一方在挂上之前给。</summary>
+    public TextCatalog? Catalog { get; set; }
 
     /// <summary>当前场合。改它会立刻重算哪些页签可用、哪些灰着、哪些不显示。</summary>
     public UIContext Context
@@ -42,31 +51,58 @@ public partial class WristbandPanel : Control
 
     public override void _Ready()
     {
-        var margin = new MarginContainer();
-        margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        foreach (var side in new[] { "left", "top", "right", "bottom" })
+        _art = Art ?? throw new InvalidOperationException(
+            $"{nameof(WristbandPanel)}（节点 {Name}）的 {nameof(Art)} 没给 —— 页签上的图标从素材资源取");
+        _text = Catalog ?? throw new InvalidOperationException(
+            $"{nameof(WristbandPanel)}（节点 {Name}）的 {nameof(Catalog)} 没给 —— 子页签上的字从文本表取");
+
+        var center = new CenterContainer { Name = "Center" };
+        center.SetAnchorsPreset(LayoutPreset.FullRect);
+        AddChild(center);
+
+        var shell = new Control
         {
-            margin.AddThemeConstantOverride($"margin_{side}", UIMetrics.SafeMargin);
-        }
-        AddChild(margin);
+            Name = "Shell",
+            CustomMinimumSize = new Vector2(WristbandLayout.ShellWidth, WristbandLayout.ShellHeight),
+        };
+        center.AddChild(shell);
+
+        // 外框从页签那一排的最后一行起：页签最下面一行就是外框顶边那条线。
+        var frame = new PanelContainer { Name = "Frame", ThemeTypeVariation = PixelTheme.WristbandFrame };
+        frame.SetAnchorsPreset(LayoutPreset.FullRect);
+        frame.OffsetTop = WristbandLayout.TabSize - WristbandLayout.TabOverlap;
+        shell.AddChild(frame);
 
         var column = new VBoxContainer { Name = "Column" };
-        column.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
-        margin.AddChild(column);
+        column.AddThemeConstantOverride("separation", 0);
+        frame.AddChild(column);
 
-        var tabs = Row("Tabs");
-        column.AddChild(tabs);
+        var tabs = new HBoxContainer { Name = "Tabs" };
+        tabs.AddThemeConstantOverride("separation", WristbandLayout.TabGap);
+        tabs.OffsetLeft = WristbandLayout.TabRowInsetX;
+        shell.AddChild(tabs);
 
+        var tabGroup = new ButtonGroup();
         foreach (var tab in Wristband.Tabs)
         {
-            var button = TabButton(tab.Id, TabKey(tab));
+            var button = new Button
+            {
+                Name = tab.Id,
+                ThemeTypeVariation = PixelTheme.WristbandTab,
+                ToggleMode = true,
+                ButtonGroup = tabGroup,
+                Icon = TabIcon(tab, disabled: false),
+                IconAlignment = HorizontalAlignment.Center,
+                CustomMinimumSize = new Vector2(WristbandLayout.TabSize, WristbandLayout.TabSize),
+                FocusMode = FocusModeEnum.All,      // 手柄靠焦点移动导航
+            };
             button.Pressed += () => SelectTab(tab);
             tabs.AddChild(button);
             _tabButtons[tab.Id] = button;
 
             // 每个页签一排子页签，同一时刻只显示当前那一排；不分子页的页签那一排是空的、一直藏着。
-            var row = Row($"Pages_{tab.Id}");
-            row.Visible = false;
+            var row = new HBoxContainer { Name = $"Pages_{tab.Id}", Visible = false };
+            row.AddThemeConstantOverride("separation", WristbandLayout.TabGap);
             column.AddChild(row);
             _pageRows[tab.Id] = row;
             if (!tab.HasSubTabs)
@@ -74,21 +110,34 @@ public partial class WristbandPanel : Control
                 continue;
             }
 
+            var pageGroup = new ButtonGroup();
             foreach (var page in tab.Pages)
             {
-                var pageButton = TabButton(page.Id, PageKey(page));
+                var pageButton = new Button
+                {
+                    Name = page.Id,
+                    ThemeTypeVariation = PixelTheme.WristbandSubTab,
+                    ToggleMode = true,
+                    ButtonGroup = pageGroup,
+                    Text = _text[PageKey(page)],
+                    FocusMode = FocusModeEnum.All,
+                };
                 pageButton.Pressed += () => SelectPage(page);
                 row.AddChild(pageButton);
                 _pageButtons[page.Id] = pageButton;
             }
         }
 
-        _content = new Label
+        var inset = new PanelContainer
         {
-            Name = "Content",
+            Name = "Inset",
+            ThemeTypeVariation = PixelTheme.ContentInset,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        column.AddChild(_content);
+        column.AddChild(inset);
+
+        _content = new Label { Name = "Content", ThemeTypeVariation = PixelTheme.PaperLabel };
+        inset.AddChild(_content);
 
         // 面板一显示就把焦点放上去。不放的话手柄按方向键什么也不会发生：Godot 的焦点导航是从
         // 当前焦点找邻居，没有焦点就没有起点。键鼠点一下就有了焦点，所以这个坑只在手柄上出现。
@@ -117,6 +166,11 @@ public partial class WristbandPanel : Control
     private void SelectTab(WristbandTab? tab)
     {
         _activeTab = tab;
+        if (tab is not null)
+        {
+            _tabButtons[tab.Id].SetPressedNoSignal(true);
+        }
+
         foreach (var (tabId, row) in _pageRows)
         {
             row.Visible = tab is not null && tabId == tab.Id && tab.HasSubTabs;
@@ -129,7 +183,12 @@ public partial class WristbandPanel : Control
     private void SelectPage(WristbandPage? page)
     {
         _activePage = page;
-        _content.Text = page is null ? "" : PageKey(page);
+        if (page is not null && _pageButtons.TryGetValue(page.Id, out var button))
+        {
+            button.SetPressedNoSignal(true);
+        }
+
+        _content.Text = page is null ? "" : _text[PageKey(page)];
     }
 
     /// <summary>
@@ -148,7 +207,9 @@ public partial class WristbandPanel : Control
 
         foreach (var tab in Wristband.Tabs)
         {
-            Show(_tabButtons[tab.Id], tab.StateIn(Context));
+            var state = tab.StateIn(Context);
+            Show(_tabButtons[tab.Id], state);
+            _tabButtons[tab.Id].Icon = TabIcon(tab, disabled: state == WristbandPageState.Disabled);
         }
 
         foreach (var page in Wristband.Pages)
@@ -169,27 +230,21 @@ public partial class WristbandPanel : Control
         }
     }
 
+    /// <summary>页签上那张图标：文件名就是页签的标识，灰着的时候换置灰版。</summary>
+    private Texture2D TabIcon(WristbandTab tab, bool disabled)
+    {
+        var name = disabled ? $"{tab.Id}_disabled" : tab.Id;
+        return _art.Cells().FirstOrDefault(c => c.Group == "tab" && c.Name == name).Texture
+            ?? throw new InvalidOperationException(
+                $"素材资源里没有页签「{tab.Id}」的图标 ui/tab/{name}.png —— 模板里页签那一排画了它之后，"
+                    + "生成器加一项、再重跑 tools/ui_art_resource.py");
+    }
+
     private static void Show(Button button, WristbandPageState state)
     {
         button.Visible = state != WristbandPageState.Hidden;
         button.Disabled = state == WristbandPageState.Disabled;
     }
-
-    private static HBoxContainer Row(string name)
-    {
-        var row = new HBoxContainer { Name = name };
-        row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
-        return row;
-    }
-
-    private static Button TabButton(string name, string text) => new()
-    {
-        Name = name,
-        Text = text,
-        FocusMode = FocusModeEnum.All,      // 手柄靠焦点移动导航
-    };
-
-    private static string TabKey(WristbandTab tab) => $"ui.wristband.tab.{tab.Id}";
 
     private static string PageKey(WristbandPage page) => $"ui.wristband.page.{page.Id}";
 }

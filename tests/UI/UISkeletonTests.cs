@@ -170,6 +170,33 @@ public class UISkeletonTests
     }
 
     [Fact]
+    public void 顶层页签一排放得进外壳而且页签底与画好的那张一样大()
+    {
+        var count = Wristband.Tabs.Count;
+        var rowWidth = WristbandLayout.TabRowInsetX + (count * WristbandLayout.TabSize)
+            + ((count - 1) * WristbandLayout.TabGap);
+
+        // 两头对称地留出外框那一角：页签不许伸到外框右上那个角上去。
+        Assert.True(rowWidth + WristbandLayout.TabRowInsetX <= WristbandLayout.ShellWidth,
+            $"{count} 个页签一排要 {rowWidth} 宽，外壳只有 {WristbandLayout.ShellWidth}");
+        Assert.All(UIArtManifest.Pieces.Where(p => p.Group == "kit" && p.Name.StartsWith("tab_", StringComparison.Ordinal)),
+            p => Assert.Equal(new PixelSize(WristbandLayout.TabSize, WristbandLayout.TabSize), p.Size));
+    }
+
+    [Fact]
+    public void 手环每个页签与每一页在文本表里都有名字()
+    {
+        // 缺了在画面上显成缺文本的占位，看得见；这条让「加了一页、忘了给它起名」在测试里就红。
+        var text = File.ReadAllText(Path.Combine(RepoFiles.Root(), "data", "text", "zh-CN.json"));
+        var keys = Wristband.Tabs.Select(t => $"\"ui.wristband.tab.{t.Id}\"")
+            .Concat(Wristband.Pages.Select(p => $"\"ui.wristband.page.{p.Id}\""));
+
+        var missing = keys.Where(k => !text.Contains(k, StringComparison.Ordinal)).ToList();
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
     public void 手环子页拼错时抛而不是静默判成不可用()
     {
         // 静默判成不可用会让「拼错 id」和「这里确实不可用」长得一模一样。
