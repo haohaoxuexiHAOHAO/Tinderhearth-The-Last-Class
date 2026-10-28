@@ -15,8 +15,10 @@ namespace Tinderhearth.Rules.Combat;
 /// <param name="HorizontalSign">横向输入，左负右正。</param>
 /// <param name="DepthSign">纵深输入，正为向前、靠近镜头，负为向后，与 <see cref="DepthBand"/> 同向。</param>
 /// <param name="JumpPressed">本帧刚按下跳跃。</param>
-/// <param name="LightPressed">本帧刚按下轻攻击。</param>
-/// <param name="HeavyPressed">本帧刚按下重攻击。</param>
+/// <param name="LightPressed">
+/// 本帧刚按下轻攻击。普攻只有这一种（设计仓 canon/gameplay/战斗与关卡.md 的「按键与连击」），
+/// 所以攻击键只有这一格。
+/// </param>
 /// <param name="DodgePressed">本帧刚按下闪避。</param>
 /// <param name="RunHeld">奔跑键是否按住。设计文档里的「冲刺」指同一件事，见 <c>InputActions.Run</c>。</param>
 public readonly record struct CombatInput(
@@ -24,12 +26,11 @@ public readonly record struct CombatInput(
     int DepthSign,
     bool JumpPressed,
     bool LightPressed,
-    bool HeavyPressed,
     bool DodgePressed,
     bool RunHeld)
 {
     /// <summary>没有任何输入的空帧。测试与「这一帧不操作」用它。</summary>
-    public static CombatInput None => new(0, 0, false, false, false, false, false);
+    public static CombatInput None => new(0, 0, false, false, false, false);
     /// <summary>横向方向规整到 −1、0 或 +1。</summary>
     public int HorizontalDirection => Math.Sign(HorizontalSign);
     /// <summary>纵深方向规整到 −1、0 或 +1。+1 向前，也就是靠近镜头。</summary>

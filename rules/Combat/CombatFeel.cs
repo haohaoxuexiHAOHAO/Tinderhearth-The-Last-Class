@@ -102,22 +102,13 @@ public static class CombatFeel
     /// <summary>轻攻击连段一共几段。</summary>
     public const int LightChainLength = 3;
 
-    // ── 重攻击连段 ──────────────────────────────────────────────────────
-
-    /// <summary>重攻击每段的前摇帧数。比轻攻击长 —— 重的代价是慢。</summary>
-    public const int HeavyStartupFrames = 8;
-
-    /// <summary>重攻击每段的命中帧数。</summary>
-    public const int HeavyActiveFrames = 4;
-
-    /// <summary>重攻击每段的后摇帧数。</summary>
-    public const int HeavyRecoveryFrames = 14;
-
-    /// <summary>重攻击的连段衔接窗，帧。后摇末尾这么多帧内按重攻击续下一段，必须不大于后摇帧数。</summary>
-    public const int HeavyComboWindowFrames = 10;
-
-    /// <summary>重攻击连段一共几段。取 1，也就是重击是单招、不连段；以后可能再加连段。</summary>
-    public const int HeavyChainLength = 1;
+    /// <summary>轻攻击每一段的轻重：三段都是轻。</summary>
+    /// <remarks>
+    /// 轻重是一招自己的一格（<see cref="HitWeight"/>），命中反应按它取那一组。轻击取轻：轻的那一组
+    /// 不击退，连段才留得在射程里。三段共用这一格；按段各填一格要等普攻改成从角色定义读（设计仓
+    /// 台账 GP-18）。
+    /// </remarks>
+    public const HitWeight LightWeight = HitWeight.Light;
 
     /// <summary>攻击输入的缓冲帧数。</summary>
     /// <remarks>
@@ -129,31 +120,35 @@ public static class CombatFeel
     /// </remarks>
     public const int InputBufferFrames = 6;
 
-    /// <summary>轻击击退距离，世界像素。</summary>
+    // ── 命中反应：轻重各一组 ────────────────────────────────────────────
+    //
+    // 一招打得轻还是重是它自己的一格（HitWeight），挨打的一方按那一格取下面哪一组。
+
+    /// <summary>轻的那一下的击退距离，世界像素。</summary>
     /// <remarks>
-    /// 实机定为 0。轻击带击退会把敌人推出连段射程，于是只能平 A 一下就够不到了；归 0 让轻击
-    /// 连段留在射程里。重击照旧击退。
+    /// 实机定为 0。轻的带击退会把敌人推出普攻连段的射程，于是只能平 A 一下就够不到了；归 0 让
+    /// 连段留在射程里。重的照旧击退。
     /// </remarks>
     public const int LightKnockbackWorldPx = 0;
 
-    /// <summary>重击击退距离，世界像素。还没实测过。</summary>
+    /// <summary>重的那一下的击退距离，世界像素。还没实测过。</summary>
     public const int HeavyKnockbackWorldPx = 16;
 
-    /// <summary>轻击硬直帧数。还没实测过。</summary>
+    /// <summary>轻的那一下的硬直帧数。还没实测过。</summary>
     public const int LightHitstunFrames = 10;
 
-    /// <summary>重击硬直帧数。还没实测过。</summary>
+    /// <summary>重的那一下的硬直帧数。还没实测过。</summary>
     public const int HeavyHitstunFrames = 18;
 
-    /// <summary>轻击顿帧帧数。还没实测过。</summary>
+    /// <summary>轻的那一下的顿帧帧数。还没实测过。</summary>
     public const int LightHitstopFrames = 3;
 
-    /// <summary>重击顿帧帧数。还没实测过。</summary>
+    /// <summary>重的那一下的顿帧帧数。还没实测过。</summary>
     public const int HeavyHitstopFrames = 5;
 
     /// <summary>木桩那种闪白持续几帧，按非冻结帧算。精灵角色走 <see cref="HitFlashFrames"/>。</summary>
     /// <remarks>
-    /// 还没实机调过。木桩在自己的推进里递减它，顿帧期间不走，所以重击时屏幕上的可见时长是
+    /// 还没实机调过。木桩在自己的推进里递减它，顿帧期间不走，所以屏幕上的可见时长是那一下的
     /// 顿帧帧数再加这个数。
     /// </remarks>
     public const int FlashFrames = 6;
@@ -169,7 +164,7 @@ public static class CombatFeel
 
     /// <summary>命中当帧那一下极短白闪持续几帧，按真实帧算，不受顿帧冻结影响。</summary>
     /// <remarks>
-    /// 和 <see cref="FlashFrames"/> 刻意不复用：那个按非冻结帧递减，重击时可见时长是顿帧再加它，
+    /// 和 <see cref="FlashFrames"/> 刻意不复用：那个按非冻结帧递减，重的那一下可见时长是顿帧再加它，
     /// 十来帧全白会晃眼。这一条要的是相反的东西 —— 命中那一下爆一下就没。
     ///
     /// 按真实帧而不是非冻结帧计时：按非冻结帧算的话，整个顿帧期间它都维持全白，两帧会被顿帧长度
@@ -242,15 +237,6 @@ public static class CombatFeel
 
     /// <summary>轻击第 3 段判定框中心离脚底的高度，世界像素。量出来 15.5、取整 16，还没实机调过。</summary>
     public const int Light3HitboxCenterYWorldPx = 16;
-
-    /// <summary>重击判定框宽度，也就是伸展距离，世界像素。判定帧量出来的，还没实机调过。</summary>
-    public const int HeavyHitboxWidthWorldPx = 21;
-
-    /// <summary>重击判定框高度，世界像素。判定帧量出来的，还没实机调过。</summary>
-    public const int HeavyHitboxHeightWorldPx = 16;
-
-    /// <summary>重击判定框中心离脚底的高度，世界像素。量出来 17.5、取整 18，还没实机调过。</summary>
-    public const int HeavyHitboxCenterYWorldPx = 18;
 
     /// <summary>命中的纵深容差，世界像素。双方纵深差不超过它才算打得到。</summary>
     /// <remarks>

@@ -12,24 +12,24 @@ namespace Tinderhearth.Rules.Tests.Combat;
 /// </remarks>
 public class MotorStateTests
 {
-    private static CombatInput Move(int dir) => new(dir, 0, false, false, false, false, false);
+    private static CombatInput Move(int dir) => new(dir, 0, false, false, false, false);
 
-    private static CombatInput Jump() => new(0, 0, true, false, false, false, false);
+    private static CombatInput Jump() => new(0, 0, true, false, false, false);
 
-    private static CombatInput Dodge(int dir) => new(dir, 0, false, false, false, true, false);
+    private static CombatInput Dodge(int dir) => new(dir, 0, false, false, true, false);
 
-    private static CombatInput Run(int dir) => new(dir, 0, false, false, false, false, true);
+    private static CombatInput Run(int dir) => new(dir, 0, false, false, false, true);
 
     /// <summary>只按纵深，不按横向。+1 向前（靠近镜头）。</summary>
-    private static CombatInput Depth(int depthDir) => new(0, depthDir, false, false, false, false, false);
+    private static CombatInput Depth(int depthDir) => new(0, depthDir, false, false, false, false);
 
     /// <summary>两个轴同时按。</summary>
     private static CombatInput MoveDepth(int dir, int depthDir) =>
-        new(dir, depthDir, false, false, false, false, false);
+        new(dir, depthDir, false, false, false, false);
 
     /// <summary>带二维方向的闪避起手。方向取按下那一瞬间的输入。</summary>
     private static CombatInput DodgeInto(int dir, int depthDir) =>
-        new(dir, depthDir, false, false, false, true, false);
+        new(dir, depthDir, false, false, true, false);
 
     /// <summary>一帧走多少纵深；换算走 <see cref="CombatFeel.FrameSeconds"/>，不写死 60。</summary>
     private static readonly double DepthStep =
@@ -144,7 +144,7 @@ public class MotorStateTests
     public void CollisionFeedbackClearsMomentumWithoutTickingStatuses()
     {
         var m = new MotorState();
-        m.Tick(new CombatInput(1, 0, true, false, false, false, false), true, false);
+        m.Tick(new CombatInput(1, 0, true, false, false, false), true, false);
         Assert.True(m.HorizontalVelocity > 0);
         m.Statuses.Apply(StatusKind.Invulnerable, 4);
         m.AfterMove(false, true, true, 0);
@@ -249,7 +249,7 @@ public class MotorStateTests
     public void 出招时地面定身且封锁跳闪冲()
     {
         var m = new MotorState();
-        var everything = new CombatInput(1, 1, true, false, false, true, true);
+        var everything = new CombatInput(1, 1, true, false, true, true);
 
         m.Tick(everything, isOnFloor: true, attacking: true);
 
@@ -377,7 +377,7 @@ public class MotorStateTests
     {
         var m = new MotorState();
         // 起跳那一帧起就锁着，全程按住向前也不动。
-        m.Tick(new CombatInput(0, 1, true, false, false, false, false), isOnFloor: true, attacking: false);
+        m.Tick(new CombatInput(0, 1, true, false, false, false), isOnFloor: true, attacking: false);
         var depthAt = m.DepthWorldPx;
         Assert.True(m.IsDepthAirLocked);
 
@@ -486,7 +486,7 @@ public class MotorStateTests
         m.Stagger(hitstunFrames: 5, knockbackVelocity: 100);
 
         // 按住反向移动 + 跳 + 闪避 + 冲刺：硬直期间一律无效，横向只有击退速度，也没被跳跃带起来。
-        var everything = new CombatInput(-1, 1, true, false, false, true, true);
+        var everything = new CombatInput(-1, 1, true, false, true, true);
         m.Tick(everything, isOnFloor: true, attacking: false);
 
         Assert.Equal(MotorPhase.Hurt, m.Phase);

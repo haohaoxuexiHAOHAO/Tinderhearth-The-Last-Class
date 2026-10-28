@@ -5,7 +5,7 @@ namespace Tinderhearth.Rules.UI;
 /// 写成常量而不是各处写字符串字面量，是因为拼错一个动作名不报错，只表现为「这个键没反应」，
 /// 排查时分不清是没绑、绑错还是名字打错。常量让拼错变成编译失败。
 ///
-/// 战斗那几个动作（轻攻击、重攻击、防御、闪避、奔跑、跳跃、交互，加六个技能位）出自设计仓
+/// 战斗那几个动作（轻攻击、防御、闪避、奔跑、跳跃、交互，加六个技能位）出自设计仓
 /// canon/gameplay/战斗与关卡.md。移动那四向不在那份清单里但显然要绑：俯视的基地和城区要四向，
 /// 侧视关卡只用左右。拆成四个动作而不是一个二维量，因为引擎输入映射的单位就是动作。
 ///
@@ -31,9 +31,8 @@ public static class InputActions
     /// </remarks>
     public const string Run = "run";
 
-    /// <summary>设计里点名的六个战斗动作，奔跑另算（见上）。</summary>
+    /// <summary>设计里点名的五个战斗动作，奔跑另算（见上）。普攻只有轻攻击这一种。</summary>
     public const string AttackLight = "attack_light";
-    public const string AttackHeavy = "attack_heavy";
     public const string Guard = "guard";
     public const string Dodge = "dodge";
     public const string Jump = "jump";
@@ -56,6 +55,17 @@ public static class InputActions
     /// <summary>技能位的两个修饰键。手柄上是左右扳机，键鼠上不用（六个键一一对应）。</summary>
     public const string SkillGroupLeft = "skill_group_left";
     public const string SkillGroupRight = "skill_group_right";
+
+    /// <summary>只在按住修饰键时才有用的那个面键（手柄上面键）。它不是战斗动作。</summary>
+    /// <remarks>
+    /// 手柄的六个技能位靠三个面键乘两个修饰键铺满（见 <see cref="ShadowedByModifier"/>）。战斗里上面键
+    /// 没有自己的动作，可修饰键组合要认得出它被按下，所以它仍然要有一个动作名：按住修饰键时它发出
+    /// 那一组的第二个技能位，不按时没有人读它。
+    ///
+    /// 键鼠上它没有绑定，那是登记过的豁免（见 <see cref="InputBindings.Exemptions"/>）：那边六个技能键
+    /// 一一对应技能位，不需要修饰键这一层。
+    /// </remarks>
+    public const string ModifierOnly = "modifier_only";
 
     /// <summary>技能位，顺序就是编号。</summary>
     public static readonly IReadOnlyList<string> Skills =
@@ -97,21 +107,22 @@ public static class InputActions
     /// 这一份清单同时是两件事的唯一来源：哪些动作在修饰键按住时不许触发，以及「修饰键加第 N 个
     /// 面键」对应哪个技能位。写成两份必然漂移。
     ///
-    /// 顺序对应手柄面键 X、Y、A，也就是轻攻击、重攻击、跳跃。闪避不在其中：它占第四个面键并且
-    /// 永远可用，因为它是唯一带无敌帧的脱身手段，最不能在任何窗口里失效。跳跃和轻重攻击在按住
-    /// 修饰键的那零点几秒里失效，是这个方案本身的代价。
+    /// 顺序对应手柄面键 X、Y、A：轻攻击、只在修饰键下有用的那一个（<see cref="ModifierOnly"/>）、
+    /// 跳跃。中间那一个没有本来的动作可遮，它在这里只为对上第二个技能位。闪避不在其中：它占第四个
+    /// 面键并且永远可用，因为它是唯一带无敌帧的脱身手段，最不能在任何窗口里失效。跳跃和轻攻击在
+    /// 按住修饰键的那零点几秒里失效，是这个方案本身的代价。
     /// </remarks>
     public static readonly IReadOnlyList<string> ShadowedByModifier =
-        [AttackLight, AttackHeavy, Jump];
+        [AttackLight, ModifierOnly, Jump];
 
     /// <summary>本作自己定义的全部动作。引擎层照它灌输入映射。</summary>
     public static readonly IReadOnlyList<string> All =
     [
         MoveLeft, MoveRight, MoveUp, MoveDown,
         Run,
-        AttackLight, AttackHeavy, Guard, Dodge, Jump, Interact,
+        AttackLight, Guard, Dodge, Jump, Interact,
         EnterInterior,
-        SkillGroupLeft, SkillGroupRight,
+        SkillGroupLeft, SkillGroupRight, ModifierOnly,
         .. Skills,
         .. CarrySlots,
         CarryPrev, CarryNext,

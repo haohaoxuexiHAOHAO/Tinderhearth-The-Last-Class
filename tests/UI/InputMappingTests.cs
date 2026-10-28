@@ -20,10 +20,10 @@ public class InputMappingTests
     [Fact]
     public void 正典点名的每个动作都在动作清单里()
     {
-        // 清单来自战斗与关卡 · 按键与连击：七个战斗动作加 6 个技能位。
+        // 清单来自战斗与关卡 · 按键与连击：六个战斗动作加 6 个技能位。普攻只有轻攻击一种。
         foreach (var action in new[]
         {
-            InputActions.AttackLight, InputActions.AttackHeavy, InputActions.Guard,
+            InputActions.AttackLight, InputActions.Guard,
             InputActions.Dodge, InputActions.Run, InputActions.Jump, InputActions.Interact,
         })
         {
@@ -232,21 +232,47 @@ public class InputMappingTests
     }
 
     [Fact]
-    public void 轻重攻击在键鼠上相邻且都是手指静止位()
+    public void 轻攻击在键鼠上是右手食指的静止位()
     {
-        // 正典的连段是固定连段加空中连击，要求轻重攻击能快速交替，所以两者必须相邻。
-        // J 与 K 分别是右手食指与中指的静止位，不用鼠标左右键。
-        Assert.Equal(InputSymbol.KeyJ,
-            InputBindings.For(InputActions.AttackLight, InputDeviceKind.KeyboardMouse)[0].Symbol);
-        Assert.Equal(InputSymbol.KeyK,
-            InputBindings.For(InputActions.AttackHeavy, InputDeviceKind.KeyboardMouse)[0].Symbol);
-        Assert.Equal(1, (int)InputSymbol.KeyK - (int)InputSymbol.KeyJ);
+        // 连段要的就是快，所以轻攻击放在 J：右手食指的静止位，不用鼠标左键。
+        var light = InputBindings.For(InputActions.AttackLight, InputDeviceKind.KeyboardMouse);
+        Assert.Single(light);
+        Assert.Equal(InputSymbol.KeyJ, light[0].Symbol);
+    }
+
+    [Fact]
+    public void 普攻只有一个键_K不绑任何动作()
+    {
+        // 普攻只有轻攻击一种（设计仓 canon/gameplay/战斗与关卡.md 的「按键与连击」）。K 刻意空着、
+        // 先不派别的动作；它要是又被谁绑上，按下去就会多出一个玩家不知道的动作，而那不报错。
+        // 按自报名比对而不按符号：K 连符号都没有，绑上它得先加回符号，这条照样拦得住。
+        Assert.DoesNotContain("attack_heavy", InputActions.All);
+        Assert.DoesNotContain(InputBindings.Table.Values.SelectMany(b => b),
+            b => b.EngineText == "K - Physical");
+    }
+
+    [Fact]
+    public void 手柄上面键只在按住修饰键时有用_它不是攻击()
+    {
+        // 上面键在战斗里没有自己的动作，只为对上每一组的第二个技能位才有动作名
+        // （InputActions.ModifierOnly）。它不能顺手绑成攻击，否则不按扳机时它就成了第二个攻击键。
+        var top = InputBindings.For(InputActions.ModifierOnly, InputDeviceKind.Gamepad);
+        Assert.Single(top);
+        Assert.Equal(InputSymbol.PadFaceTop, top[0].Symbol);
+        Assert.DoesNotContain(InputBindings.For(InputActions.AttackLight, InputDeviceKind.Gamepad),
+            b => b.Symbol == InputSymbol.PadFaceTop);
+
+        var state = new SkillModifierState();
+        Assert.Null(state.SkillFor(InputActions.ModifierOnly));       // 不按扳机：不对应技能位
+        Assert.Null(state.BeginSkill(InputActions.ModifierOnly));     // 也不拦，而它本来就没人读
+        state.Press(SkillGroup.Left);
+        Assert.Equal(InputActions.Skills[1], state.BeginSkill(InputActions.ModifierOnly));
     }
 
     [Fact]
     public void 战斗动作一个都不绑鼠标键()
     {
-        // 侧视战斗没有瞄准，鼠标的长处用不上却占着右手 —— 右手要留在 J／K 上连段。
+        // 侧视战斗没有瞄准，鼠标的长处用不上却占着右手 —— 右手要留在 J 上连段。
         //
         // 交互是第一个例外，而它是刻意的：那个动作两侧都在用（战斗侧采集、开箱与片段转场，
         // 经营侧那些逐格动作），而经营侧的当前操作格本来就取「指针所在那一格」。「占住右手」
@@ -390,14 +416,14 @@ public class InputMappingTests
         state.Press(SkillGroup.Left);
 
         Assert.Equal(InputActions.Skills[0], state.SkillFor(InputActions.AttackLight));
-        Assert.Equal(InputActions.Skills[1], state.SkillFor(InputActions.AttackHeavy));
+        Assert.Equal(InputActions.Skills[1], state.SkillFor(InputActions.ModifierOnly));
         Assert.Equal(InputActions.Skills[2], state.SkillFor(InputActions.Jump));
 
         state.Release(SkillGroup.Left);
         state.Press(SkillGroup.Right);
 
         Assert.Equal(InputActions.Skills[3], state.SkillFor(InputActions.AttackLight));
-        Assert.Equal(InputActions.Skills[4], state.SkillFor(InputActions.AttackHeavy));
+        Assert.Equal(InputActions.Skills[4], state.SkillFor(InputActions.ModifierOnly));
         Assert.Equal(InputActions.Skills[5], state.SkillFor(InputActions.Jump));
     }
 
@@ -489,14 +515,14 @@ public class InputMappingTests
         // 不交出来的话，玩家按住扳机去 Alt+Tab，回来时那个技能卡在按下不放。
         var state = new SkillModifierState();
         state.Press(SkillGroup.Right);
-        state.BeginSkill(InputActions.AttackHeavy);
+        state.BeginSkill(InputActions.ModifierOnly);
 
         var stuck = state.ReleaseAll();
 
         Assert.Equal(new[] { InputActions.Skills[4] }, stuck);
         Assert.Equal(SkillGroup.None, state.Active);
         Assert.False(state.AnyHeld);
-        Assert.False(state.IsDriving(InputActions.AttackHeavy));
+        Assert.False(state.IsDriving(InputActions.ModifierOnly));
     }
 
     [Fact]

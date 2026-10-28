@@ -10,7 +10,7 @@ public sealed class ActorCombatState
         var dodging = Motor.Phase == MotorPhase.Dodge;
         // 闪避期间把攻击键屏掉，因为闪步排他且不可打断。给运动机的「正在出招」取本帧前后两个值的
         // 或，于是连段在本帧结束时这一帧仍算出招中，定身不会提前一帧解除。
-        Combo.Tick(!dodging && input.LightPressed, !dodging && input.HeavyPressed, onFloor);
+        Combo.Tick(!dodging && input.LightPressed, onFloor);
         Motor.Tick(input, onFloor, wasAttacking || Combo.IsAttacking);
     }
     /// <summary>碰撞结果只用来校正状态，不消费第二个逻辑帧。</summary>

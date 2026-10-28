@@ -32,7 +32,6 @@ public sealed class LocalPlayerController(string actorId) : ICombatController
             DepthSign: Math.Sign(move.Y),
             JumpPressed: router.IsJustPressed(InputActions.Jump),
             LightPressed: router.IsJustPressed(InputActions.AttackLight),
-            HeavyPressed: router.IsJustPressed(InputActions.AttackHeavy),
             DodgePressed: router.IsJustPressed(InputActions.Dodge),
             RunHeld: router.IsPressed(InputActions.Run));
     }

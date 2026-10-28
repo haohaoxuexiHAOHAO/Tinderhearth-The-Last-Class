@@ -21,7 +21,7 @@ public partial class HitSpark : Node2D
     private static readonly Color HeavyTint = new("ffb347");
     private const float HeavyScale = 1.6f;
 
-    /// <summary>这一下是不是重击。重击的火花画得更大、也染暖，好与轻击一眼分得开。</summary>
+    /// <summary>这一下是不是重的。重的火花画得更大、也染暖，好与轻的一眼分得开。</summary>
     /// <remarks>
     /// 染色靠 <c>Modulate</c> 的乘法：素材是白的，白乘暖色就得到暖色。这只是占位手段，
     /// 正式美术会给轻重各一套图。

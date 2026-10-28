@@ -271,7 +271,7 @@ public sealed class CameraRig
         _shakeElapsed = 0.0;
     }
 
-    /// <summary>用默认幅度与时长震一次（重击）。</summary>
+    /// <summary>用默认幅度与时长震一次（重的那一组）。</summary>
     public void Shake() => Shake(CameraFeel.ShakeAmplitudeScreenPx, CameraFeel.ShakeSeconds);
 
     /// <summary>推进震动时间线。每帧调一次。</summary>

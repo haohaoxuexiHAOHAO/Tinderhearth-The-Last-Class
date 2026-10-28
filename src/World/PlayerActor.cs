@@ -42,7 +42,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     /// 28 是站立姿实测量出来的（去掉地面参考线之后量的）。受击框原先写死 32，那是木桩柱子的高度，
     /// 套到主角身上高出 4 像素，从头顶掠过的攻击照样判命中，而且不报错。
     ///
-    /// 各动作里最高的姿态能到 30 像素（闪避与重击），这里刻意不取那个数。宁可闪步那几帧头顶露出
+    /// 接进玩法的动作里最高的姿态能到 30 像素（闪避），这里刻意不取那个数。宁可闪步那几帧头顶露出
     /// 框外一点（那几帧本来就是在主动闪避），也不要为了兜住最高姿态让站着的时候平白高 2 像素。
     /// 按状态给不同高度才是长久的做法，那要先定设计。
     /// </remarks>
@@ -58,12 +58,12 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     private const string ShadowSet = "human";
 
     // 已经接进玩法的那些精灵表。轻击三段各有一张（light、light2、light3），由 UpdateVisual 按当前
-    // 打到第几段来选；受击分轻重两张，命中时放受击帧作反馈。
+    // 打到第几段来选；受击分轻重两张，按打中他的那一招的轻重放。
     //
     // 防御、精准防御、失衡与死亡那几张刻意不载入：对应的玩法规则还没有，载进来只会是「有图没规则」
     // 的半成品。失衡那张还多一层不确定 —— 失衡与失衡恢复画在同一张表里，作者还没说从第几帧切开。
     private static readonly string[] Sheets =
-        ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "heavy", "light_hit", "heavy_hit"];
+        ["idle", "walk", "run", "jump", "dodge", "light", "light2", "light3", "light_hit", "heavy_hit"];
 
     // 攻击的三个阶段各用哪几张图。每张表的帧数都不同，所以映射按当前表实际有几帧算，不写死帧号。
     // 只有一条硬约束：前摇只准用第 0 帧，判定窗只准用第 1 到第 2 帧。
@@ -93,7 +93,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     public string VisualAction { get; private set; } = "idle";
     private int _visualFrame;
 
-    /// <summary>最近挨的那一下是不是重击。决定受击时放哪一张受击表。</summary>
+    /// <summary>最近挨的那一下是不是重的。决定受击时放哪一张受击表。</summary>
     private bool _hurtHeavy;
 
     /// <summary>着色器里那个白闪开关的参数名。只写一次，读写两处都引它。</summary>
@@ -265,8 +265,8 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     /// <remarks>
     /// 命中反应分在三处：顿帧与震屏在场景那一层（命中回调里做，木桩与角色通用）；硬直与击退在
     /// 这里，交给运动状态机的 <see cref="MotorState.Stagger"/>；受击帧在
-    /// <see cref="UpdateVisual"/> 里按运动相位挑。轻击的击退量是 0，所以轻击命中是「定身加受击帧」
-    /// 没有位移，重击才推开。
+    /// <see cref="UpdateVisual"/> 里按运动相位挑。轻的那一组击退量是 0，所以轻的命中是「定身加受击帧」
+    /// 没有位移，重的才推开。
     /// </remarks>
     public void Receive(HitReaction reaction, int facing)
     {
@@ -289,7 +289,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
         var action = motor.Phase switch
         {
             MotorPhase.Hurt => _hurtHeavy ? "heavy_hit" : "light_hit",
-            _ when combo.IsAttacking => combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step),
+            _ when combo.IsAttacking => LightSheet(combo.Step),
             MotorPhase.Dodge => "dodge",
             MotorPhase.Airborne => "jump",
             // 地面只有行走与奔跑两档，这张表只在奔跑那一档播。
@@ -343,16 +343,14 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
     /// <summary>一段攻击此刻该放第几帧图。命中姿绝不出现在前摇里，理由见类顶部那段注释。</summary>
     private static int AttackFrame(ComboStateMachine combo, int count)
     {
-        var heavy = combo.Kind == ComboKind.Heavy;
         var recoveryFirst = AttackActiveFirstFrame + AttackActiveSpan;
         return combo.Phase switch
         {
             AttackPhase.Startup => AttackStartupFrame,
             AttackPhase.Active => AttackActiveFirstFrame + PhaseFrame(combo.FrameInPhase,
-                heavy ? CombatFeel.HeavyActiveFrames : CombatFeel.LightActiveFrames, AttackActiveSpan),
+                CombatFeel.LightActiveFrames, AttackActiveSpan),
             _ => recoveryFirst + PhaseFrame(combo.FrameInPhase,
-                heavy ? CombatFeel.HeavyRecoveryFrames : CombatFeel.LightRecoveryFrames,
-                count - recoveryFirst),
+                CombatFeel.LightRecoveryFrames, count - recoveryFirst),
         };
     }
 

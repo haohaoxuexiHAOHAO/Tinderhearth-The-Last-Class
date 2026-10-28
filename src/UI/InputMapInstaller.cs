@@ -107,7 +107,6 @@ public static class InputMapInstaller
         InputSymbol.KeyE => Key(Godot.Key.E),
         InputSymbol.KeyF => Key(Godot.Key.F),
         InputSymbol.KeyJ => Key(Godot.Key.J),
-        InputSymbol.KeyK => Key(Godot.Key.K),
         InputSymbol.KeySpace => Key(Godot.Key.Space),
         // 左右 Shift 都算：绑成通用 Shift 而不是限定左键，玩家用哪只手都行。
         InputSymbol.KeyShift => Key(Godot.Key.Shift),

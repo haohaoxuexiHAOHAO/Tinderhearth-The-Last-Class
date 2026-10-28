@@ -17,7 +17,7 @@ public readonly record struct HitboxSpec(Vector2 Size, float CenterY);
 public partial class Hitbox : Area2D
 {
     private readonly HashSet<ulong> _hit = new();
-    private readonly RectangleShape2D _shape = new() { Size = SpecFor(ComboKind.Light, 0).Size };
+    private readonly RectangleShape2D _shape = new() { Size = SpecFor(0).Size };
     private bool _wasActive;
 
     /// <summary>
@@ -30,24 +30,21 @@ public partial class Hitbox : Area2D
     /// </remarks>
     public int RejectedAsAlreadyHit { get; private set; }
 
-    /// <summary>一段攻击判定框的尺寸与中心高度，世界像素。轻击按段取，重击只有一招。</summary>
+    /// <summary>一段攻击判定框的尺寸与中心高度，世界像素。按轻击的段取。</summary>
     /// <remarks>
     /// 轻击三段各有一份，分别对应 <c>light</c>、<c>light2</c>、<c>light3</c> 三张精灵表；尺寸与中心
     /// 高度都是从各自判定帧上量出来的拳脚伸展换算的（数在 <see cref="CombatFeel"/> 里）。第三段是
     /// 踢腿，伸得更远更低，三段共用一个框的话画面上那一脚和判定就会停在两个地方。
     /// </remarks>
-    public static HitboxSpec SpecFor(ComboKind kind, int step) => kind == ComboKind.Heavy
-        ? new HitboxSpec(new Vector2(CombatFeel.HeavyHitboxWidthWorldPx, CombatFeel.HeavyHitboxHeightWorldPx),
-                         CombatFeel.HeavyHitboxCenterYWorldPx)
-        : step switch
-        {
-            0 => new HitboxSpec(new Vector2(CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx),
-                                CombatFeel.Light1HitboxCenterYWorldPx),
-            1 => new HitboxSpec(new Vector2(CombatFeel.Light2HitboxWidthWorldPx, CombatFeel.Light2HitboxHeightWorldPx),
-                                CombatFeel.Light2HitboxCenterYWorldPx),
-            _ => new HitboxSpec(new Vector2(CombatFeel.Light3HitboxWidthWorldPx, CombatFeel.Light3HitboxHeightWorldPx),
-                                CombatFeel.Light3HitboxCenterYWorldPx),
-        };
+    public static HitboxSpec SpecFor(int step) => step switch
+    {
+        0 => new HitboxSpec(new Vector2(CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx),
+                            CombatFeel.Light1HitboxCenterYWorldPx),
+        1 => new HitboxSpec(new Vector2(CombatFeel.Light2HitboxWidthWorldPx, CombatFeel.Light2HitboxHeightWorldPx),
+                            CombatFeel.Light2HitboxCenterYWorldPx),
+        _ => new HitboxSpec(new Vector2(CombatFeel.Light3HitboxWidthWorldPx, CombatFeel.Light3HitboxHeightWorldPx),
+                            CombatFeel.Light3HitboxCenterYWorldPx),
+    };
     /// <summary>这一帧判定窗开着没有。</summary>
     public bool IsActive { get; private set; }
 
@@ -89,7 +86,7 @@ public partial class Hitbox : Area2D
         _wasActive = IsActive;
         if (!IsActive) return 0;
         // 框按段换尺寸与中心高度，贴住画面上这一段的拳脚真正伸到的距离与高度（实测量出来的）。
-        var spec = SpecFor(player.Combat.Combo.Kind, player.Combat.Combo.Step);
+        var spec = SpecFor(player.Combat.Combo.Step);
         _shape.Size = spec.Size;
         Position = new Vector2(player.Combat.Motor.Facing * spec.Size.X / 2f, -spec.CenterY);
         var query = new PhysicsShapeQueryParameters2D
@@ -113,13 +110,14 @@ public partial class Hitbox : Area2D
                 RejectedAsAlreadyHit++;
                 continue;
             }
-            var reaction = HitResolution.Resolve(player.Combat.Combo.Kind);
+            // 反应按这一段自己的轻重取，不按按了哪个键（见 HitWeight）。
+            var reaction = HitResolution.Resolve(player.Combat.Combo.Weight);
             target.Receive(reaction, player.Combat.Motor.Facing);
             feedback(reaction);
             count++;
         }
         // 把「这一挥碰到东西了」回传给连段机：轻击要靠它才接得下一段。命中检测在这里，规则层看不见
-        // 目标，所以只能由这里通知。打中任意一个就算，重击不看这个标记、仍然按时间窗接。
+        // 目标，所以只能由这里通知。打中任意一个就算。
         if (count > 0) player.Combat.Combo.RegisterHit();
         return count;
     }

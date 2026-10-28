@@ -24,7 +24,7 @@ public enum InputSymbol
     // ── 键盘。取物理键位，见 InputBindings 的说明 ──
     KeyW, KeyA, KeyS, KeyD,
     KeyQ, KeyE, KeyF,
-    KeyJ, KeyK,
+    KeyJ,
     KeySpace, KeyShift,
 
     // 技能键。这里的顺序就是技能位的编号，而编号按键盘从左到右排：
@@ -32,7 +32,9 @@ public enum InputSymbol
     //     上排          Y   U   I   O
     //     中排        H   J   K   L
     //                     ↑   ↑
-    //                   轻击 重击
+    //                   轻击 空着
+    //
+    // K 不绑任何动作，所以这里也没有它的符号 —— 加了就是留一个看起来可绑的位。
     //
     // 编号跟着键盘走而不是跟着「哪个键好按」走，这样「哪个位好按」这个判断留给玩家：技能位只是
     // 一个格子，他会自己把最常用的技能装到手顺的那一格。界面上技能栏从左到右、键也从左到右，
@@ -50,7 +52,7 @@ public enum InputSymbol
     // 键鼠上本来就取指针所在那一格，指针已经在指格子，执行也用鼠标才不用两只手换位。
     //
     // 侧视战斗仍然不用鼠标：那边没有瞄准，鼠标提供不了它擅长的精确指向，却要占住右手不让它分担
-    // 按键，所以轻重攻击照旧取 J 和 K。经营侧没有连段，不存在这个顾虑。
+    // 按键，所以轻攻击照旧取 J。经营侧没有连段，不存在这个顾虑。
     MouseLeft,
 
     // 鼠标右键：点一下建筑的门，进或出它的室内。
@@ -172,21 +174,16 @@ public static class InputBindings
                 new(InputSymbol.PadStickLeftClick, "Joypad Button 7 (Left Stick, Sony L3, Xbox L/LS)"),
             ],
 
-            // ── 战斗六动作 ──
-            // 轻重攻击给 J 与 K，不用鼠标左右键。两条理由：侧视战斗没有
-            // 瞄准，鼠标的长处用不上却占着右手；而 J 与 K 相邻且都是手指静止位，满足「连段要求
-            // 轻重攻击相邻且都快」。这是 2D 横版动作游戏的通行布局，玩这类游戏的人有肌肉记忆。
+            // ── 战斗那几个动作 ──
+            // 轻攻击给 J，不用鼠标左键。两条理由：侧视战斗没有瞄准，鼠标的长处用不上却占着右手；
+            // 而 J 是右手食指的静止位，连段要的就是快。普攻只有这一种（设计仓
+            // canon/gameplay/战斗与关卡.md 的「按键与连击」），所以 K 空着、不派别的动作 —— 技能键的
+            // 布局还等作者实机按一遍（设计仓台账 UI-14），先挪东西过去会让那一遍白按。
             [InputActions.AttackLight] =
             [
                 new(InputSymbol.KeyJ, "J - Physical"),
                 new(InputSymbol.PadFaceLeft,
                     "Joypad Button 2 (Left Action, Sony Square, Xbox X, Nintendo Y)"),
-            ],
-            [InputActions.AttackHeavy] =
-            [
-                new(InputSymbol.KeyK, "K - Physical"),
-                new(InputSymbol.PadFaceTop,
-                    "Joypad Button 3 (Top Action, Sony Triangle, Xbox Y, Nintendo X)"),
             ],
             // 防御给数字肩键而不是扳机：正典的精准防御要求帧级准确，扳机有行程，
             // 触发点不一致。这正是修饰键让给扳机的原因。
@@ -241,6 +238,12 @@ public static class InputBindings
                     "Joypad Motion on Axis 5 (Joystick 2 Y-Axis, Right Trigger, Sony R2, Xbox RT)"
                     + " with Value 1.00"),
             ],
+            // 上面键：只在按住修饰键时当技能位，不按时没有人读它（见 InputActions.ModifierOnly）。
+            [InputActions.ModifierOnly] =
+            [
+                new(InputSymbol.PadFaceTop,
+                    "Joypad Button 3 (Top Action, Sony Triangle, Xbox Y, Nintendo X)"),
+            ],
 
             // ── 随身栏那几格。键鼠是数字键一一对应；手柄靠下面两个挪位键，见豁免登记 ──
             //
@@ -266,13 +269,13 @@ public static class InputBindings
             // ── 技能位。键鼠上每个键对一个槽位、没有修饰键这一层；手柄由组合解算发出，
             // 见下面的豁免登记 ──
             //
-            // 这些键全在 J（轻击）和 K（重击）一手之内，右手不离位就按得到。挪过来的理由是原先
-            // 那一排数字键在 WASD 手位下要抬手：左手五个指头全占在移动和奔跑上，要放技能就得让
-            // 食指或中指离开 WASD，而战斗里那一瞬间正是要躲的时候。
+            // 这些键全在 J（轻击）一手之内，右手不离位就按得到。挪过来的理由是原先那一排数字键
+            // 在 WASD 手位下要抬手：左手五个指头全占在移动和奔跑上，要放技能就得让食指或中指离开
+            // WASD，而战斗里那一瞬间正是要躲的时候。
             //
-            // 代价是食指要同时管轻击 J 和三个技能键（H、Y、U），所以连段里插技能会抢食指；中指
-            // （K 和 I）与无名指（L 和 O）各只管两个，压力小得多。这一条几何上看得出来、手感上
-            // 看不出来，所以它是作者实机按那一遍的重点。
+            // 代价是食指要同时管轻击 J 和三个技能键（H、Y、U），所以连段里插技能会抢食指；中指只管 I
+            // （K 空着），无名指管 L 和 O，压力小得多。这一条几何上看得出来、手感上看不出来，所以它是
+            // 作者实机按那一遍的重点。
             [InputActions.Skills[0]] = [new(InputSymbol.KeyH, "H - Physical")],
             [InputActions.Skills[1]] = [new(InputSymbol.KeyY, "Y - Physical")],
             [InputActions.Skills[2]] = [new(InputSymbol.KeyU, "U - Physical")],
@@ -339,6 +342,8 @@ public static class InputBindings
                 "键鼠上六个技能键一一对应六个技能位，不需要修饰键",
             [(InputActions.EnterInterior, InputDeviceKind.Gamepad)] =
                 "手柄没有指针，进门与其余交互点共用交互键，对象靠站位与朝向区分",
+            [(InputActions.ModifierOnly, InputDeviceKind.KeyboardMouse)] =
+                "键鼠上六个技能键一一对应六个技能位，修饰键组合里这个面键用不上",
 
             // 随身栏两侧各缺一半，理由相反：键鼠有一排空键所以直选，手柄没有所以挪位。
             [(InputActions.CarrySlots[0], InputDeviceKind.Gamepad)] = CarryPadWhy,

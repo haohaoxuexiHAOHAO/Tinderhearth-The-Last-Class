@@ -19,9 +19,6 @@ public class CombatFeelTests
         Assert.True(CombatFeel.LightStartupFrames > 0);
         Assert.True(CombatFeel.LightActiveFrames > 0);
         Assert.True(CombatFeel.LightRecoveryFrames > 0);
-        Assert.True(CombatFeel.HeavyStartupFrames > 0);
-        Assert.True(CombatFeel.HeavyActiveFrames > 0);
-        Assert.True(CombatFeel.HeavyRecoveryFrames > 0);
         Assert.True(CombatFeel.DodgeDurationFrames > 0);
     }
 
@@ -29,14 +26,12 @@ public class CombatFeelTests
     public void 连段至少有一段()
     {
         Assert.True(CombatFeel.LightChainLength >= 1);
-        Assert.True(CombatFeel.HeavyChainLength >= 1);
     }
 
     [Fact]
     public void 取消窗不超过后摇_否则窗口区间为负()
     {
         Assert.InRange(CombatFeel.LightComboWindowFrames, 1, CombatFeel.LightRecoveryFrames);
-        Assert.InRange(CombatFeel.HeavyComboWindowFrames, 1, CombatFeel.HeavyRecoveryFrames);
     }
 
     [Fact]
@@ -81,35 +76,24 @@ public class CombatFeelTests
         Assert.InRange(distance, DepthBand.RowSpacingWorldPx, DepthBand.WidthWorldPx - 1);
     }
 
-    /// <summary>四段判定框的（宽, 高, 中心离脚底高）三元组：轻击三段加重击单招。</summary>
+    /// <summary>轻击三段判定框的（宽, 高, 中心离脚底高）三元组。</summary>
     /// <remarks>各段的数是从精灵表量出来的，这里只拿它们核对段与段之间的关系，不测某个数对不对。</remarks>
     private static (int Width, int Height, int CenterY)[] HitboxSpecs() =>
     [
         (CombatFeel.Light1HitboxWidthWorldPx, CombatFeel.Light1HitboxHeightWorldPx, CombatFeel.Light1HitboxCenterYWorldPx),
         (CombatFeel.Light2HitboxWidthWorldPx, CombatFeel.Light2HitboxHeightWorldPx, CombatFeel.Light2HitboxCenterYWorldPx),
         (CombatFeel.Light3HitboxWidthWorldPx, CombatFeel.Light3HitboxHeightWorldPx, CombatFeel.Light3HitboxCenterYWorldPx),
-        (CombatFeel.HeavyHitboxWidthWorldPx, CombatFeel.HeavyHitboxHeightWorldPx, CombatFeel.HeavyHitboxCenterYWorldPx),
     ];
 
-    /// <summary>重击比每一段轻击都伸得远，踢腿（第 3 段）比两段直拳都伸得远。</summary>
+    /// <summary>踢腿（第 3 段）比两段直拳都伸得远。</summary>
     /// <remarks>
     /// 各段那几个数对不对这里不测 —— 它们是从精灵表量出来的，框贴不贴那只拳脚只能看画面。
-    /// 测的是这两条关系，它们正是判定框按段分开的理由：踢腿伸展本来就比拳远。
+    /// 测的是这条关系，它正是判定框按段分开的理由：踢腿伸展本来就比拳远。
     /// 谁把它们改成相等或者倒过来，画面与判定就又对不上，而那一头不报错。
     /// </remarks>
     [Fact]
-    public void 重击比每段轻击都远且踢腿比直拳远_否则画面与判定对不上()
+    public void 踢腿比两段直拳都远_否则画面与判定对不上()
     {
-        int[] lightWidths =
-        [
-            CombatFeel.Light1HitboxWidthWorldPx,
-            CombatFeel.Light2HitboxWidthWorldPx,
-            CombatFeel.Light3HitboxWidthWorldPx,
-        ];
-        foreach (var width in lightWidths)
-        {
-            Assert.True(CombatFeel.HeavyHitboxWidthWorldPx > width);
-        }
         Assert.True(CombatFeel.Light3HitboxWidthWorldPx > CombatFeel.Light1HitboxWidthWorldPx);
         Assert.True(CombatFeel.Light3HitboxWidthWorldPx > CombatFeel.Light2HitboxWidthWorldPx);
     }

@@ -185,7 +185,7 @@ public class CameraTests
     }
 
     [Fact]
-    public void 关掉震动后重击不产生任何位移()
+    public void 关掉震动后重的那一组也不产生任何位移()
     {
         // 断的是位移恒为零，不是「幅度调小」。对晕动敏感的玩家要的是不动，调小仍然会动。
         var rig = Rig(CameraView.SideView);
@@ -413,16 +413,16 @@ public class CameraTests
     }
 
     [Fact]
-    public void 轻击微震比重击弱但仍表达得出来_GP20()
+    public void 轻的微震比重的弱但仍表达得出来_GP20()
     {
-        // 幅度：严格小于重击（轻重要分得出来），又不小于「侧视下表达得出来的最小位移」——
+        // 幅度：严格小于重的那一组（轻重要分得出来），又不小于「侧视下表达得出来的最小位移」——
         // 小于它会被取整成 0，也就是压根不震，那就退回了本条要修的状态。
         Assert.True(CameraFeel.LightHitShakeAmplitudeScreenPx < CameraFeel.ShakeAmplitudeScreenPx,
-            "轻击震得不比重击弱，轻重就靠震屏分不出来了");
+            "轻的震得不比重的弱，轻重就靠震屏分不出来了");
         Assert.True(CameraFeel.LightHitShakeAmplitudeScreenPx >= UIMetrics.SideViewZoom,
             "幅度小于一个世界像素乘缩放，取整后恒为 0 —— 等于没震");
 
-        // 时长：比重击短（轻击连段要流畅，镜头不能挂在上一下），但仍装得下一个完整震动周期。
+        // 时长：比重的短（轻击连段要流畅，镜头不能挂在上一下），但仍装得下一个完整震动周期。
         Assert.True(CameraFeel.LightHitShakeSeconds < CameraFeel.ShakeSeconds);
         Assert.True(CameraFeel.LightHitShakeSeconds * CameraFeel.ShakeHertz >= 2,
             "时长内装不下一个完整震动周期，玩家看到的是一次跳动而不是震动");

@@ -5,7 +5,7 @@ namespace Tinderhearth.Rules.Tests.Combat;
 
 /// <summary>
 /// 连段状态机：三相时序、判定框只在命中相开、后摇取消窗续段、窗外回落、末段不再续、
-/// 空中落地打断、轻重不混连。
+/// 空中落地打断、每一段的轻重。
 /// </summary>
 /// <remarks>
 /// 这些错了在实机上只表现为「手感怪」，没有一行报错，所以靠这些测试盯着。
@@ -15,7 +15,7 @@ public class ComboStateMachineTests
     private static ComboStateMachine StartLight()
     {
         var m = new ComboStateMachine();
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        m.Tick(lightPressed: true, isOnFloor: true);
         return m;
     }
 
@@ -24,7 +24,7 @@ public class ComboStateMachineTests
         var guard = 0;
         while (!m.IsComboWindowOpen && guard++ < 200)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
     }
 
@@ -33,18 +33,9 @@ public class ComboStateMachineTests
     {
         var m = StartLight();
         Assert.True(m.IsAttacking);
-        Assert.Equal(ComboKind.Light, m.Kind);
         Assert.Equal(AttackPhase.Startup, m.Phase);
         Assert.Equal(0, m.Step);
         Assert.False(m.IsHitActive);
-    }
-
-    [Fact]
-    public void 两键同帧按下时轻攻击优先()
-    {
-        var m = new ComboStateMachine();
-        m.Tick(lightPressed: true, heavyPressed: true, isOnFloor: true);
-        Assert.Equal(ComboKind.Light, m.Kind);
     }
 
     [Fact]
@@ -54,7 +45,7 @@ public class ComboStateMachineTests
         var active = m.IsHitActive ? 1 : 0;
         for (var i = 0; i < 40; i++)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
             if (m.IsHitActive)
             {
                 active++;
@@ -74,7 +65,7 @@ public class ComboStateMachineTests
         Assert.True(m.IsComboWindowOpen);
         Assert.Equal(0, m.Step);
 
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        m.Tick(lightPressed: true, isOnFloor: true);
 
         Assert.Equal(1, m.Step);
         Assert.Equal(AttackPhase.Startup, m.Phase);
@@ -86,11 +77,11 @@ public class ComboStateMachineTests
         var m = StartLight();
         for (var i = 0; i < 80; i++)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.False(m.IsAttacking);
-        Assert.Equal(ComboKind.None, m.Kind);
+        Assert.Equal(0, m.Step);
     }
 
     [Fact]
@@ -101,7 +92,7 @@ public class ComboStateMachineTests
         {
             m.RegisterHit();   // 每段都要命中才能续
             AdvanceToComboWindow(m);
-            m.Tick(true, false, true);
+            m.Tick(true, true);
         }
 
         Assert.Equal(CombatFeel.LightChainLength - 1, m.Step);
@@ -114,7 +105,7 @@ public class ComboStateMachineTests
                 everOpen = true;
             }
 
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.False(everOpen);
@@ -122,36 +113,23 @@ public class ComboStateMachineTests
     }
 
     [Fact]
-    public void 轻连段里按重攻击不续段也不改类型()
-    {
-        var m = StartLight();
-        AdvanceToComboWindow(m);
-
-        m.Tick(lightPressed: false, heavyPressed: true, isOnFloor: true);
-
-        Assert.Equal(0, m.Step);
-        Assert.Equal(ComboKind.Light, m.Kind);
-    }
-
-    [Fact]
     public void 空中起手的连段落地打断()
     {
         var m = new ComboStateMachine();
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: false);
+        m.Tick(lightPressed: true, isOnFloor: false);
         Assert.True(m.IsAttacking);
 
-        m.Tick(false, false, isOnFloor: false);
-        m.Tick(false, false, isOnFloor: true);
+        m.Tick(false, isOnFloor: false);
+        m.Tick(false, isOnFloor: true);
 
         Assert.False(m.IsAttacking);
-        Assert.Equal(ComboKind.None, m.Kind);
     }
 
     [Fact]
     public void 地面起手的连段不因踩在地面而被打断()
     {
         var m = StartLight();
-        m.Tick(false, false, isOnFloor: true);
+        m.Tick(false, isOnFloor: true);
         Assert.True(m.IsAttacking);
     }
 
@@ -162,12 +140,12 @@ public class ComboStateMachineTests
         AdvanceToComboWindow(m);
         Assert.True(m.IsComboWindowOpen);
 
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        m.Tick(lightPressed: true, isOnFloor: true);
         Assert.Equal(0, m.Step);   // 打空不能续段
 
         for (var i = 0; i < 80 && m.IsAttacking; i++)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.False(m.IsAttacking);   // 走完后摇回到待机
@@ -183,18 +161,18 @@ public class ComboStateMachineTests
         var guard = 0;
         while (m.Phase != AttackPhase.Recovery && guard++ < 200)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.False(m.IsComboWindowOpen);   // 刚进后摇，续段窗还没开
 
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);
+        m.Tick(lightPressed: true, isOnFloor: true);
         Assert.Equal(0, m.Step);   // 窗未开，当帧不续 —— 这一下要被缓冲住
 
         // 之后不按任何键：缓冲应把上面那次按下带进随后开启的续段窗。
         for (var i = 0; i < CombatFeel.LightComboWindowFrames && m.Step == 0 && m.IsAttacking; i++)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.Equal(1, m.Step);
@@ -208,14 +186,14 @@ public class ComboStateMachineTests
         var guard = 0;
         while (m.Phase != AttackPhase.Recovery && guard++ < 200)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
-        m.Tick(lightPressed: true, heavyPressed: false, isOnFloor: true);   // 窗开前按下，缓冲住
+        m.Tick(lightPressed: true, isOnFloor: true);   // 窗开前按下，缓冲住
 
         for (var i = 0; i < 80 && m.IsAttacking; i++)
         {
-            m.Tick(false, false, true);
+            m.Tick(false, true);
         }
 
         Assert.Equal(0, m.Step);          // 打空：缓冲不绕过命中确认
@@ -232,7 +210,7 @@ public class ComboStateMachineTests
         var continued = false;
         for (var i = 0; i < 80 && m.IsAttacking; i++)
         {
-            m.Tick(false, false, true);   // 起手后不再按任何键
+            m.Tick(false, true);   // 起手后不再按任何键
             if (m.Step > 0)
             {
                 continued = true;
@@ -244,22 +222,23 @@ public class ComboStateMachineTests
     }
 
     [Fact]
-    public void 重击是单招从不开续段窗()
+    public void 轻击连段每一段都是轻的()
     {
-        var m = new ComboStateMachine();
-        m.Tick(lightPressed: false, heavyPressed: true, isOnFloor: true);   // 重击起手
-
-        // 重击 ChainLength=1：续段窗永不开，命中且按键也不续（后续再加重击连段）。
-        var everOpen = false;
-        for (var i = 0; i < 80 && m.IsAttacking; i++)
+        // 命中反应按这一段的轻重取（HitResolution.Resolve）。轻击的每一段都是轻：轻的不击退，
+        // 连段才留得在射程里。哪一段要是变成重的，它会把敌人推出射程，而那不报错。
+        var m = StartLight();
+        for (var step = 0; step < CombatFeel.LightChainLength; step++)
         {
-            m.RegisterHit();
-            if (m.IsComboWindowOpen) everOpen = true;
-            m.Tick(lightPressed: false, heavyPressed: true, isOnFloor: true);
-        }
+            Assert.Equal(step, m.Step);
+            Assert.Equal(HitWeight.Light, m.Weight);
+            if (step + 1 == CombatFeel.LightChainLength)
+            {
+                break;
+            }
 
-        Assert.False(everOpen);
-        Assert.False(m.IsAttacking);
-        Assert.Equal(0, m.Step);
+            m.RegisterHit();
+            AdvanceToComboWindow(m);
+            m.Tick(true, true);
+        }
     }
 }

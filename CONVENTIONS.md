@@ -156,14 +156,14 @@ public static TalentDef? Get(string id) => _all.Find(t => t.Id == id);
 var action = motor.Phase == MotorPhase.Hurt
     ? _hurtHeavy ? "heavy_hit" : "light_hit"
     : combo.IsAttacking
-    ? combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step)
+    ? LightSheet(combo.Step)
     : motor.Phase == MotorPhase.Dodge ? "dodge" : ...;
 
 // 对：switch 表达式，情形与结果对齐；分支内仍可用单层三元
 var action = motor.Phase switch
 {
     MotorPhase.Hurt => _hurtHeavy ? "heavy_hit" : "light_hit",
-    _ when combo.IsAttacking => combo.Kind == ComboKind.Heavy ? "heavy" : LightSheet(combo.Step),
+    _ when combo.IsAttacking => LightSheet(combo.Step),
     MotorPhase.Dodge => "dodge",
     _ => "idle",
 };

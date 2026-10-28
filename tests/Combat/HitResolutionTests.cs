@@ -6,15 +6,15 @@ namespace Tinderhearth.Rules.Tests.Combat;
 public class HitResolutionTests
 {
     [Fact]
-    public void 轻重结算来自集中参数且重击反应更大()
+    public void 轻重结算来自集中参数且重的反应更大()
     {
-        var light = HitResolution.Resolve(ComboKind.Light);
-        var heavy = HitResolution.Resolve(ComboKind.Heavy);
+        var light = HitResolution.Resolve(HitWeight.Light);
+        var heavy = HitResolution.Resolve(HitWeight.Heavy);
         Assert.Equal(new HitReaction(CombatFeel.LightKnockbackWorldPx, CombatFeel.LightHitstunFrames,
             CombatFeel.LightHitstopFrames, false), light);
         Assert.Equal(new HitReaction(CombatFeel.HeavyKnockbackWorldPx, CombatFeel.HeavyHitstunFrames,
             CombatFeel.HeavyHitstopFrames, true), heavy);
-        Assert.Equal(0, light.KnockbackWorldPx);   // 轻击不击退
+        Assert.Equal(0, light.KnockbackWorldPx);   // 轻的不击退
         Assert.True(light.HitstunFrames > 0);
         Assert.True(light.HitstopFrames > 0);
         Assert.True(heavy.KnockbackWorldPx > light.KnockbackWorldPx);
@@ -23,18 +23,17 @@ public class HitResolutionTests
     }
 
     [Theory]
-    [InlineData(ComboKind.None)]
-    [InlineData((ComboKind)(-1))]
-    [InlineData((ComboKind)3)]
-    public void 非攻击不能结算为重击(ComboKind weight)
+    [InlineData((HitWeight)(-1))]
+    [InlineData((HitWeight)2)]
+    public void 不认识的轻重不能结算(HitWeight weight)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => HitResolution.Resolve(weight));
     }
 
     [Theory]
-    [InlineData(ComboKind.Light)]
-    [InlineData(ComboKind.Heavy)]
-    public void 命中顿帧冻结恰好指定帧然后恢复载体推进(ComboKind weight)
+    [InlineData(HitWeight.Light)]
+    [InlineData(HitWeight.Heavy)]
+    public void 命中顿帧冻结恰好指定帧然后恢复载体推进(HitWeight weight)
     {
         var reaction = HitResolution.Resolve(weight);
         var statuses = new StatusEffects();
