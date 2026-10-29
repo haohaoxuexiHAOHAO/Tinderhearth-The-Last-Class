@@ -207,7 +207,8 @@ public partial class WristbandPanel : Control
         if (_activeTab is { } tab)
         {
             // 这一下是面板自己把焦点放上去，不是玩家停在页签上：不挡的话，每次打开手环什么都不动，
-            // 过一会儿当前页签底下就弹出它的名字。焦点进入那个信号在 GrabFocus 里面当场发出。
+            // 过一会儿当前页签底下就弹出它的名字。这个挡法靠的是焦点进入那个信号在 GrabFocus 里当场发出：
+            // 引擎源码 scene/main/viewport.cpp 的 _gui_control_grab_focus 是这么写的，本工程没实测。
             _placingFocus = true;
             _tabButtons[tab.Id].GrabFocus();
             _placingFocus = false;
