@@ -14,7 +14,7 @@ namespace Tinderhearth.UI;
 /// 拉到这一块那么高。液面外面套一个贴着管子底边的裁剪框，框高按 <see cref="HudLayout.VigorShownHeight"/> 给，于是液面
 /// 从下往上露出，不染色。
 ///
-/// 这一块怎么排（标签与竖管在左、两行两列状态位在右，与关卡那一块同宽）没有参考图，先照这一种排，实机看了不合适再改。
+/// 这一块的排法（标签与竖管在左、两行两列状态位在右，与关卡那一块同宽）与理由在设计仓台账 <c>UI-42</c> 那一条。
 /// </remarks>
 public sealed partial class BaseHud : Control
 {
