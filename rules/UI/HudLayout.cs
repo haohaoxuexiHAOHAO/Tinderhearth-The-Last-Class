@@ -168,7 +168,7 @@ public static class HudLayout
     /// <summary>一条资源占的高。取行高，好让标签与条在同一条基线节奏上。</summary>
     public static int GaugeRowHeight => UIMetrics.LineHeight;
 
-    /// <summary>状态位那一行的高：一行小图标。这一轮只留位置，里面挂什么跟状态系统走。</summary>
+    /// <summary>关卡那一块状态位那一行的高：一行小图标。只留位置，里面挂什么跟状态系统走。</summary>
     public static int StatusRowHeight => UIMetrics.LineHeight;
 
     /// <summary>资源块的内容宽：标签、间距、条。基地那一块照它取，两种场合的资源块一样宽。</summary>

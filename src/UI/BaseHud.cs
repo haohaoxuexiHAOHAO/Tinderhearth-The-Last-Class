@@ -4,7 +4,7 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 基地 HUD 的屏幕空间部分：左下那一块，竖的一支精力加一行状态位。右下那条随身栏是另一个节点（<see cref="CarrySlotBarView"/>）。
+/// 基地 HUD 的屏幕空间部分：左下那一块，竖的一支精力加两行两列状态位。右下那条随身栏是另一个节点（<see cref="CarrySlotBarView"/>）。
 /// </summary>
 /// <remarks>
 /// 与 <see cref="LevelHud"/> 同一条纪律：尺寸与放置从 <see cref="HudLayout"/> 取（场合是 <see cref="UIContext.Base"/>），

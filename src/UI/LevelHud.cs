@@ -190,7 +190,7 @@ public sealed partial class LevelHud : Control
             _gauges.Add(new GaugeRow(bar));
         }
 
-        // 状态位那一行这一轮只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
+        // 状态位那一行只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
         column.AddChild(new Control
         {
             Name = "Status",
