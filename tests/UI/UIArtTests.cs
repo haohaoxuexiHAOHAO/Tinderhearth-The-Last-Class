@@ -206,7 +206,8 @@ public class UIArtTests
     private static UIArtPiece Plain(string name, int width, int height) =>
         new("kit", name, new PixelSize(width, height), null, "", "测试用");
 
-    private static List<UIArtEntry> Filled(IEnumerable<UIArtPiece> manifest) =>
+    /// <summary>照清单填好的一份：每一格的尺寸与九宫格边距都与清单一致。</summary>
+    internal static List<UIArtEntry> Filled(IEnumerable<UIArtPiece> manifest) =>
         [.. manifest.Select(p => new UIArtEntry(p.Group, p.Name, p.Size, p.Nine))];
 
     private static bool Matches(UIArtPiece piece, string pattern) =>

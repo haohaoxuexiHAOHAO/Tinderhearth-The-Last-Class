@@ -49,12 +49,7 @@ public class PaletteTests
     public void 代码设的界面色每一个都带着色板里的项名()
     {
         // 不带项名的颜色上面那几条判不到：它不在色板里也不会红。代码设的颜色只在 HudPalette 一处，那里只许有按名字取的那种。
-        const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
-        var bare = typeof(HudPalette).GetProperties(all).Where(p => p.PropertyType == typeof(PixelColor)).Select(p => p.Name)
-            .Concat(typeof(HudPalette).GetFields(all).Where(f => f.FieldType == typeof(PixelColor)).Select(f => f.Name))
-            .ToList();
-
-        Assert.Empty(bare);
+        Assert.Empty(BareColors());
     }
 
     [Fact]
@@ -78,11 +73,20 @@ public class PaletteTests
         Assert.Throws<InvalidDataException>(() => PaletteFile.Parse(["GIMP Palette", "#"]));
     }
 
+    /// <summary><see cref="HudPalette"/> 里不带项名的颜色（类型是 <see cref="PixelColor"/> 的属性与字段）。必须是空的。</summary>
+    internal static List<string> BareColors()
+    {
+        const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+        return typeof(HudPalette).GetProperties(all).Where(p => p.PropertyType == typeof(PixelColor)).Select(p => p.Name)
+            .Concat(typeof(HudPalette).GetFields(all).Where(f => f.FieldType == typeof(PixelColor)).Select(f => f.Name))
+            .ToList();
+    }
+
     /// <summary>规则层里每一个静态的 <see cref="PaletteEntry"/> 属性，连同它属于谁。</summary>
     /// <remarks>
     /// 扫整个程序集而不是只扫 <see cref="HudPalette"/>：哪天别处也按名字取色板，不必记得回来改这里。
     /// </remarks>
-    private static List<(string Owner, PaletteEntry Entry)> NamedEntries() =>
+    internal static List<(string Owner, PaletteEntry Entry)> NamedEntries() =>
         typeof(PaletteEntry).Assembly.GetTypes()
             .SelectMany(type => type
                 .GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
