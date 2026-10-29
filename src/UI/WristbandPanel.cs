@@ -377,6 +377,7 @@ public partial class WristbandPanel : Control
     {
         button.Visible = state != WristbandPageState.Hidden;
         button.Disabled = state == WristbandPageState.Disabled;
+        CursorSkin.ApplyButtonShape(button);
     }
 
     private static string PageKey(WristbandPage page) => $"ui.wristband.page.{page.Id}";

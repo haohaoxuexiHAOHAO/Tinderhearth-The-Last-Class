@@ -11,6 +11,8 @@ namespace Tinderhearth.UI;
 /// 没变就什么都不做。暂停时照样跑，开着手环拉窗口也跟着换。
 ///
 /// 显示后端不支持自定义指针时（无头跑）打一行就停：那时没有指针可换，不算配错。
+///
+/// 手形与禁止那两张只在按钮这一类能点的控件上出现，哪一种用哪一张在 <see cref="ApplyButtonShape"/>。
 /// </remarks>
 public sealed partial class CursorSkin : Node
 {
@@ -66,6 +68,17 @@ public sealed partial class CursorSkin : Node
 
         GD.Print("[界面] 鼠标指针 按 ", scale, " 倍放大");
     }
+
+    /// <summary>
+    /// 按钮这一类能点的控件指着时用哪一种指针：能点是手形，灰掉点不了是禁止那张。别处照旧是箭头。
+    /// </summary>
+    /// <remarks>
+    /// 引擎没有「禁用变了」的信号，所以改 <c>Disabled</c> 的那一处跟着调一次。
+    /// </remarks>
+    public static void ApplyButtonShape(BaseButton button) =>
+        button.MouseDefaultCursorShape = button.Disabled
+            ? Control.CursorShape.Forbidden
+            : Control.CursorShape.PointingHand;
 
     private static Texture2D Piece(Texture2D? texture, UIArtPiece piece) =>
         HudPlace.Piece(texture, $"{piece.Group}/{piece.Name}");
