@@ -11,11 +11,11 @@ namespace Tinderhearth.World.Farm;
 /// 这里。所以「缺哪张图」只能在这里报错，规则层看不见任何素材路径。
 ///
 /// 张数不是固定的，等于这条作物自己声明的阶段数（<see cref="CropDefinition.StageCount"/>）外加
-/// 一张枯死。速生菜交的图比慢熟的少，两边都不用改代码。校验在 <see cref="RequireMatching"/>。
+/// 一张变异成熟、一张枯死。速生菜交的图比慢熟的少，两边都不用改代码。校验在 <see cref="RequireMatching"/>。
 ///
-/// 枯死那张不塞进 <see cref="StageTextures"/> 末尾，因为它不是一个生长阶段，而是
-/// <see cref="PlotState.Withered"/> 那个状态的样子。混进同一个数组之后，读的时候要把下标减一，
-/// 而减错了不报错，表现只是作物显示成上一阶段的图。
+/// 变异成熟与枯死那两张不塞进 <see cref="StageTextures"/> 末尾：它们都不是生长阶段，一张是待收那一株
+/// 变了的样子，一张是 <see cref="PlotState.Withered"/> 那个状态的样子。混进同一个数组之后要按下标挑，
+/// 而挑错了不报错，表现只是作物显示成了别的那一张。
 /// </remarks>
 [GlobalClass]
 public partial class CropArt : Resource
@@ -34,6 +34,14 @@ public partial class CropArt : Resource
     /// </remarks>
     [Export]
     public Array<Texture2D> StageTextures { get; set; } = [];
+
+    /// <summary>长成那一晚掷中变异的那一株，待收时显示这一张，替成熟那一张。</summary>
+    /// <remarks>
+    /// 每种作物都可能变异，所以每种都要配。它与成熟那一张只靠颜色分也行：那一下答的是收上来是什么品质，
+    /// 不是能不能收（设计仓 production/场景绘制约定.md 的「作物按它声明的阶段数交付」一节）。
+    /// </remarks>
+    [Export]
+    public Texture2D? MutatedRipeTexture { get; set; }
 
     /// <summary>枯死之后停在地里的那一张。清掉枯株之前玩家一直看着它。</summary>
     [Export]
@@ -71,6 +79,13 @@ public partial class CropArt : Resource
                     $"作物「{crop.Id}」的第 {stage} 阶段那一张是空的"
                         + $"（阶段从 0 起算，第 {crop.RipeStage} 阶段是成熟）");
             }
+        }
+
+        if (MutatedRipeTexture is null)
+        {
+            throw new InvalidOperationException(
+                $"作物「{crop.Id}」缺 {nameof(MutatedRipeTexture)}，也就是变异成熟那一张。"
+                    + "每种作物长成时都可能变异，变了的那一株待收时显示它");
         }
 
         if (WitheredTexture is null)

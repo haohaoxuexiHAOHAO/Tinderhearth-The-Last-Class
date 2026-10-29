@@ -455,7 +455,7 @@ public partial class FarmField : Node
 
             if (!_cropSprites.TryGetValue(cell, out var sprite))
             {
-                // Centered = false 是自己算位置，这样「底边贴格子底边」写在代码里看得见，
+                // Centered = false 是自己算图往哪画，这样「原点在接地那一行、图往上画」写在代码里看得见，
                 // 不依赖引擎怎么摆中心点。
                 sprite = new Sprite2D { Centered = false, Name = $"Crop{cell.X}_{cell.Y}" };
                 _crops.AddChild(sprite);
@@ -463,25 +463,32 @@ public partial class FarmField : Node
             }
 
             sprite.Texture = texture;
-            sprite.Position = CropPositionIn(cell, tileSize, texture);
+            sprite.Position = CropOriginIn(cell, tileSize);
+            sprite.Offset = DrawnUpFromOrigin(texture);
         }
     }
 
-    /// <summary>一株作物画在哪：横向居中，底边贴格子底边。</summary>
+    /// <summary>一株作物的原点：格子底边中点，取整。</summary>
     /// <remarks>
-    /// 贴底而不是居中，因为俯视的前后遮挡按脚底那一行排序，而作物是站在地块上的东西、不是地面
-    /// 的一部分。图比一格高时它往上长出格子，这是对的，受约束的是它占住几格、不是那张图多大。
+    /// Y 排序比的是节点位置、不看图画在哪，所以原点要落在作物接地的那一行，与角色的脚底原点同一个口径
+    /// （设计仓 production/场景绘制约定.md 的「前后遮挡按脚底位置排序」一节）。原点放在图的左上角时，
+    /// 人站进那一格的上半截，脚底比原点靠下，就压到了作物上面。
     ///
-    /// 最后取整一次。像素图落在非整数位置上会被采样成错开一行或者抖动，而引擎不报错。
-    /// 作物图宽是奇数时居中会差半像素，这一次取整把它吃掉。
+    /// 取整是因为像素图落在非整数位置上会被采样成错开一行或者抖动，而引擎不报错。
     /// </remarks>
-    private Vector2 CropPositionIn(Vector2I cell, Vector2I tileSize, Texture2D texture)
+    private Vector2 CropOriginIn(Vector2I cell, Vector2I tileSize)
     {
         Vector2 centerInField = _crops.ToLocal(_tilled.ToGlobal(_tilled.MapToLocal(cell)));
-        var x = centerInField.X - (texture.GetWidth() / 2f);
-        var y = centerInField.Y + (tileSize.Y / 2f) - texture.GetHeight();
-        return new Vector2(Mathf.Round(x), Mathf.Round(y));
+        return new Vector2(Mathf.Round(centerInField.X), Mathf.Round(centerInField.Y + (tileSize.Y / 2f)));
     }
+
+    /// <summary>图相对原点画在哪：横向居中、底边贴着原点，往上画。</summary>
+    /// <remarks>
+    /// 图比一格高时它往上长出格子，这是对的，受约束的是它占住几格、不是那张图多大。图宽是奇数时居中会差
+    /// 半像素，向下取整把它吃掉，图始终落在整像素上。
+    /// </remarks>
+    private static Vector2 DrawnUpFromOrigin(Texture2D texture) =>
+        new(-Mathf.Floor(texture.GetWidth() / 2f), -texture.GetHeight());
 
     /// <summary>这一格现在该显示哪一张作物图；没有作物时为 <c>null</c>。</summary>
     private Texture2D? TextureFor(Plot plot)
