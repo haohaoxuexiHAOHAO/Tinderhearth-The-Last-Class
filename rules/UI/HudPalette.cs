@@ -45,11 +45,11 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// <remarks>
 /// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
 /// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
-/// 一档：精英血条的槽与填充随它换成资源条那一套，倒地头像色随那张倒地记号。HUD 上的资源条是作者画的填充、
-/// 不染色，所以这里没有它们的颜色。
+/// 一档：精英血条的槽与填充随它换成资源条那一套（设计仓台账 <c>UI-43</c>），倒地头像色随那张倒地记号
+/// （设计仓台账 <c>UI-46</c>）。HUD 上的资源条是作者画的填充、不染色，所以这里没有它们的颜色。
 ///
 /// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
-/// 那次判断大体还成立；换色之后照样要实机重看一遍。
+/// 那次判断大体还成立；换色之后照样要实机重看一遍（设计仓台账 <c>UI-48</c>）。
 /// </remarks>
 public static class HudPalette
 {

@@ -14,7 +14,7 @@ namespace Tinderhearth.Rules.Foundation.Text;
 public static class GameLanguage
 {
     /// <summary>
-    /// 游戏的语言。现在只发简体中文（设计仓 ADR-0008）；选语言落地时改成读玩家级偏好，那一侧见
+    /// 游戏的语言。现在只发简体中文（设计仓 decisions/ADR-0008-中文像素字体选型.md）；选语言落地时改成读玩家级偏好，那一侧见
     /// 设计仓 design/存档系统.md 的「玩家级偏好：第三样东西，不是分片」一节。
     /// </summary>
     public const string Tag = "zh-CN";
