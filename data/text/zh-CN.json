@@ -20,7 +20,7 @@
   "hud.skill.firstAid": "急救",
   "hud.skill.control": "控场",
 
-  "//手环": "ui.wristband.tab.* 是顶层页签的名字（页签上画的是图标，名字给当前页标题用），ui.wristband.page.* 是子页签上的字。有哪几个页签、各挂哪几页的家在代码仓 rules/UI/Wristband.cs。",
+  "//手环": "ui.wristband.tab.* 是顶层页签的名字（页签上画的是图标，名字在鼠标或焦点停一会儿之后弹出的小窗里），ui.wristband.page.* 是子页签上的字。有哪几个页签、各挂哪几页的家在代码仓 rules/UI/Wristband.cs。",
   "ui.wristband.tab.character": "个人界面",
   "ui.wristband.tab.students": "学生列表",
   "ui.wristband.tab.backpack": "背包",

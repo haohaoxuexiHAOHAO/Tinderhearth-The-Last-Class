@@ -5,8 +5,8 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 手环面板的外壳：一圈厚框、压在外框顶边上的一排图标页签、当前那个页签的一排子页签、一块浅底内容区。
-/// 每一页里面显示什么还没做。
+/// 手环面板的外壳：一圈厚框、压在外框顶边上的一排图标页签、当前那个页签的一排子页签、一块浅底内容区，
+/// 外加一个页签名字的小窗。每一页里面显示什么还没做。
 /// </summary>
 /// <remarks>
 /// 有哪些页、各自在什么场合怎么显示，都从规则层的 <see cref="Wristband"/> 读，本类只把结论翻译成按钮的
@@ -18,6 +18,11 @@ namespace Tinderhearth.UI;
 /// 只有页签上那张图标按页签的标识从素材资源里取。
 ///
 /// 子页签上的字从文本表取（<c>ui.wristband.page.*</c>），缺了显成缺文本的占位，一眼看得出来。
+///
+/// 顶层页签只画了图标、不写字，也不另放一行当前页标题：鼠标指着一个页签、或者键盘与手柄的焦点停在它上面，
+/// 停满一段时间就在它下面弹出写着名字的小窗（<c>ui.wristband.tab.*</c>）。两种操作方式走同一个小窗、同一个
+/// 时长 —— 焦点与悬停是同一个样子（设计仓 production/界面绘制约定.md），而 Godot 自带的提示框只认鼠标，
+/// 键盘与手柄停上去永远不弹，所以这里自己做。
 /// </remarks>
 public partial class WristbandPanel : Control
 {
@@ -26,7 +31,13 @@ public partial class WristbandPanel : Control
     private readonly Dictionary<string, HBoxContainer> _pageRows = [];
     private UIArt _art = null!;
     private TextCatalog _text = null!;
+    private Control _shell = null!;
     private Label _content = null!;
+    private PanelContainer _tabName = null!;
+    private Label _tabNameText = null!;
+    private Godot.Timer _tabNameDelay = null!;
+    private Button? _tabNameFor;
+    private bool _placingFocus;
     private WristbandTab? _activeTab;
     private WristbandPage? _activePage;
     private UIContext _context = UIContext.Base;
@@ -66,6 +77,7 @@ public partial class WristbandPanel : Control
             CustomMinimumSize = new Vector2(WristbandLayout.ShellWidth, WristbandLayout.ShellHeight),
         };
         center.AddChild(shell);
+        _shell = shell;
 
         // 外框从页签那一排的最后一行起：页签最下面一行就是外框顶边那条线。
         var frame = new PanelContainer { Name = "Frame", ThemeTypeVariation = PixelTheme.WristbandFrame };
@@ -96,7 +108,21 @@ public partial class WristbandPanel : Control
                 CustomMinimumSize = new Vector2(WristbandLayout.TabSize, WristbandLayout.TabSize),
                 FocusMode = FocusModeEnum.All,      // 手柄靠焦点移动导航
             };
-            button.Pressed += () => SelectTab(tab);
+            button.Pressed += () =>
+            {
+                HideTabName();      // 点下去了就是认得它，名字不用再弹
+                SelectTab(tab);
+            };
+            button.MouseEntered += () => ArmTabName(button, tab);
+            button.MouseExited += () => DisarmTabName(button);
+            button.FocusEntered += () =>
+            {
+                if (!_placingFocus)
+                {
+                    ArmTabName(button, tab);
+                }
+            };
+            button.FocusExited += () => DisarmTabName(button);
             tabs.AddChild(button);
             _tabButtons[tab.Id] = button;
 
@@ -139,6 +165,22 @@ public partial class WristbandPanel : Control
         _content = new Label { Name = "Content", ThemeTypeVariation = PixelTheme.PaperLabel };
         inset.AddChild(_content);
 
+        // 页签名字的小窗加在外壳最后，所以画在页签与外框上面；它不接鼠标，指针移到它身上也不算离开页签。
+        _tabName = new PanelContainer
+        {
+            Name = "TabName",
+            ThemeTypeVariation = PixelTheme.WristbandTabName,
+            Visible = false,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        _tabNameText = new Label { Name = "Text", MouseFilter = MouseFilterEnum.Ignore };
+        _tabName.AddChild(_tabNameText);
+        shell.AddChild(_tabName);
+
+        _tabNameDelay = new Godot.Timer { Name = "TabNameDelay", OneShot = true, WaitTime = TabNameDelaySeconds() };
+        _tabNameDelay.Timeout += ShowTabName;
+        AddChild(_tabNameDelay);
+
         // 面板一显示就把焦点放上去。不放的话手柄按方向键什么也不会发生：Godot 的焦点导航是从
         // 当前焦点找邻居，没有焦点就没有起点。键鼠点一下就有了焦点，所以这个坑只在手柄上出现。
         VisibilityChanged += OnVisibilityChanged;
@@ -148,7 +190,7 @@ public partial class WristbandPanel : Control
     }
 
     /// <summary>
-    /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点。
+    /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点，也收起页签名字的小窗。
     /// </summary>
     /// <remarks>
     /// 焦点落在当前那个页签上，而当前那个一定是可用的（见 <see cref="RefreshStates"/>）：关卡里那些整个
@@ -156,11 +198,74 @@ public partial class WristbandPanel : Control
     /// </remarks>
     private void OnVisibilityChanged()
     {
-        if (IsVisibleInTree() && _activeTab is { } tab)
+        if (!IsVisibleInTree())
         {
+            HideTabName();
+            return;
+        }
+
+        if (_activeTab is { } tab)
+        {
+            // 这一下是面板自己把焦点放上去，不是玩家停在页签上：不挡的话，每次打开手环什么都不动，
+            // 过一会儿当前页签底下就弹出它的名字。焦点进入那个信号在 GrabFocus 里面当场发出。
+            _placingFocus = true;
             _tabButtons[tab.Id].GrabFocus();
+            _placingFocus = false;
         }
     }
+
+    /// <summary>
+    /// 鼠标或焦点停到一个页签上：先把名字换好，计时，停满了再弹（<see cref="ShowTabName"/>）。
+    /// </summary>
+    private void ArmTabName(Button button, WristbandTab tab)
+    {
+        _tabNameFor = button;
+        _tabNameText.Text = _text[TabKey(tab)];
+        _tabName.Visible = false;
+        _tabNameDelay.Start();
+    }
+
+    /// <summary>鼠标或焦点离开一个页签。只收它自己那一份：另一种操作方式这时可能正停在别的页签上。</summary>
+    private void DisarmTabName(Button button)
+    {
+        if (_tabNameFor == button)
+        {
+            HideTabName();
+        }
+    }
+
+    private void HideTabName()
+    {
+        _tabNameDelay.Stop();
+        _tabName.Visible = false;
+        _tabNameFor = null;
+    }
+
+    /// <summary>
+    /// 停满了：小窗贴着那个页签的下面，左边与它对齐；放不下就往左挪，不出外壳。
+    /// </summary>
+    private void ShowTabName()
+    {
+        if (_tabNameFor is not { } button || !button.IsVisibleInTree())
+        {
+            return;
+        }
+
+        _tabName.Visible = true;
+        _tabName.ResetSize();
+        var at = button.GlobalPosition - _shell.GlobalPosition;
+        var x = Math.Min(at.X, WristbandLayout.ShellWidth - _tabName.Size.X);
+        _tabName.Position = new Vector2(x, at.Y + button.Size.Y + UIMetrics.ItemGap);
+    }
+
+    /// <summary>
+    /// 停多久才弹：读项目设置里提示框那一项（<c>gui/timers/tooltip_delay_sec</c>），在 Godot 的项目设置里改。
+    /// </summary>
+    /// <remarks>
+    /// 借引擎自己那一项，而不另开一格：它答的就是「停多久弹提示」，将来别处用了自带的提示框，两边一样长。
+    /// </remarks>
+    private static double TabNameDelaySeconds() =>
+        ProjectSettings.GetSetting("gui/timers/tooltip_delay_sec").AsDouble();
 
     /// <summary>切到某个顶层页签，落在它第一个可用的子页。传 <c>null</c> 是一个页签都用不了。</summary>
     private void SelectTab(WristbandTab? tab)
@@ -247,4 +352,6 @@ public partial class WristbandPanel : Control
     }
 
     private static string PageKey(WristbandPage page) => $"ui.wristband.page.{page.Id}";
+
+    private static string TabKey(WristbandTab tab) => $"ui.wristband.tab.{tab.Id}";
 }

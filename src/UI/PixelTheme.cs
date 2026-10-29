@@ -45,6 +45,9 @@ public static class PixelTheme
     /// <summary>浅底上的字。</summary>
     public const string PaperLabel = "PaperLabel";
 
+    /// <summary>手环顶层页签名字的那个小窗。</summary>
+    public const string WristbandTabName = "WristbandTabName";
+
     /// <summary>
     /// 装好主题：把像素字体设成全局回退字体，并用素材资源里的图组装按钮、页签与面板的样子。
     /// </summary>
@@ -110,6 +113,11 @@ public static class PixelTheme
         theme.SetStylebox("panel", ContentInset, Box(art.KitInset, UIMetrics.Grid, UIMetrics.Grid));
         theme.SetTypeVariation(PaperLabel, "Label");
         theme.SetColor("font_color", PaperLabel, ToColor(HudPalette.PaperInk));
+
+        // 页签名字的小窗：顶层页签只画了图标，名字在停留之后弹出来。底取深色细框（素材资源里给小弹层的那一件），
+        // 里面的字不另设颜色，用上面 Label 那一项的正文色 —— 深底浅字，界面绘制约定的对比度表里有这一对。
+        theme.SetTypeVariation(WristbandTabName, "PanelContainer");
+        theme.SetStylebox("panel", WristbandTabName, Box(art.KitFrameThinDark, pad, pad));
         return theme;
     }
 
