@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://byeb31jxlivxx" path="res://src/Main.cs" id="1_main"]
 [ext_resource type="Resource" uid="uid://54f1smpss1as" path="res://assets/self-drawn/ui/ui_art.tres" id="2_art"]
-[ext_resource type="Script" path="res://src/UI/GaugeMotion.cs" id="3_gauges"]
+[ext_resource type="Script" uid="uid://cvedyqxh4qaa2" path="res://src/UI/GaugeMotion.cs" id="3_gauges"]
 
 [sub_resource type="Resource" id="Resource_gauges"]
 script = ExtResource("3_gauges")
@@ -14,5 +14,5 @@ BubblePixelsPerSecond = 4.0
 [node name="Main" type="Node2D" unique_id=594262848]
 script = ExtResource("1_main")
 Art = ExtResource("2_art")
-Preview = 1
+Preview = 2
 Gauges = SubResource("Resource_gauges")
