@@ -225,20 +225,33 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>把这一片地推进一天，然后重画。</summary>
+    /// <summary>把这一片地推进一天，然后重画。这一晚长成时变异的每一格各打一行。</summary>
     /// <remarks>
     /// 以后接上季节时，<see cref="Plot.ApplySeasonChange"/> 要排在本方法之前跑。反了的话，换季
     /// 那天的作物会先白长一天再枯死。
+    ///
+    /// 变异那几行是睡后简报那一项的替身：简报还没有，归设计仓台账 GP-56。
     /// </remarks>
     public void AdvanceDay()
     {
-        foreach (var plot in _plots.Values)
+        foreach (var (cell, plot) in _plots)
         {
-            plot.AdvanceDay(CropOf(plot), FallowRevertDays);
+            var wasMutated = plot.Mutated;
+            plot.AdvanceDay(CropOf(plot), FallowRevertDays, RollMutation);
+            if (plot.Mutated && !wasMutated)
+            {
+                GD.Print("[地块] ", cell, " 的 ", plot.CropId, " 长成时变异了");
+            }
         }
 
         RefreshAll();
     }
+
+    /// <summary>掷一次变异，用系统随机数。几率读的是这一刻作用在地上的修饰。</summary>
+    /// <remarks>
+    /// 事件与设备那两路修饰还没有来源，归设计仓台账 GP-52 与 GP-28，所以现在交进去的是空的，几率就是基础值。
+    /// </remarks>
+    private bool RollMutation() => Random.Shared.NextDouble() < _mutation.ChanceWith([]);
 
     /// <summary>按当前操作格那一格的状态派发一个动作。</summary>
     private void ActOnCurrentCell()
@@ -311,14 +324,15 @@ public partial class FarmField : Node
         var crop = CropOf(plot) ?? throw new InvalidOperationException(
             $"这一格是 {plot.State}、作物标识是 {plot.CropId}，但找不到那份作物定义");
 
-        if (!plot.TryHarvest(crop, _yield, out var count))
+        if (!plot.TryHarvest(crop, _yield, out var harvest))
         {
             return false;
         }
 
-        // 件数到此为止。归属、付酬、入库都走生产系统那条管道，而它和背包都还不存在，所以现在
+        // 收获结果到此为止。归属、付酬、入库都走生产系统那条管道，而它和背包都还不存在，所以现在
         // 只打出来。不要在这里顺手加一个容器装它，那会让入库多出第二个入口。
-        GD.Print("[地块] 收上来 ", count, " 件 ", crop.YieldItemId, "（还没有仓库，先只打出来）");
+        GD.Print("[地块] 收上来 ", harvest.Count, " 件 ", crop.YieldItemId, harvest.Mutated ? "（变异）" : "",
+                 "（还没有仓库，先只打出来）");
         return true;
     }
 
@@ -516,6 +530,8 @@ public partial class FarmField : Node
 
         return plot.State switch
         {
+            // 变异那一株替成熟那一张；那一位只在待收时为真，所以只有这一行读它。
+            PlotState.Harvestable when plot.Mutated => art.MutatedRipeTexture,
             // 待收时 Stage 正好等于成熟那一阶段的序号，所以这两个状态读同一行。
             PlotState.Planted or PlotState.Harvestable => art.TextureForStage(plot.Stage),
             PlotState.Withered => art.WitheredTexture,

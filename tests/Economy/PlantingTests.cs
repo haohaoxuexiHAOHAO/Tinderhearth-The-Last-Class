@@ -90,14 +90,14 @@ public class PlantingTests
         plot.Water();
         for (var day = 0; day < crop.DaysToFirstRipe; day++)
         {
-            plot.AdvanceDay(crop, fallowRevertDays: 3);
+            plot.AdvanceDay(crop, fallowRevertDays: 3, rollMutation: () => false);
         }
 
         Assert.Equal(PlotState.Harvestable, plot.State);
 
         var rule = new HarvestYieldRule(BaseCount: 4, MinWaterFactor: 0.5, MaxWaterFactor: 1.0);
-        Assert.True(plot.TryHarvest(crop, rule, out var count));
-        Assert.True(count >= 1);
+        Assert.True(plot.TryHarvest(crop, rule, out var harvest));
+        Assert.True(harvest.Count >= 1);
 
         // 一次性作物收完地回到已锄，所以下一茬可以换一种种子播。
         Assert.Equal(PlotState.Tilled, plot.State);

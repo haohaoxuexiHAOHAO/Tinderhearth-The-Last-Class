@@ -2,8 +2,8 @@ namespace Tinderhearth.Rules.Economy;
 
 /// <summary>基地上一格地：开荒与种植共用的那台状态机。</summary>
 /// <remarks>
-/// 状态、流转、浇水那两个量与荒置退化的说明在设计仓 design/地块系统.md，本类不复述。它只算到
-/// 「收上来几件」—— 归属、付酬与入库都走生产系统那条管道，这里不碰容器，也不碰品质。
+/// 状态、流转、浇水那两个量、变异与荒置退化的说明在设计仓 design/地块系统.md，本类不复述。它只算到
+/// 「收上来几件、是不是变异的那一株」—— 归属、付酬与入库都走生产系统那条管道，这里不碰容器，也不碰品质。
 ///
 /// 它只存作物的标识，不存作物的定义。定义是数据文件里的内容、会被 mod 换掉，所以按天推进与
 /// 收获都要调用方把当前那份 <see cref="CropDefinition"/> 传进来。传错一种作物会当场报错，不会
@@ -60,6 +60,13 @@ public sealed class Plot
 
     /// <summary>已锄且空着连续多少天了。有作物的那几格不计时。</summary>
     public int DaysFallow { get; private set; }
+
+    /// <summary>这一株长成时掷中变异了吗。只在待收那一态为真。</summary>
+    /// <remarks>
+    /// 它是掷出来的，所以存下来、读的时候不重算 —— 重算一次就是重掷一次。收获、换季枯死与清掉枯株都清掉它，
+    /// 能反复收的作物下一次长成重掷。存什么的理由在设计仓 design/地块系统.md 的「一格要存什么」一节。
+    /// </remarks>
+    public bool Mutated { get; private set; }
 
     /// <summary>清掉石头、树木与杂草。</summary>
     public bool Clear()
@@ -126,23 +133,24 @@ public sealed class Plot
     /// <summary>收获。一次性作物收完回到已锄，循环作物退回它声明的那一阶段。</summary>
     /// <param name="crop">这一格里那种作物的定义。</param>
     /// <param name="rule">算收几件要用的那几个量，由调用方给，本层没有默认值。</param>
-    /// <param name="count">收上来几件；没收成时为 0。</param>
+    /// <param name="harvest">收上来什么；没收成时是 0 件、不变异。</param>
     /// <remarks>
     /// 件数一律是整数、而且至少 1 件。玩家看到的不能是「收了 5.4 颗」，也不能是「收了 0 颗」。
+    /// 变了的那一株件数照常按浇水算，与没变的同一套：变异改的是收上来的品质，不是件数。
     /// </remarks>
-    public bool TryHarvest(CropDefinition crop, HarvestYieldRule rule, out int count)
+    public bool TryHarvest(CropDefinition crop, HarvestYieldRule rule, out HarvestResult harvest)
     {
         ArgumentNullException.ThrowIfNull(crop);
         ArgumentNullException.ThrowIfNull(rule);
         RequireMatchingCrop(crop);
 
-        count = 0;
+        harvest = default;
         if (State != PlotState.Harvestable)
         {
             return false;
         }
 
-        count = YieldCount(rule);
+        harvest = new HarvestResult(YieldCount(rule), Mutated);
 
         if (crop.RegrowFromStage is int back)
         {
@@ -202,17 +210,23 @@ public sealed class Plot
         DaysInStage = 0;
         DaysThisCrop = 0;
         WateredDaysThisCrop = 0;
+        Mutated = false;
     }
 
-    /// <summary>按天推进一天：生长、荒置计时，最后清掉当天那个浇水标记。</summary>
+    /// <summary>按天推进一天：生长（长成那一下掷一次变异）、荒置计时，最后清掉当天那个浇水标记。</summary>
     /// <param name="crop">这一格里那种作物的定义；空地传 <c>null</c>。</param>
     /// <param name="fallowRevertDays">已锄的空格荒置几天退回可耕。这个天数还没定、要实机试，本层不带默认值。</param>
+    /// <param name="rollMutation">掷一次变异，中了返回 <c>true</c>。只在这一晚长成时调一次，别的晚上一次都不调。</param>
     /// <remarks>
     /// 这几件事都在每日结算「作物生长与枯死结算」那一步之内，不新增结算步骤 —— 那串步序一步
     /// 不增，而它们都属于「地块上的东西按天推进」。
+    ///
+    /// 随机源由调用方给，本层只收「这一次中没中」，所以测试可以注入成必中、必不中或数次数。几率怎么算在
+    /// <see cref="MutationChanceRule"/>，那是调用方掷之前的事。
     /// </remarks>
-    public void AdvanceDay(CropDefinition? crop, int fallowRevertDays)
+    public void AdvanceDay(CropDefinition? crop, int fallowRevertDays, Func<bool> rollMutation)
     {
+        ArgumentNullException.ThrowIfNull(rollMutation);
         if (fallowRevertDays < 1)
         {
             throw new ArgumentOutOfRangeException(
@@ -224,7 +238,7 @@ public sealed class Plot
         {
             case PlotState.Planted:
                 RequireCropForGrowth(crop);
-                Grow(crop!);
+                Grow(crop!, rollMutation);
                 break;
 
             case PlotState.Tilled:
@@ -265,9 +279,15 @@ public sealed class Plot
         WateredDaysThisCrop = 0;
         WateredToday = false;
         DaysFallow = 0;
+        Mutated = false;
     }
 
-    private void Grow(CropDefinition crop)
+    /// <summary>长一天；这一天长到成熟就是待收，并在这一下掷一次变异。</summary>
+    /// <remarks>
+    /// 只在长成那一下掷，不是每晚都掷：每晚都掷的话，熟了不收、多放几天就能多掷几次。待收之后
+    /// <see cref="AdvanceDay"/> 不再走到这里，所以一茬只掷一次。
+    /// </remarks>
+    private void Grow(CropDefinition crop, Func<bool> rollMutation)
     {
         DaysInStage++;
         DaysThisCrop++;
@@ -281,6 +301,7 @@ public sealed class Plot
         if (Stage >= crop.RipeStage)
         {
             State = PlotState.Harvestable;
+            Mutated = rollMutation();
         }
     }
 

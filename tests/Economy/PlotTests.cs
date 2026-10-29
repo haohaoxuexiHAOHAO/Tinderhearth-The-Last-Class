@@ -13,6 +13,9 @@ public class PlotTests
     /// <summary>荒置几天退回可耕。与数值模型无关的测试用值。</summary>
     private const int FallowDays = 7;
 
+    /// <summary>掷变异永远不中。本类测的是流转，变异那几条在 <see cref="CropMutationTests"/>。</summary>
+    private static readonly Func<bool> NeverMutates = () => false;
+
     /// <summary>按比例收的那份规则：浇满收 10 件、一次没浇收一半。</summary>
     private static readonly HarvestYieldRule Yield = new(
         BaseCount: 10, MinWaterFactor: 0.5, MaxWaterFactor: 1.0);
@@ -100,16 +103,16 @@ public class PlotTests
 
         for (var day = 1; day < crop.DaysToFirstRipe; day++)
         {
-            plot.AdvanceDay(crop, FallowDays);
+            plot.AdvanceDay(crop, FallowDays, NeverMutates);
             Assert.Equal(PlotState.Planted, plot.State);
         }
 
-        plot.AdvanceDay(crop, FallowDays);
+        plot.AdvanceDay(crop, FallowDays, NeverMutates);
         Assert.Equal(PlotState.Harvestable, plot.State);
         Assert.Equal(crop.RipeStage, plot.Stage);
 
-        plot.AdvanceDay(crop, FallowDays);
-        plot.AdvanceDay(crop, FallowDays);
+        plot.AdvanceDay(crop, FallowDays, NeverMutates);
+        plot.AdvanceDay(crop, FallowDays, NeverMutates);
         Assert.Equal(PlotState.Harvestable, plot.State);
         Assert.Equal(crop.RipeStage, plot.Stage);
     }
@@ -128,7 +131,7 @@ public class PlotTests
         Assert.Equal(1, crop.DaysToFirstRipe);
         Assert.Equal(PlotState.Planted, plot.State);
 
-        plot.AdvanceDay(crop, FallowDays);
+        plot.AdvanceDay(crop, FallowDays, NeverMutates);
 
         Assert.Equal(PlotState.Harvestable, plot.State);
         Assert.Equal(crop.RipeStage, plot.Stage);
@@ -144,12 +147,12 @@ public class PlotTests
     {
         var crop = Crop();
         var plot = Ripe(crop, waterDays: 0);
-        Assert.True(plot.TryHarvest(crop, Yield, out var count));
-        Assert.Equal(5, count);
+        Assert.True(plot.TryHarvest(crop, Yield, out var harvest));
+        Assert.Equal(5, harvest.Count);
 
         var tiny = Ripe(crop, waterDays: 0);
-        Assert.True(tiny.TryHarvest(crop, TinyYield, out var tinyCount));
-        Assert.Equal(1, tinyCount);
+        Assert.True(tiny.TryHarvest(crop, TinyYield, out var tinyHarvest));
+        Assert.Equal(1, tinyHarvest.Count);
     }
 
     /// <summary>浇得越多收得越多，浇满拿到上限那一档，浇得太少则停在下限那一档。</summary>
@@ -162,8 +165,8 @@ public class PlotTests
     {
         var crop = Crop();
         var plot = Ripe(crop, waterDays);
-        Assert.True(plot.TryHarvest(crop, Yield, out var count));
-        Assert.Equal(expected, count);
+        Assert.True(plot.TryHarvest(crop, Yield, out var harvest));
+        Assert.Equal(expected, harvest.Count);
     }
 
     /// <summary>循环收获退回它声明的那一阶段，并且把浇水累计清零。</summary>
@@ -178,7 +181,7 @@ public class PlotTests
         Assert.Equal(4, plot.WateredDaysThisCrop);
 
         Assert.True(plot.TryHarvest(crop, Yield, out var first));
-        Assert.Equal(10, first);
+        Assert.Equal(10, first.Count);
         Assert.Equal(PlotState.Planted, plot.State);
         Assert.Equal(2, plot.Stage);
         Assert.Equal("turnip", plot.CropId);
@@ -188,12 +191,12 @@ public class PlotTests
         // 第二茬一次不浇，走到成熟只要「退回那一阶段之后剩下的天数」。
         for (var day = 0; day < crop.DaysToRegrow; day++)
         {
-            plot.AdvanceDay(crop, FallowDays);
+            plot.AdvanceDay(crop, FallowDays, NeverMutates);
         }
 
         Assert.Equal(PlotState.Harvestable, plot.State);
         Assert.True(plot.TryHarvest(crop, Yield, out var second));
-        Assert.Equal(5, second);
+        Assert.Equal(5, second.Count);
     }
 
     /// <summary>一次性作物收完地就空了，回到已锄，不必重锄一遍。</summary>
@@ -206,7 +209,7 @@ public class PlotTests
         Assert.Equal(PlotState.Tilled, plot.State);
         Assert.Null(plot.CropId);
         Assert.False(plot.TryHarvest(crop, Yield, out var again));
-        Assert.Equal(0, again);
+        Assert.Equal(default, again);
     }
 
     /// <summary>荒置计时只对空着的已锄格走，有作物的格连着放多少天都不退化。</summary>
@@ -219,18 +222,18 @@ public class PlotTests
         var empty = new Plot(PlotState.Tilled);
         for (var day = 1; day < FallowDays; day++)
         {
-            empty.AdvanceDay(null, FallowDays);
+            empty.AdvanceDay(null, FallowDays, NeverMutates);
             Assert.Equal(PlotState.Tilled, empty.State);
         }
 
-        empty.AdvanceDay(null, FallowDays);
+        empty.AdvanceDay(null, FallowDays, NeverMutates);
         Assert.Equal(PlotState.Cleared, empty.State);
 
         var crop = Crop(stageDays: [FallowDays * 3, 1, 1, 1]);
         var planted = Planted(crop);
         for (var day = 0; day < FallowDays * 2; day++)
         {
-            planted.AdvanceDay(crop, FallowDays);
+            planted.AdvanceDay(crop, FallowDays, NeverMutates);
         }
 
         Assert.Equal(PlotState.Planted, planted.State);
@@ -244,7 +247,7 @@ public class PlotTests
         var plot = new Plot(PlotState.Cleared);
         for (var day = 0; day < FallowDays * 3; day++)
         {
-            plot.AdvanceDay(null, FallowDays);
+            plot.AdvanceDay(null, FallowDays, NeverMutates);
         }
 
         Assert.Equal(PlotState.Cleared, plot.State);
@@ -292,7 +295,7 @@ public class PlotTests
 
         for (var day = 0; day < 20; day++)
         {
-            plot.AdvanceDay(crop, FallowDays);
+            plot.AdvanceDay(crop, FallowDays, NeverMutates);
         }
 
         Assert.Equal(PlotState.Withered, plot.State);
@@ -361,7 +364,7 @@ public class PlotTests
         Assert.False(plot.Water());
         Assert.Equal(1, plot.WateredDaysThisCrop);
 
-        plot.AdvanceDay(crop, FallowDays);
+        plot.AdvanceDay(crop, FallowDays, NeverMutates);
         Assert.False(plot.WateredToday);
         Assert.True(plot.Water());
         Assert.Equal(2, plot.WateredDaysThisCrop);
@@ -384,7 +387,7 @@ public class PlotTests
         var other = crop with { Id = "carrot" };
         var plot = Planted(crop);
 
-        Assert.Throws<ArgumentException>(() => plot.AdvanceDay(other, FallowDays));
+        Assert.Throws<ArgumentException>(() => plot.AdvanceDay(other, FallowDays, NeverMutates));
         Assert.Throws<ArgumentException>(() => plot.ApplySeasonChange(other, Season.Summer));
         Assert.Throws<ArgumentException>(() =>
             plot.TryHarvest(other, Yield, out _));
@@ -396,7 +399,7 @@ public class PlotTests
     {
         var crop = Crop();
         var plot = Planted(crop);
-        Assert.Throws<ArgumentNullException>(() => plot.AdvanceDay(null, FallowDays));
+        Assert.Throws<ArgumentNullException>(() => plot.AdvanceDay(null, FallowDays, NeverMutates));
     }
 
     /// <summary>荒置天数非正就报错。</summary>
@@ -410,7 +413,7 @@ public class PlotTests
     public void 荒置天数非正就报错(int fallowRevertDays)
     {
         var plot = new Plot(PlotState.Tilled);
-        Assert.Throws<ArgumentOutOfRangeException>(() => plot.AdvanceDay(null, fallowRevertDays));
+        Assert.Throws<ArgumentOutOfRangeException>(() => plot.AdvanceDay(null, fallowRevertDays, NeverMutates));
     }
 
     /// <summary>产量规则在构造时就判三条：件数至少 1、系数下限大于零、上限不低于下限。</summary>
@@ -449,7 +452,7 @@ public class PlotTests
                 Assert.True(plot.Water());
             }
 
-            plot.AdvanceDay(crop, FallowDays);
+            plot.AdvanceDay(crop, FallowDays, NeverMutates);
         }
 
         Assert.Equal(PlotState.Harvestable, plot.State);
