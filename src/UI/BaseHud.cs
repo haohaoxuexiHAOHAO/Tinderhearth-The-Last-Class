@@ -12,7 +12,7 @@ namespace Tinderhearth.UI;
 ///
 /// 那支精力条用的是作者画的两张：空管 <c>hud/vigor_tube_track</c>，液面 <c>hud/vigor_tube_fill</c> 叠在上面，两张都按中段平铺
 /// 拉到这一块那么高。液面外面套一个贴着管子底边的裁剪框，框高按 <see cref="HudLayout.VigorShownHeight"/> 给，于是液面
-/// 从下往上露出，不染色。
+/// 从下往上露出，不染色。液面中段一直往上挪，气泡跟着往上浮（<see cref="GaugeFlow"/>），挪多快由调用方给。
 ///
 /// 竖管拉到与右边两行两列状态位一样高：照画布原样摆，这一块右边与下面会空着一大片，精力每变一点在管子里也看不清。
 /// </remarks>
@@ -21,16 +21,21 @@ public sealed partial class BaseHud : Control
     private const UIContext Here = UIContext.Base;
 
     private readonly UIArt _art;
+    private readonly GaugeMotionSettings _motion;
 
     private BaseHudViewModel _model;
     private Control? _root;
     private Control _shown = null!;
+    private NinePatchRect _liquid = null!;
+    private IReadOnlyList<Texture2D> _bubbleFrames = [];
+    private GaugeFlow _bubbles = null!;
 
-    /// <summary>装一份基地 HUD。视图模型由调用方给，本类不挑数据；图从素材资源取。</summary>
-    public BaseHud(BaseHudViewModel model, UIArt art)
+    /// <summary>装一份基地 HUD。视图模型与那几个动的量由调用方给，本类不挑数据；图从素材资源取。</summary>
+    public BaseHud(BaseHudViewModel model, UIArt art, GaugeMotionSettings motion)
     {
         _model = model;
         _art = art;
+        _motion = motion;
     }
 
     /// <summary>当前视图模型。换一份就刷新。</summary>
@@ -47,6 +52,9 @@ public sealed partial class BaseHud : Control
         }
     }
 
+    /// <summary>液面中段现在往上挪了几像素；0 是原图那样。</summary>
+    public int BubbleOffset => _bubbles.Offset;
+
     public override void _Ready()
     {
         // 铺满所属层，块靠锚点贴角；不吃鼠标。两条坑与 LevelHud 那两段注释同一个：必须用 SetAnchorsAndOffsetsPreset，
@@ -62,6 +70,17 @@ public sealed partial class BaseHud : Control
     }
 
     public override void _ExitTree() => Resized -= AnchorBlock;
+
+    public override void _Process(double delta)
+    {
+        // 气泡一直浮，与精力涨不涨无关；只在挪满一像素时换图。
+        var before = _bubbles.Offset;
+        _bubbles.Advance(delta);
+        if (_bubbles.Offset != before)
+        {
+            _liquid.Texture = _bubbleFrames[_bubbles.Offset];
+        }
+    }
 
     /// <summary>精力那一条。视图模型构造时已经核过基地只有这一条，这里再取不到就是那一处坏了。</summary>
     private HudGauge Vigor => _model.Gauges.Single(g => g.Kind == HudGaugeKind.DailyVigor);
@@ -123,6 +142,9 @@ public sealed partial class BaseHud : Control
         liquid.AnchorBottom = 1;
         liquid.OffsetTop = -HudLayout.VigorTubeHeight;
         _shown.AddChild(liquid);
+        _liquid = liquid;
+        _bubbleFrames = FlowFrames.Upward(liquid);
+        _bubbles = new GaugeFlow(_motion.BubblePixelsPerSecond, _bubbleFrames.Count);
 
         // 状态位只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
         row.AddChild(new Control

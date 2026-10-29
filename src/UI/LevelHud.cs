@@ -35,7 +35,7 @@ public sealed partial class LevelHud : Control
     private readonly InputRouter _router;
     private readonly UIArt _art;
     private readonly SkillIconResolver _icons;
-    private readonly GaugeChaseSettings _motion;
+    private readonly GaugeMotionSettings _motion;
     private readonly Dictionary<HudBlock, Control> _roots = [];
     private readonly List<GaugeRow> _gauges = [];
     private readonly List<SkillCell> _skills = [];
@@ -46,7 +46,7 @@ public sealed partial class LevelHud : Control
 
     /// <summary>装一份 HUD。视图模型、技能图标与资源条怎么动由调用方给，本类不挑数据；界面件从素材资源取。</summary>
     public LevelHud(InputRouter router, HudViewModel model, UIArt art, SkillIconResolver icons,
-                    GaugeChaseSettings motion)
+                    GaugeMotionSettings motion)
     {
         _router = router;
         _model = model;

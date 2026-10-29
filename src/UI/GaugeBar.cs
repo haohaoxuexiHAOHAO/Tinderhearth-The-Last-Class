@@ -9,7 +9,7 @@ namespace Tinderhearth.UI;
 /// <remarks>
 /// 照设计仓 production/界面绘制约定.md 那张「代码管什么」表：填充放在槽里 (2,2)（<see cref="HudLayout.GaugeFillInset"/>），
 /// 按长度裁、中段平铺，再按槽里那一片（<see cref="HudPalette.GaugeChannel"/>）裁掉出界的像素；右端三列是斜切的头，跟着末端走；
-/// 不染色。回复时填充逐帧追上数值，扣减时那一截留成浅色、停一会儿再缩，两个长度怎么走在 <see cref="GaugeChase"/>。
+/// 不染色。回复时填充逐帧追上数值、追的那段时间里中段往右流，扣减时那一截留成浅色、停一会儿再缩（<see cref="GaugeChase"/>、<see cref="GaugeFlow"/>）。
 ///
 /// 槽里那一片做遮罩，只让里面的东西落在那一片上（<see cref="CanvasItem.ClipChildren"/>）。那一截与填充各有一层按长度裁，
 /// 那一截垫在下面，两张的头一样斜，所以露出来的只有它比填充长的那一段。值很低、长度不够放下两头那几列时，照两头那么宽画、
@@ -21,9 +21,11 @@ public sealed partial class GaugeBar : Control
     private static readonly Dictionary<Texture2D, Texture2D> ChannelMasks = [];
 
     private readonly int _width;
-    private readonly GaugeChaseSettings _motion;
+    private readonly GaugeChaseSettings _chaseSettings;
     private readonly Clipped _lag;
     private readonly Clipped _fill;
+    private readonly IReadOnlyList<Texture2D> _flowFrames;
+    private readonly GaugeFlow _flow;
     private GaugeChase? _chase;
 
     /// <summary>装一根资源条。槽、填充与那一截从素材资源取，缺了当场报错。</summary>
@@ -31,14 +33,14 @@ public sealed partial class GaugeBar : Control
     /// <param name="fill">这一条用哪张填充。</param>
     /// <param name="fillName">那张填充在素材资源里叫什么，报错时用。</param>
     /// <param name="width">整根条多宽，界面像素。高是槽那张图的高（<see cref="HudLayout.GaugeBarHeight"/>）。</param>
-    /// <param name="motion">追多快、那一截停多久。</param>
-    public GaugeBar(UIArt art, NinePiece? fill, string fillName, int width, GaugeChaseSettings motion)
+    /// <param name="motion">追多快、那一截停多久、中段流多快。</param>
+    public GaugeBar(UIArt art, NinePiece? fill, string fillName, int width, GaugeMotionSettings motion)
     {
         Name = "Bar";
         CustomMinimumSize = new Vector2(width, HudLayout.GaugeBarHeight);
         MouseFilter = MouseFilterEnum.Ignore;
         _width = width;
-        _motion = motion;
+        _chaseSettings = motion.Chase;
 
         // 槽中段每一列都一样，拉伸与平铺画出来一样。
         var track = HudPlace.Stretch(art.HudBarTrack, "hud/bar_track", NinePatchRect.AxisStretchMode.Stretch);
@@ -57,7 +59,10 @@ public sealed partial class GaugeBar : Control
         // 先加的画在下面。两张的中段都只许平铺：填充带亮点花纹，那一截跟着同一个画法。
         _lag = Clipped.Into(channel, HudPlace.Stretch(art.HudBarFillLag, "hud/bar_fill_lag",
             NinePatchRect.AxisStretchMode.Tile), "Lag");
-        _fill = Clipped.Into(channel, HudPlace.Stretch(fill, fillName, NinePatchRect.AxisStretchMode.Tile), "Fill");
+        var fillPiece = HudPlace.Stretch(fill, fillName, NinePatchRect.AxisStretchMode.Tile);
+        _flowFrames = FlowFrames.Rightward(fillPiece);
+        _flow = new GaugeFlow(motion.FlowPixelsPerSecond, _flowFrames.Count);
+        _fill = Clipped.Into(channel, fillPiece, "Fill");
     }
 
     /// <summary>填充现在画了多长，界面像素。</summary>
@@ -65,6 +70,9 @@ public sealed partial class GaugeBar : Control
 
     /// <summary>浅色那一截现在画到哪，界面像素。与 <see cref="Length"/> 一样长就是没有那一截。</summary>
     public int LagLength => _chase?.Lag ?? 0;
+
+    /// <summary>填充中段现在往右挪了几像素；0 是原图那样。</summary>
+    public int FlowOffset => _flow.Offset;
 
     /// <summary>
     /// 按比例改长度。第一次直接画到那么长；之后回复时追上去，扣减时留一截。比例先钳，取整在 <see cref="HudLayout.GaugeFillLength"/> 里。
@@ -74,7 +82,7 @@ public sealed partial class GaugeBar : Control
         var length = HudLayout.GaugeFillLength(ratio, _width);
         if (_chase is null)
         {
-            _chase = new GaugeChase(_motion, length);
+            _chase = new GaugeChase(_chaseSettings, length);
         }
         else
         {
@@ -93,6 +101,12 @@ public sealed partial class GaugeBar : Control
             return;
         }
 
+        // 按这一帧开头的样子判：追到数值的那一帧也算在追，流满这一帧再停。
+        if (_chase.Rising)
+        {
+            Flow(delta);
+        }
+
         _chase.Advance(delta);
         ShowLengths(_chase);
     }
@@ -102,6 +116,17 @@ public sealed partial class GaugeBar : Control
         _lag.Show(chase.Lag);
         _fill.Show(chase.Fill);
         SetProcess(!chase.Settled);
+    }
+
+    // 不追的时候不调它，所以中段停在当时那一格、不跳回原图那样。
+    private void Flow(double delta)
+    {
+        var before = _flow.Offset;
+        _flow.Advance(delta);
+        if (_flow.Offset != before)
+        {
+            _fill.Use(_flowFrames[_flow.Offset]);
+        }
     }
 
     /// <summary>
@@ -193,5 +218,8 @@ public sealed partial class GaugeBar : Control
             _clip.OffsetRight = HudLayout.GaugeFillInset + length;
             _piece.OffsetRight = Math.Max(length, _minWidth);
         }
+
+        /// <summary>换一张贴图：中段挪开的那几张之一，边距不变。</summary>
+        public void Use(Texture2D texture) => _piece.Texture = texture;
     }
 }

@@ -8,6 +8,8 @@
 script = ExtResource("3_gauges")
 ChasePixelsPerSecond = 60.0
 LagHoldSeconds = 0.5
+FlowPixelsPerSecond = 30.0
+BubblePixelsPerSecond = 4.0
 
 [node name="Main" type="Node2D" unique_id=594262848]
 script = ExtResource("1_main")

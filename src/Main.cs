@@ -52,7 +52,7 @@ public partial class Main : Node2D
     [Export]
     public HudPreview Preview { get; set; }
 
-    /// <summary>资源条怎么动：回复时追多快、扣减那一截停多久。</summary>
+    /// <summary>资源条与精力管怎么动：回复时追多快、扣减那一截停多久、中段流多快、气泡浮多快。</summary>
     /// <remarks>
     /// 那一份就放在 <c>scenes/main.tscn</c> 里这一格上，作者在检查器里展开它调；没接、或哪个量没填，启动时当场报错。
     /// </remarks>
@@ -111,7 +111,8 @@ public partial class Main : Node2D
         GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", _art.ResourcePath, "）");
 
         _gauges = GaugeMotion.Require(Gauges, $"{nameof(Main)}（节点 {Name}）");
-        GD.Print("[界面] 资源条 追 ", _gauges.PixelsPerSecond, " 像素每秒，扣减那一截停 ", _gauges.HoldSeconds, " 秒");
+        GD.Print("[界面] 资源条 追 ", _gauges.Chase.PixelsPerSecond, " 像素每秒，扣减那一截停 ", _gauges.Chase.HoldSeconds,
+                 " 秒，中段流 ", _gauges.FlowPixelsPerSecond, " 像素每秒，精力管气泡浮 ", _gauges.BubblePixelsPerSecond, " 像素每秒");
 
         _context = Preview switch
         {
@@ -128,7 +129,7 @@ public partial class Main : Node2D
     }
 
     private UIArt _art = null!;
-    private GaugeChaseSettings _gauges = null!;
+    private GaugeMotionSettings _gauges = null!;
     private UIContext _context;
     private UIRoot _ui = null!;
     private InputRouter _router = null!;
@@ -171,7 +172,7 @@ public partial class Main : Node2D
                 break;
 
             case UIContext.Base:
-                layer.AddChild(new BaseHud(HudDemoModel.BuildBase(_text), _art)
+                layer.AddChild(new BaseHud(HudDemoModel.BuildBase(_text), _art, _gauges)
                 {
                     Name = "BaseHud",
                     Theme = theme,
