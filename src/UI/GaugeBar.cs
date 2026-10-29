@@ -4,18 +4,16 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 一根资源条：作者画的槽，加一条按数值改长短的填充。HUD 的三条资源与队友那一根都是它。
+/// 一根资源条：作者画的槽，加一条按数值改长短的填充，扣减时填充后面露出浅色那一截。HUD 的三条资源与队友那一根都是它。
 /// </summary>
 /// <remarks>
 /// 照设计仓 production/界面绘制约定.md 那张「代码管什么」表：填充放在槽里 (2,2)（<see cref="HudLayout.GaugeFillInset"/>），
-/// 按数值改长度、中段平铺，再按槽里那一片（<see cref="HudPalette.GaugeChannel"/>）裁掉出界的像素；右端三列是斜切的头，
-/// 跟着末端走；不染色。
+/// 按长度裁、中段平铺，再按槽里那一片（<see cref="HudPalette.GaugeChannel"/>）裁掉出界的像素；右端三列是斜切的头，跟着末端走；
+/// 不染色。回复时填充逐帧追上数值，扣减时那一截留成浅色、停一会儿再缩，两个长度怎么走在 <see cref="GaugeChase"/>。
 ///
-/// 三层各管一件事：槽里那一片做遮罩，只让填充落在那一片上（<see cref="CanvasItem.ClipChildren"/>）；它下面一层按长度裁；
-/// 最里面才是填充本身。值很低、长度不够放下填充两头那几列时，填充照两头那么宽画、再按长度裁短 —— 九宫格窄过两头时
-/// 会把两头压扁，而那不报错。
-///
-/// 长度直接跟着数值走，不追也不留一截；那两样在设计仓台账 <c>UI-45</c>。
+/// 槽里那一片做遮罩，只让里面的东西落在那一片上（<see cref="CanvasItem.ClipChildren"/>）。那一截与填充各有一层按长度裁，
+/// 那一截垫在下面，两张的头一样斜，所以露出来的只有它比填充长的那一段。值很低、长度不够放下两头那几列时，照两头那么宽画、
+/// 再按长度裁短 —— 九宫格窄过两头时会把两头压扁，而那不报错。
 /// </remarks>
 public sealed partial class GaugeBar : Control
 {
@@ -23,21 +21,24 @@ public sealed partial class GaugeBar : Control
     private static readonly Dictionary<Texture2D, Texture2D> ChannelMasks = [];
 
     private readonly int _width;
-    private readonly int _fillMinWidth;
-    private readonly Control _length;
-    private readonly NinePatchRect _fill;
+    private readonly GaugeChaseSettings _motion;
+    private readonly Clipped _lag;
+    private readonly Clipped _fill;
+    private GaugeChase? _chase;
 
-    /// <summary>装一根资源条。槽与填充从素材资源取，缺了当场报错。</summary>
+    /// <summary>装一根资源条。槽、填充与那一截从素材资源取，缺了当场报错。</summary>
     /// <param name="art">素材资源。</param>
     /// <param name="fill">这一条用哪张填充。</param>
     /// <param name="fillName">那张填充在素材资源里叫什么，报错时用。</param>
     /// <param name="width">整根条多宽，界面像素。高是槽那张图的高（<see cref="HudLayout.GaugeBarHeight"/>）。</param>
-    public GaugeBar(UIArt art, NinePiece? fill, string fillName, int width)
+    /// <param name="motion">追多快、那一截停多久。</param>
+    public GaugeBar(UIArt art, NinePiece? fill, string fillName, int width, GaugeChaseSettings motion)
     {
         Name = "Bar";
         CustomMinimumSize = new Vector2(width, HudLayout.GaugeBarHeight);
         MouseFilter = MouseFilterEnum.Ignore;
         _width = width;
+        _motion = motion;
 
         // 槽中段每一列都一样，拉伸与平铺画出来一样。
         var track = HudPlace.Stretch(art.HudBarTrack, "hud/bar_track", NinePatchRect.AxisStretchMode.Stretch);
@@ -53,36 +54,54 @@ public sealed partial class GaugeBar : Control
         channel.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(channel);
 
-        // 按长度裁的那一层：贴在放填充那一点上，宽就是当前长度。
-        _length = new Control
-        {
-            Name = "Length",
-            ClipContents = true,
-            MouseFilter = MouseFilterEnum.Ignore,
-            OffsetLeft = HudLayout.GaugeFillInset,
-            OffsetTop = HudLayout.GaugeFillInset,
-            OffsetRight = HudLayout.GaugeFillInset,
-            OffsetBottom = HudLayout.GaugeFillInset + HudLayout.GaugeFillHeight,
-        };
-        channel.AddChild(_length);
-
-        // 填充中段带亮点花纹，只许平铺。
-        _fill = HudPlace.Stretch(fill, fillName, NinePatchRect.AxisStretchMode.Tile);
-        _fill.Name = "Fill";
-        _fill.OffsetBottom = HudLayout.GaugeFillHeight;
-        _length.AddChild(_fill);
-        _fillMinWidth = _fill.PatchMarginLeft + _fill.PatchMarginRight;
+        // 先加的画在下面。两张的中段都只许平铺：填充带亮点花纹，那一截跟着同一个画法。
+        _lag = Clipped.Into(channel, HudPlace.Stretch(art.HudBarFillLag, "hud/bar_fill_lag",
+            NinePatchRect.AxisStretchMode.Tile), "Lag");
+        _fill = Clipped.Into(channel, HudPlace.Stretch(fill, fillName, NinePatchRect.AxisStretchMode.Tile), "Fill");
     }
 
     /// <summary>填充现在画了多长，界面像素。</summary>
-    public int Length { get; private set; }
+    public int Length => _chase?.Fill ?? 0;
 
-    /// <summary>按比例改长度。比例先钳，取整在 <see cref="HudLayout.GaugeFillLength"/> 里。</summary>
+    /// <summary>浅色那一截现在画到哪，界面像素。与 <see cref="Length"/> 一样长就是没有那一截。</summary>
+    public int LagLength => _chase?.Lag ?? 0;
+
+    /// <summary>
+    /// 按比例改长度。第一次直接画到那么长；之后回复时追上去，扣减时留一截。比例先钳，取整在 <see cref="HudLayout.GaugeFillLength"/> 里。
+    /// </summary>
     public void Set(double ratio)
     {
-        Length = HudLayout.GaugeFillLength(ratio, _width);
-        _length.OffsetRight = HudLayout.GaugeFillInset + Length;
-        _fill.OffsetRight = Math.Max(Length, _fillMinWidth);
+        var length = HudLayout.GaugeFillLength(ratio, _width);
+        if (_chase is null)
+        {
+            _chase = new GaugeChase(_motion, length);
+        }
+        else
+        {
+            _chase.Retarget(length);
+        }
+
+        ShowLengths(_chase);
+    }
+
+    public override void _Process(double delta)
+    {
+        // 停在数值上就不再每帧走：多数时候条是不动的。
+        if (_chase is null || _chase.Settled)
+        {
+            SetProcess(false);
+            return;
+        }
+
+        _chase.Advance(delta);
+        ShowLengths(_chase);
+    }
+
+    private void ShowLengths(GaugeChase chase)
+    {
+        _lag.Show(chase.Lag);
+        _fill.Show(chase.Fill);
+        SetProcess(!chase.Settled);
     }
 
     /// <summary>
@@ -131,5 +150,48 @@ public sealed partial class GaugeBar : Control
         var mask = ImageTexture.CreateFromImage(image);
         ChannelMasks[track] = mask;
         return mask;
+    }
+
+    /// <summary>一层按长度裁的框，里面一张中段平铺的九宫格件：框宽就是长度，件最窄照两头那么宽。</summary>
+    private sealed class Clipped
+    {
+        private readonly Control _clip;
+        private readonly NinePatchRect _piece;
+        private readonly int _minWidth;
+
+        private Clipped(Control clip, NinePatchRect piece)
+        {
+            _clip = clip;
+            _piece = piece;
+            _minWidth = piece.PatchMarginLeft + piece.PatchMarginRight;
+        }
+
+        /// <summary>在 <paramref name="parent"/> 里贴着放填充那一点加一层框，把 <paramref name="piece"/> 装进去。</summary>
+        public static Clipped Into(Control parent, NinePatchRect piece, string name)
+        {
+            var clip = new Control
+            {
+                Name = $"{name}Length",
+                ClipContents = true,
+                MouseFilter = MouseFilterEnum.Ignore,
+                OffsetLeft = HudLayout.GaugeFillInset,
+                OffsetTop = HudLayout.GaugeFillInset,
+                OffsetRight = HudLayout.GaugeFillInset,
+                OffsetBottom = HudLayout.GaugeFillInset + HudLayout.GaugeFillHeight,
+            };
+            parent.AddChild(clip);
+
+            piece.Name = name;
+            piece.OffsetBottom = HudLayout.GaugeFillHeight;
+            clip.AddChild(piece);
+            return new Clipped(clip, piece);
+        }
+
+        /// <summary>画到这么长，界面像素。</summary>
+        public void Show(int length)
+        {
+            _clip.OffsetRight = HudLayout.GaugeFillInset + length;
+            _piece.OffsetRight = Math.Max(length, _minWidth);
+        }
     }
 }

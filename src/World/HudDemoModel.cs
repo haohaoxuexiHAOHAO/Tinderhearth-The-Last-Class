@@ -152,6 +152,67 @@ public static class HudDemoModel
             : throw new FileNotFoundException($"随身栏演示缺图标：{path}（在 Godot 里确认这个文件已导入）");
     }
 
+    /// <summary>演示那一轮多长，秒。一轮里每条的起落加起来是零，所以一轮走完正好回到开头那个样子。</summary>
+    public const double DemoCycleSeconds = 10;
+
+    // 一轮里的起落：第几秒、哪一条、加减多少。都是编的，只为把扣减留一截、停着时又挨一下、回一大截、
+    // 一点一点回都摆出来一遍。
+    private static readonly IReadOnlyList<(double At, HudGaugeKind Kind, int Delta)> GaugeBeats =
+    [
+        (1.5, HudGaugeKind.Health, -7),
+        (1.9, HudGaugeKind.Health, -4),
+        (3.0, HudGaugeKind.Stamina, -6),
+        (3.6, HudGaugeKind.Stamina, 1),
+        (3.9, HudGaugeKind.Stamina, 1),
+        (4.2, HudGaugeKind.Stamina, 1),
+        (4.5, HudGaugeKind.Stamina, 1),
+        (4.8, HudGaugeKind.Stamina, 1),
+        (5.0, HudGaugeKind.Health, 18),
+        (5.1, HudGaugeKind.Stamina, 1),
+        (6.5, HudGaugeKind.Mana, 10),
+        (8.5, HudGaugeKind.Health, -7),
+        (9.0, HudGaugeKind.Mana, -10),
+    ];
+
+    // 队友那一侧：第几秒、第几位、加减多少。
+    private static readonly IReadOnlyList<(double At, int Mate, int Delta)> MateBeats =
+    [
+        (2.5, 1, -8),
+        (7.0, 1, 8),
+    ];
+
+    /// <summary>从开头算起一共走过了几下起落。数变了才需要换一份视图模型。</summary>
+    /// <param name="seconds">从演示开始算起过了多少秒。</param>
+    public static int BeatsPassed(double seconds)
+    {
+        var cycles = (int)Math.Floor(seconds / DemoCycleSeconds);
+        var inCycle = seconds - (cycles * DemoCycleSeconds);
+        return (cycles * (GaugeBeats.Count + MateBeats.Count))
+               + GaugeBeats.Count(b => b.At <= inCycle)
+               + MateBeats.Count(b => b.At <= inCycle);
+    }
+
+    /// <summary>演示那一轮走到这一刻的视图模型：从 <paramref name="start"/> 起，加上这一轮里已经到点的起落。</summary>
+    /// <param name="start">开头那一份，通常是 <see cref="Build"/> 造的。</param>
+    /// <param name="seconds">从演示开始算起过了多少秒。</param>
+    public static HudViewModel At(HudViewModel start, double seconds)
+    {
+        var inCycle = seconds % DemoCycleSeconds;
+        var gauges = start.Gauges
+            .Select(g => g with
+            {
+                Current = g.Current + GaugeBeats.Where(b => b.Kind == g.Kind && b.At <= inCycle).Sum(b => b.Delta),
+            })
+            .ToList();
+        var mates = start.Teammates
+            .Select((m, i) => m with
+            {
+                Current = m.Current + MateBeats.Where(b => b.Mate == i && b.At <= inCycle).Sum(b => b.Delta),
+            })
+            .ToList();
+        return start.WithGauges(gauges).WithTeammates(mates);
+    }
+
     private static List<HudGauge> GaugesIn(TextCatalog text, UIContext context) =>
         [.. HudLayout.GaugesIn(context).Select(kind =>
         {

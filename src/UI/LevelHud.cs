@@ -16,9 +16,8 @@ namespace Tinderhearth.UI;
 /// 看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
 /// 框、格子、资源条、资源条的标签、任务目标图标与头像框是素材资源里作者画的那几张（<see cref="UIArt"/>），尺寸照它们排
-/// （格子 22、格距 6，头像框 20）。资源条怎么画在 <see cref="GaugeBar"/>；回复时追、扣减时留一截跟设计仓台账
-/// <c>UI-45</c> 走。技能图标是内容，由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张
-/// 「技能对图标」的表。
+/// （格子 22、格距 6，头像框 20）。资源条怎么画、回复时怎么追、扣减时怎么留一截在 <see cref="GaugeBar"/>。技能图标是内容，
+/// 由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张「技能对图标」的表。
 ///
 /// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见 <see cref="WorldSpaceUI"/>。
 /// </remarks>
@@ -36,6 +35,7 @@ public sealed partial class LevelHud : Control
     private readonly InputRouter _router;
     private readonly UIArt _art;
     private readonly SkillIconResolver _icons;
+    private readonly GaugeChaseSettings _motion;
     private readonly Dictionary<HudBlock, Control> _roots = [];
     private readonly List<GaugeRow> _gauges = [];
     private readonly List<SkillCell> _skills = [];
@@ -44,13 +44,15 @@ public sealed partial class LevelHud : Control
     private Label _objective = null!;
     private HudViewModel _model;
 
-    /// <summary>装一份 HUD。视图模型与技能图标由调用方给，本类不挑数据；界面件从素材资源取。</summary>
-    public LevelHud(InputRouter router, HudViewModel model, UIArt art, SkillIconResolver icons)
+    /// <summary>装一份 HUD。视图模型、技能图标与资源条怎么动由调用方给，本类不挑数据；界面件从素材资源取。</summary>
+    public LevelHud(InputRouter router, HudViewModel model, UIArt art, SkillIconResolver icons,
+                    GaugeChaseSettings motion)
     {
         _router = router;
         _model = model;
         _art = art;
         _icons = icons;
+        _motion = motion;
     }
 
     /// <summary>拿一个技能位换那一位上那个技能的图标；那个技能没有图标就返回 <c>null</c>，那一格只画框。</summary>
@@ -181,7 +183,7 @@ public sealed partial class LevelHud : Control
 
             // 条比行矮，靠 ShrinkCenter 在行里居中 —— 不用纵向偏移，就不会有半格。
             var (fill, fillName) = FillOf(gauge.Kind);
-            var bar = new GaugeBar(_art, fill, fillName, HudLayout.GaugeBarWidth)
+            var bar = new GaugeBar(_art, fill, fillName, HudLayout.GaugeBarWidth, _motion)
             {
                 SizeFlagsVertical = SizeFlags.ShrinkCenter,
             };
@@ -264,7 +266,7 @@ public sealed partial class LevelHud : Control
 
             // 队友的血条与主角的资源条是同一套槽与填充，只是窄到头像那么宽。
             var (fill, fillName) = FillOf(HudGaugeKind.Health);
-            var bar = new GaugeBar(_art, fill, fillName, HudLayout.PortraitSize);
+            var bar = new GaugeBar(_art, fill, fillName, HudLayout.PortraitSize, _motion);
             cell.AddChild(bar);
 
             _teammates.Add(new TeammateCell(cell, portrait, mark, bar));

@@ -52,6 +52,13 @@ public partial class Main : Node2D
     [Export]
     public HudPreview Preview { get; set; }
 
+    /// <summary>资源条怎么动：回复时追多快、扣减那一截停多久。</summary>
+    /// <remarks>
+    /// 那一份就放在 <c>scenes/main.tscn</c> 里这一格上，作者在检查器里展开它调；没接、或哪个量没填，启动时当场报错。
+    /// </remarks>
+    [Export]
+    public GaugeMotion? Gauges { get; set; }
+
     public override void _Ready()
     {
         // 数字照游戏的语言印、不照玩家系统的区域设置印，理由在 GameLanguage。要排在第一行：
@@ -103,6 +110,9 @@ public partial class Main : Node2D
         _art = UIArtGuard.Require(Art, $"{nameof(Main)}（节点 {Name}）");
         GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", _art.ResourcePath, "）");
 
+        _gauges = GaugeMotion.Require(Gauges, $"{nameof(Main)}（节点 {Name}）");
+        GD.Print("[界面] 资源条 追 ", _gauges.PixelsPerSecond, " 像素每秒，扣减那一截停 ", _gauges.HoldSeconds, " 秒");
+
         _context = Preview switch
         {
             HudPreview.Level => UIContext.Level,
@@ -118,6 +128,7 @@ public partial class Main : Node2D
     }
 
     private UIArt _art = null!;
+    private GaugeChaseSettings _gauges = null!;
     private UIContext _context;
     private UIRoot _ui = null!;
     private InputRouter _router = null!;
@@ -147,12 +158,16 @@ public partial class Main : Node2D
         switch (_context)
         {
             case UIContext.Level:
-                layer.AddChild(new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates), _art,
-                    HudDemoModel.SkillIcon)
+                var start = HudDemoModel.Build(_text, HudLayout.MaxTeammates);
+                var hud = new LevelHud(_router, start, _art, HudDemoModel.SkillIcon, _gauges)
                 {
                     Name = "LevelHud",
                     Theme = theme,
-                });
+                };
+                layer.AddChild(hud);
+
+                // 演示数据按一轮起伏走，好在实机看资源条怎么追、怎么留一截。
+                AddChild(new HudDemoClock(hud, start));
                 break;
 
             case UIContext.Base:
