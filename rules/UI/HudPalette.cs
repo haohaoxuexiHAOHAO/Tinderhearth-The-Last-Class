@@ -45,14 +45,11 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// <remarks>
 /// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
 /// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
-/// 一档：条底与资源条的染色随画的填充（设计仓台账 <c>UI-45</c>、<c>UI-48</c>），倒地头像色随那张倒地记号
-/// （<c>UI-46</c>）。
+/// 一档：精英血条的槽与填充随它换成资源条那一套（设计仓台账 <c>UI-45</c>），倒地头像色随那张倒地记号
+/// （<c>UI-46</c>）。HUD 上的资源条是作者画的填充、不染色，所以这里没有它们的颜色。
 ///
 /// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
 /// 那次判断大体还成立；换色之后照样要实机重看一遍（台账 <c>UI-48</c>）。
-///
-/// 资源条的颜色按明度挑，各条明度都不相同，所以色觉有差异也分得出来；而且每条前面都有一个标签图标，
-/// 颜色不是唯一的区分手段。依据见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
 /// </remarks>
 public static class HudPalette
 {
@@ -76,8 +73,16 @@ public static class HudPalette
     /// <summary>没选中的子页签上的字（底是 <c>soil 3</c>）。色板 <c>soil 8</c>。</summary>
     public static PaletteEntry SubTabInk { get; } = new("soil 8", PixelColor.FromHex(0xDCC68F));
 
-    /// <summary>资源条的底槽。占位色。</summary>
+    /// <summary>精英血条的底槽。占位色。</summary>
     public static PixelColor Track => PixelColor.FromHex(0x14100E);
+
+    /// <summary>
+    /// 资源条槽里放填充的那一片的颜色。色板 <c>ember 3</c>。它不拿来画：代码按它认出那一片，把出界的填充裁掉。
+    /// </summary>
+    /// <remarks>
+    /// 作者重画那张槽时，放填充的那一片要照旧是这一档；换了档，裁出来的形状就不对了，而那不报错。
+    /// </remarks>
+    public static PaletteEntry GaugeChannel { get; } = new("ember 3", PixelColor.FromHex(0xB46734));
 
     /// <summary>
     /// 冷却遮罩。色板 <c>outline 2</c>。不透明，从上往下抹掉图标的一部分，抹完即可用。
@@ -91,36 +96,6 @@ public static class HudPalette
     /// <summary>倒地队友的头像框色。明度压到与次要信息同档，但色相偏冷，与「还活着」分得开。占位色。</summary>
     public static PixelColor Down => PixelColor.FromHex(0x4A4A52);
 
-    /// <summary>HP。暗红，四条资源里明度最低。</summary>
+    /// <summary>精英血条的填充。暗红。占位色。</summary>
     public static PixelColor Health => PixelColor.FromHex(0x9E3A32);
-
-    /// <summary>精力。灰绿，明度排第二。它是经营侧的当日预算，不该抢注意力。</summary>
-    public static PixelColor DailyVigor => PixelColor.FromHex(0x6E8158);
-
-    /// <summary>MP。青蓝，明度排第三。</summary>
-    public static PixelColor Mana => PixelColor.FromHex(0x5AA6CE);
-
-    /// <summary>体力（SP）。土黄，四条资源里最亮 —— 它变化最频繁，最需要余光看得见。</summary>
-    public static PixelColor Stamina => PixelColor.FromHex(0xE5C866);
-
-    /// <summary>某条资源用哪个色。</summary>
-    public static PixelColor ColorOf(HudGaugeKind kind) => kind switch
-    {
-        HudGaugeKind.Health => Health,
-        HudGaugeKind.Stamina => Stamina,
-        HudGaugeKind.Mana => Mana,
-        HudGaugeKind.DailyVigor => DailyVigor,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), $"没有这条资源：{kind}"),
-    };
-
-    /// <summary>
-    /// 一个颜色的相对明度，用来核「不靠色相也分得出来」。
-    /// </summary>
-    /// <remarks>
-    /// 取 ITU-R BT.601 的亮度系数（0.299／0.587／0.114）。要算它是因为色觉差异里最常见的是红绿
-    /// 难分，而 HP 是红、精力是绿 —— 它俩明度也一样的话，这两条条对一部分玩家来说就是同一根。
-    /// 有测试盯着各条资源色明度两两之间的最小差。
-    /// </remarks>
-    public static double LuminanceOf(PixelColor color) =>
-        ((color.R * 0.299) + (color.G * 0.587) + (color.B * 0.114)) / 255.0;
 }

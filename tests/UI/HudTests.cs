@@ -554,21 +554,30 @@ public class HudTests
             () => InputHints.LabelOf(InputSymbol.KeyW));
     }
 
-    // ── 占位色板 ────────────────────────────────────────────────────
+    // ── 资源条与色板 ────────────────────────────────────────────────
 
     [Fact]
-    public void 四条资源色的明度两两分得开()
+    public void 资源条的填充按比例画长度且满的时候一直画到槽的右边()
     {
-        // 色觉差异最常见的是红绿难分，而 HP 是红、精力是绿。明度也一样的话，
-        // 对一部分玩家来说这两条就是同一根。
-        var lums = Enum.GetValues<HudGaugeKind>()
-            .Select(k => HudPalette.LuminanceOf(HudPalette.ColorOf(k)))
-            .OrderBy(v => v).ToList();
-        for (var i = 1; i < lums.Count; i++)
+        // 满的时候画到槽的右边、出界的由槽里那一片裁掉，那一片才铺得满；空的时候一个像素都不画。
+        foreach (var width in (int[])[HudLayout.GaugeBarWidth, HudLayout.PortraitSize])
         {
-            Assert.True(lums[i] - lums[i - 1] >= 0.08,
-                        $"相邻两档明度只差 {lums[i] - lums[i - 1]:F3}");
+            Assert.Equal(0, HudLayout.GaugeFillLength(0.0, width));
+            Assert.Equal(0, HudLayout.GaugeFillLength(-1.0, width));
+            Assert.Equal(width - HudLayout.GaugeFillInset, HudLayout.GaugeFillLength(1.0, width));
+            Assert.Equal(width - HudLayout.GaugeFillInset, HudLayout.GaugeFillLength(3.0, width));
+
+            var lengths = Enumerable.Range(0, 11).Select(i => HudLayout.GaugeFillLength(i / 10.0, width)).ToList();
+            Assert.Equal(lengths.OrderBy(l => l), lengths);
         }
+    }
+
+    [Fact]
+    public void 资源条的填充放在槽里上下各留一样多()
+    {
+        // 上下不对称，填充就偏向一边，压到槽的边上。
+        Assert.Equal(HudLayout.GaugeBarHeight, HudLayout.GaugeFillHeight + (HudLayout.GaugeFillInset * 2));
+        Assert.True(HudLayout.GaugeFillHeight > 0);
     }
 
     [Fact]
@@ -579,18 +588,6 @@ public class HudTests
         Assert.DoesNotContain(typeof(PixelColor).GetProperties(),
                               p => p.Name is "A" or "Alpha");
         Assert.Equal("#9E3A32", HudPalette.Health.ToString());
-    }
-
-    [Fact]
-    public void 每条资源都有配色而且缺一条会抛()
-    {
-        foreach (var kind in Enum.GetValues<HudGaugeKind>())
-        {
-            Assert.NotEqual(default, HudPalette.ColorOf(kind));
-        }
-
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => HudPalette.ColorOf((HudGaugeKind)(-1)));
     }
 
     // ── 像素字体的期望取值 ──────────────────────────────────────────

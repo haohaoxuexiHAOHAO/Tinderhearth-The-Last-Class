@@ -101,6 +101,9 @@ public static class HudLayout
     /// <summary>资源条的槽高几像素。这是画好的那张 <c>hud/bar_track</c> 的高，有测试拿素材清单对它。</summary>
     public const int GaugeBarHeight = 10;
 
+    /// <summary>资源条的填充放在槽里这一点上，横竖各这么多。照画好的那张 <c>hud/bar_track</c>。</summary>
+    public const int GaugeFillInset = 2;
+
     /// <summary>资源条的填充部分宽几个基础单位。</summary>
     /// <remarks>
     /// 下限受可读性管着：条太短时一格像素代表的量太大，玩家看不出变化。上限受占屏管着。
@@ -147,6 +150,20 @@ public static class HudLayout
 
     /// <summary>资源条填充部分的宽。</summary>
     public static int GaugeBarWidth => GaugeBarUnits * UIMetrics.BaseUnit;
+
+    /// <summary>资源条填充的高：槽高减去上下两段。画好的那几张填充就这么高，有测试拿素材清单对它。</summary>
+    public static int GaugeFillHeight => GaugeBarHeight - (GaugeFillInset * 2);
+
+    /// <summary>一根宽 <paramref name="width"/> 的资源条，填充最长画多长：从放填充那一点一直到槽的右边。</summary>
+    /// <remarks>
+    /// 画到槽的右边而不是槽里那一片的右边：那一片右端是弯的，条头是斜的，按哪一行算都会在别的行上漏一角。
+    /// 出界的像素由槽里那一片裁掉，所以满的时候那一片正好铺满。
+    /// </remarks>
+    public static int GaugeFillMaxLength(int width) => width - GaugeFillInset;
+
+    /// <summary>资源条按这个比例画多长。比例先钳在 0–1，取整只在这里做。</summary>
+    public static int GaugeFillLength(double ratio, int width) =>
+        (int)Math.Round(Math.Clamp(ratio, 0.0, 1.0) * GaugeFillMaxLength(width));
 
     /// <summary>一条资源占的高。取行高，好让标签与条在同一条基线节奏上。</summary>
     public static int GaugeRowHeight => UIMetrics.LineHeight;

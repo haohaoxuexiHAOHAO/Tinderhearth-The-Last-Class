@@ -1,6 +1,6 @@
 namespace Tinderhearth.Rules.UI;
 
-/// <summary>哪一条资源。它决定配色与标签图标，按场合核资源条时也比对它；量与上限由视图模型带进来。</summary>
+/// <summary>哪一条资源。它决定用哪张填充与标签图标，按场合核资源条时也比对它；量与上限由视图模型带进来。</summary>
 public enum HudGaugeKind
 {
     /// <summary>生命。</summary>
@@ -25,7 +25,7 @@ public enum HudGaugeKind
 /// <summary>
 /// 一条资源条。
 /// </summary>
-/// <param name="Kind">哪一条，决定配色与标签图标。</param>
+/// <param name="Kind">哪一条，决定用哪张填充与标签图标。</param>
 /// <param name="Label">这条资源叫什么，已经查过文本表的成品字符串。HUD 上的标签是一张迷你图标，这串字不画在 HUD 上。</param>
 /// <param name="Current">当前值。</param>
 /// <param name="Max">上限。</param>

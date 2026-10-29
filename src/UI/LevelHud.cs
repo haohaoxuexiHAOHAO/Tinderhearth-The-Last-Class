@@ -15,18 +15,15 @@ namespace Tinderhearth.UI;
 /// 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在 640 宽的窗口上完全
 /// 看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
-/// 框、格子、资源条的标签、任务目标图标与头像框是素材资源里作者画的那几张（<see cref="UIArt"/>），尺寸照它们排
-/// （格子 22、格距 6，头像框 20）。资源条的槽与填充还是占位图：换成画的那几张、加上追与留一截，是设计仓台账
-/// <c>UI-45</c> 那一条。技能图标是内容，由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张
+/// 框、格子、资源条、资源条的标签、任务目标图标与头像框是素材资源里作者画的那几张（<see cref="UIArt"/>），尺寸照它们排
+/// （格子 22、格距 6，头像框 20）。资源条怎么画在 <see cref="GaugeBar"/>；回复时追、扣减时留一截跟设计仓台账
+/// <c>UI-45</c> 走。技能图标是内容，由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张
 /// 「技能对图标」的表。
 ///
 /// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见 <see cref="WorldSpaceUI"/>。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
-    // 资源条那一组还是占位图，随设计仓台账 UI-45 换成画的。
-    private const string BarTrackPath = "res://assets/placeholder/ui/bar-track.png";
-    private const string BarFillPath = "res://assets/placeholder/ui/bar-fill.png";
 
     /// <summary>
     /// 倒地记号。它是个符号、不是一句要翻译的话，所以不进文本表（按键记号同理，见
@@ -113,7 +110,7 @@ public sealed partial class LevelHud : Control
         _skills[index].Slot.SelfModulate == PixelTheme.ToColor(HudPalette.Hot);
 
     /// <summary>第 N 条资源条现在填了多少像素。</summary>
-    public int GaugeExtent(int index) => (int)_gauges[index].Fill.OffsetRight;
+    public int GaugeExtent(int index) => _gauges[index].Bar.Length;
 
     /// <summary>第 N 个技能位的冷却遮罩现在盖了多高。</summary>
     public int CooldownExtent(int index) => (int)_skills[index].Mask.OffsetBottom;
@@ -183,26 +180,14 @@ public sealed partial class LevelHud : Control
             row.AddChild(label);
 
             // 条比行矮，靠 ShrinkCenter 在行里居中 —— 不用纵向偏移，就不会有半格。
-            var holder = new Control
+            var (fill, fillName) = FillOf(gauge.Kind);
+            var bar = new GaugeBar(_art, fill, fillName, HudLayout.GaugeBarWidth)
             {
-                Name = "Bar",
-                CustomMinimumSize = new Vector2(HudLayout.GaugeBarWidth, HudLayout.GaugeBarHeight),
                 SizeFlagsVertical = SizeFlags.ShrinkCenter,
             };
-            row.AddChild(holder);
+            row.AddChild(bar);
 
-            var track = Stripe(BarTrackPath);
-            track.SetAnchorsPreset(LayoutPreset.FullRect);
-            holder.AddChild(track);
-
-            // 填充部分：右锚点钉在左边，靠右偏移表达长度。长度是整数像素，所以不会有半格。
-            var fill = Stripe(BarFillPath);
-            fill.AnchorRight = 0;
-            fill.AnchorBottom = 1;
-            fill.SelfModulate = PixelTheme.ToColor(HudPalette.ColorOf(gauge.Kind));
-            holder.AddChild(fill);
-
-            _gauges.Add(new GaugeRow(fill));
+            _gauges.Add(new GaugeRow(bar));
         }
 
         // 状态位那一行这一轮只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
@@ -277,24 +262,12 @@ public sealed partial class LevelHud : Control
             mark.SetAnchorsPreset(LayoutPreset.FullRect);
             head.AddChild(mark);
 
-            var holder = new Control
-            {
-                Name = "Bar",
-                CustomMinimumSize = new Vector2(HudLayout.PortraitSize, HudLayout.GaugeBarHeight),
-            };
-            cell.AddChild(holder);
+            // 队友的血条与主角的资源条是同一套槽与填充，只是窄到头像那么宽。
+            var (fill, fillName) = FillOf(HudGaugeKind.Health);
+            var bar = new GaugeBar(_art, fill, fillName, HudLayout.PortraitSize);
+            cell.AddChild(bar);
 
-            var track = Stripe(BarTrackPath);
-            track.SetAnchorsPreset(LayoutPreset.FullRect);
-            holder.AddChild(track);
-
-            var fill = Stripe(BarFillPath);
-            fill.AnchorRight = 0;
-            fill.AnchorBottom = 1;
-            fill.SelfModulate = PixelTheme.ToColor(HudPalette.ColorOf(HudGaugeKind.Health));
-            holder.AddChild(fill);
-
-            _teammates.Add(new TeammateCell(cell, portrait, mark, fill));
+            _teammates.Add(new TeammateCell(cell, portrait, mark, bar));
         }
     }
 
@@ -388,7 +361,7 @@ public sealed partial class LevelHud : Control
 
         for (var i = 0; i < _gauges.Count; i++)
         {
-            _gauges[i].Fill.OffsetRight = Extent(_model.Gauges[i].Ratio, HudLayout.GaugeBarWidth);
+            _gauges[i].Bar.Set(_model.Gauges[i].Ratio);
         }
 
         RefreshSkills();
@@ -410,7 +383,7 @@ public sealed partial class LevelHud : Control
             cell.Portrait.SelfModulate = mate.Down ? PixelTheme.ToColor(HudPalette.Down) : Colors.White;
             cell.Mark.Visible = mate.Down;
             Paint(cell.Mark, HudPalette.Hot);
-            cell.Fill.OffsetRight = Extent(mate.Ratio, HudLayout.PortraitSize);
+            cell.Bar.Set(mate.Ratio);
         }
     }
 
@@ -510,24 +483,18 @@ public sealed partial class LevelHud : Control
         return frame;
     }
 
-    /// <summary>一根可横向拉伸的占位条。九宫格只切左右各 1px，中间那两列是纯色，拉开不会花。</summary>
-    private static NinePatchRect Stripe(string path)
+    /// <summary>某条资源用哪张填充，连同它在素材资源里的名字（报错时用）。精力不在关卡里，问到就是排错了。</summary>
+    private (NinePiece? Fill, string Name) FillOf(HudGaugeKind kind) => kind switch
     {
-        var strip = new NinePatchRect { Name = "Strip", Texture = Art(path) };
-        strip.SetPatchMargin(Side.Left, 1);
-        strip.SetPatchMargin(Side.Right, 1);
-        return strip;
-    }
+        HudGaugeKind.Health => (_art.HudBarFillHp, "hud/bar_fill_hp"),
+        HudGaugeKind.Stamina => (_art.HudBarFillSp, "hud/bar_fill_sp"),
+        HudGaugeKind.Mana => (_art.HudBarFillMp, "hud/bar_fill_mp"),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), $"关卡 HUD 里没有这条资源：{kind}"),
+    };
 
-    private static Texture2D Art(string path) =>
-        ResourceLoader.Exists(path)
-            ? GD.Load<Texture2D>(path)
-            : throw new FileNotFoundException($"HUD 缺素材：{path}（在 Godot 里确认这个文件已导入）");
-
-    private sealed record GaugeRow(NinePatchRect Fill);
+    private sealed record GaugeRow(GaugeBar Bar);
 
     private sealed record SkillCell(TextureRect Slot, TextureRect Icon, ColorRect Mask, Label Hint);
 
-    private sealed record TeammateCell(Control Root, TextureRect Portrait, Label Mark,
-                                      NinePatchRect Fill);
+    private sealed record TeammateCell(Control Root, TextureRect Portrait, Label Mark, GaugeBar Bar);
 }
