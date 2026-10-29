@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Progression;
 using Xunit;
@@ -64,6 +65,20 @@ public class ContentByIdTests
 
         Assert.Single(byId);
         Assert.Equal("mod.jin.name", byId["jin"].DisplayNameKey);
+    }
+
+    [Fact]
+    public void 读不出来的那一份在报错里点名_原来那条留作内层()
+    {
+        // 序列化器的报错不知道读的是哪一份；一个目录里有许多份时，不点名就只能一份份去试。
+        var catalog = Catalog(
+            Source("base", ("characters/jin.json", Character("jin"))),
+            Source("mod:example", ("characters/broken.json", """{ "id": "tiejun", "traitIds": [ }""")));
+
+        var error = Assert.Throws<InvalidDataException>(() => Characters(catalog));
+
+        Assert.Contains("characters/broken.json（来自 mod:example）", error.Message);
+        Assert.IsType<JsonException>(error.InnerException, exactMatch: false);
     }
 
     [Fact]

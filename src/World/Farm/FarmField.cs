@@ -310,21 +310,12 @@ public partial class FarmField : Node
     private CropDefinition? CropOf(Plot plot) =>
         plot.CropId is string id && _cropDefs.TryGetValue(id, out var crop) ? crop : null;
 
+    /// <summary>读全部作物定义。怎么读、什么算坏与启动时那一次核对是同一处（<see cref="CropDefinition.LoadAll"/>）。</summary>
     private void LoadCropDefinitions()
     {
-        var catalog = ContentBootstrap.BuildCatalog();
-        // 两份文件用了同一个标识在 ResolveById 里当场报错，不让后读到的那份静默顶掉前一份。
-        foreach (var (id, crop) in catalog.ResolveById(CropDefinition.ContentDirectory,
-                     e => CropDefinition.Parse(e.Text, e.RelativePath), c => c.Id))
+        foreach (var (id, crop) in CropDefinition.LoadAll(ContentBootstrap.BuildCatalog()))
         {
             _cropDefs[id] = crop;
-        }
-
-        if (_cropDefs.Count == 0)
-        {
-            throw new InvalidOperationException(
-                $"{ModPaths.BaseContentRoot}/{CropDefinition.ContentDirectory}/ 下没有作物定义，"
-                    + "至少要有一个 .json。字段表在设计仓 design/地块系统.md");
         }
     }
 

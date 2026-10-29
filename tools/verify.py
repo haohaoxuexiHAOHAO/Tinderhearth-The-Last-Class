@@ -150,7 +150,8 @@ REQUIRED_PACK_PREFIXES = ("data/",)
 # 这几个标记钉在 src/Main.cs 那个临时脚手架上。脚手架被真正的启动流程替换时，这里要
 # 一起改 —— 所以下面 verify_smoke_markers() 会先确认它们还在源码里，脱节就当场判失败，
 # 而不是等到冒烟阶段报一个看不懂的「没找到标记」。
-SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "：在册 ")
+# 「作物定义」那一行证明作物在启动时读过：农场不是主场景，坏一份作物定义只有这一步判得到。
+SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "[启动] 作物定义 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
 SMOKE_FRAMES = 60  # --quit-after 的帧数；够 _Ready 跑完并把日志写出来
 

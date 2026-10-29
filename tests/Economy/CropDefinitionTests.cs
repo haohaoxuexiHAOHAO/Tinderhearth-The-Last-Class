@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Tinderhearth.Rules.Economy;
+using Tinderhearth.Rules.Foundation.Content;
+using Tinderhearth.Rules.Foundation.Text;
+using Tinderhearth.Rules.Tests.Foundation;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;
@@ -214,6 +217,63 @@ public class CropDefinitionTests
 
         var typo = FullJson.Replace("\"Autumn\"", "\"Fall\"");
         Assert.Throws<JsonException>(() => CropDefinition.Parse(typo, "typo.json"));
+    }
+
+    /// <summary>读全部作物定义时按标识建表，键是定义里写的标识，不是文件名。</summary>
+    [Fact]
+    public void 全部作物定义按标识建表()
+    {
+        var crops = CropDefinition.LoadAll(Catalog(
+            ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"")),
+            ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\""))));
+
+        Assert.Equal(["crop_01", "crop_02"], crops.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal([1, 2, 2, 3], crops["crop_01"].StageDays);
+    }
+
+    /// <summary>作物目录里一份都没有就抛，别的目录里有内容也不算。</summary>
+    /// <remarks>没有一种作物的农场随身栏是空的，而那不报错 —— 表现只是种不了地。</remarks>
+    [Fact]
+    public void 一份作物定义都没有就抛()
+    {
+        var catalog = Catalog(("characters/jin.json", """{ "id": "jin", "displayNameKey": "character.jin.name", "traitIds": [] }"""));
+
+        var error = Assert.Throws<InvalidDataException>(() => CropDefinition.LoadAll(catalog));
+
+        Assert.Contains($"{CropDefinition.ContentDirectory}/", error.Message);
+    }
+
+    /// <summary>名字与描述的键由标识拼出来，定义上没有这两格。</summary>
+    [Fact]
+    public void 名字与描述的键由标识拼出来()
+    {
+        var crop = Crop(id: "crop_07");
+
+        Assert.Equal("crop.crop_07.name", crop.NameKey);
+        Assert.Equal("crop.crop_07.description", crop.DescriptionKey);
+        Assert.Equal([crop.NameKey, crop.DescriptionKey], crop.TextKeys);
+    }
+
+    /// <summary>文本表里缺哪一条，按作物要的那几条一核就点得出来；启动时那一次核对就是这么核的。</summary>
+    [Fact]
+    public void 文本表里缺的那一条点得出来()
+    {
+        var crops = new[] { Crop(id: "crop_01"), Crop(id: "crop_02") };
+        var text = new TextCatalog(new Dictionary<string, string>
+        {
+            ["crop.crop_01.name"] = "作物1",
+            ["crop.crop_01.description"] = "作物描述1",
+            ["crop.crop_02.name"] = "作物2",
+        });
+
+        Assert.Equal(["crop.crop_02.description"], text.MissingKeys(crops.SelectMany(c => c.TextKeys)));
+    }
+
+    private static ContentCatalog Catalog(params (string Path, string Json)[] files)
+    {
+        var catalog = new ContentCatalog();
+        catalog.AddSource(new InMemoryContentSource("base", files.ToDictionary(f => f.Path, f => f.Json)));
+        return catalog;
     }
 
     /// <summary>从一份 JSON 里去掉一个顶层键，用来造「缺字段」的输入。</summary>

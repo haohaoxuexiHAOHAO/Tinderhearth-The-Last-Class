@@ -59,7 +59,7 @@ public sealed class ContentCatalog
     /// 报错里的文件按路径排，同一份内容每次报得都一样。
     /// </remarks>
     /// <param name="relativeDirectory">内容目录，例如 <c>characters</c>。</param>
-    /// <param name="parse">把一条内容文件解析成定义；解析失败照旧由它自己抛。</param>
+    /// <param name="parse">把一条内容文件解析成定义。它抛的报错外面包一层，写上是哪一份、来自哪个来源。</param>
     /// <param name="idOf">从定义上取标识。</param>
     public IReadOnlyDictionary<string, T> ResolveById<T>(
         string relativeDirectory, Func<ContentEntry, T> parse, Func<T, string> idOf)
@@ -70,7 +70,7 @@ public sealed class ContentCatalog
         var parsed = new List<(ContentEntry Entry, string Id, T Definition)>();
         foreach (var entry in Resolve(relativeDirectory).Values.OrderBy(e => e.RelativePath, StringComparer.Ordinal))
         {
-            var definition = parse(entry);
+            var definition = ParseNamingTheFile(entry, parse);
             var id = idOf(definition);
             if (string.IsNullOrEmpty(id))
             {
@@ -93,6 +93,23 @@ public sealed class ContentCatalog
         }
 
         return parsed.ToDictionary(p => p.Id, p => p.Definition, StringComparer.Ordinal);
+    }
+
+    /// <summary>解析一份。失败时报错里写上是哪一份、来自哪个来源，原来那条留作内层异常。</summary>
+    /// <remarks>
+    /// 缺键这类报错出自序列化器，它不知道读的是哪一份：实测一份作物定义缺了一个键，报错只说缺了哪个属性。
+    /// 一个目录里有许多份时，不点名就只能一份份去试。
+    /// </remarks>
+    private static T ParseNamingTheFile<T>(ContentEntry entry, Func<ContentEntry, T> parse)
+    {
+        try
+        {
+            return parse(entry);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidDataException($"{entry.RelativePath}（来自 {entry.SourceName}）读不出来：{e.Message}", e);
+        }
     }
 
     /// <summary>

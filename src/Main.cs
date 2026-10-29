@@ -3,6 +3,7 @@ using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.UI;
 using Tinderhearth.World;
+using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
@@ -87,10 +88,12 @@ public partial class Main : Node2D
         var config = LoadConfig(catalog);
         var text = LoadText(catalog);
         var characters = LoadCharacters(catalog);
+        var crops = LoadCrops(catalog, text);
 
         GD.Print("[启动] 名册容量 ", config.RosterCapacity, "（读的是配置文件，不是代码里的常量）");
         GD.Print("[启动] 文本条目 ", text.Count, " 条");
         GD.Print("[启动] 角色定义 ", characters.Count, " 份");
+        GD.Print("[启动] 作物定义 ", crops.Count, " 份");
 
         _text = text;
         var roster = new Roster(config.RosterCapacity);
@@ -304,4 +307,22 @@ public partial class Main : Node2D
     private static List<CharacterDefinition> LoadCharacters(ContentCatalog catalog) =>
         [.. catalog.ResolveById(CharacterDefinition.ContentDirectory,
                 e => CharacterDefinition.Parse(e.Text, e.RelativePath), c => c.Id).Values];
+
+    /// <summary>读全部作物定义：坏一份当场报错；文本表里缺名字或描述的，打一条错误、游戏照跑。</summary>
+    /// <remarks>
+    /// 主场景用不上作物，读它们只为这一次核对：农场不是主场景，只在农场里读的话，坏掉的那一份要进了农场才报错，
+    /// 导出冒烟判不到。缺文字不停下来，与 <see cref="TextCatalog"/> 缺键显成占位、不抛是同一个理由。
+    /// </remarks>
+    private static IReadOnlyDictionary<string, CropDefinition> LoadCrops(ContentCatalog catalog, TextCatalog text)
+    {
+        var crops = CropDefinition.LoadAll(catalog);
+        var missing = text.MissingKeys(crops.Values.OrderBy(c => c.Id, StringComparer.Ordinal).SelectMany(c => c.TextKeys));
+        if (missing.Count > 0)
+        {
+            GD.PushError($"[启动] 文本表 {GameLanguage.TextTablePath} 里缺 {missing.Count} 条作物的文字，"
+                         + $"界面上会显成缺文本的占位：{string.Join("、", missing)}");
+        }
+
+        return crops;
+    }
 }

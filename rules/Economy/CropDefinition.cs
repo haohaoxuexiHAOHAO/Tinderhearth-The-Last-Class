@@ -96,6 +96,20 @@ public sealed record CropDefinition
         init => field = NonEmpty(value, nameof(YieldItemId));
     }
 
+    /// <summary>文本表里这种作物的名字那一条的键，由标识拼出来。</summary>
+    /// <remarks>
+    /// 名字与描述不是定义上的字段：作物的正式名字归物品定义的名称那一格（设计仓 design/数值模型.md 的
+    /// 「不占命名权」那一条），而物品定义还没有，归设计仓台账 GP-22。现在给定义加一格键名的话，等物品定义
+    /// 来了名字就有两个家；由标识拼键，文字只在文本表里一份。
+    /// </remarks>
+    public string NameKey => $"crop.{Id}.name";
+
+    /// <summary>文本表里这种作物的描述那一条的键。拼法与理由同 <see cref="NameKey"/>。</summary>
+    public string DescriptionKey => $"crop.{Id}.description";
+
+    /// <summary>这种作物要在文本表里有的那几条。启动时逐条核，缺了打一条错误。</summary>
+    public IReadOnlyList<string> TextKeys => [NameKey, DescriptionKey];
+
     /// <summary>这种作物收获之后会退回生长中途、能反复收吗？</summary>
     public bool Regrows => RegrowFromStage is not null;
 
@@ -111,6 +125,23 @@ public sealed record CropDefinition
         var crop = ContentJson.Parse<CropDefinition>(json, whatForDiagnostics);
         crop.CheckRegrowBelowRipe();
         return crop;
+    }
+
+    /// <summary>读内容目录里的全部作物定义，按标识建表。一份都没有就抛：农场里至少要能种一种。</summary>
+    /// <remarks>
+    /// 启动时与农场里读的是同一处，所以「怎么读、什么算坏」只有这一份。两份文件用了同一个标识在
+    /// <see cref="ContentCatalog.ResolveById"/> 里当场报错，不让后读到的那份静默顶掉前一份。
+    /// </remarks>
+    public static IReadOnlyDictionary<string, CropDefinition> LoadAll(ContentCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        var crops = catalog.ResolveById(ContentDirectory, e => Parse(e.Text, e.RelativePath), c => c.Id);
+        return crops.Count > 0
+            ? crops
+            : throw new InvalidDataException(
+                $"内容目录 {ContentDirectory}/ 下没有作物定义，至少要有一份 .json。"
+                    + "字段表在设计仓 design/地块系统.md 的「作物定义：一张表，缺字段报错」一节");
     }
 
     /// <summary>跨字段校验：退回的那一阶段要落在成熟之前。理由见 <see cref="RegrowFromStage"/>。</summary>
