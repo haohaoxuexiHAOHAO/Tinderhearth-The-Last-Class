@@ -13,7 +13,7 @@ namespace Tinderhearth.UI;
 /// 那支精力条用的是作者画的两张：空管 <c>hud/vigor_tube_track</c>，液面 <c>hud/vigor_tube_fill</c> 叠在上面。液面外面套一个
 /// 贴着管子底边的裁剪框，框高按 <see cref="HudLayout.VigorShownHeight"/> 给，于是液面从下往上露出，不拉伸、不染色。
 ///
-/// 这一块怎么排（标签图标与管子在上、状态位在下，与关卡那一块同宽）没有参考图，是先摆上去由作者实机定的。
+/// 这一块怎么排（标签图标与管子在上、状态位在下，与关卡那一块同宽）没有参考图，先照这一种排，实机看了不合适再改。
 /// </remarks>
 public sealed partial class BaseHud : Control
 {
