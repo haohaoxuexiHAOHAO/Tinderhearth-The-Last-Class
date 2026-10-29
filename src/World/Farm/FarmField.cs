@@ -98,6 +98,18 @@ public partial class FarmField : Node
     [Export]
     public double MaxWaterFactor { get; set; }
 
+    /// <summary>作物长成那一下掷变异的基础值，全库一个。</summary>
+    /// <remarks>
+    /// 这两个变异几率的量都没有默认值，要实机种过几季才定得下来。形式校验在 <see cref="MutationChanceRule"/> 里：
+    /// 基础值必须大于零、不大于上限，上限必须小于 1。
+    /// </remarks>
+    [Export]
+    public double MutationBaseChance { get; set; }
+
+    /// <summary>加了事件与设备的修饰之后，变异几率最多到多少。必须小于 1。</summary>
+    [Export]
+    public double MutationChanceCap { get; set; }
+
     /// <summary>耕地那一层用的是 TileSet 里第几个地形集。</summary>
     [Export]
     public int TilledTerrainSet { get; set; }
@@ -132,6 +144,7 @@ public partial class FarmField : Node
     private InputRouter _router = null!;
     private CarrySlotBarView _carry = null!;
     private HarvestYieldRule _yield = null!;
+    private MutationChanceRule _mutation = null!;
 
     private readonly Dictionary<Vector2I, Plot> _plots = [];
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
@@ -176,6 +189,9 @@ public partial class FarmField : Node
         // 三个收获量的校验在 HarvestYieldRule 的构造函数里，所以这里构造一次就等于把它们验了。
         // 没填（全 0）会在这一行当场抛，不用等玩家第一次收获才发现。
         _yield = new HarvestYieldRule(HarvestBaseCount, MinWaterFactor, MaxWaterFactor);
+
+        // 两个变异几率的量同理，没填（全 0）也在这一行当场抛。
+        _mutation = new MutationChanceRule(MutationBaseChance, MutationChanceCap);
 
         LoadCropDefinitions();
         IndexCropArts();
