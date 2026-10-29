@@ -145,6 +145,7 @@ public partial class FarmField : Node
     private CarrySlotBarView _carry = null!;
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
+    private int _seedBatch;
 
     private readonly Dictionary<Vector2I, Plot> _plots = [];
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
@@ -210,19 +211,37 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>开发期的调试键：按 <c>N</c> 推进一天。</summary>
+    /// <summary>开发期的调试键：按 <c>N</c> 推进一天，按 <c>B</c> 换下一批种子。</summary>
     /// <remarks>
-    /// 直接读按键、不走 <c>InputMap</c>，因为它是工具键不是玩法绑定。进了输入映射就会出现在
-    /// 「玩家能重绑的键」那份清单里，而玩家根本不该看见它。TrainingRoom.cs 那三个调试键同理。
+    /// 直接读按键、不走 <c>InputMap</c>，因为它们是工具键不是玩法绑定。进了输入映射就会出现在
+    /// 「玩家能重绑的键」那份清单里，而玩家根本不该看见它们。TrainingRoom.cs 那三个调试键同理。
     ///
     /// 正式的一天推进是睡觉那条路，走每日结算的固定步序，还没有实现。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.N })
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
         {
-            AdvanceDay();
+            return;
         }
+
+        switch (key.Keycode)
+        {
+            case Key.N: AdvanceDay(); break;
+            case Key.B: NextSeedBatch(); break;
+        }
+    }
+
+    /// <summary>开发期的调试键：按 <c>B</c> 把随身栏换成下一批种子，最后一批之后回到第一批。</summary>
+    /// <remarks>
+    /// 作物比随身栏的格数多，不换批就种不到后面那几种。它与 <c>N</c> 一样直接读按键、不进输入映射，
+    /// 理由同上；换的是格子里装什么，选中第几格不变。
+    /// </remarks>
+    private void NextSeedBatch()
+    {
+        _seedBatch = SeedBatches.Next(_seedBatch, _cropDefs.Count);
+        FillCarryBarWithSeeds();
+        GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
     /// <summary>把这一片地推进一天，然后重画。这一晚长成时变异的每一格各打一行。</summary>
@@ -380,28 +399,14 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>往随身栏里塞一份种子清单。临时做法，以后换成背包前六格的投影。</summary>
+    /// <summary>往随身栏里塞当前那一批种子。临时做法，以后换成背包前几格的投影。</summary>
     /// <remarks>
     /// 只有「格子里先装什么」是临时的。换格、播种、被拒那几条路径都已经是正式的，所以以后换
-    /// 数据来源不用改本类的其它地方。
-    ///
-    /// 按标识排序是为了每次运行结果一样。字典的枚举顺序不保证稳定，不排的话同一份内容在两次
-    /// 运行里可能落在不同格子上，这种不稳定查起来很贵。
-    ///
-    /// 作物多于六种时只装前六种；少于六种时其余格子留空，空格本身是合法状态，不补假数据。
+    /// 数据来源不用改本类的其它地方。怎么排、怎么分批在 <see cref="SeedBatches"/>。
     /// </remarks>
     private void FillCarryBarWithSeeds()
     {
-        var seeds = _cropDefs.Keys
-            .OrderBy(id => id, StringComparer.Ordinal)
-            .Take(CarrySlotBar.SlotCount)
-            .Select(id => new CarrySlot(id, 1))
-            .ToList();
-
-        while (seeds.Count < CarrySlotBar.SlotCount)
-        {
-            seeds.Add(CarrySlot.Empty);
-        }
+        var seeds = SeedBatches.Batch(_cropDefs.Keys, _seedBatch);
 
         // 种子还没有图标：物品定义和它上面图标那一格都还不存在（设计仓台账 GP-22），所以格子先只
         // 画框。到那时这里换成按标识查那一格 —— 装东西的和给图标的仍是同一处，不另开一张表。
