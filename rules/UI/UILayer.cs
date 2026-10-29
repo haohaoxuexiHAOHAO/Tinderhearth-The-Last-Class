@@ -36,3 +36,30 @@ public enum UILayer
     /// </remarks>
     Curtain = 50,
 }
+
+/// <summary>层级上的那一条判定：世界暂停的时候，这一层跟不跟着停。</summary>
+public static class UILayerExtensions
+{
+    /// <summary>
+    /// 世界暂停时这一层照不照跑：接过输入的那几层照跑，画在世界里的与常驻显示的跟着世界停。
+    /// </summary>
+    /// <remarks>
+    /// 它答的是「暂停期间谁还在动」，不是「谁会让世界暂停」—— 后一件只看导航栈里有没有层
+    /// （<see cref="NavigationStack.WorldShouldPause"/>）。
+    ///
+    /// 世界暂停是因为有一层界面接过了输入，所以接过输入的那几层自己不能停：停了就是手环一打开就点不动、
+    /// 按返回也关不掉，而那不报错。面板与弹窗照跑。幕布也照跑：淡入淡出与转场不该被一次暂停冻在半路。
+    ///
+    /// 世界空间那一层画在执行者身上，跟世界一起停，不然世界冻住了读条还在涨、伤害数字还在飘。常驻显示也跟着停：
+    /// 面板接过输入的时候它不该再听按键（随身栏是每帧问门面有没有换格的）。它显示的数是有人塞进去的、不靠每帧去取，
+    /// 所以停着照样刷新得了。
+    ///
+    /// 暂停的判据在设计仓 canon/gameplay/玩法定位.md 的「弹界面接管输入就暂停世界，世界里的动作不暂停」。
+    /// </remarks>
+    public static bool RunsWhilePaused(this UILayer layer) => layer switch
+    {
+        UILayer.World or UILayer.WorldSpace or UILayer.Hud => false,
+        UILayer.Panel or UILayer.Dialog or UILayer.Curtain => true,
+        _ => throw new ArgumentOutOfRangeException(nameof(layer), $"没有这一层：{layer}"),
+    };
+}

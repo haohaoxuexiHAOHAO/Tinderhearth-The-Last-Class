@@ -7,9 +7,9 @@ namespace Tinderhearth.UI;
 /// 界面根节点：按固定层级建好每层画布，管导航栈、返回键与暂停。画布层只在这里建一次。
 /// </summary>
 /// <remarks>
-/// 规则都在规则层：按返回键回到哪、关卡内哪些页能用、打开这一层要不要暂停，都由
-/// <see cref="NavigationStack"/> 与 <see cref="UISurface"/> 判，本类只负责把结论翻译成节点的
-/// 显隐与 <c>SceneTree.Paused</c>。
+/// 规则都在规则层：按返回键回到哪、关卡内哪些页能用、打开这一层要不要暂停、暂停时哪几层还在跑，都由
+/// <see cref="NavigationStack"/>、<see cref="UISurface"/> 与 <see cref="UILayerExtensions.RunsWhilePaused"/> 判，
+/// 本类只负责把结论翻译成节点的显隐、各层的处理模式与 <c>SceneTree.Paused</c>。
 ///
 /// 不让各场景自己摆 CanvasLayer：那样每个界面会自己挑一个层号，迟早出现「弹窗被 HUD 挡住」，
 /// 而排查时得翻遍所有场景才知道谁用了哪个号。
@@ -36,6 +36,10 @@ public partial class UIRoot : Node
 
     public override void _Ready()
     {
+        // 本节点自己在暂停时照跑：返回键是它收的，而面板一打开世界就暂停，它停了就再也关不掉面板。
+        // 实测踩过：继承「可暂停」时手环一开，按返回前后都是暂停中，手环自己也报不能处理。
+        ProcessMode = ProcessModeEnum.Always;
+
         // 先记下作者摆在下面的那几个，再建层 —— 层也是本节点的子节点，建完再数就分不清谁是谁。
         var placed = GetChildren().ToList();
 
@@ -52,6 +56,8 @@ public partial class UIRoot : Node
                 Layer = (int)layer,
                 // 世界空间那一层跟随相机；其余是屏幕空间，固定不动。
                 FollowViewportEnabled = layer == UILayer.WorldSpace,
+                // 每一层自己写明跟不跟着世界停，不继承本节点的「照跑」：哪一层停在规则层那一张表里。
+                ProcessMode = layer.RunsWhilePaused() ? ProcessModeEnum.Always : ProcessModeEnum.Pausable,
             };
             AddChild(canvas);
             _layers[layer] = canvas;

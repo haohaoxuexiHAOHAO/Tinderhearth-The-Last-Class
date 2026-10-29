@@ -4,7 +4,7 @@ namespace Tinderhearth.Rules.UI;
 /// 一个能被导航栈管理的界面。只是标识与几条声明，不含任何节点。
 /// </summary>
 /// <param name="Id">稳定标识。引擎层拿它去找对应的 Control。</param>
-/// <param name="Layer">画在哪一层。</param>
+/// <param name="Layer">画在哪一层。只能是世界暂停时照跑的那几层，理由见 <see cref="Layer"/>。</param>
 /// <param name="Kind">操作类还是查看类。关卡内只允许查看。</param>
 /// <remarks>
 /// 没有「要不要暂停」这个字段。弹出界面接管输入时世界一律暂停，而本类按定义就是这种东西，
@@ -15,6 +15,16 @@ namespace Tinderhearth.Rules.UI;
 /// </remarks>
 public sealed record UISurface(string Id, UILayer Layer, SurfaceKind Kind)
 {
+    /// <summary>画在哪一层。摆在跟着世界停的层上当场抛。</summary>
+    /// <remarks>
+    /// 打开它就暂停世界，摆在跟着世界停的那几层上（<see cref="UILayerExtensions.RunsWhilePaused"/>），它一打开
+    /// 就把自己冻住：点不动、按返回也关不掉，而那不报错。所以在声明的这一刻拒绝。
+    /// </remarks>
+    public UILayer Layer { get; } = Layer.RunsWhilePaused()
+        ? Layer
+        : throw new ArgumentException(
+            $"界面「{Id}」摆在 {Layer} 层上：打开它会暂停世界，而这一层跟着世界停，它会把自己冻住", nameof(Layer));
+
     /// <summary>这一层在关卡内能不能用。</summary>
     public bool AvailableInLevel => Kind.AvailableInLevel();
 }

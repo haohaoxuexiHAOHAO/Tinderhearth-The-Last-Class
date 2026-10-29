@@ -98,6 +98,42 @@ public class UISkeletonTests
     }
 
     [Fact]
+    public void 世界暂停时接过输入的几层照跑而世界里的与常驻显示跟着停()
+    {
+        // 接过输入的那一层停了，就是面板一打开就点不动、按返回也关不掉 —— 那不报错。
+        Assert.True(UILayer.Panel.RunsWhilePaused());
+        Assert.True(UILayer.Dialog.RunsWhilePaused());
+        Assert.True(UILayer.Curtain.RunsWhilePaused());     // 淡入淡出不该被一次暂停冻在半路
+
+        // 世界冻住了读条还在涨、面板开着随身栏还在听按键，都是这一侧停漏了。
+        Assert.False(UILayer.World.RunsWhilePaused());
+        Assert.False(UILayer.WorldSpace.RunsWhilePaused());
+        Assert.False(UILayer.Hud.RunsWhilePaused());
+    }
+
+    [Fact]
+    public void 每一层都答得出暂停时跑不跑()
+    {
+        // 新加一层而忘了在表里答，表现是这一条先红，而不是那一层不知道该跟谁走。
+        foreach (var layer in Enum.GetValues<UILayer>())
+        {
+            _ = layer.RunsWhilePaused();
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((UILayer)(-1)).RunsWhilePaused());
+    }
+
+    [Fact]
+    public void 界面摆在跟着世界停的层上当场抛()
+    {
+        // 打开它就暂停世界，它自己又跟着世界停：一打开就冻住、关不掉。这里在声明那一刻就拒绝。
+        Assert.Throws<ArgumentException>(() => new UISurface("frozen", UILayer.Hud, SurfaceKind.View));
+        Assert.Throws<ArgumentException>(() => new UISurface("frozen", UILayer.WorldSpace, SurfaceKind.View));
+        Assert.Equal(UILayer.Panel, Wristband.Surface.Layer);
+        Assert.True(Wristband.Surface.Layer.RunsWhilePaused());
+    }
+
+    [Fact]
     public void 背包在关卡内可用而管理类面板不可用()
     {
         Assert.True(Backpack.AvailableInLevel);      // 随身物不算管理功能
