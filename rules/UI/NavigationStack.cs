@@ -37,6 +37,13 @@ public sealed class NavigationStack
     /// </remarks>
     public bool WorldShouldPause => _stack.Count > 0;
 
+    /// <summary>HUD 这时该不该整层藏起来：面板那一层有界面开着就藏。</summary>
+    /// <remarks>
+    /// 面板开着时世界暂停，HUD 上的数不会变；面板又差不多占满一屏，HUD 露在它四角只会和它叠在一起。
+    /// 只开着弹窗时不藏：弹窗小，压不住四角，HUD 照旧看得见、也不跟谁叠。
+    /// </remarks>
+    public bool HudShouldHide => _stack.Any(s => s.Layer == UILayer.Panel);
+
     /// <summary>压入一层。已经在栈里的层会被提到栈顶，不重复压。</summary>
     public void Push(UISurface surface)
     {

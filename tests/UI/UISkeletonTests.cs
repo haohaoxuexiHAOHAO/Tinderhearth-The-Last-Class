@@ -98,6 +98,30 @@ public class UISkeletonTests
     }
 
     [Fact]
+    public void 面板开着时HUD藏起来而只开弹窗时不藏()
+    {
+        // 面板差不多占满一屏，HUD 露在它四角只会和它叠在一起；弹窗小，压不住四角。
+        var nav = new NavigationStack();
+        Assert.False(nav.HudShouldHide);      // 什么都没开：HUD 在
+
+        nav.Push(Confirm);
+        Assert.False(nav.HudShouldHide);      // 只有弹窗：HUD 照旧在
+
+        nav.Push(Backpack);
+        Assert.True(nav.HudShouldHide);       // 面板开了：藏
+
+        nav.Close(Backpack);
+        Assert.False(nav.HudShouldHide);      // 面板关了、弹窗还在：回来
+
+        nav.Push(Wristband.Surface);
+        nav.Push(Confirm);
+        Assert.True(nav.HudShouldHide);       // 面板上压着弹窗：照旧藏
+
+        nav.Clear();
+        Assert.False(nav.HudShouldHide);
+    }
+
+    [Fact]
     public void 世界暂停时接过输入的几层照跑而世界里的与常驻显示跟着停()
     {
         // 接过输入的那一层停了，就是面板一打开就点不动、按返回也关不掉 —— 那不报错。

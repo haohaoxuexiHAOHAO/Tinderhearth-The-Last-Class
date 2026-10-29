@@ -169,5 +169,8 @@ public partial class UIRoot : Node
         // 暂停由整个栈决定，不由某个面板自己设：弹出界面接管输入就暂停世界，所以栈里有东西就暂停。
         // 这个判定在 NavigationStack，本类只负责把它翻译成 SceneTree.Paused。
         GetTree().Paused = _nav.WorldShouldPause;
+
+        // 面板开着时 HUD 整层藏起来，判定同样在 NavigationStack。
+        LayerOf(UILayer.Hud).Visible = !_nav.HudShouldHide;
     }
 }
