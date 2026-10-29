@@ -825,9 +825,12 @@ def build_hud() -> None:
         for x in range(13):
             if full.getpixel((x, y)) in water:
                 liquid.putpixel((x, y), full.getpixel((x, y)))
-    add("hud", "vigor_tube_track", empty, "经营侧那条竖着的精力条：空管", "切", size=(13, 28))
+    # 两张都竖着拉长：空管中间那一段每一行都一样；液面中间那一段（两个气泡一轮）首尾接得上，代码按行平铺。
+    add("hud", "vigor_tube_track", empty, "经营侧那条竖着的精力条：空管；中段按行平铺拉长", "切",
+        nine=(0, 5, 0, 5), size=(13, 28))
     add("hud", "vigor_tube_fill", recolor(liquid, TUBE_GREEN),
-        "精力条的液面：叠在空管上，代码从下往上按比例露出（色改走绿）", "派生", size=(13, 28))
+        "精力条的液面：叠在空管上，代码从下往上按比例露出（色改走绿）；中段按行平铺拉长", "派生",
+        nine=(0, 8, 0, 8), size=(13, 28))
 
     for key, rows in sp.GAUGE_ICON.items():
         add("hud", f"gauge_icon_{key}", from_grid(rows), "资源条前面的标签", "手画", size=(8, 8))

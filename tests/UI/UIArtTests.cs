@@ -75,7 +75,7 @@ public class UIArtTests
             (["hud/portrait_frame"], HudLayout.PortraitSize, HudLayout.PortraitSize, "头像框"),
             (["kit/row_*", "glyph/keycap"], null, UIMetrics.LineHeight, "行"),
             (["hud/bar_track"], null, HudLayout.GaugeBarHeight, "资源条的槽"),
-            (["hud/vigor_tube_*"], HudLayout.VigorTubeWidth, HudLayout.VigorTubeHeight, "精力条"),
+            (["hud/vigor_tube_*"], HudLayout.VigorTubeWidth, null, "精力条"),
             (["hud/actionbar_frame"], null, HudLayout.SizeOf(HudBlock.ActionBar, UIContext.Level).Height, "那条栏"),
             (["world/ring_cast", "world/ring_cast_fill"], WorldUILayout.RingWidth, WorldUILayout.RingHeight, "读条圆环"),
         ];

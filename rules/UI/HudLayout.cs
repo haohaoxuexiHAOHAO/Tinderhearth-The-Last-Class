@@ -6,7 +6,7 @@ public enum HudBlock
     /// <summary>目标进度，只在关卡里有。它要始终可见，进度为 0 或已达成时也不隐藏。</summary>
     Objective,
 
-    /// <summary>主角资源加一行状态位。关卡里是生命、体力与法力，基地里是竖着的一支精力。</summary>
+    /// <summary>主角资源加状态位。关卡里是生命、体力与法力，下面一行状态位；基地里是竖着的一支精力，右边两行两列状态位。</summary>
     Resources,
 
     /// <summary>
@@ -119,11 +119,14 @@ public static class HudLayout
     /// <summary>那条横排格子里格与格之间空几像素。照画好的那张 <c>hud/actionbar_frame</c>（格距 28 减去格宽）。</summary>
     public const int ActionBarCellGap = 6;
 
-    /// <summary>基地那支竖的精力条宽。这是画好的那张 <c>hud/vigor_tube_track</c> 的宽。</summary>
+    /// <summary>基地那支竖的精力条宽。这是画好的那张 <c>hud/vigor_tube_track</c> 的宽，有测试拿素材清单对它。</summary>
     public const int VigorTubeWidth = 13;
 
-    /// <summary>基地那支竖的精力条高。这是画好的那张 <c>hud/vigor_tube_track</c> 的高。</summary>
-    public const int VigorTubeHeight = 28;
+    /// <summary>基地那一块的状态位排几列：放在精力管右边，两列。</summary>
+    public const int BaseStatusColumns = 2;
+
+    /// <summary>基地那一块的状态位排几行：两行，与关卡那一行一样能放四个。</summary>
+    public const int BaseStatusRows = 2;
 
     /// <summary>精力条的液面上下各空几行透明：画好的那张 <c>hud/vigor_tube_fill</c> 只在中间那一段有像素（实测）。</summary>
     /// <remarks>
@@ -151,7 +154,7 @@ public static class HudLayout
     /// <summary>状态位那一行的高：一行小图标。这一轮只留位置，里面挂什么跟状态系统走。</summary>
     public static int StatusRowHeight => UIMetrics.LineHeight;
 
-    /// <summary>资源块的内容宽：标签、间距、条。基地那一块照它取，于是两种场合的状态位那一行一样宽。</summary>
+    /// <summary>资源块的内容宽：标签、间距、条。基地那一块照它取，两种场合的资源块一样宽。</summary>
     public static int ResourcesContentWidth => GaugeLabelSize + UIMetrics.ItemGap + GaugeBarWidth;
 
     /// <summary>那条横排格子有几格。与技能位同一个数，也就是随身栏的格数。</summary>
@@ -159,6 +162,21 @@ public static class HudLayout
 
     /// <summary>随身栏有几格。与技能位同一个数，所以两种内容同宽由算式保证。</summary>
     public static int CarrySlotCount => CarrySlotBar.SlotCount;
+
+    /// <summary>基地那一块两行两列状态位占的宽：每格一个小图标，格与格之间一个组内间距。</summary>
+    public static int BaseStatusGridWidth =>
+        (BaseStatusColumns * UIMetrics.IconSmall) + ((BaseStatusColumns - 1) * UIMetrics.ItemGap);
+
+    /// <summary>基地那一块两行两列状态位占的高。</summary>
+    public static int BaseStatusGridHeight =>
+        (BaseStatusRows * UIMetrics.IconSmall) + ((BaseStatusRows - 1) * UIMetrics.ItemGap);
+
+    /// <summary>基地那支竖的精力条拉成多高：与右边那两行状态位一样高。</summary>
+    /// <remarks>
+    /// 画好的那两张中段按行平铺（空管中间那一段每一行都一样，液面中间那一段首尾接得上），所以多高都画得出来，
+    /// 不用照画布的高。平铺那一段在素材资源那一格的九宫格边距里。
+    /// </remarks>
+    public static int VigorTubeHeight => BaseStatusGridHeight;
 
     /// <summary>精力条液面那一段有多高：管高减去上下两段透明。</summary>
     public static int VigorLiquidHeight => VigorTubeHeight - (VigorLiquidInset * 2);
@@ -208,11 +226,11 @@ public static class HudLayout
                 Width: ResourcesContentWidth,
                 Height: (GaugesIn(context).Count * GaugeRowHeight) + StatusRowHeight),
 
-            // 基地：标签加那支竖的精力条占一段，下面一行状态位。与关卡那一块同宽、状态位同在最下面。
+            // 基地：标签加那支竖的精力条，隔一个栅格是两行两列状态位；精力条与状态位一样高。与关卡那一块同宽。
             (HudBlock.Resources, UIContext.Base) => new HudRect(
                 X: 0, Y: 0,
                 Width: ResourcesContentWidth,
-                Height: VigorTubeHeight + StatusRowHeight),
+                Height: VigorTubeHeight),
 
             // 一行格子，格距照画好的那条栏。
             (HudBlock.ActionBar, _) => new HudRect(

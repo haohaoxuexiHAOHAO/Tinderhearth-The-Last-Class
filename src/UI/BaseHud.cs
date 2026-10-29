@@ -10,10 +10,11 @@ namespace Tinderhearth.UI;
 /// 与 <see cref="LevelHud"/> 同一条纪律：尺寸与放置从 <see cref="HudLayout"/> 取（场合是 <see cref="UIContext.Base"/>），
 /// 显示的数值从 <see cref="BaseHudViewModel"/> 取，位置一律走锚点预设（<see cref="HudPlace"/>），除 0 与 1 之外不写数字字面量。
 ///
-/// 那支精力条用的是作者画的两张：空管 <c>hud/vigor_tube_track</c>，液面 <c>hud/vigor_tube_fill</c> 叠在上面。液面外面套一个
-/// 贴着管子底边的裁剪框，框高按 <see cref="HudLayout.VigorShownHeight"/> 给，于是液面从下往上露出，不拉伸、不染色。
+/// 那支精力条用的是作者画的两张：空管 <c>hud/vigor_tube_track</c>，液面 <c>hud/vigor_tube_fill</c> 叠在上面，两张都按中段平铺
+/// 拉到这一块那么高。液面外面套一个贴着管子底边的裁剪框，框高按 <see cref="HudLayout.VigorShownHeight"/> 给，于是液面
+/// 从下往上露出，不染色。
 ///
-/// 这一块怎么排（标签图标与管子在上、状态位在下，与关卡那一块同宽）没有参考图，先照这一种排，实机看了不合适再改。
+/// 这一块怎么排（标签与竖管在左、两行两列状态位在右，与关卡那一块同宽）没有参考图，先照这一种排，实机看了不合适再改。
 /// </remarks>
 public sealed partial class BaseHud : Control
 {
@@ -65,30 +66,27 @@ public sealed partial class BaseHud : Control
     /// <summary>精力那一条。视图模型构造时已经核过基地只有这一条，这里再取不到就是那一处坏了。</summary>
     private HudGauge Vigor => _model.Gauges.Single(g => g.Kind == HudGaugeKind.DailyVigor);
 
-    /// <summary>上面一段是标签图标加那支管子，下面一行留给状态位。行距为零，与关卡那一块同一个排法。</summary>
+    /// <summary>左边是标签加那支竖管，隔一个栅格是两行两列的状态位；竖管与状态位一样高。</summary>
     private void BuildResources()
     {
         var frame = HudPlace.Frame(HudBlock.Resources, Here, _art);
         AddChild(frame);
         _root = frame;
 
-        var column = new VBoxContainer { Name = "Content" };
-        column.AddThemeConstantOverride("separation", 0);
-        frame.AddChild(column);
+        // 一行排开：标签与竖管是一组（组内间距），隔一个栅格是两行两列的状态位。
+        var row = new HBoxContainer { Name = "Content" };
+        row.AddThemeConstantOverride("separation", UIMetrics.Grid);
+        frame.AddChild(row);
 
-        var top = new HBoxContainer
-        {
-            Name = HudGaugeKind.DailyVigor.ToString(),
-            CustomMinimumSize = new Vector2(HudLayout.ResourcesContentWidth, HudLayout.VigorTubeHeight),
-        };
-        top.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
-        column.AddChild(top);
+        var gauge = new HBoxContainer { Name = HudGaugeKind.DailyVigor.ToString() };
+        gauge.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
+        row.AddChild(gauge);
 
         // 标签比管子矮，靠 ShrinkCenter 在那一段里居中 —— 不用纵向偏移，就不会有半格。
         var label = HudPlace.Picture(_art.HudGaugeIconVigor, "hud/gauge_icon_vigor");
         label.Name = "Label";
         label.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        top.AddChild(label);
+        gauge.AddChild(label);
 
         var tube = new Control
         {
@@ -96,9 +94,10 @@ public sealed partial class BaseHud : Control
             CustomMinimumSize = new Vector2(HudLayout.VigorTubeWidth, HudLayout.VigorTubeHeight),
             MouseFilter = MouseFilterEnum.Ignore,
         };
-        top.AddChild(tube);
+        gauge.AddChild(tube);
 
-        var track = HudPlace.Picture(_art.HudVigorTubeTrack, "hud/vigor_tube_track");
+        // 管子比画布高：中段按行平铺，平铺那一段是素材资源那一格的九宫格边距。
+        var track = HudPlace.Stretch(_art.HudVigorTubeTrack, "hud/vigor_tube_track", NinePatchRect.AxisStretchMode.Tile);
         track.Name = "Track";
         track.SetAnchorsPreset(LayoutPreset.FullRect);
         tube.AddChild(track);
@@ -116,7 +115,8 @@ public sealed partial class BaseHud : Control
         };
         tube.AddChild(_shown);
 
-        var liquid = HudPlace.Picture(_art.HudVigorTubeFill, "hud/vigor_tube_fill");
+        // 液面同样中段按行平铺，气泡跟着一轮一轮重复；它与空管一样高，上下那几行对得齐。
+        var liquid = HudPlace.Stretch(_art.HudVigorTubeFill, "hud/vigor_tube_fill", NinePatchRect.AxisStretchMode.Tile);
         liquid.Name = "Liquid";
         liquid.AnchorRight = 1;
         liquid.AnchorTop = 1;
@@ -124,11 +124,11 @@ public sealed partial class BaseHud : Control
         liquid.OffsetTop = -HudLayout.VigorTubeHeight;
         _shown.AddChild(liquid);
 
-        // 状态位那一行只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
-        column.AddChild(new Control
+        // 状态位只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
+        row.AddChild(new Control
         {
             Name = "Status",
-            CustomMinimumSize = new Vector2(HudLayout.ResourcesContentWidth, HudLayout.StatusRowHeight),
+            CustomMinimumSize = new Vector2(HudLayout.BaseStatusGridWidth, HudLayout.BaseStatusGridHeight),
             MouseFilter = MouseFilterEnum.Ignore,
         });
     }

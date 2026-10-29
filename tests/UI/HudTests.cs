@@ -56,15 +56,22 @@ public class HudTests
     }
 
     [Fact]
-    public void 基地资源块是那支精力条加一行状态位且与关卡那一块同宽()
+    public void 基地资源块是竖管加右边两行两列状态位且与关卡那一块同宽()
     {
-        // 同宽是为了状态位那一行两边一样长：同一个状态在两种场合里落在同一处。
         var content = HudLayout.ContentSizeOf(HudBlock.Resources, UIContext.Base);
-        Assert.Equal(HudLayout.VigorTubeHeight + HudLayout.StatusRowHeight, content.Height);
         Assert.Equal(HudLayout.ContentSizeOf(HudBlock.Resources, UIContext.Level).Width, content.Width);
 
-        // 标签、间距与那支管子放得进那一段。
-        Assert.True(HudLayout.GaugeLabelSize + UIMetrics.ItemGap + HudLayout.VigorTubeWidth <= content.Width);
+        // 竖管拉到与状态位一样高，这一块就没有空着的那一行。
+        Assert.Equal(HudLayout.BaseStatusGridHeight, HudLayout.VigorTubeHeight);
+        Assert.Equal(HudLayout.VigorTubeHeight, content.Height);
+
+        // 标签、组内间距、竖管、一个栅格、状态位，一行放得下。
+        Assert.True(HudLayout.GaugeLabelSize + UIMetrics.ItemGap + HudLayout.VigorTubeWidth + UIMetrics.Grid
+                    + HudLayout.BaseStatusGridWidth <= content.Width);
+
+        // 两种场合的状态位能放的个数一样多：关卡那一行放得下的，基地那两行两列也放得下。
+        var levelSlots = (HudLayout.ResourcesContentWidth + UIMetrics.ItemGap) / (UIMetrics.IconSmall + UIMetrics.ItemGap);
+        Assert.Equal(HudLayout.BaseStatusColumns * HudLayout.BaseStatusRows, levelSlots);
     }
 
     [Theory]
@@ -138,15 +145,16 @@ public class HudTests
         Assert.Equal(UIMetrics.LineHeight, content.Height);
     }
 
-    [Theory]
-    [InlineData(-0.5, HudLayout.VigorLiquidInset)]
-    [InlineData(0.0, HudLayout.VigorLiquidInset)]
-    [InlineData(1.0, HudLayout.VigorTubeHeight - HudLayout.VigorLiquidInset)]
-    [InlineData(2.0, HudLayout.VigorTubeHeight - HudLayout.VigorLiquidInset)]
-    public void 精力条露出的高度按液面那一段算且钳在两端(double ratio, int expected)
+    [Fact]
+    public void 精力条露出的高度按液面那一段算且钳在两端()
     {
-        // 为 0 时露的只有底下那段透明，为 1 时液面整段露出、管顶那段透明照旧不露。
-        Assert.Equal(expected, HudLayout.VigorShownHeight(ratio));
+        // 为 0 时露的只有底下那段透明，为 1 时液面整段露出、管顶那段透明照旧不露；越界的比例钳回两端。
+        var empty = HudLayout.VigorLiquidInset;
+        var full = HudLayout.VigorTubeHeight - HudLayout.VigorLiquidInset;
+        Assert.Equal(empty, HudLayout.VigorShownHeight(-0.5));
+        Assert.Equal(empty, HudLayout.VigorShownHeight(0.0));
+        Assert.Equal(full, HudLayout.VigorShownHeight(1.0));
+        Assert.Equal(full, HudLayout.VigorShownHeight(2.0));
     }
 
     [Fact]

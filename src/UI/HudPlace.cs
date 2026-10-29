@@ -77,4 +77,28 @@ internal static class HudPlace
     /// <summary>取一张作者画的件。素材资源启动时核过，这里取不到就是没核。</summary>
     public static Texture2D Piece(Texture2D? texture, string piece) =>
         texture ?? throw new InvalidOperationException($"素材资源里少了「{piece}」—— 应当已在启动时核过");
+
+    /// <summary>
+    /// 一件作者画的九宫格件做成一块拉得开的图：边距读素材资源那一格，中段平铺还是拉伸由调用方按那张图的画法给。
+    /// </summary>
+    /// <remarks>
+    /// 中段带花纹的（资源条里的亮点、精力管里的气泡）只许平铺，拉伸会把花纹拉花；中段每一行或每一列都一样的，
+    /// 平铺与拉伸画出来一样。
+    /// </remarks>
+    public static NinePatchRect Stretch(NinePiece? piece, string name, NinePatchRect.AxisStretchMode mode)
+    {
+        var nine = piece ?? throw new InvalidOperationException($"素材资源里少了「{name}」—— 应当已在启动时核过");
+        return new NinePatchRect
+        {
+            Name = "Art",
+            Texture = Piece(nine.Texture, name),
+            PatchMarginLeft = nine.Left,
+            PatchMarginTop = nine.Top,
+            PatchMarginRight = nine.Right,
+            PatchMarginBottom = nine.Bottom,
+            AxisStretchHorizontal = mode,
+            AxisStretchVertical = mode,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+    }
 }

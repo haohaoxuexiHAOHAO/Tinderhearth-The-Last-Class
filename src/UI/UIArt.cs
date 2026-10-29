@@ -588,15 +588,15 @@ public partial class UIArt : Resource
     [Export]
     public NinePiece? HudBarFillLag { get; set; }
 
-    /// <summary>经营侧那条竖着的精力条：空管</summary>
-    /// <remarks>13×28；来源：切。</remarks>
+    /// <summary>经营侧那条竖着的精力条：空管；中段按行平铺拉长</summary>
+    /// <remarks>13×28；九宫格 左 0 上 5 右 0 下 5；来源：切。</remarks>
     [Export]
-    public Texture2D? HudVigorTubeTrack { get; set; }
+    public NinePiece? HudVigorTubeTrack { get; set; }
 
-    /// <summary>精力条的液面：叠在空管上，代码从下往上按比例露出（色改走绿）</summary>
-    /// <remarks>13×28；来源：派生。</remarks>
+    /// <summary>精力条的液面：叠在空管上，代码从下往上按比例露出（色改走绿）；中段按行平铺拉长</summary>
+    /// <remarks>13×28；九宫格 左 0 上 8 右 0 下 8；来源：派生。</remarks>
     [Export]
-    public Texture2D? HudVigorTubeFill { get; set; }
+    public NinePiece? HudVigorTubeFill { get; set; }
 
     /// <summary>资源条前面的标签</summary>
     /// <remarks>8×8；来源：手画。</remarks>
@@ -1110,8 +1110,8 @@ public partial class UIArt : Resource
         yield return ("hud", "bar_fill_mp", HudBarFillMp?.Texture, HudBarFillMp);
         yield return ("hud", "bar_fill_xp", HudBarFillXp?.Texture, HudBarFillXp);
         yield return ("hud", "bar_fill_lag", HudBarFillLag?.Texture, HudBarFillLag);
-        yield return ("hud", "vigor_tube_track", HudVigorTubeTrack, null);
-        yield return ("hud", "vigor_tube_fill", HudVigorTubeFill, null);
+        yield return ("hud", "vigor_tube_track", HudVigorTubeTrack?.Texture, HudVigorTubeTrack);
+        yield return ("hud", "vigor_tube_fill", HudVigorTubeFill?.Texture, HudVigorTubeFill);
         yield return ("hud", "gauge_icon_hp", HudGaugeIconHp, null);
         yield return ("hud", "gauge_icon_sp", HudGaugeIconSp, null);
         yield return ("hud", "gauge_icon_mp", HudGaugeIconMp, null);

@@ -245,6 +245,18 @@ Texture = ExtResource("hud_bar_track")
 Left = 5
 Right = 6
 
+[sub_resource type="Resource" id="nine_hud_vigor_tube_fill"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("hud_vigor_tube_fill")
+Top = 8
+Bottom = 8
+
+[sub_resource type="Resource" id="nine_hud_vigor_tube_track"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("hud_vigor_tube_track")
+Top = 5
+Bottom = 5
+
 [sub_resource type="Resource" id="nine_kit_box"]
 script = ExtResource("nine_piece")
 Texture = ExtResource("kit_box")
@@ -599,8 +611,8 @@ HudBarFillSp = SubResource("nine_hud_bar_fill_sp")
 HudBarFillMp = SubResource("nine_hud_bar_fill_mp")
 HudBarFillXp = SubResource("nine_hud_bar_fill_xp")
 HudBarFillLag = SubResource("nine_hud_bar_fill_lag")
-HudVigorTubeTrack = ExtResource("hud_vigor_tube_track")
-HudVigorTubeFill = ExtResource("hud_vigor_tube_fill")
+HudVigorTubeTrack = SubResource("nine_hud_vigor_tube_track")
+HudVigorTubeFill = SubResource("nine_hud_vigor_tube_fill")
 HudGaugeIconHp = ExtResource("hud_gauge_icon_hp")
 HudGaugeIconSp = ExtResource("hud_gauge_icon_sp")
 HudGaugeIconMp = ExtResource("hud_gauge_icon_mp")
