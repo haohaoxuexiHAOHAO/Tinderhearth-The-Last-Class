@@ -47,8 +47,8 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// 「借给界面」里；有测试判这里没有不带项名的颜色。资源条（HUD 那几根与精英血条）、倒地记号与格子角上的
 /// 迷你字都是作者画的、不染色，所以这里没有它们的颜色。
 ///
-/// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
-/// 那次判断大体还成立；换色之后照样要实机重看一遍（设计仓台账 <c>UI-48</c>）。
+/// 正文、次要与强调取的是离判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档；换色之后实机看过，
+/// HUD 与手环的字在暖炭底上读得清。改这几档要再实机看一遍：读不读得清只有眼睛判得了。
 /// </remarks>
 public static class HudPalette
 {
