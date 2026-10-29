@@ -117,12 +117,17 @@ public partial class WristbandPanel : Control
             button.MouseExited += () => DisarmTabName(button);
             button.FocusEntered += () =>
             {
+                ShowFocusLook(button, focused: true);
                 if (!_placingFocus)
                 {
                     ArmTabName(button, tab);
                 }
             };
-            button.FocusExited += () => DisarmTabName(button);
+            button.FocusExited += () =>
+            {
+                ShowFocusLook(button, focused: false);
+                DisarmTabName(button);
+            };
             tabs.AddChild(button);
             _tabButtons[tab.Id] = button;
 
@@ -149,6 +154,8 @@ public partial class WristbandPanel : Control
                     FocusMode = FocusModeEnum.All,
                 };
                 pageButton.Pressed += () => SelectPage(page);
+                pageButton.FocusEntered += () => ShowFocusLook(pageButton, focused: true);
+                pageButton.FocusExited += () => ShowFocusLook(pageButton, focused: false);
                 row.AddChild(pageButton);
                 _pageButtons[page.Id] = pageButton;
             }
@@ -212,6 +219,26 @@ public partial class WristbandPanel : Control
             _placingFocus = true;
             _tabButtons[tab.Id].GrabFocus();
             _placingFocus = false;
+        }
+    }
+
+    /// <summary>
+    /// 键盘与手柄的焦点停在一个页签上时，让它显示成鼠标指着的那一张：焦点期间把它「没选中」那一格换成悬停那一格。
+    /// </summary>
+    /// <remarks>
+    /// 作者画的焦点那一态是一整张换了底色的页签，而 Godot 把焦点那一格叠在当前那一态上面画，叠上去会盖掉选中那一张，
+    /// 所以主题里焦点那一格是空的（<see cref="PixelTheme"/>），在这里换。只换「没选中」那一格：选中与不可用各画各的，
+    /// 选中的页签拿到焦点时照旧是选中的样子。焦点与悬停因此是同一个样子（设计仓 production/界面绘制约定.md）。
+    /// </remarks>
+    private static void ShowFocusLook(Button button, bool focused)
+    {
+        if (focused)
+        {
+            button.AddThemeStyleboxOverride("normal", button.GetThemeStylebox("hover"));
+        }
+        else
+        {
+            button.RemoveThemeStyleboxOverride("normal");
         }
     }
 

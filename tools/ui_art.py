@@ -38,7 +38,7 @@ import argparse
 import hashlib
 import re
 import sys
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -605,15 +605,41 @@ def tab_base(fill: str, round_bottom: bool) -> Image.Image:
     return paint(im, edge(shape), "ember 1")
 
 
+# 模板里顶层页签那一排：每个页签 20×20、一个挨一个隔 TAB_STEP，第一个的左上角在 (TAB_ROW_X, TAB_ROW_Y)。
+TAB_ROW_X, TAB_ROW_Y, TAB_STEP = 35, 29, 22
+# 这一排里哪个位置画的是哪一态，由作者那张模板定：第一个画成选中、第二个画成不可用、第四个画成焦点，
+# 其余是没选中。底色从这几个位置读，不在这里写色名 —— 作者在模板里换了底色，重跑就跟着换。
+TAB_STATE_SLOT = {"normal": 2, "selected": 0, "disabled": 1, "focus": 3}
+
+
+def tab_fill(person: Image.Image, slot: int) -> str:
+    """模板里第 slot 个顶层页签（从 0 数）的底色：读描边里面紧挨着的那一列，图标碰不到那里。"""
+    x = TAB_ROW_X + TAB_STEP * slot + 1
+    names = Counter(next((n for n in PAL if rgba(n) == person.getpixel((x, y))), str(person.getpixel((x, y))))
+                    for y in range(TAB_ROW_Y + 2, TAB_ROW_Y + 18))
+    name, count = names.most_common(1)[0]
+    if count < 14:
+        raise SystemExit(f"[FAIL] 模板里第 {slot + 1} 个顶层页签读不出一种底色（x={x} 那一列：{dict(names)}）"
+                         " —— 页签挪过位置的话，改 TAB_ROW_X 与 TAB_STEP")
+    return name
+
+
 def build_kit_tabs() -> None:
-    for state, fill, round_bottom in (("normal", "soil 4", True), ("selected", "soil 8", False),
-                                      ("disabled", "wood 2", True)):
-        look = "底边方的，接进面板顶边" if not round_bottom else "底下两角也切掉，像放在面板上的牌子"
-        add("kit", f"tab_{state}", tab_base(fill, round_bottom),
+    person = tpl("interface-person1.png")
+    fills = {state: tab_fill(person, slot) for state, slot in TAB_STATE_SLOT.items()}
+    if len(set(fills.values())) < len(fills):
+        raise SystemExit(f"[FAIL] 模板里顶层页签有两态底色一样，看不出是哪一态：{fills}")
+    looks = {
+        "normal": "底下两角也切掉，像放在面板上的牌子",
+        "selected": "底边方的，接进面板顶边",
+        "disabled": "底下两角也切掉，像放在面板上的牌子",
+        "focus": "焦点与鼠标悬停同一张，只换没选中的那几个；底下两角也切掉",
+    }
+    for state, look in looks.items():
+        add("kit", f"tab_{state}", tab_base(fills[state], round_bottom=state != "selected"),
             f"顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，{look}；图标放 (2,2)",
             "切（按模板重画）", size=(20, 20))
 
-    person = tpl("interface-person1.png")
     # 没选中的那几个比模板深一档：模板那档 soil 4 配浅字只到 3.7:1，换 soil 3 之后是 5.5:1
     for state, x, mapping in (("normal", 113, {"soil 4": "soil 3"}), ("selected", 139, {})):
         sub = flood_clear(crop(person, x, 62, 25, 17), {"ember 2"})
@@ -623,6 +649,10 @@ def build_kit_tabs() -> None:
         if state == "normal":
             add("kit", "tabtext_disabled", recolor(shrink9(sub, 2, 2, 2, 0, sy=8), {"soil 4": "wood 2"}),
                 "子页签：不可用", "派生", nine=(2, 2, 2, 0), size=(8, 6))
+            # 焦点那一态模板里只给顶层页签画了；子页签照它换底色，两种页签的焦点就是同一个颜色。
+            # 那一档底配浅字读不清，所以界面那一侧给它配深字（代码仓 src/UI/PixelTheme.cs）。
+            add("kit", "tabtext_focus", recolor(shrink9(sub, 2, 2, 2, 0, sy=8), {"soil 4": fills["focus"]}),
+                "子页签：焦点／悬停（底色取顶层页签焦点那一态的，字是深字）", "派生", nine=(2, 2, 2, 0), size=(8, 6))
 
     row = octagon(12, 16, 1)
     selected = paint(blank(12, 16), row, "ember 4")
@@ -950,9 +980,9 @@ def build_panel() -> None:
         add("panel", f"attr_{key}", cut_icon(stats, x, y, {"ember 3"}, f"panel/attr_{key}"),
             f"属性页：{ATTR_USE[key]}", "切", size=(16, 16))
     for k, tab_id in enumerate(TAB_IDS):
-        x0 = 35 + 22 * k
-        fill = "soil 8" if k == 0 else "soil 4"
-        icon = cut_icon(person, x0 + 2, 31, {fill}, f"tab/{tab_id}")
+        # 每个页签的底色按它在模板里画成哪一态各不相同（见 TAB_STATE_SLOT），切图标时去掉的是它自己那一种。
+        x0 = TAB_ROW_X + TAB_STEP * k
+        icon = cut_icon(person, x0 + 2, TAB_ROW_Y + 2, {tab_fill(person, k)}, f"tab/{tab_id}")
         add("tab", tab_id, icon, f"顶层页签图标：{TAB_USE[tab_id]}", "切", size=(16, 16))
         add("tab", f"{tab_id}_disabled", to_gray(icon), f"顶层页签图标：{TAB_USE[tab_id]}（不可用）",
             "派生", size=(16, 16))

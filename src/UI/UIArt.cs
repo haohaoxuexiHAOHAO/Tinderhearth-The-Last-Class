@@ -383,32 +383,42 @@ public partial class UIArt : Resource
     public Texture2D? KitPipEnhanceFull { get; set; }
 
     /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
-    /// <remarks>20×20；同一件的几态：normal、selected、disabled；来源：切（按模板重画）。</remarks>
+    /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabNormal { get; set; }
 
     /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底边方的，接进面板顶边；图标放 (2,2)</summary>
-    /// <remarks>20×20；同一件的几态：normal、selected、disabled；来源：切（按模板重画）。</remarks>
+    /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabSelected { get; set; }
 
     /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
-    /// <remarks>20×20；同一件的几态：normal、selected、disabled；来源：切（按模板重画）。</remarks>
+    /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabDisabled { get; set; }
 
+    /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，焦点与鼠标悬停同一张，只换没选中的那几个；底下两角也切掉；图标放 (2,2)</summary>
+    /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
+    [Export]
+    public Texture2D? KitTabFocus { get; set; }
+
     /// <summary>子页签（属性、状态、天赋……）；字由字体画，选中的深字、其余浅字；最下面一行接内容区顶边</summary>
-    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、selected；来源：派生。</remarks>
+    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、focus、selected；来源：派生。</remarks>
     [Export]
     public NinePiece? KitTabtextNormal { get; set; }
 
     /// <summary>子页签：不可用</summary>
-    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、selected；来源：派生。</remarks>
+    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、focus、selected；来源：派生。</remarks>
     [Export]
     public NinePiece? KitTabtextDisabled { get; set; }
 
+    /// <summary>子页签：焦点／悬停（底色取顶层页签焦点那一态的，字是深字）</summary>
+    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、focus、selected；来源：派生。</remarks>
+    [Export]
+    public NinePiece? KitTabtextFocus { get; set; }
+
     /// <summary>子页签（属性、状态、天赋……）；字由字体画，选中的深字、其余浅字；最下面一行接内容区顶边</summary>
-    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、selected；来源：切。</remarks>
+    /// <remarks>8×6；九宫格 左 2 上 2 右 2 下 0；同一件的几态：normal、disabled、focus、selected；来源：切。</remarks>
     [Export]
     public NinePiece? KitTabtextSelected { get; set; }
 
@@ -1062,8 +1072,10 @@ public partial class UIArt : Resource
         yield return ("kit", "tab_normal", KitTabNormal, null);
         yield return ("kit", "tab_selected", KitTabSelected, null);
         yield return ("kit", "tab_disabled", KitTabDisabled, null);
+        yield return ("kit", "tab_focus", KitTabFocus, null);
         yield return ("kit", "tabtext_normal", KitTabtextNormal?.Texture, KitTabtextNormal);
         yield return ("kit", "tabtext_disabled", KitTabtextDisabled?.Texture, KitTabtextDisabled);
+        yield return ("kit", "tabtext_focus", KitTabtextFocus?.Texture, KitTabtextFocus);
         yield return ("kit", "tabtext_selected", KitTabtextSelected?.Texture, KitTabtextSelected);
         yield return ("kit", "row_selected", KitRowSelected?.Texture, KitRowSelected);
         yield return ("kit", "row_focus", KitRowFocus?.Texture, KitRowFocus);

@@ -78,8 +78,10 @@
 [ext_resource type="Texture2D" uid="uid://bf7g5kcyavwo4" path="res://assets/self-drawn/ui/kit/tab_normal.png" id="kit_tab_normal"]
 [ext_resource type="Texture2D" uid="uid://b1bpkdu04xsqe" path="res://assets/self-drawn/ui/kit/tab_selected.png" id="kit_tab_selected"]
 [ext_resource type="Texture2D" uid="uid://cfvhlligte088" path="res://assets/self-drawn/ui/kit/tab_disabled.png" id="kit_tab_disabled"]
+[ext_resource type="Texture2D" uid="uid://d1jhmqn4deq02" path="res://assets/self-drawn/ui/kit/tab_focus.png" id="kit_tab_focus"]
 [ext_resource type="Texture2D" uid="uid://bqn2jymrskg6f" path="res://assets/self-drawn/ui/kit/tabtext_normal.png" id="kit_tabtext_normal"]
 [ext_resource type="Texture2D" uid="uid://cs1oys2x027gl" path="res://assets/self-drawn/ui/kit/tabtext_disabled.png" id="kit_tabtext_disabled"]
+[ext_resource type="Texture2D" uid="uid://bvbv51vy8gbrk" path="res://assets/self-drawn/ui/kit/tabtext_focus.png" id="kit_tabtext_focus"]
 [ext_resource type="Texture2D" uid="uid://day4bjo6go2q3" path="res://assets/self-drawn/ui/kit/tabtext_selected.png" id="kit_tabtext_selected"]
 [ext_resource type="Texture2D" uid="uid://ci102abru6ocx" path="res://assets/self-drawn/ui/kit/row_selected.png" id="kit_row_selected"]
 [ext_resource type="Texture2D" uid="uid://dly6ut7qh2f0i" path="res://assets/self-drawn/ui/kit/row_focus.png" id="kit_row_focus"]
@@ -339,6 +341,14 @@ Top = 2
 Right = 2
 Bottom = 0
 
+[sub_resource type="Resource" id="nine_kit_tabtext_focus"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("kit_tabtext_focus")
+Left = 2
+Top = 2
+Right = 2
+Bottom = 0
+
 [sub_resource type="Resource" id="nine_kit_tabtext_selected"]
 script = ExtResource("nine_piece")
 Texture = ExtResource("kit_tabtext_selected")
@@ -593,8 +603,10 @@ KitPipEnhanceFull = ExtResource("kit_pip_enhance_full")
 KitTabNormal = ExtResource("kit_tab_normal")
 KitTabSelected = ExtResource("kit_tab_selected")
 KitTabDisabled = ExtResource("kit_tab_disabled")
+KitTabFocus = ExtResource("kit_tab_focus")
 KitTabtextNormal = SubResource("nine_kit_tabtext_normal")
 KitTabtextDisabled = SubResource("nine_kit_tabtext_disabled")
+KitTabtextFocus = SubResource("nine_kit_tabtext_focus")
 KitTabtextSelected = SubResource("nine_kit_tabtext_selected")
 KitRowSelected = SubResource("nine_kit_row_selected")
 KitRowFocus = SubResource("nine_kit_row_focus")
