@@ -606,7 +606,7 @@ public class HudTests
         // （[像素绘制原则 §9] 的绝对规则）。类型里没有那个字段，就没人能顺手加。
         Assert.DoesNotContain(typeof(PixelColor).GetProperties(),
                               p => p.Name is "A" or "Alpha");
-        Assert.Equal("#9E3A32", HudPalette.Health.ToString());
+        Assert.Equal("#9E3A32", PixelColor.FromHex(0x9E3A32).ToString());
     }
 
     // ── 像素字体的期望取值 ──────────────────────────────────────────

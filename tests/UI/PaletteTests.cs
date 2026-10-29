@@ -46,6 +46,18 @@ public class PaletteTests
     }
 
     [Fact]
+    public void 代码设的界面色每一个都带着色板里的项名()
+    {
+        // 不带项名的颜色上面那几条判不到：它不在色板里也不会红。代码设的颜色只在 HudPalette 一处，那里只许有按名字取的那种。
+        const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+        var bare = typeof(HudPalette).GetProperties(all).Where(p => p.PropertyType == typeof(PixelColor)).Select(p => p.Name)
+            .Concat(typeof(HudPalette).GetFields(all).Where(f => f.FieldType == typeof(PixelColor)).Select(f => f.Name))
+            .ToList();
+
+        Assert.Empty(bare);
+    }
+
+    [Fact]
     public void 反射找得到按名字取的那几档()
     {
         // 反射一项都没找到时，第一条会空跑通过 —— 不报错的空跑比没有这条检查更坏。

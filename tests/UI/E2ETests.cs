@@ -1,3 +1,4 @@
+using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.UI;
 using Xunit;
 
@@ -319,8 +320,8 @@ public class E2ETests
     {
         // 两套量用同一套基础单位。这条把「引擎层不写数字字面量」的前提钉住
         Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingHeight);
-        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidth);
-        Assert.Equal(UIMetrics.PanelPadding, WorldUILayout.EliteBarHeight);
+        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidthOf(BodyTier.Human));
+        Assert.Equal(HudLayout.GaugeBarHeight, WorldUILayout.EliteBarHeight);
         Assert.Equal(UIMetrics.BaseUnit, WorldUILayout.DamageFloatDistancePx);
     }
 

@@ -169,7 +169,7 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 | --- | --- | --- |
 | 排版量（块尺寸、按场合贴哪个角、占屏比例、可读区） | `rules/UI/HudLayout.cs` | 它们之间有**可以判死的关系**（块高是行高的整数倍；关卡那一套的块不许越过纵向账留给 HUD 的顶上那一段，基地那一套的块不许压跟随死区那块可读区；各块不许两两重叠），放规则层就有单元测试盯着 |
 | 显示的量（HP／技能冷却／目标进度／队友血量） | 调用方传进来的 `rules/UI/HudViewModel.cs` | 玩法数值归 `design/数值模型.md`，`UI-1` 不读也不搬 |
-| 代码设的颜色 | `rules/UI/HudPalette.cs` | 只在这一处。按名字取色板的那几档带着 `assets/self-drawn/palette.gpl` 里的项名，值抄在代码里（色板不进发行包），由 `tests/UI/PaletteTests.cs` 逐项对；其余是占位色，随画的界面件删。颜色类型**没有 alpha 字段** —— 半透明遮罩画上去就是屏幕上的插值像素 |
+| 代码设的颜色 | `rules/UI/HudPalette.cs` | 只在这一处，而且每一档都带着 `assets/self-drawn/palette.gpl` 里的项名：值抄在代码里（色板不进发行包），由 `tests/UI/PaletteTests.cs` 逐项对，另有一条判这里没有不带项名的颜色。颜色类型**没有 alpha 字段** —— 半透明遮罩画上去就是屏幕上的插值像素 |
 | 字体的期望渲染参数 | `rules/UI/PixelFont.cs` | 设置在 `.ttf.import`、期望在这里、实际值由引擎报，三处独立才互为量具 |
 | 节点、锚点、素材加载 | `src/UI/LevelHud.cs`、`src/UI/BaseHud.cs`，贴角与框共用 `src/UI/HudPlace.cs`，资源条共用 `src/UI/GaugeBar.cs` | 碰引擎的那一半 |
 | 演示数据 | `src/World/HudDemoModel.cs` | 与脚手架同性质。**唯一有数字的地方必须在界面之外**，那个分工正是「界面里没有写死的数」扫得干净的前提 |

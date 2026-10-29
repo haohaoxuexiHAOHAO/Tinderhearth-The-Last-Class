@@ -43,10 +43,9 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// 代码里设的颜色，只在这一处。
 /// </summary>
 /// <remarks>
-/// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
-/// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
-/// 一档：精英血条的槽与填充随它换成资源条那一套（设计仓台账 <c>UI-43</c>）。HUD 上的资源条、倒地记号与
-/// 格子角上的迷你字都是作者画的、不染色，所以这里没有它们的颜色。
+/// 每一个都是 <see cref="PaletteEntry"/>：按名字取色板里的一项，取哪一档、为什么，记在色板被借那一条的
+/// 「借给界面」里；有测试判这里没有不带项名的颜色。资源条（HUD 那几根与精英血条）、倒地记号与格子角上的
+/// 迷你字都是作者画的、不染色，所以这里没有它们的颜色。
 ///
 /// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
 /// 那次判断大体还成立；换色之后照样要实机重看一遍（设计仓台账 <c>UI-48</c>）。
@@ -73,9 +72,6 @@ public static class HudPalette
     /// <summary>没选中的子页签上的字（底是 <c>soil 3</c>）。色板 <c>soil 8</c>。</summary>
     public static PaletteEntry SubTabInk { get; } = new("soil 8", PixelColor.FromHex(0xDCC68F));
 
-    /// <summary>精英血条的底槽。占位色。</summary>
-    public static PixelColor Track => PixelColor.FromHex(0x14100E);
-
     /// <summary>
     /// 资源条槽里放填充的那一片的颜色。色板 <c>ember 3</c>。它不拿来画：代码按它认出那一片，把出界的填充裁掉。
     /// </summary>
@@ -92,7 +88,4 @@ public static class HudPalette
     /// 插值像素。遮住也更好认 —— 玩家看的是「还剩多少没退下去」那一块。
     /// </remarks>
     public static PaletteEntry Cooldown { get; } = new("outline 2", PixelColor.FromHex(0x110F1C));
-
-    /// <summary>精英血条的填充。暗红。占位色。</summary>
-    public static PixelColor Health => PixelColor.FromHex(0x9E3A32);
 }

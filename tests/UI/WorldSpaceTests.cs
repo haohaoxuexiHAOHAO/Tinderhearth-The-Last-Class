@@ -1,10 +1,11 @@
+using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.UI;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
 /// <summary>
-/// 画在角色身上那一层界面：几何关系，以及读条、精英血条、伤害数字这三个视图模型的约定。
+/// 画在角色身上那一层界面：几何关系、目标报的头顶与体型档，以及读条、精英血条、伤害数字这三个视图模型的约定。
 /// </summary>
 /// <remarks>写法与 <c>HudTests</c> 一致：测量之间的关系、拿坏值反证、核对边界钳制。</remarks>
 public class WorldSpaceTests
@@ -29,42 +30,107 @@ public class WorldSpaceTests
     }
 
     [Fact]
-    public void 精英血条宽对齐剪影而高为内边距量级()
+    public void 精英血条与HUD资源条一样高()
     {
-        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidth);
-        Assert.Equal(UIMetrics.PanelPadding, WorldUILayout.EliteBarHeight);
+        // 一样高才共用得了那一套槽与填充：画好的槽就是这么高（UIArtTests 里按排版单位核尺寸那一条）。
+        Assert.Equal(HudLayout.GaugeBarHeight, WorldUILayout.EliteBarHeight);
     }
 
     [Fact]
-    public void 精英血条浮在剪影头顶以上()
+    public void 精英血条宽按体型档给小与人形一档大体型一档()
     {
-        Assert.True(WorldUILayout.EliteBarOffsetY < 0, "向上为负：血条要在剪影上方");
-        Assert.True(WorldUILayout.EliteBarOffsetY <= -(UIMetrics.IconLarge / 2), "血条要完全在头顶以上、不压脸");
+        // 人形对齐剪影宽的上限；大体型与 HUD 资源条一样长，一下掉多少比得出来。
+        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidthOf(BodyTier.Small));
+        Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidthOf(BodyTier.Human));
+        Assert.Equal(HudLayout.GaugeBarWidth, WorldUILayout.EliteBarWidthOf(BodyTier.Large));
+    }
+
+    [Fact]
+    public void 体型档没报就给不出血条宽()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorldUILayout.EliteBarWidthOf(BodyTier.Unset));
+    }
+
+    [Fact]
+    public void 精英血条横着居中在脚底上不落半格()
+    {
+        // 宽是奇数时挪半根就挪到半个像素上，画面发虚。
+        foreach (var tier in Enum.GetValues<BodyTier>().Where(t => t != BodyTier.Unset))
+        {
+            Assert.Equal(-WorldUILayout.EliteBarWidthOf(tier), WorldUILayout.EliteBarLeftX(tier) * 2);
+        }
+    }
+
+    [Theory]
+    [InlineData(28)]
+    [InlineData(48)]
+    [InlineData(80)]
+    public void 精英血条整根浮在目标报的头顶以上(int head)
+    {
+        // 向上为负。条的底边离头顶空一个组内间距，所以不压住脸。
+        var anchor = WorldUIAnchor.Of("精英", head, BodyTier.Large);
+        var bottom = WorldUILayout.EliteBarTopY(anchor) + WorldUILayout.EliteBarHeight;
+        Assert.Equal(-(head + UIMetrics.ItemGap), bottom);
+    }
+
+    [Fact]
+    public void 血条与伤害数字的高度跟着目标报的头顶走()
+    {
+        // 两个只差身高的目标，偏移正好差那么多：偏移是从报的高度算出来的，不是一个写死的半身高。
+        var human = WorldUIAnchor.Of("人形精英", 48, BodyTier.Human);
+        var large = WorldUIAnchor.Of("大体型精英", 80, BodyTier.Large);
+
+        Assert.Equal(80 - 48, WorldUILayout.EliteBarTopY(human) - WorldUILayout.EliteBarTopY(large));
+        Assert.Equal(80 - 48, WorldUILayout.DamageStartOffsetY(human) - WorldUILayout.DamageStartOffsetY(large));
     }
 
     [Fact]
     public void 伤害数字从头顶起向上飘一个基础单位()
     {
-        Assert.Equal(-(UIMetrics.IconLarge / 2), WorldUILayout.DamageStartOffsetY);
+        var anchor = WorldUIAnchor.Of("精英", 48, BodyTier.Human);
+        Assert.Equal(-48, WorldUILayout.DamageStartOffsetY(anchor));
         Assert.Equal(UIMetrics.BaseUnit, WorldUILayout.DamageFloatDistancePx);
     }
 
     [Theory]
-    [InlineData(0.0)]
-    [InlineData(1.0)]
-    public void 伤害数字飘升在两端对齐起点与终点(double life)
+    [InlineData(0.0, 0.0)]
+    [InlineData(1.0, 1.0)]
+    [InlineData(-0.5, 0.0)]
+    [InlineData(1.5, 1.0)]
+    public void 伤害数字飘升两端对齐起点与终点而越界被钳(double life, double clampedLife)
     {
-        double expected = WorldUILayout.DamageStartOffsetY - WorldUILayout.DamageFloatDistancePx * life;
-        Assert.Equal(expected, WorldUILayout.DamageRiseAt(life), 3);
+        var anchor = WorldUIAnchor.Of("精英", 48, BodyTier.Human);
+        double expected = WorldUILayout.DamageStartOffsetY(anchor) - WorldUILayout.DamageFloatDistancePx * clampedLife;
+        Assert.Equal(expected, WorldUILayout.DamageRiseAt(life, anchor), 3);
+    }
+
+    // ── 目标报的那两样 ────────────────────────────────────────────────
+    [Fact]
+    public void 报全了就造得出()
+    {
+        var anchor = WorldUIAnchor.Of("精英", 64, BodyTier.Large);
+        Assert.Equal(64, anchor.HeadHeightWorldPx);
+        Assert.Equal(BodyTier.Large, anchor.Tier);
     }
 
     [Theory]
-    [InlineData(-0.5, 0.0)]
-    [InlineData(1.5, 1.0)]
-    public void 伤害数字飘升比例越界被钳(double life, double clampedLife)
+    [InlineData(0, BodyTier.Human, "头顶高度")]
+    [InlineData(-3, BodyTier.Human, "头顶高度")]
+    [InlineData(48, BodyTier.Unset, "体型档")]
+    [InlineData(48, (BodyTier)99, "体型档")]
+    public void 目标缺哪一项就点名是谁缺了哪一项(int head, BodyTier tier, string missing)
     {
-        double expected = WorldUILayout.DamageStartOffsetY - WorldUILayout.DamageFloatDistancePx * clampedLife;
-        Assert.Equal(expected, WorldUILayout.DamageRiseAt(life), 3);
+        var error = Assert.Throws<ArgumentException>(() => WorldUIAnchor.Of("精英甲", head, tier));
+        Assert.Contains("「精英甲」", error.Message);
+        Assert.Contains(missing, error.Message);
+    }
+
+    [Fact]
+    public void 两项都没报就一次说全()
+    {
+        var error = Assert.Throws<ArgumentException>(() => WorldUIAnchor.Of("精英甲", 0, BodyTier.Unset));
+        Assert.Contains("头顶高度", error.Message);
+        Assert.Contains("体型档", error.Message);
     }
 
     // ── 读条状态 ──────────────────────────────────────────────────────

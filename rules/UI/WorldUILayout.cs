@@ -1,3 +1,5 @@
+using Tinderhearth.Rules.Foundation.Actors;
+
 namespace Tinderhearth.Rules.UI;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace Tinderhearth.Rules.UI;
 /// </summary>
 /// <remarks>
 /// 与 <see cref="HudLayout"/>、<see cref="UIMetrics"/> 同理放在规则层：这些数之间的关系能用单元
-/// 测试盯住（圆环与画好的那张一样大、居中不落半格，血条宽对齐剪影），引擎层于是一个数字字面量都不用写。
+/// 测试盯住（圆环与画好的那张一样大、居中不落半格，血条按目标报的头顶摆、宽按体型档给），引擎层于是一个数字字面量都不用写。
 ///
 /// 这里全是排版与表现量，不是玩法数值 —— 线宽、飘字距离、飘字时长与 <see cref="CameraFeel"/>
 /// 的震动幅度同类，所以也不外置成配置文件，mod 不该改表现。
@@ -32,23 +34,35 @@ public static class WorldUILayout
     /// <summary>一格地边长 <paramref name="tileSide"/> 时，当前操作格那两张该多大：两边各大出 <see cref="CellCursorOutset"/>。</summary>
     public static int CellCursorSide(int tileSide) => tileSide + (CellCursorOutset * 2);
 
-    // ── 精英 / BOSS 血条（贴在剪影头顶上方）──────────────────────────
-    /// <summary>血条宽。对齐剪影宽度，一眼看出是这个敌人的血。</summary>
-    public const int EliteBarWidth = UIMetrics.IconLarge;
+    // ── 精英 / BOSS 血条（浮在目标报的头顶上方）────────────────────────
+    /// <summary>血条高：与 HUD 资源条同一个数，两处共用一套槽与填充（<c>hud/bar_track</c> 那一套）。</summary>
+    public const int EliteBarHeight = HudLayout.GaugeBarHeight;
 
-    /// <summary>血条高。取面板内边距那一档，与屏幕空间的资源条看起来一样粗。</summary>
-    public const int EliteBarHeight = UIMetrics.PanelPadding;
+    /// <summary>血条宽，按目标的体型档给：小与人形一档，大体型一档。</summary>
+    /// <remarks>
+    /// 人形取剪影宽的上限（设计仓 canon/gameplay/玩法定位.md 的「像素基准」：侧视本体宽不超过 32）。大体型取 HUD 资源条
+    /// 那么长：剪影宽出一截，条也长一档，而且与玩家自己那几根一样长时，一下掉了多少比得出来。小的不另窄一档：再窄，
+    /// 一像素就代表太多血，看不出掉了多少。
+    /// </remarks>
+    public static int EliteBarWidthOf(BodyTier tier) => tier switch
+    {
+        BodyTier.Small or BodyTier.Human => UIMetrics.IconLarge,
+        BodyTier.Large => HudLayout.GaugeBarWidth,
+        _ => throw new ArgumentOutOfRangeException(nameof(tier), tier, "体型档没报，血条给不出宽"),
+    };
+
+    /// <summary>血条左边相对目标脚底的横向偏移：横着居中在脚底上。两档宽都是偶数，挪半根仍在整像素上（有测试判）。</summary>
+    public static int EliteBarLeftX(BodyTier tier) => -(EliteBarWidthOf(tier) / 2);
 
     /// <summary>
-    /// 血条相对剪影中心的纵向偏移，向上为负：半个剪影加一格间距加血条本身，
-    /// 让它浮在头顶、不压住剪影上要看清的那部分。
+    /// 血条顶边相对目标脚底的纵向偏移，向上为负：头顶往上空一个组内间距，再往上一根条高，整根浮在头顶以上。
     /// </summary>
-    public static int EliteBarOffsetY =>
-        -(UIMetrics.IconLarge / 2 + UIMetrics.ItemGap + EliteBarHeight);
+    public static int EliteBarTopY(WorldUIAnchor anchor) =>
+        -(anchor.HeadHeightWorldPx + UIMetrics.ItemGap + EliteBarHeight);
 
     // ── 伤害数字（从头顶冒出、向上飘一段后消失）────────────────────────
-    /// <summary>伤害数字起始的纵向偏移，向上为负：正好在头顶。</summary>
-    public static int DamageStartOffsetY => -(UIMetrics.IconLarge / 2);
+    /// <summary>伤害数字起始的纵向偏移，向上为负：正好在目标报的头顶。</summary>
+    public static int DamageStartOffsetY(WorldUIAnchor anchor) => -anchor.HeadHeightWorldPx;
 
     /// <summary>飘升距离，一个基础单位。</summary>
     public const int DamageFloatDistancePx = UIMetrics.BaseUnit;
@@ -61,9 +75,9 @@ public static class WorldUILayout
     public const double DamageLifetimeSeconds = 0.6;
 
     /// <summary>
-    /// 飘字在生命周期某一刻的纵向偏移。<paramref name="lifeFraction"/> 是 0 到 1 的已过比例；
+    /// 飘字在生命周期某一刻相对目标脚底的纵向偏移。<paramref name="lifeFraction"/> 是 0 到 1 的已过比例；
     /// 从 <see cref="DamageStartOffsetY"/> 线性上升 <see cref="DamageFloatDistancePx"/>。
     /// </summary>
-    public static double DamageRiseAt(double lifeFraction) =>
-        DamageStartOffsetY - DamageFloatDistancePx * System.Math.Clamp(lifeFraction, 0.0, 1.0);
+    public static double DamageRiseAt(double lifeFraction, WorldUIAnchor anchor) =>
+        DamageStartOffsetY(anchor) - DamageFloatDistancePx * System.Math.Clamp(lifeFraction, 0.0, 1.0);
 }

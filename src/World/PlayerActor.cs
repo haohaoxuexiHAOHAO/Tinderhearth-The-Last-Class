@@ -1,12 +1,13 @@
 using Godot;
 using Tinderhearth.Rules.Combat;
 using Tinderhearth.Rules.Foundation.Actors;
+using Tinderhearth.UI;
 
 namespace Tinderhearth.World;
 
 /// <summary>主角节点。横向与跳跃的位置归物理引擎，动作、速度与纵深归规则层。</summary>
 /// <remarks>训练房里那两个受击沙包也是这个类，只是换成一个不操作的控制器。</remarks>
-public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
+public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable, IWorldUITarget
 {
     // ── 精灵表几何 ───────────────────────────────────────────
     // 下面三个数是从素材原件量出来的帧框：帧宽、帧高、帧内的地面行。载入时会按纹理实际尺寸核一遍
@@ -178,6 +179,21 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable
 
     /// <inheritdoc />
     public DepthSubject DepthSubject => Visual.Subject;
+
+    /// <inheritdoc />
+    /// <remarks>纵深可视根：精灵挂在它下面、按纵深挪过，所以世界那一层跟它走，不跟本体走。</remarks>
+    public Node2D WorldUIFeet => Visual;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 取站立姿实测的身体高（<see cref="BodyHeightWorldPx"/>），与碰撞框、受击框是同一个数。换成作者在场景里放的
+    /// 锚点节点归设计仓台账 GP-14。
+    /// </remarks>
+    public int HeadHeightWorldPx => BodyHeightWorldPx;
+
+    /// <inheritdoc />
+    /// <remarks>主角与训练房那两个沙包都是人形，走体型表里「人」那一档。</remarks>
+    public BodyTier BodyTier => BodyTier.Human;
 
     /// <summary>哪些动作因为缺图退回了几何占位。空的就表示每个动作都有真图。</summary>
     public IReadOnlyList<string> MissingSheets => _missing;

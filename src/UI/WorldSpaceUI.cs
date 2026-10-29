@@ -9,27 +9,30 @@ namespace Tinderhearth.UI;
 /// <remarks>
 /// 挂载点必须是 <see cref="UILayer.WorldSpace"/>，不能改成 <see cref="UILayer.Hud"/>。那一层开了
 /// <c>FollowViewportEnabled</c>（见 <see cref="UIRoot"/>），所以它的子节点用世界坐标、自动跟着
-/// 相机变换与缩放走，元素只要把 <see cref="Node2D.Position"/> 设成目标的
-/// <see cref="Node2D.GlobalPosition"/> 就对齐了。换成 Hud 层不报错，表现是读条跑到界面角落去。
+/// 相机变换与缩放走，元素只要跟着目标报的那个脚底节点走就对齐了。换成 Hud 层不报错，表现是读条跑到界面角落去。
 ///
-/// 尺寸与偏移全取自 <see cref="WorldUILayout"/>，显示的值取自视图模型（<see cref="CastState"/>
-/// 这些）。这里不写玩法数字，读条时长与血量上限归各自的玩法实现。
+/// 往谁身上挂由目标自己报（<see cref="IWorldUITarget"/>）：血条与伤害数字按它报的头顶摆、血条宽按体型档给，尺寸与偏移
+/// 全取自 <see cref="WorldUILayout"/>；读条圆环不跟身高走。显示的值取自视图模型（<see cref="CastState"/> 这些），这里不写玩法数字。
 ///
-/// 颜色一律不透明（<see cref="PixelTheme.ToColor"/> 的 alpha 恒满），伤害数字到期直接消失、
-/// 不做半透明淡出 —— 见设计仓 production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
+/// 精英血条与 HUD 的资源条是同一个 <see cref="GaugeBar"/>，伤害数字到期直接消失、不做半透明淡出 —— 见设计仓
+/// production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
 /// </remarks>
 public sealed partial class WorldSpaceUI : Node
 {
     private readonly CanvasLayer _layer;
+    private readonly UIArt _art;
+    private readonly GaugeMotionSettings _motion;
     private readonly CastRing _ring;
     private readonly List<WorldHealthBar> _bars = [];
     private readonly List<DamageNumber> _damage = [];
     private WorldUIOptions _options = WorldUIOptions.Default;
 
-    /// <summary>装好世界空间那一层的元素。读条圆环的两张图从素材资源取。</summary>
-    public WorldSpaceUI(UIRoot ui, UIArt art)
+    /// <summary>装好世界空间那一层的元素。读条圆环与血条的图从素材资源取，血条怎么追、留一截由调用方给。</summary>
+    public WorldSpaceUI(UIRoot ui, UIArt art, GaugeMotionSettings motion)
     {
         _layer = ui.LayerOf(UILayer.WorldSpace);        // 世界空间层，不能换成 Hud 层
+        _art = art;
+        _motion = motion;
         _ring = new CastRing(art);
         _layer.AddChild(_ring);
     }
@@ -61,18 +64,20 @@ public sealed partial class WorldSpaceUI : Node
         }
     }
 
-    /// <summary>读条圆环跟谁走（执行者）。</summary>
-    public void TrackCast(Node2D target) => _ring.Track(target);
+    /// <summary>读条圆环跟谁走（执行者）：贴在它画出来的脚底上，不跟身高走。</summary>
+    public void TrackCast(IWorldUITarget target) => _ring.Track(FeetOf(target));
 
     /// <summary>更新读条状态。被打断时圆环就隐藏，玩家看得出读条断了。</summary>
     public void SetCast(CastState state) => _ring.Set(state);
 
-    /// <summary>给一个敌人挂血条。杂兵挂了也不显示，这条由 <see cref="EliteHealth.ShowsBar"/> 判。</summary>
-    public WorldHealthBar AttachBar(Node2D target, EliteHealth health)
+    /// <summary>
+    /// 给一个敌人挂血条。杂兵挂了也不显示，这条由 <see cref="EliteHealth.ShowsBar"/> 判；目标没报头顶高度或体型档当场抛。
+    /// </summary>
+    public WorldHealthBar AttachBar(IWorldUITarget target, EliteHealth health)
     {
-        var bar = new WorldHealthBar();
+        var bar = new WorldHealthBar(_art, _motion, AnchorOf(target));
         _layer.AddChild(bar);
-        bar.Track(target);
+        bar.Track(FeetOf(target));
         bar.Set(health);
         _bars.Add(bar);
         return bar;
@@ -118,9 +123,11 @@ public sealed partial class WorldSpaceUI : Node
     /// <summary>设显示开关。伤害数字默认关着，默认值见 <see cref="WorldUIOptions"/>。</summary>
     public void SetOptions(WorldUIOptions options) => _options = options;
 
-    /// <summary>在目标头顶冒一个伤害数字。开关关着时什么都不做。</summary>
-    public void PopDamage(Node2D target, int amount)
+    /// <summary>在目标头顶冒一个伤害数字。开关关着时什么都不冒，但目标没报头顶高度或体型档照样当场抛。</summary>
+    public void PopDamage(IWorldUITarget target, int amount)
     {
+        // 先核再看开关：伤害数字默认关着，先看开关的话，没报的目标要等玩家打开那一项才露出来。
+        var anchor = AnchorOf(target);
         if (!_options.ShowDamageNumbers)
         {
             return;
@@ -130,11 +137,21 @@ public sealed partial class WorldSpaceUI : Node
         // 所以每次冒新数字前先清掉已经消失的，否则一场战斗下来这张表会越来越长。
         _damage.RemoveAll(n => !GodotObject.IsInstanceValid(n));
 
-        var num = new DamageNumber(amount, target.GlobalPosition);
+        var num = new DamageNumber(amount, FeetOf(target).GlobalPosition, anchor);
         _layer.AddChild(num);
         _damage.Add(num);
     }
 
+    /// <summary>目标报的头顶高度与体型档，核过的；缺哪一项都抛，并说清是哪个目标。</summary>
+    private static WorldUIAnchor AnchorOf(IWorldUITarget target) =>
+        WorldUIAnchor.Of(NameOf(target), target.HeadHeightWorldPx, target.BodyTier);
+
+    /// <summary>目标报的那个脚底节点。还没建出来（目标没就绪）就抛，不跟着一个空节点走。</summary>
+    private static Node2D FeetOf(IWorldUITarget target) =>
+        target.WorldUIFeet ?? throw new InvalidOperationException(
+            $"目标「{NameOf(target)}」画出来的脚底那个节点还没有 —— 等它就绪之后再往它身上挂东西");
+
+    private static string NameOf(IWorldUITarget target) => target is Node node ? node.Name : target.GetType().Name;
 }
 
 /// <summary>
@@ -191,50 +208,46 @@ public sealed partial class CastRing : Node2D
     public double Progress => _state.ClampedProgress;
 }
 
-/// <summary>精英与 BOSS 的血条：贴在目标头顶上方，跟着目标走。杂兵不显示。</summary>
+/// <summary>精英与 BOSS 的血条：浮在目标头顶上方，跟着目标画出来的脚底走。杂兵不显示。</summary>
+/// <remarks>
+/// 条就是 HUD 那一根 <see cref="GaugeBar"/>：同一套槽与生命那张填充，回复时追、扣减时留一截。宽按目标的体型档给、
+/// 顶边按它报的头顶摆，横着居中在脚底上（<see cref="WorldUILayout"/>）。
+/// </remarks>
 public sealed partial class WorldHealthBar : Node2D
 {
-    private readonly Color _track = PixelTheme.ToColor(HudPalette.Track);
-    private readonly Color _fill = PixelTheme.ToColor(HudPalette.Health);
-    private Node2D? _target;
+    private readonly GaugeBar _bar;
+    private Node2D? _feet;
     private EliteHealth _health = new(0, 1, EnemyRank.Trash);   // 先当杂兵，于是默认不显示
 
-    public WorldHealthBar()
+    /// <summary>装一根血条。槽与填充从素材资源取，缺了当场报错；宽与高度照目标报的那两样。</summary>
+    public WorldHealthBar(UIArt art, GaugeMotionSettings motion, WorldUIAnchor anchor)
     {
         Name = "WorldHealthBar";
         Visible = false;
+        _bar = new GaugeBar(art, art.HudBarFillHp, "hud/bar_fill_hp", WorldUILayout.EliteBarWidthOf(anchor.Tier), motion)
+        {
+            Position = new Vector2(WorldUILayout.EliteBarLeftX(anchor.Tier), WorldUILayout.EliteBarTopY(anchor)),
+        };
+        AddChild(_bar);
     }
 
-    public void Track(Node2D target) => _target = target;
+    /// <summary>跟着哪个节点走：目标报的那个脚底。</summary>
+    public void Track(Node2D feet) => _feet = feet;
 
+    /// <summary>换一份血量。第一次直接画到那么长，之后回复时追、扣减时留一截（<see cref="GaugeBar.Set"/>）。</summary>
     public void Set(EliteHealth health)
     {
         _health = health;
         Visible = health.ShowsBar;      // 只有精英与 BOSS 显示
-        QueueRedraw();
+        _bar.Set(health.Ratio);
     }
 
     public override void _Process(double delta)
     {
-        if (_target is not null)
+        if (_feet is not null)
         {
-            Position = _target.GlobalPosition;
+            Position = _feet.GlobalPosition;
         }
-    }
-
-    public override void _Draw()
-    {
-        if (!_health.ShowsBar)
-        {
-            return;
-        }
-
-        var w = WorldUILayout.EliteBarWidth;
-        var h = WorldUILayout.EliteBarHeight;
-        var origin = new Vector2(-w / 2f, WorldUILayout.EliteBarOffsetY);   // 以目标为中心，往上挪
-        DrawRect(new Rect2(origin, new Vector2(w, h)), _track);
-        var fill = (int)Mathf.Round(_health.Ratio * w);
-        DrawRect(new Rect2(origin, new Vector2(fill, h)), _fill);
     }
 
     /// <summary>这根条现在显不显示。</summary>
@@ -244,20 +257,23 @@ public sealed partial class WorldHealthBar : Node2D
     public double Ratio => _health.Ratio;
 }
 
-/// <summary>伤害数字：从目标头顶冒出，向上飘 <see cref="WorldUILayout.DamageFloatDistancePx"/> 后消失。</summary>
+/// <summary>伤害数字：从目标报的头顶冒出，向上飘 <see cref="WorldUILayout.DamageFloatDistancePx"/> 后消失。</summary>
 public sealed partial class DamageNumber : Node2D
 {
     private readonly Color _color = PixelTheme.ToColor(HudPalette.Hot);
     private readonly int _amount;
     private readonly Vector2 _base;
+    private readonly WorldUIAnchor _anchor;
     private double _elapsed;
 
-    public DamageNumber(int amount, Vector2 spawnWorldPos)
+    /// <summary>在 <paramref name="spawnFeet"/>（目标画出来的脚底，世界坐标）上方冒一个；冒出来之后不再跟着目标走。</summary>
+    public DamageNumber(int amount, Vector2 spawnFeet, WorldUIAnchor anchor)
     {
         Name = "DamageNumber";
         _amount = amount;
-        _base = spawnWorldPos;
-        Position = spawnWorldPos + new Vector2(0, WorldUILayout.DamageStartOffsetY);
+        _base = spawnFeet;
+        _anchor = anchor;
+        Position = spawnFeet + new Vector2(0, WorldUILayout.DamageStartOffsetY(anchor));
     }
 
     public override void _Process(double delta)
@@ -270,13 +286,13 @@ public sealed partial class DamageNumber : Node2D
             return;
         }
 
-        Position = _base + new Vector2(0, (float)WorldUILayout.DamageRiseAt(life));
+        Position = _base + new Vector2(0, (float)WorldUILayout.DamageRiseAt(life, _anchor));
     }
 
     public override void _Draw()
     {
-        var w = WorldUILayout.EliteBarWidth;    // 借血条的宽度当文本框宽，数字在里面居中
-        DrawString(ThemeDB.FallbackFont, new Vector2(-w / 2f, 0), _amount.ToString(),
-            HorizontalAlignment.Center, w, UIMetrics.FontSize, _color);
+        // 借这个目标那根血条的宽当文本框宽，数字在里面居中。
+        DrawString(ThemeDB.FallbackFont, new Vector2(WorldUILayout.EliteBarLeftX(_anchor.Tier), 0), _amount.ToString(),
+            HorizontalAlignment.Center, WorldUILayout.EliteBarWidthOf(_anchor.Tier), UIMetrics.FontSize, _color);
     }
 }
