@@ -5,8 +5,7 @@ namespace Tinderhearth.Rules.UI;
 /// </summary>
 /// <remarks>
 /// 与 <see cref="HudLayout"/>、<see cref="UIMetrics"/> 同理放在规则层：这些数之间的关系能用单元
-/// 测试盯住（圆环直径等于占位件、血条宽对齐剪影、进度弧半径落在墨环内侧），引擎层于是一个数字
-/// 字面量都不用写。
+/// 测试盯住（圆环与画好的那张一样大、居中不落半格，血条宽对齐剪影），引擎层于是一个数字字面量都不用写。
 ///
 /// 这里全是排版与表现量，不是玩法数值 —— 线宽、飘字距离、飘字时长与 <see cref="CameraFeel"/>
 /// 的震动幅度同类，所以也不外置成配置文件，mod 不该改表现。
@@ -17,20 +16,11 @@ namespace Tinderhearth.Rules.UI;
 public static class WorldUILayout
 {
     // ── 读条圆环（画在执行者身上，居中）──────────────────────────────
-    /// <summary>圆环直径。与占位件 <c>assets/placeholder/ui/cast-ring.png</c> 同尺寸，换图不必改代码。</summary>
-    public const int RingDiameter = UIMetrics.IconSmall;
+    /// <summary>读条圆环的宽。照画好的那张 <c>world/ring_cast</c>，有测试拿素材清单对它。</summary>
+    public const int RingWidth = 14;
 
-    /// <summary>圆环半径。</summary>
-    public static int RingRadius => RingDiameter / 2;
-
-    /// <summary>进度弧线宽。取 2：这个尺寸下 1px 的弧看不出是一圈进度。</summary>
-    public const int ArcWidthPx = 2;
-
-    /// <summary>进度弧半径。落在墨环内侧一格，压着底环画而不超出圆外。</summary>
-    public static int ArcRadius => RingRadius - 1;
-
-    /// <summary>进度弧的分段数。够让一整圈看起来是圆的，不必更多。</summary>
-    public const int ArcSegments = 24;
+    /// <summary>读条圆环的高：小图标那一档。照画好的那张 <c>world/ring_cast</c>，有测试拿素材清单对它。</summary>
+    public const int RingHeight = UIMetrics.IconSmall;
 
     // ── 精英 / BOSS 血条（贴在剪影头顶上方）──────────────────────────
     /// <summary>血条宽。对齐剪影宽度，一眼看出是这个敌人的血。</summary>

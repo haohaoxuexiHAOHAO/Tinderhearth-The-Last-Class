@@ -3,7 +3,10 @@ using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
-/// <summary>把一块 HUD 照规则层的放置（<see cref="HudLayout.PlacementOf"/>）贴到屏幕上。关卡、基地与随身栏共用这一处。</summary>
+/// <summary>
+/// HUD 几块共用的那几样：照规则层的放置（<see cref="HudLayout.PlacementOf"/>）贴角、造画好的框、摆画好的件。
+/// 关卡、基地与随身栏共用这一处。
+/// </summary>
 internal static class HudPlace
 {
     /// <summary>
@@ -36,28 +39,18 @@ internal static class HudPlace
     }
 
     /// <summary>
-    /// 造一块的面板底：描边加框边，外框尺寸取 <see cref="HudLayout.SizeOf"/>。
+    /// 造一块的底：作者画的框，外框尺寸取 <see cref="HudLayout.SizeOf"/>。
     /// </summary>
     /// <remarks>
-    /// 还是代码画的纯色框，换成作者画的细框与那条栏跟着设计仓台账 <c>UI-44</c> 的接线走。抗锯齿必须关掉
-    /// —— 抗锯齿会造出半透明边，见设计仓 production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
-    /// 框边按 <see cref="HudLayout.InsetOf"/> 给，那条横排格子的框边是画好的栏的两头与上下，不是面板内边距。
+    /// 那条横排格子坐在画好的那条栏上（<c>hud/actionbar_frame</c>，两头不拉伸、中间那几列横着拉开），其余几块坐在
+    /// HUD 的细框上（<c>kit/frame_thin_dark</c>）。框的贴图边距读素材资源那一格，作者重画边框时在检查器里改；
+    /// 字与格子离框多远是框边，按 <see cref="HudLayout.InsetOf"/> 给 —— 两样分开，改边框粗细不会顺带挪动里面的东西。
     /// </remarks>
-    public static PanelContainer Frame(HudBlock block, UIContext context)
+    public static PanelContainer Frame(HudBlock block, UIContext context, UIArt art)
     {
         var size = HudLayout.SizeOf(block, context);
         var (insetX, insetY) = HudLayout.InsetOf(block);
-        var style = new StyleBoxFlat
-        {
-            BgColor = PixelTheme.ToColor(HudPalette.Panel),
-            BorderColor = PixelTheme.ToColor(HudPalette.Edge),
-            AntiAliasing = false,
-            ContentMarginLeft = insetX,
-            ContentMarginRight = insetX,
-            ContentMarginTop = insetY,
-            ContentMarginBottom = insetY,
-        };
-        style.SetBorderWidthAll(1);
+        var piece = block == HudBlock.ActionBar ? art.HudActionbarFrame : art.KitFrameThinDark;
 
         var frame = new PanelContainer
         {
@@ -65,7 +58,23 @@ internal static class HudPlace
             CustomMinimumSize = new Vector2(size.Width, size.Height),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        frame.AddThemeStyleboxOverride("panel", style);
+        frame.AddThemeStyleboxOverride("panel", PixelTheme.Box(piece, insetX, insetY));
         return frame;
     }
+
+    /// <summary>
+    /// 一张作者画的件，原尺寸摆、不吃鼠标。素材资源启动时核过，这里取不到就是没核。
+    /// </summary>
+    /// <remarks>不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是像素清晰的唯一依靠。</remarks>
+    public static TextureRect Picture(Texture2D? texture, string piece) => new()
+    {
+        Name = "Art",
+        Texture = texture ?? throw new InvalidOperationException($"素材资源里少了「{piece}」—— 应当已在启动时核过"),
+        StretchMode = TextureRect.StretchModeEnum.Keep,
+        MouseFilter = Control.MouseFilterEnum.Ignore,
+    };
+
+    /// <summary>取一张作者画的件。素材资源启动时核过，这里取不到就是没核。</summary>
+    public static Texture2D Piece(Texture2D? texture, string piece) =>
+        texture ?? throw new InvalidOperationException($"素材资源里少了「{piece}」—— 应当已在启动时核过");
 }

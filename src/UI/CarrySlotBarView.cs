@@ -21,16 +21,13 @@ namespace Tinderhearth.UI;
 /// 往格子里装东西的那一方给（<see cref="Icons"/>）—— 物品定义是会被 mod 换掉的内容，界面层不持有
 /// 一张「标识对图标」的表。
 ///
-/// 作者把它摆进场景：摆成 <see cref="UIRoot"/> 的子节点，接上 <see cref="Router"/>；界面根就绪时
+/// 作者把它摆进场景：摆成 <see cref="UIRoot"/> 的子节点，接上 <see cref="Router"/> 与 <see cref="Art"/>；界面根就绪时
 /// 把它挪到常驻显示那一层（<see cref="IPlacedUI"/>）。要读手上那一格的玩法节点在自己的检查器里
 /// 接它。格子那几层仍由本类自己搭，与 <see cref="LevelHud"/> 同一个理由：HUD 的尺寸与放置归规则层、
 /// 由测试判，作者摆的是这一个节点，不是格子。
 /// </remarks>
 public sealed partial class CarrySlotBarView : Control, IPlacedUI
 {
-    /// <summary>格框占位图，与技能位共用同一批。换成作者画的格子跟着设计仓台账 <c>UI-44</c> 的接线走。</summary>
-    private const string SlotPathFormat = "res://assets/placeholder/ui/skill-slot-{0}.png";
-
     private const UIContext Here = UIContext.Base;
 
     // 随身栏本体在构造时就有，不等 _Ready：读它、往里装东西的玩法节点可能排在本节点前面就绪，
@@ -39,11 +36,17 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     private readonly List<Cell> _cells = [];
 
     private InputRouter _router = null!;
+    private UIArt _art = null!;
     private Control? _frame;
 
     /// <summary>输入门面。换格的按键一律经它问，缺了当场报错。</summary>
     [Export]
     public InputRouter? Router { get; set; }
+
+    /// <summary>素材资源。那条栏、格子与选中框都从它取，缺了或缺格当场报错并一次列全。</summary>
+    /// <remarks>摆进场景时接的是 <c>assets/self-drawn/ui/ui_art.tres</c>，与主场景接的是同一份。</remarks>
+    [Export]
+    public UIArt? Art { get; set; }
 
     /// <summary>拿一个物品标识换一张图标；没有图标就返回 <c>null</c>，那一格画空框。</summary>
     public delegate Texture2D? CarryIconResolver(string itemId);
@@ -76,9 +79,8 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     /// <summary>第 N 格现在显示的件数文字。为 1 或为空时是空串。</summary>
     public string CountText(int index) => _cells[index].Count.Text;
 
-    /// <summary>第 N 格现在是不是选中态。</summary>
-    public bool IsLit(int index) =>
-        _cells[index].Slot.SelfModulate == PixelTheme.ToColor(HudPalette.Hot);
+    /// <summary>第 N 格现在是不是选中态：那一格外面那一圈选中框显不显示。</summary>
+    public bool IsLit(int index) => _cells[index].Select.Visible;
 
     /// <summary>第 N 格的图标显不显示。空格不显示。</summary>
     public bool IconShown(int index) => _cells[index].Icon.Visible;
@@ -92,6 +94,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
         _router = Router ?? throw new InvalidOperationException(
             $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
                 + $"换格的按键要经输入门面问（挂了 {nameof(InputRouter)} 的那个节点）");
+        _art = UIArtGuard.Require(Art, $"{nameof(CarrySlotBarView)}（节点 {Name}）");
 
         // 铺满所属层、块靠锚点贴角。必须用 SetAnchorsAndOffsetsPreset：对已经在树里的节点调
         // SetAnchorsPreset 会改写偏移、保住那个 0×0 的矩形，而且不报错（同 LevelHud 那一段）。
@@ -168,7 +171,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     /// </remarks>
     private void Build()
     {
-        var panel = HudPlace.Frame(HudBlock.ActionBar, Here);
+        var panel = HudPlace.Frame(HudBlock.ActionBar, Here, _art);
         AddChild(panel);
         _frame = panel;
 
@@ -186,15 +189,22 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             };
             row.AddChild(cell);
 
+            // 格子本身铺满这一格。
+            var slot = HudPlace.Picture(_art.KitSlotNormal, "kit/slot_normal");
+            slot.Name = "Slot";
+            slot.SetAnchorsPreset(LayoutPreset.FullRect);
+            cell.AddChild(slot);
+
             var inner = new Control { Name = "Inner", MouseFilter = MouseFilterEnum.Ignore };
             cell.AddChild(inner);
             inner.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, UIMetrics.CellInset);
 
-            var slot = Picture(string.Format(SlotPathFormat, i + 1));
-            slot.SetAnchorsPreset(LayoutPreset.FullRect);
-            inner.AddChild(slot);
-
-            var icon = Picture(null);
+            var icon = new TextureRect
+            {
+                Name = "Icon",
+                StretchMode = TextureRect.StretchModeEnum.Keep,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
             icon.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(icon);
 
@@ -210,7 +220,14 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             count.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(count);
 
-            _cells.Add(new Cell(slot, icon, count));
+            // 选中框画在格子外面一圈：铺满这一格，再四边各往外让出那一圈。最后加，压在最上面。
+            var select = HudPlace.Picture(_art.KitSlotSelect, "kit/slot_select");
+            select.Name = "Select";
+            select.Visible = false;
+            cell.AddChild(select);
+            select.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, -UIMetrics.SelectOutset);
+
+            _cells.Add(new Cell(select, icon, count));
         }
     }
 
@@ -228,7 +245,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     /// 把每一格画上去。
     /// </summary>
     /// <remarks>
-    /// 选中态靠换框色，不是只改亮度。相反的两个意思要有不同的东西看得见（见设计仓
+    /// 选中态是格子外面那一圈选中框，不是换色，也不只改亮度。相反的两个意思要有不同的东西看得见（见设计仓
     /// production/像素绘制原则.md 的「明度先于色相」一节），这一对的意思是「这一格是不是我手上那个」。
     ///
     /// 件数为 1 时不画数字，这条规则在 <see cref="CarrySlot.ShowsCount"/>，本处不再判一次。
@@ -241,7 +258,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             var cell = _cells[i];
             var lit = i == _bar.SelectedIndex;
 
-            cell.Slot.SelfModulate = PixelTheme.ToColor(lit ? HudPalette.Hot : HudPalette.Ink);
+            cell.Select.Visible = lit;
 
             // 空格不画图标，但框照画 —— 格位固定不动，玩家才记得住哪一格是哪一格。
             cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot.ItemId);
@@ -261,21 +278,5 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
                     + "往随身栏里装东西的那一方要在装之前给一个按物品标识取图标的办法"
                     + "（这件东西没有图标就返回 null，那一格只画框）");
 
-    /// <summary>一张 16px 的图。不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是像素清晰的唯一依靠。</summary>
-    private static TextureRect Picture(string? path) => new()
-    {
-        Name = path is null ? "Icon" : "Frame",
-        Texture = path is null ? null : Art(path),
-        CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
-        StretchMode = TextureRect.StretchModeEnum.Keep,
-        MouseFilter = MouseFilterEnum.Ignore,
-    };
-
-    private static Texture2D Art(string path) =>
-        ResourceLoader.Exists(path)
-            ? GD.Load<Texture2D>(path)
-            : throw new FileNotFoundException(
-                $"随身栏缺素材：{path}（在 Godot 里确认这个文件已导入）");
-
-    private sealed record Cell(TextureRect Slot, TextureRect Icon, Label Count);
+    private sealed record Cell(TextureRect Select, TextureRect Icon, Label Count);
 }

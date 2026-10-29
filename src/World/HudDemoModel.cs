@@ -67,6 +67,9 @@ public static class HudDemoModel
             [HudGaugeKind.DailyVigor] = ("hud.gauge.vigor", VigorNow, VigorMax),
         };
 
+    /// <summary>技能位演示用的图标。技能图标是内容、还没画，借占位的那几张；文件名里的编号从 1 起，与技能位同序。</summary>
+    private const string SkillIconPathFormat = "res://assets/placeholder/ui/skill-icon-{0}.png";
+
     /// <summary>随身栏演示里每件东西的图标。物品图标还没画，这里只要「格里有一张图」，所以借占位的技能图标。</summary>
     private static readonly IReadOnlyDictionary<string, string> CarryIcons = new Dictionary<string, string>
     {
@@ -114,6 +117,21 @@ public static class HudDemoModel
             3 => new CarrySlot("demo.carry.few", CarryFew),
             _ => CarrySlot.Empty,
         })];
+
+    /// <summary>技能位演示用的图标，给 <see cref="Tinderhearth.UI.LevelHud.SkillIconResolver"/> 用：第几位就借第几张。</summary>
+    public static Texture2D? SkillIcon(HudSkillSlot slot)
+    {
+        var index = InputActions.Skills.ToList().IndexOf(slot.Action);
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slot), $"「{slot.Action}」不是技能位的动作");
+        }
+
+        var path = string.Format(SkillIconPathFormat, index + 1);
+        return ResourceLoader.Exists(path)
+            ? GD.Load<Texture2D>(path)
+            : throw new FileNotFoundException($"技能位演示缺图标：{path}（在 Godot 里确认这个文件已导入）");
+    }
 
     /// <summary>
     /// 随身栏演示那几件的图标，给 <see cref="Tinderhearth.UI.CarrySlotBarView.Icons"/> 用。

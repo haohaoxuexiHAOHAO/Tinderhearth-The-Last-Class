@@ -68,7 +68,7 @@ public sealed partial class BaseHud : Control
     /// <summary>上面一段是标签图标加那支管子，下面一行留给状态位。行距为零，与关卡那一块同一个排法。</summary>
     private void BuildResources()
     {
-        var frame = HudPlace.Frame(HudBlock.Resources, Here);
+        var frame = HudPlace.Frame(HudBlock.Resources, Here, _art);
         AddChild(frame);
         _root = frame;
 
@@ -85,7 +85,7 @@ public sealed partial class BaseHud : Control
         column.AddChild(top);
 
         // 标签比管子矮，靠 ShrinkCenter 在那一段里居中 —— 不用纵向偏移，就不会有半格。
-        var label = Piece(_art.HudGaugeIconVigor, "hud/gauge_icon_vigor");
+        var label = HudPlace.Picture(_art.HudGaugeIconVigor, "hud/gauge_icon_vigor");
         label.Name = "Label";
         label.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         top.AddChild(label);
@@ -98,7 +98,7 @@ public sealed partial class BaseHud : Control
         };
         top.AddChild(tube);
 
-        var track = Piece(_art.HudVigorTubeTrack, "hud/vigor_tube_track");
+        var track = HudPlace.Picture(_art.HudVigorTubeTrack, "hud/vigor_tube_track");
         track.Name = "Track";
         track.SetAnchorsPreset(LayoutPreset.FullRect);
         tube.AddChild(track);
@@ -116,7 +116,7 @@ public sealed partial class BaseHud : Control
         };
         tube.AddChild(_shown);
 
-        var liquid = Piece(_art.HudVigorTubeFill, "hud/vigor_tube_fill");
+        var liquid = HudPlace.Picture(_art.HudVigorTubeFill, "hud/vigor_tube_fill");
         liquid.Name = "Liquid";
         liquid.AnchorRight = 1;
         liquid.AnchorTop = 1;
@@ -144,13 +144,4 @@ public sealed partial class BaseHud : Control
 
     /// <summary>把视图模型画上去：裁剪框往上长到该露的高度。</summary>
     private void Refresh() => _shown.OffsetTop = -HudLayout.VigorShownHeight(Vigor.Ratio);
-
-    /// <summary>一张作者画的件，原尺寸摆。不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是像素清晰的唯一依靠。</summary>
-    private static TextureRect Piece(Texture2D? texture, string piece) => new()
-    {
-        Texture = texture
-            ?? throw new InvalidOperationException($"素材资源里少了「{piece}」—— 应当已在启动时核过"),
-        StretchMode = TextureRect.StretchModeEnum.Keep,
-        MouseFilter = MouseFilterEnum.Ignore,
-    };
 }

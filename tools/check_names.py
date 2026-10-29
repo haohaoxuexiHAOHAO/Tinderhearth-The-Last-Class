@@ -217,7 +217,7 @@ def check_res_references(rel: str, fails: list[str]) -> int:
         return 0
     seen = 0
     for target in dict.fromkeys(RES_PATH_RE.findall(text)):
-        # 带 `{` 的是格式串（`skill-slot-{0}.png`），真实路径在运行时才成形。
+        # 带 `{` 的是格式串（`skill-icon-{0}.png`），真实路径在运行时才成形。
         if "{" in target or "}" in target:
             continue
         seen += 1

@@ -45,23 +45,17 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// <remarks>
 /// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
 /// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
-/// 一档：面板底与边随作者画的框（设计仓台账 <c>UI-44</c>），条底与资源条的染色随画的填充（<c>UI-45</c>、
-/// <c>UI-48</c>），倒地头像色随那张倒地记号（<c>UI-46</c>）。
+/// 一档：条底与资源条的染色随画的填充（设计仓台账 <c>UI-45</c>、<c>UI-48</c>），倒地头像色随那张倒地记号
+/// （<c>UI-46</c>）。
 ///
 /// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
 /// 那次判断大体还成立；换色之后照样要实机重看一遍（台账 <c>UI-48</c>）。
 ///
-/// 资源条的颜色按明度挑，各条明度都不相同，所以色觉有差异也分得出来；而且每条旁边都有文字标签，
+/// 资源条的颜色按明度挑，各条明度都不相同，所以色觉有差异也分得出来；而且每条前面都有一个标签图标，
 /// 颜色不是唯一的区分手段。依据见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
 /// </remarks>
 public static class HudPalette
 {
-    /// <summary>面板底。九宫格面板与技能位空框的填充。占位色。</summary>
-    public static PixelColor Panel => PixelColor.FromHex(0x332822);
-
-    /// <summary>面板边。1px 描边。占位色。</summary>
-    public static PixelColor Edge => PixelColor.FromHex(0x6B523C);
-
     /// <summary>正文。色板 <c>sky 5</c>：深底上的字色。</summary>
     public static PaletteEntry Ink { get; } = new("sky 5", PixelColor.FromHex(0xE3DBCC));
 

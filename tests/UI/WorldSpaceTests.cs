@@ -19,17 +19,13 @@ public class WorldSpaceTests
 
     // ── 几何关系 ──────────────────────────────────────────────────────
     [Fact]
-    public void 读条圆环直径等于小图标档且是半径两倍()
+    public void 读条圆环居中贴在执行者身上时不落半格()
     {
-        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingDiameter);
-        Assert.Equal(WorldUILayout.RingDiameter, WorldUILayout.RingRadius * 2);
-    }
-
-    [Fact]
-    public void 进度弧半径落在墨环内侧()
-    {
-        Assert.True(WorldUILayout.ArcRadius < WorldUILayout.RingRadius, "弧要压在底环内侧，不超出圆外");
-        Assert.True(WorldUILayout.ArcRadius > 0, "弧半径要是正数");
+        // 圆环往左上各挪半张，边长是奇数就挪到半个像素上，画面发虚。它与画好的那张一样大另有一条测试
+        // （UIArtTests 里按排版单位核尺寸那一条）。
+        Assert.Equal(0, WorldUILayout.RingWidth % 2);
+        Assert.Equal(0, WorldUILayout.RingHeight % 2);
+        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingHeight);
     }
 
     [Fact]

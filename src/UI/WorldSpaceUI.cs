@@ -26,10 +26,11 @@ public sealed partial class WorldSpaceUI : Node
     private readonly List<DamageNumber> _damage = [];
     private WorldUIOptions _options = WorldUIOptions.Default;
 
-    public WorldSpaceUI(UIRoot ui)
+    /// <summary>装好世界空间那一层的元素。读条圆环的两张图从素材资源取。</summary>
+    public WorldSpaceUI(UIRoot ui, UIArt art)
     {
         _layer = ui.LayerOf(UILayer.WorldSpace);        // 世界空间层，不能换成 Hud 层
-        _ring = new CastRing();
+        _ring = new CastRing(art);
         _layer.AddChild(_ring);
     }
 
@@ -134,31 +135,39 @@ public sealed partial class WorldSpaceUI : Node
         _damage.Add(num);
     }
 
-    /// <summary>载世界空间 UI 的素材。缺了就抛 —— 用空纹理顶上会让读条看起来根本没画出来。</summary>
-    public static Texture2D LoadArt(string path) =>
-        ResourceLoader.Exists(path)
-            ? GD.Load<Texture2D>(path)
-            : throw new FileNotFoundException(
-                $"世界空间 UI 缺素材：{path}（在 Godot 里确认这个文件已导入）");
 }
 
-/// <summary>读条圆环：底环是占位素材 <c>cast-ring.png</c>，进度弧由代码画在环上，跟着执行者走。</summary>
+/// <summary>
+/// 读条圆环：作者画的底环（<c>world/ring_cast</c>）上叠那一圈（<c>world/ring_cast_fill</c>），那一圈按进度露出，跟着执行者走。
+/// </summary>
+/// <remarks>
+/// 按角度露出交给引擎的进度条（顺时针填充那一种）：它按进度切出那一圈的一扇，从 12 点方向起、顺时针转满一圈就是读完，
+/// 不拉伸、不染色。圆环的中心落在执行者身上，所以往左上各挪半张；两个边长都是偶数，挪完仍在整像素上。
+/// </remarks>
 public sealed partial class CastRing : Node2D
 {
-    private readonly Color _arc = PixelTheme.ToColor(HudPalette.Hot);
+    private readonly TextureProgressBar _dial;
     private Node2D? _target;
     private CastState _state = CastState.Idle;
 
-    public CastRing()
+    /// <summary>装一个读条圆环。两张图从素材资源取，缺了当场报错。</summary>
+    public CastRing(UIArt art)
     {
         Name = "CastRing";
         Visible = false;
-        AddChild(new Sprite2D
+        _dial = new TextureProgressBar
         {
-            Name = "Base",
-            Centered = true,
-            Texture = WorldSpaceUI.LoadArt("res://assets/placeholder/ui/cast-ring.png"),
-        });
+            Name = "Dial",
+            TextureUnder = HudPlace.Piece(art.WorldRingCast, "world/ring_cast"),
+            TextureProgress = HudPlace.Piece(art.WorldRingCastFill, "world/ring_cast_fill"),
+            FillMode = (int)TextureProgressBar.FillModeEnum.Clockwise,
+            MinValue = 0,
+            MaxValue = 1,
+            Step = 0,           // 不按步取整：读条是连续的
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Position = new Vector2(-WorldUILayout.RingWidth / 2, -WorldUILayout.RingHeight / 2),
+        };
+        AddChild(_dial);
     }
 
     public void Track(Node2D target) => _target = target;
@@ -167,7 +176,7 @@ public sealed partial class CastRing : Node2D
     {
         _state = state;
         Visible = state.Visible;
-        QueueRedraw();
+        _dial.Value = state.ClampedProgress;
     }
 
     public override void _Process(double delta)
@@ -176,19 +185,6 @@ public sealed partial class CastRing : Node2D
         {
             Position = _target.GlobalPosition;   // 贴在执行者身上
         }
-    }
-
-    public override void _Draw()
-    {
-        if (!_state.Visible)
-        {
-            return;
-        }
-
-        var start = -Mathf.Pi / 2f;                                 // 从 12 点方向起画
-        var sweep = (float)(_state.ClampedProgress * Mathf.Tau);    // 顺时针转满一圈就是读完
-        DrawArc(Vector2.Zero, WorldUILayout.ArcRadius, start, start + sweep,
-            WorldUILayout.ArcSegments, _arc, WorldUILayout.ArcWidthPx);
     }
 
     /// <summary>当前读条进度，0 到 1。</summary>

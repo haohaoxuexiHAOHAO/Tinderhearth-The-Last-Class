@@ -109,6 +109,15 @@ public class HudTests
     }
 
     [Fact]
+    public void 选中框那一圈不出那条栏也不压到邻格()
+    {
+        // 选中框画在格子外面一圈。出了栏就压到栏外的画面上，压到邻格就分不清选中的是哪一格。
+        Assert.True(UIMetrics.SelectOutset <= HudLayout.ActionBarCapX, "选中框横着出了那条栏");
+        Assert.True(UIMetrics.SelectOutset <= HudLayout.ActionBarCapY, "选中框竖着出了那条栏");
+        Assert.True(UIMetrics.SelectOutset * 2 <= HudLayout.ActionBarCellGap, "挨着的两格各画一圈选中框会叠在一起");
+    }
+
+    [Fact]
     public void 队友块容纳编队上限四名()
     {
         var content = HudLayout.ContentSizeOf(HudBlock.Teammates, UIContext.Level);

@@ -76,6 +76,13 @@ public static class UIMetrics
     /// <summary>格内边距：描边加留白。图标就放在格子里 (CellInset, CellInset) 那一点上。</summary>
     public const int CellInset = CellOutline + CellPadding;
 
+    /// <summary>选中框比格子大一圈：四边各往外这么多。照画好的那张 <c>kit/slot_select</c>，有测试拿素材清单对它。</summary>
+    /// <remarks>
+    /// 选中框画在格子外面，焦点框与稀有度框画在里面那两圈（见 <see cref="CellPadding"/>），所以格与格之间
+    /// 至少要隔两倍这么宽，挨着的两格各画一圈选中框也不打架。
+    /// </remarks>
+    public const int SelectOutset = 2;
+
     /// <summary>
     /// 格子边长：一个小图标两侧各加一个格内边距。技能栏、随身栏、背包、仓库、宝物栏与两种孔共用这一档。
     /// </summary>

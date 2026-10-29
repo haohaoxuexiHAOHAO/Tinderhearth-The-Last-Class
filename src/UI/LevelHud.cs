@@ -15,19 +15,18 @@ namespace Tinderhearth.UI;
 /// 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在 640 宽的窗口上完全
 /// 看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
-/// 各块已经按画好的件的尺寸排好（资源条的标签是迷你图标、槽高 10，格子 22、格距 6，头像框 20），框与
-/// 格里的图还有几张是占位图，换成素材资源里那几张跟着设计仓台账 <c>UI-44</c> 的接线走。
+/// 框、格子、资源条的标签、任务目标图标与头像框是素材资源里作者画的那几张（<see cref="UIArt"/>），尺寸照它们排
+/// （格子 22、格距 6，头像框 20）。资源条的槽与填充还是占位图：换成画的那几张、加上追与留一截，是设计仓台账
+/// <c>UI-45</c> 那一条。技能图标是内容，由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张
+/// 「技能对图标」的表。
 ///
 /// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见 <see cref="WorldSpaceUI"/>。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
-    private const string SlotPathFormat = "res://assets/placeholder/ui/skill-slot-{0}.png";
-    private const string IconPathFormat = "res://assets/placeholder/ui/skill-icon-{0}.png";
+    // 资源条那一组还是占位图，随设计仓台账 UI-45 换成画的。
     private const string BarTrackPath = "res://assets/placeholder/ui/bar-track.png";
     private const string BarFillPath = "res://assets/placeholder/ui/bar-fill.png";
-    private const string ObjectiveIconPath = "res://assets/placeholder/ui/objective.png";
-    private const string PortraitPath = "res://assets/placeholder/ui/portrait-frame.png";
 
     /// <summary>
     /// 倒地记号。它是个符号、不是一句要翻译的话，所以不进文本表（按键记号同理，见
@@ -39,6 +38,7 @@ public sealed partial class LevelHud : Control
 
     private readonly InputRouter _router;
     private readonly UIArt _art;
+    private readonly SkillIconResolver _icons;
     private readonly Dictionary<HudBlock, Control> _roots = [];
     private readonly List<GaugeRow> _gauges = [];
     private readonly List<SkillCell> _skills = [];
@@ -47,13 +47,20 @@ public sealed partial class LevelHud : Control
     private Label _objective = null!;
     private HudViewModel _model;
 
-    /// <summary>装一份 HUD。视图模型由调用方给，本类不挑数据；资源条的标签图从素材资源取。</summary>
-    public LevelHud(InputRouter router, HudViewModel model, UIArt art)
+    /// <summary>装一份 HUD。视图模型与技能图标由调用方给，本类不挑数据；界面件从素材资源取。</summary>
+    public LevelHud(InputRouter router, HudViewModel model, UIArt art, SkillIconResolver icons)
     {
         _router = router;
         _model = model;
         _art = art;
+        _icons = icons;
     }
+
+    /// <summary>拿一个技能位换那一位上那个技能的图标；那个技能没有图标就返回 <c>null</c>，那一格只画框。</summary>
+    /// <remarks>
+    /// 只在解锁了的位上问。哪一位装着哪个技能是调用方的事，技能定义又是会被 mod 换掉的内容，所以界面层只问、不存。
+    /// </remarks>
+    public delegate Texture2D? SkillIconResolver(HudSkillSlot slot);
 
     /// <summary>当前视图模型。换一份就整屏刷新。</summary>
     public HudViewModel Model
@@ -217,7 +224,9 @@ public sealed partial class LevelHud : Control
     private void BuildObjective()
     {
         var content = Row(HudBlock.Objective, UIMetrics.ItemGap);
-        content.AddChild(Picture(ObjectiveIconPath, UIMetrics.IconSmall, UIMetrics.IconSmall));
+        var icon = HudPlace.Picture(_art.HudObjective, "hud/objective");
+        icon.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        content.AddChild(icon);
 
         _objective = new Label
         {
@@ -254,7 +263,7 @@ public sealed partial class LevelHud : Control
             };
             cell.AddChild(head);
 
-            var portrait = Picture(PortraitPath, HudLayout.PortraitSize, HudLayout.PortraitSize);
+            var portrait = HudPlace.Picture(_art.HudPortraitFrame, "hud/portrait_frame");
             portrait.SetAnchorsPreset(LayoutPreset.FullRect);
             head.AddChild(portrait);
 
@@ -294,8 +303,8 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <remarks>
     /// 格与格等距，两组之间不另留空：画好的那条栏就是等距的。手柄上哪几格归哪个扳机靠按住扳机时那一组
-    /// 连着高亮，和每格里叠的面键记号（手柄那一套跟设计仓台账 <c>UI-54</c> 走）。格子 22、图标放在
-    /// (3,3)，与随身栏那一条逐格对齐。
+    /// 连着高亮，和每格里叠的面键记号（手柄那一套跟设计仓台账 <c>UI-54</c> 走）。格子是作者画的那张 22×22，
+    /// 图标放在 (3,3)，与随身栏那一条逐格对齐。
     /// </remarks>
     private void BuildSkills()
     {
@@ -310,16 +319,23 @@ public sealed partial class LevelHud : Control
             };
             line.AddChild(cell);
 
+            // 格子本身铺满这一格；解锁没有、亮不亮在刷新时换。
+            var slot = HudPlace.Picture(_art.KitSlotNormal, "kit/slot_normal");
+            slot.Name = "Slot";
+            slot.SetAnchorsPreset(LayoutPreset.FullRect);
+            cell.AddChild(slot);
+
             // 图标那一格在格子里往里让一个格内边距（描边加留白）。
             var inner = new Control { Name = "Inner", MouseFilter = MouseFilterEnum.Ignore };
             cell.AddChild(inner);
             inner.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, UIMetrics.CellInset);
 
-            var slot = Picture(Numbered(SlotPathFormat, index), UIMetrics.IconSmall, UIMetrics.IconSmall);
-            slot.SetAnchorsPreset(LayoutPreset.FullRect);
-            inner.AddChild(slot);
-
-            var icon = Picture(Numbered(IconPathFormat, index), UIMetrics.IconSmall, UIMetrics.IconSmall);
+            var icon = new TextureRect
+            {
+                Name = "Icon",
+                StretchMode = TextureRect.StretchModeEnum.Keep,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
             icon.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(icon);
 
@@ -390,8 +406,8 @@ public sealed partial class LevelHud : Control
             }
 
             var mate = _model.Teammates[i];
-            cell.Portrait.SelfModulate = PixelTheme.ToColor(
-                mate.Down ? HudPalette.Down : HudPalette.Ink);
+            // 倒地那一张记号随设计仓台账 UI-46 换上，到那时头像框不再染色；在那之前倒地是换色加一个叉。
+            cell.Portrait.SelfModulate = mate.Down ? PixelTheme.ToColor(HudPalette.Down) : Colors.White;
             cell.Mark.Visible = mate.Down;
             Paint(cell.Mark, HudPalette.Hot);
             cell.Fill.OffsetRight = Extent(mate.Ratio, HudLayout.PortraitSize);
@@ -420,15 +436,16 @@ public sealed partial class LevelHud : Control
             var group = InputHints.GroupOfSkill(slot.Action);
             var lit = active != SkillGroup.None && active == group;
 
-            cell.Icon.Visible = slot.Unlocked;
+            // 没解锁的位画「还没开」那张格子、不画图标：位置固定才有肌肉记忆，所以照画不藏。
+            cell.Slot.Texture = slot.Unlocked
+                ? HudPlace.Piece(_art.KitSlotNormal, "kit/slot_normal")
+                : HudPlace.Piece(_art.KitSlotLocked, "kit/slot_locked");
+            cell.Icon.Texture = slot.Unlocked ? _icons(slot) : null;
+            cell.Icon.Visible = cell.Icon.Texture is not null;
             cell.Mask.OffsetBottom = Extent(slot.MaskRatio, UIMetrics.IconSmall);
-            var tint = (lit, slot.Unlocked) switch
-            {
-                (true, _) => HudPalette.Hot,
-                (_, true) => HudPalette.Ink,
-                _ => HudPalette.Dim,
-            };
-            cell.Slot.SelfModulate = PixelTheme.ToColor(tint);
+
+            // 按住扳机时那一组亮起来的那一张跟手柄适配一起后置（设计仓台账 UI-54），在那之前那一组的格子换色。
+            cell.Slot.SelfModulate = lit ? PixelTheme.ToColor(HudPalette.Hot) : Colors.White;
 
             // 冷却中不显示记号：那时按了也没用，留着记号是在教玩家按一个不会响的键。
             cell.Hint.Text = slot.Ready && device == InputDeviceKind.Gamepad
@@ -449,10 +466,6 @@ public sealed partial class LevelHud : Control
 
     private static void Paint(Label label, PixelColor color) =>
         label.AddThemeColorOverride("font_color", PixelTheme.ToColor(color));
-
-    /// <summary>第 N 个槽位的素材路径。文件名里的编号从 1 起，与美术给的槽位编号一致。</summary>
-    private static string Numbered(string format, int index) =>
-        string.Format(format, index + 1);
 
     /// <summary>资源条前面那个迷你图标，按是哪一条从素材资源取。素材资源启动时核过，这里缺了就是没核。</summary>
     private Texture2D GaugeIcon(HudGaugeKind kind) => (kind switch
@@ -491,23 +504,13 @@ public sealed partial class LevelHud : Control
 
     private PanelContainer Frame(HudBlock block)
     {
-        var frame = HudPlace.Frame(block, Here);
+        var frame = HudPlace.Frame(block, Here, _art);
         AddChild(frame);
         _roots[block] = frame;
         return frame;
     }
 
-    /// <summary>一张定尺寸的图。不要碰 <c>TextureFilter</c>，项目级的最近邻过滤是文字清晰的唯一依靠。</summary>
-    private static TextureRect Picture(string path, int width, int height) => new()
-    {
-        Name = "Art",
-        Texture = Art(path),
-        CustomMinimumSize = new Vector2(width, height),
-        StretchMode = TextureRect.StretchModeEnum.Keep,
-        MouseFilter = MouseFilterEnum.Ignore,
-    };
-
-    /// <summary>一根可横向拉伸的条。九宫格只切左右各 1px，中间那两列是纯色，拉开不会花。</summary>
+    /// <summary>一根可横向拉伸的占位条。九宫格只切左右各 1px，中间那两列是纯色，拉开不会花。</summary>
     private static NinePatchRect Stripe(string path)
     {
         var strip = new NinePatchRect { Name = "Strip", Texture = Art(path) };

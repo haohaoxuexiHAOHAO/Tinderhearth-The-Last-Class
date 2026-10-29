@@ -318,7 +318,7 @@ public class E2ETests
     public void 综合_世界空间UI几何与HUD几何都从UIMetrics推导无字面量()
     {
         // 两套量用同一套基础单位。这条把「引擎层不写数字字面量」的前提钉住
-        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingDiameter);
+        Assert.Equal(UIMetrics.IconSmall, WorldUILayout.RingHeight);
         Assert.Equal(UIMetrics.IconLarge, WorldUILayout.EliteBarWidth);
         Assert.Equal(UIMetrics.PanelPadding, WorldUILayout.EliteBarHeight);
         Assert.Equal(UIMetrics.BaseUnit, WorldUILayout.DamageFloatDistancePx);

@@ -63,6 +63,8 @@ public class UIArtTests
         [
             (["kit/slot_normal", "kit/slot_disabled", "kit/slot_locked", "kit/slot_focus", "kit/rarity_edge",
               "kit/socket_*"], UIMetrics.Cell, UIMetrics.Cell, "格子"),
+            (["kit/slot_select"], UIMetrics.Cell + (UIMetrics.SelectOutset * 2),
+                UIMetrics.Cell + (UIMetrics.SelectOutset * 2), "选中框"),
             (["kit/mini_*", "kit/heart_*", "kit/star_*", "kit/pip_enhance_*", "hud/gauge_icon_*", "panel/map_*"],
                 UIMetrics.Mini, UIMetrics.Mini, "迷你"),
             (["tab/*", "kit/iconbutton_*", "kit/button_icon_*", "kit/check_*", "kit/cursor_*", "glyph/mouse_*",
@@ -75,6 +77,7 @@ public class UIArtTests
             (["hud/bar_track"], null, HudLayout.GaugeBarHeight, "资源条的槽"),
             (["hud/vigor_tube_*"], HudLayout.VigorTubeWidth, HudLayout.VigorTubeHeight, "精力条"),
             (["hud/actionbar_frame"], null, HudLayout.SizeOf(HudBlock.ActionBar, UIContext.Level).Height, "那条栏"),
+            (["world/ring_cast", "world/ring_cast_fill"], WorldUILayout.RingWidth, WorldUILayout.RingHeight, "读条圆环"),
         ];
 
         var problems = new List<string>();

@@ -147,7 +147,8 @@ public partial class Main : Node2D
         switch (_context)
         {
             case UIContext.Level:
-                layer.AddChild(new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates), _art)
+                layer.AddChild(new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates), _art,
+                    HudDemoModel.SkillIcon)
                 {
                     Name = "LevelHud",
                     Theme = theme,
@@ -166,6 +167,7 @@ public partial class Main : Node2D
                 {
                     Name = "CarrySlotBar",
                     Router = _router,
+                    Art = _art,
                     Icons = HudDemoModel.CarryIcon,
                     Theme = theme,
                 };

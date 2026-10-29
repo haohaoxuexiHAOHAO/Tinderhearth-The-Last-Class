@@ -126,8 +126,8 @@ public static class PixelTheme
         return theme;
     }
 
-    /// <summary>一件九宫格件做成一个样式盒：贴图边距读那一格，内容边距由调用方按排版单位给。</summary>
-    private static StyleBoxTexture Box(NinePiece? piece, int contentX, int contentY)
+    /// <summary>一件九宫格件做成一个样式盒：贴图边距读那一格，内容边距由调用方按排版单位给。HUD 的框也走这里。</summary>
+    internal static StyleBoxTexture Box(NinePiece? piece, int contentX, int contentY)
     {
         var nine = piece ?? throw new InvalidOperationException("素材资源里少了一件九宫格件 —— 应当已在启动时核过");
         return new StyleBoxTexture
