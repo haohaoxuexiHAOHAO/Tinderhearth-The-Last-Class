@@ -79,6 +79,8 @@ public class UIArtTests
             (["hud/vigor_tube_*"], HudLayout.VigorTubeWidth, null, "精力条"),
             (["hud/actionbar_frame"], null, HudLayout.SizeOf(HudBlock.ActionBar, UIContext.Level).Height, "那条栏"),
             (["world/ring_cast", "world/ring_cast_fill"], WorldUILayout.RingWidth, WorldUILayout.RingHeight, "读条圆环"),
+            (["world/cell_usable", "world/cell_blocked"], WorldUILayout.CellCursorSide(UIMetrics.BaseUnit),
+                WorldUILayout.CellCursorSide(UIMetrics.BaseUnit), "当前操作格"),
         ];
 
         var problems = new List<string>();

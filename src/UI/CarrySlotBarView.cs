@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Tinderhearth.Rules.UI;
 
@@ -9,7 +10,7 @@ namespace Tinderhearth.UI;
 /// <remarks>
 /// 本文件里不自己定任何「量」，与 <see cref="LevelHud"/> 同一条纪律：尺寸与放置从
 /// <see cref="HudLayout"/> 与 <see cref="UIMetrics"/> 取，显示什么从 <see cref="CarrySlotBar"/> 取，
-/// 颜色从 <see cref="HudPalette"/> 取，位置一律走锚点预设、不写 <c>Position</c>。
+/// 不设颜色（格子、选中框与件数的迷你字都是作者画的），位置一律走锚点预设、不写 <c>Position</c>。
 ///
 /// 它坐在 <see cref="HudBlock.ActionBar"/> 那一块上，与关卡的技能栏是同一块、同一条栏，摆的是基地那一套的放置
 /// （<see cref="UIContext.Base"/>）：同宽、同样贴右，关卡里在顶上、基地里在底边，理由在 <see cref="HudLayout"/>。
@@ -208,17 +209,11 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             icon.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(icon);
 
-            // 件数角标压在图标右下，不另占一行：这一块只有一格高，加一行会把块撑高，
+            // 件数是贴格子右下角的迷你字，不另占一行：这一块只有一格高，加一行会把块撑高，
             // 而块一高就压掉画面上留给角色的地方。
-            var count = new Label
-            {
-                Name = "Count",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                MouseFilter = MouseFilterEnum.Ignore,
-            };
-            count.SetAnchorsPreset(LayoutPreset.FullRect);
-            inner.AddChild(count);
+            var count = new MiniText(_art, MiniText.Corner.BottomRight) { Name = "Count" };
+            cell.AddChild(count);
+            count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
 
             // 选中框画在格子外面一圈：铺满这一格，再四边各往外让出那一圈。最后加，压在最上面。
             var select = HudPlace.Picture(_art.KitSlotSelect, "kit/slot_select");
@@ -264,9 +259,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot.ItemId);
             cell.Icon.Visible = cell.Icon.Texture is not null;
 
-            cell.Count.Text = slot.ShowsCount ? slot.Count.ToString() : string.Empty;
-            cell.Count.AddThemeColorOverride("font_color",
-                PixelTheme.ToColor(lit ? HudPalette.Hot : HudPalette.Ink));
+            cell.Count.Text = slot.ShowsCount ? slot.Count.ToString(CultureInfo.InvariantCulture) : string.Empty;
         }
     }
 
@@ -278,5 +271,5 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
                     + "往随身栏里装东西的那一方要在装之前给一个按物品标识取图标的办法"
                     + "（这件东西没有图标就返回 null，那一格只画框）");
 
-    private sealed record Cell(TextureRect Select, TextureRect Icon, Label Count);
+    private sealed record Cell(TextureRect Select, TextureRect Icon, MiniText Count);
 }

@@ -45,8 +45,8 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// <remarks>
 /// 两种。<see cref="PaletteEntry"/> 那几档按名字取色板里的一项；取哪一档、为什么，记在色板被借那一条的
 /// 「借给界面」里。其余仍是 <see cref="PixelColor"/> 占位色，随画的界面件一起删，所以不给它们找色板里的
-/// 一档：精英血条的槽与填充随它换成资源条那一套（设计仓台账 <c>UI-43</c>），倒地头像色随那张倒地记号
-/// （设计仓台账 <c>UI-46</c>）。HUD 上的资源条是作者画的填充、不染色，所以这里没有它们的颜色。
+/// 一档：精英血条的槽与填充随它换成资源条那一套（设计仓台账 <c>UI-43</c>）。HUD 上的资源条、倒地记号与
+/// 格子角上的迷你字都是作者画的、不染色，所以这里没有它们的颜色。
 ///
 /// 正文、次要与强调取的是离当初判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档，
 /// 那次判断大体还成立；换色之后照样要实机重看一遍（设计仓台账 <c>UI-48</c>）。
@@ -56,11 +56,11 @@ public static class HudPalette
     /// <summary>正文。色板 <c>sky 5</c>：深底上的字色。</summary>
     public static PaletteEntry Ink { get; } = new("sky 5", PixelColor.FromHex(0xE3DBCC));
 
-    /// <summary>次要信息：按键记号、未解锁的技能位标签、不可用按钮的字。色板 <c>stone 4</c>。</summary>
+    /// <summary>次要信息：手柄的按键记号、未解锁的技能位标签、不可用按钮的字。色板 <c>stone 4</c>。</summary>
     public static PaletteEntry Dim { get; } = new("stone 4", PixelColor.FromHex(0x92897B));
 
     /// <summary>
-    /// 强调：当前生效的技能组、目标达成那句话、随身栏选中格的件数，伤害数字也用它。色板 <c>ember 4</c>。
+    /// 强调：当前生效的技能组、目标达成那句话，伤害数字也用它。色板 <c>ember 4</c>。
     /// </summary>
     public static PaletteEntry Hot { get; } = new("ember 4", PixelColor.FromHex(0xD99240));
 
@@ -92,9 +92,6 @@ public static class HudPalette
     /// 插值像素。遮住也更好认 —— 玩家看的是「还剩多少没退下去」那一块。
     /// </remarks>
     public static PaletteEntry Cooldown { get; } = new("outline 2", PixelColor.FromHex(0x110F1C));
-
-    /// <summary>倒地队友的头像框色。明度压到与次要信息同档，但色相偏冷，与「还活着」分得开。占位色。</summary>
-    public static PixelColor Down => PixelColor.FromHex(0x4A4A52);
 
     /// <summary>精英血条的填充。暗红。占位色。</summary>
     public static PixelColor Health => PixelColor.FromHex(0x9E3A32);

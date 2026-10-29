@@ -101,11 +101,11 @@ public static class UIArtManifest
         new("kit", "scroll_knob", new PixelSize(13, 5), null, "", "竖滚动条的钮"),
         new("kit", "scroll_slim_track", new PixelSize(6, 8), new NineMargins(0, 3, 0, 3), "", "文字区的细滚动条：槽；只在字超出那一块时出现，位置一直留着"),
         new("kit", "scroll_slim_knob", new PixelSize(6, 8), new NineMargins(0, 3, 0, 3), "", "细滚动条的钮：长短按看得见的那一段占全文多少拉"),
-        new("kit", "font_mini", new PixelSize(180, 7), null, "", "迷你字：一格 5×7（字形 3×5 加一圈描边），顺序 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ；格子角上的件数与键名"),
-        new("kit", "font_digits", new PixelSize(100, 12), null, "", "面板上的大数字（属性值、等级）：一格 10×12，顺序 0–9"),
-        new("kit", "cursor_arrow", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (4,0)"),
-        new("kit", "cursor_hand", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (5,0)"),
-        new("kit", "cursor_blocked", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (7,7)"),
+        new("kit", "font_mini", new PixelSize(180, 7), null, "", "迷你字：一格 5×7（字形 3×5 加一圈描边），顺序 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ；格子角上的件数与键名", Glyphs: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        new("kit", "font_digits", new PixelSize(100, 12), null, "", "面板上的大数字（属性值、等级）：一格 10×12，顺序 0–9", Glyphs: "0123456789"),
+        new("kit", "cursor_arrow", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (4,0)", Hotspot: new PixelPoint(4, 0)),
+        new("kit", "cursor_hand", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (5,0)", Hotspot: new PixelPoint(5, 0)),
+        new("kit", "cursor_blocked", new PixelSize(16, 16), null, "", "鼠标指针，1× 原图，代码按整数倍放大；热点 (7,7)", Hotspot: new PixelPoint(7, 7)),
         new("kit", "mini_cursor", new PixelSize(8, 8), null, "", "迷你记号"),
         new("kit", "mini_right", new PixelSize(8, 8), null, "", "迷你记号"),
         new("kit", "mini_left", new PixelSize(8, 8), null, "", "迷你记号"),
@@ -207,6 +207,11 @@ public static class UIArtManifest
         new("glyph", "key_digit_8", new PixelSize(16, 16), null, "", "数字键（随身栏换格那一排）"),
         new("glyph", "key_digit_9", new PixelSize(16, 16), null, "", "数字键（随身栏换格那一排）"),
     ];
+
+    /// <summary>按目录与名字取一件；清单里没有就抛，并说清是哪一件。</summary>
+    public static UIArtPiece Find(string group, string name) =>
+        Pieces.FirstOrDefault(p => p.Group == group && p.Name == name)
+            ?? throw new KeyNotFoundException($"素材清单里没有 {group}/{name}：生成器（tools/ui_art.py）里改了名字，用它的那一处要跟着改");
 
     /// <summary>
     /// 同一批目录里由作者直接画、生成器不碰的那几张。它们不进素材资源，用到它们的那一页落地时再接。

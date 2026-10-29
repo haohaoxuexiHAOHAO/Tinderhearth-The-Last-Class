@@ -9,11 +9,15 @@ namespace Tinderhearth.Rules.UI;
 /// <param name="Nine">九宫格四边的边距；不拉伸的件是 <c>null</c>。</param>
 /// <param name="State">同一件的哪一态（<c>normal</c>、<c>focus</c>……）；只有一态的件是空串。</param>
 /// <param name="Use">它用在哪，照生成器清单那一行。</param>
+/// <param name="Hotspot">鼠标指针点下去的那一像素，按原图算；不是指针的件是 <c>null</c>。</param>
+/// <param name="Glyphs">字形表从左到右是哪几个字，一个字一格、等宽；不是字形表的件是 <c>null</c>。</param>
 /// <remarks>
-/// 全部格子在 <see cref="UIArtManifest"/>，那一份由代码仓 <c>tools/ui_art_resource.py</c> 照生成器清单写出。
+/// 全部格子在 <see cref="UIArtManifest"/>，那一份由代码仓 <c>tools/ui_art_resource.py</c> 照生成器清单写出，
+/// 热点与字形顺序也是：它们的家是生成器，代码里不另写一份。
 /// </remarks>
 public sealed record UIArtPiece(
-    string Group, string Name, PixelSize Size, NineMargins? Nine, string State, string Use)
+    string Group, string Name, PixelSize Size, NineMargins? Nine, string State, string Use,
+    PixelPoint? Hotspot = null, string? Glyphs = null)
 {
     /// <summary>相对 <c>assets/self-drawn/</c> 的路径，例如 <c>ui/kit/frame_thick_dark.png</c>。</summary>
     public string FilePath => $"ui/{Group}/{Name}.png";
@@ -28,6 +32,13 @@ public readonly record struct PixelSize(int Width, int Height)
 {
     /// <summary>写成「宽×高」，与生成器清单、界面绘制约定里的写法一样。</summary>
     public override string ToString() => $"{Width}×{Height}";
+}
+
+/// <summary>图上的一个像素位置，从左上角数起。</summary>
+public readonly record struct PixelPoint(int X, int Y)
+{
+    /// <summary>写成「(X,Y)」，与生成器清单里的写法一样。</summary>
+    public override string ToString() => $"({X},{Y})";
 }
 
 /// <summary>九宫格四边的边距，像素。四个角不拉伸，夹在中间的那几段按方向拉开。</summary>

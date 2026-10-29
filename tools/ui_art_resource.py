@@ -111,10 +111,21 @@ def manifest_source(pieces: list[ui_art.Piece]) -> str:
     for p in pieces:
         w, h = p.image.size
         nine = "null" if p.nine is None else "new NineMargins({}, {}, {}, {})".format(*p.nine)
+        extra = ""
+        if p.hotspot is not None:
+            extra += ", Hotspot: new PixelPoint({}, {})".format(*p.hotspot)
+        if p.glyphs is not None:
+            extra += f", Glyphs: {cs(p.glyphs)}"
         out.append(f"        new({cs(p.group)}, {cs(p.name)}, new PixelSize({w}, {h}), {nine}, "
-                   f"{cs(state_of(p.name))}, {cs(p.use)}),")
+                   f"{cs(state_of(p.name))}, {cs(p.use)}{extra}),")
     out += [
         "    ];",
+        "",
+        "    /// <summary>按目录与名字取一件；清单里没有就抛，并说清是哪一件。</summary>",
+        "    public static UIArtPiece Find(string group, string name) =>",
+        "        Pieces.FirstOrDefault(p => p.Group == group && p.Name == name)",
+        '            ?? throw new KeyNotFoundException($"素材清单里没有 {group}/{name}：生成器（tools/ui_art.py）里改了名字，'
+        '用它的那一处要跟着改");',
         "",
         "    /// <summary>",
         "    /// 同一批目录里由作者直接画、生成器不碰的那几张。它们不进素材资源，用到它们的那一页落地时再接。",

@@ -1,7 +1,7 @@
 namespace Tinderhearth.Rules.UI;
 
 /// <summary>
-/// 世界空间 UI 的几何：读条圆环、精英血条、伤害数字的尺寸与相对执行者的偏移，单位是世界像素。
+/// 世界空间 UI 的几何：读条圆环、当前操作格、精英血条、伤害数字的尺寸与偏移，单位是世界像素。
 /// </summary>
 /// <remarks>
 /// 与 <see cref="HudLayout"/>、<see cref="UIMetrics"/> 同理放在规则层：这些数之间的关系能用单元
@@ -21,6 +21,16 @@ public static class WorldUILayout
 
     /// <summary>读条圆环的高：小图标那一档。照画好的那张 <c>world/ring_cast</c>，有测试拿素材清单对它。</summary>
     public const int RingHeight = UIMetrics.IconSmall;
+
+    // ── 当前操作格（勾在俯视那一格地外面）────────────────────────────
+    /// <summary>
+    /// 当前操作格那两张比一格地大一圈：四边各往外这么多。照画好的 <c>world/cell_usable</c> 与 <c>world/cell_blocked</c>，
+    /// 有测试拿素材清单对它。
+    /// </summary>
+    public const int CellCursorOutset = 1;
+
+    /// <summary>一格地边长 <paramref name="tileSide"/> 时，当前操作格那两张该多大：两边各大出 <see cref="CellCursorOutset"/>。</summary>
+    public static int CellCursorSide(int tileSide) => tileSide + (CellCursorOutset * 2);
 
     // ── 精英 / BOSS 血条（贴在剪影头顶上方）──────────────────────────
     /// <summary>血条宽。对齐剪影宽度，一眼看出是这个敌人的血。</summary>

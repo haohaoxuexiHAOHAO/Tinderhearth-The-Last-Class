@@ -11,8 +11,8 @@ namespace Tinderhearth.World.Farm;
 /// 键鼠时取鼠标指的那一格，手柄时取角色身前那一格。两条算法只写在这里，外面统一读
 /// <see cref="Cell"/>，所以以后再加逐格动作（锄、播、浇、收、建造摆位）不用分设备各接一遍。
 ///
-/// 够不到的格也画框，只是换成 <see cref="BlockedColor"/>。一律不画的话，玩家按下去没反应
-/// 却看不出原因。
+/// 够不到的格也画框，只是换成够不到那一张：两张形状不同，不只换色。一律不画的话，玩家按下去
+/// 没反应却看不出原因。
 ///
 /// 可及范围是十字形，斜角一律够不到。原因不是距离，是角色只有上下左右四个朝向：指向斜角他
 /// 没有朝向可转，画面上会变成身子朝正面、手在斜着锄。
@@ -46,35 +46,25 @@ public partial class FarmCellCursor : Node2D
     [Export]
     public int ReachInCells { get; set; }
 
-    /// <summary>够得到时框的颜色。</summary>
-    /// <remarks>
-    /// alpha 要么 0 要么 1。像素风下半透明会在屏幕上留下插值出来的中间色，和最近邻过滤、
-    /// 整数缩放对不上。颜色本身由作者在检查器里调，所以不走 rules/UI/HudPalette.cs
-    /// —— 那份是 HUD 的色板，这个框在世界里。
-    /// </remarks>
+    /// <summary>素材资源。够得到与够不到那两张框从它取，缺了或缺格当场报错并一次列全。</summary>
+    /// <remarks>接的是 <c>assets/self-drawn/ui/ui_art.tres</c>，与随身栏接的是同一份。</remarks>
     [Export]
-    public Color UsableColor { get; set; } = Colors.White;
-
-    /// <summary>够不到时框的颜色。要和 <see cref="UsableColor"/> 一眼分得开。</summary>
-    [Export]
-    public Color BlockedColor { get; set; } = Colors.White;
-
-    /// <summary>框线宽，单位是世界像素。</summary>
-    [Export]
-    public float OutlineWidthPx { get; set; } = 1f;
+    public UIArt? Art { get; set; }
 
     /// <summary>玩家这一下会作用在哪一格。所有逐格动作都读这个属性。</summary>
     public Vector2I Cell { get; private set; }
 
     /// <summary>
-    /// <see cref="Cell"/> 够不够得到。够不到时动作要被拒，但框照画，只是换成不可用的颜色。
+    /// <see cref="Cell"/> 够不够得到。够不到时动作要被拒，但框照画，只是换成够不到那一张。
     /// </summary>
     public bool IsWithinReach { get; private set; }
 
-    // 下面三个是 _Ready 里校验过的非空副本，省掉每帧的判空。
+    // 下面几个是 _Ready 里校验过的非空副本，省掉每帧的判空。
     private TileMapLayer _grid = null!;
     private FarmWalker _player = null!;
     private InputRouter _router = null!;
+    private Texture2D _usable = null!;
+    private Texture2D _blocked = null!;
 
     public override void _Ready()
     {
@@ -99,6 +89,20 @@ public partial class FarmCellCursor : Node2D
             throw new InvalidOperationException(
                 $"{nameof(FarmCellCursor)} 接的那一层（{_grid.Name}）还没有 TileSet —— "
                 + "没有 TileSet 就没有格大小，框画不出来");
+        }
+
+        var art = UIArtGuard.Require(Art, $"{nameof(FarmCellCursor)}（节点 {Name}）");
+        _usable = HudPlace.Piece(art.WorldCellUsable, "world/cell_usable");
+        _blocked = HudPlace.Piece(art.WorldCellBlocked, "world/cell_blocked");
+
+        // 那两张照一格地往外大一圈画；接的那一层格子不是那么大，框就会套歪，而那不报错。
+        var tile = _grid.TileSet.TileSize;
+        var drawn = new Vector2I(_usable.GetWidth(), _usable.GetHeight());
+        if (drawn != new Vector2I(WorldUILayout.CellCursorSide(tile.X), WorldUILayout.CellCursorSide(tile.Y)))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmCellCursor)} 接的那一层（{_grid.Name}）格子是 {tile}，当前操作格那两张是 {drawn}，"
+                    + $"要比一格地四边各大 {WorldUILayout.CellCursorOutset} 像素 —— 接的多半不是地面那一层");
         }
 
         if (ReachInCells < 1)
@@ -134,10 +138,10 @@ public partial class FarmCellCursor : Node2D
     {
         Vector2I tileSize = _grid.TileSet.TileSize;
         Vector2 center = ToLocal(_grid.ToGlobal(_grid.MapToLocal(Cell)));
-        var rect = new Rect2(center - ((Vector2)tileSize / 2f), tileSize);
+        var corner = center - ((Vector2)tileSize / 2f) - (Vector2.One * WorldUILayout.CellCursorOutset);
 
-        // filled: false 就是只勾边。整格填色会盖住格子上的作物，而「这一格能不能收」要靠看作物。
-        DrawRect(rect, IsWithinReach ? UsableColor : BlockedColor, filled: false, OutlineWidthPx);
+        // 两张都只勾边、中间透明。整格填色会盖住格子上的作物，而「这一格能不能收」要靠看作物。
+        DrawTexture(IsWithinReach ? _usable : _blocked, corner);
     }
 
     /// <summary>某个世界坐标落在哪一格。</summary>

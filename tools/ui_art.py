@@ -336,6 +336,8 @@ class Piece:
     source: str                                   # 切／派生／手画
     nine: tuple[int, int, int, int] | None = None  # 九宫格边距：左、上、右、下；None 是不拉的件
     text: bool = False                             # 里面放字：清单里多打一格「放一行字至少高多少」
+    hotspot: Pt | None = None                      # 鼠标指针的热点；不是指针的件是 None
+    glyphs: str | None = None                      # 字形表从左到右是哪几个字；不是字形表的件是 None
 
 
 PIECES: list[Piece] = []
@@ -343,14 +345,18 @@ PIECES: list[Piece] = []
 
 def add(group: str, name: str, image: Image.Image, use: str, source: str,
         nine: tuple[int, int, int, int] | None = None, size: Pt | None = None,
-        text: bool = False) -> Image.Image:
+        text: bool = False, hotspot: Pt | None = None, glyphs: str | None = None) -> Image.Image:
     if size is not None and image.size != size:
         raise SystemExit(f"[FAIL] {group}/{name} 尺寸 {image.size}，清单要求 {size}")
     if any(p.group == group and p.name == name for p in PIECES):
         raise SystemExit(f"[FAIL] 清单里 {group}/{name} 出现了两次")
     if text and nine is None:
         raise SystemExit(f"[FAIL] {group}/{name} 标了放字却不是九宫格，撑不开就放不下字")
-    PIECES.append(Piece(group, name, image, use, source, nine, text))
+    if hotspot is not None and not (0 <= hotspot[0] < image.width and 0 <= hotspot[1] < image.height):
+        raise SystemExit(f"[FAIL] {group}/{name} 的热点 {hotspot} 落在 {image.size} 的画布外面")
+    if glyphs is not None and image.width % len(glyphs):
+        raise SystemExit(f"[FAIL] {group}/{name} 宽 {image.width} 分不成 {len(glyphs)} 个等宽的字形")
+    PIECES.append(Piece(group, name, image, use, source, nine, text, hotspot, glyphs))
     return image
 
 
@@ -716,7 +722,7 @@ def build_kit_glyphs() -> None:
         cells.paste(outline(cell, "ember 1"), (i * 5, 0))
     add("kit", "font_mini", cells,
         f"迷你字：一格 5×7（字形 3×5 加一圈描边），顺序 {sp.FONT_MINI_ORDER}；格子角上的件数与键名",
-        "手画", size=(5 * len(sp.FONT_MINI_ORDER), 7))
+        "手画", size=(5 * len(sp.FONT_MINI_ORDER), 7), glyphs=sp.FONT_MINI_ORDER)
 
     digits = tpl("button2.png")
     strip = blank(10 * 10, 12)
@@ -727,13 +733,13 @@ def build_kit_glyphs() -> None:
             raise SystemExit(f"[FAIL] 大数字 {n} 是 {glyph.size}，放不进 10×12 一格")
         strip.paste(glyph, (n * 10 + (10 - glyph.width) // 2, 0))
     add("kit", "font_digits", strip, "面板上的大数字（属性值、等级）：一格 10×12，顺序 0–9", "切",
-        size=(100, 12))
+        size=(100, 12), glyphs="".join(str(n) for n in range(10)))
 
     for name in ("cursor_arrow", "cursor_hand", "cursor_blocked"):
         image = from_grid(getattr(sp, name.upper()))
         hx, hy = sp.CURSOR_HOTSPOT.get(name) or tip(image)
         add("kit", name, image, f"鼠标指针，1× 原图，代码按整数倍放大；热点 ({hx},{hy})", "手画",
-            size=(16, 16))
+            size=(16, 16), hotspot=(hx, hy))
 
     for name, rows in sp.MINI.items():
         add("kit", f"mini_{name}", from_grid(rows), "迷你记号", "手画", size=(8, 8))

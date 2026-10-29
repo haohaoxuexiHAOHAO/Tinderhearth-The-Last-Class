@@ -196,13 +196,15 @@ public partial class Main : Node2D
         }
     }
 
-    /// <summary>建界面根节点与手环面板。</summary>
+    /// <summary>建界面根节点、手环面板与鼠标指针。</summary>
     /// <remarks>
-    /// 这里只建真正构成游戏的那几样：界面根、手环、HUD。画面上的事不用脚本去证明，
+    /// 这里只建真正构成游戏的那几样：界面根、手环、HUD、鼠标指针。画面上的事不用脚本去证明，
     /// 由作者在 Godot 里实机看。
     /// </remarks>
     private void BuildUI()
     {
+        AddChild(new CursorSkin { Name = "CursorSkin", Art = _art });
+
         var ui = new UIRoot();
         AddChild(ui);
         _ui = ui;

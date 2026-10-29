@@ -113,6 +113,16 @@ public static class HudLayout
     /// <summary>队友头像框边长。这是画好的那张 <c>hud/portrait_frame</c> 的尺寸，有测试拿素材清单对它。</summary>
     public const int PortraitSize = 20;
 
+    /// <summary>
+    /// 小头像与盖在它上面的倒地记号（<c>hud/down_mark</c>）放在头像框里这一点上，横竖各这么多：框比小图标大出来的那一圈，两边平分。
+    /// </summary>
+    public static int PortraitInset => (PortraitSize - UIMetrics.IconSmall) / 2;
+
+    /// <summary>
+    /// 格子角上的迷你字（键名在左上、件数在右下）离格子的边几像素：字形对齐图标那一格的角，描边那一圈落在留白里。
+    /// </summary>
+    public const int CellCornerInset = UIMetrics.CellInset - MiniFont.Outline;
+
     /// <summary>那条横排格子两头的框边宽：第一格从这么远开始。照画好的那张 <c>hud/actionbar_frame</c>。</summary>
     public const int ActionBarCapX = 7;
 

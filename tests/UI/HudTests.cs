@@ -125,6 +125,25 @@ public class HudTests
     }
 
     [Fact]
+    public void 格子角上的迷你字不压格子的描边()
+    {
+        // 迷你字的描边落在格子的留白里。留白比描边窄，字就压到格子那一圈描边上，两条描边糊成一片。
+        Assert.True(HudLayout.CellCornerInset >= UIMetrics.CellOutline, "迷你字的描边压到了格子的描边上");
+
+        // 最长的那个键名横着摆得下，不出格子。
+        var room = UIMetrics.Cell - (HudLayout.CellCornerInset * 2);
+        var longestKey = InputActions.Skills.Max(a => MiniFont.WidthOf(InputHints.SkillLabel(a, InputDeviceKind.KeyboardMouse)));
+        Assert.True(longestKey <= room, $"最长的键名 {longestKey} 像素宽，格子里只有 {room}");
+    }
+
+    [Fact]
+    public void 倒地记号在头像框里横竖居中不落半格()
+    {
+        // 框比小图标大出来的那一圈两边平分；那一圈是单数时整除会少一像素，记号就偏向左上。
+        Assert.Equal(HudLayout.PortraitSize, UIMetrics.IconSmall + (HudLayout.PortraitInset * 2));
+    }
+
+    [Fact]
     public void 队友块容纳编队上限四名()
     {
         var content = HudLayout.ContentSizeOf(HudBlock.Teammates, UIContext.Level);

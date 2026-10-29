@@ -15,21 +15,14 @@ namespace Tinderhearth.UI;
 /// 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在 640 宽的窗口上完全
 /// 看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
-/// 框、格子、资源条、资源条的标签、任务目标图标与头像框是素材资源里作者画的那几张（<see cref="UIArt"/>），尺寸照它们排
-/// （格子 22、格距 6，头像框 20）。资源条怎么画、回复时怎么追、扣减时怎么留一截在 <see cref="GaugeBar"/>。技能图标是内容，
-/// 由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张「技能对图标」的表。
+/// 框、格子、资源条、资源条的标签、任务目标图标、头像框、倒地记号与格子角上的迷你字是素材资源里作者画的那几张
+/// （<see cref="UIArt"/>），尺寸照它们排。资源条怎么画、回复时怎么追、扣减时怎么留一截在 <see cref="GaugeBar"/>。
+/// 技能图标是内容，由调用方给（<see cref="SkillIconResolver"/>），界面层不持有一张「技能对图标」的表。
 ///
 /// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见 <see cref="WorldSpaceUI"/>。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
-
-    /// <summary>
-    /// 倒地记号。它是个符号、不是一句要翻译的话，所以不进文本表（按键记号同理，见
-    /// <see cref="InputHints"/>）。
-    /// </summary>
-    private const string DownMark = "×";
-
     private const UIContext Here = UIContext.Level;
 
     private readonly InputRouter _router;
@@ -104,8 +97,8 @@ public sealed partial class LevelHud : Control
     /// <summary>目标进度那一行现在显示的字。</summary>
     public string ObjectiveText => _objective.Text;
 
-    /// <summary>第 N 个技能位现在显示的按键记号。</summary>
-    public string SlotHint(int index) => _skills[index].Hint.Text;
+    /// <summary>第 N 个技能位现在显示的按键记号：键鼠下是左上角的迷你字，手柄下是叠在图标里的那个；两样不同时有字。</summary>
+    public string SlotHint(int index) => _skills[index].Key.Text + _skills[index].Hint.Text;
 
     /// <summary>第 N 个技能位现在是不是高亮（修饰键按住时它那一组会亮）。</summary>
     public bool SlotLit(int index) =>
@@ -231,8 +224,8 @@ public sealed partial class LevelHud : Control
     /// </summary>
     /// <remarks>
     /// 格里不写名字：头像那么宽装不下 12px 的两个汉字，而认人本来就该靠头像（见
-    /// <see cref="HudTeammate"/>）。倒地于是另加一个记号盖在头像上，不只换颜色 —— 相反的两个
-    /// 意思要有不同的符号，见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
+    /// <see cref="HudTeammate"/>）。倒地是盖在小头像上的一张记号，头像框不换色 —— 相反的两个
+    /// 意思要有不同的形状，见设计仓 production/像素绘制原则.md 的「明度先于色相」一节。
     /// </remarks>
     private void BuildTeammates()
     {
@@ -254,22 +247,18 @@ public sealed partial class LevelHud : Control
             portrait.SetAnchorsPreset(LayoutPreset.FullRect);
             head.AddChild(portrait);
 
-            var mark = new Label
-            {
-                Name = "Down",
-                Text = DownMark,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            mark.SetAnchorsPreset(LayoutPreset.FullRect);
+            // 记号盖在框中间放小头像的那一格上，排在框后面，于是画在框上面。
+            var mark = HudPlace.Picture(_art.HudDownMark, "hud/down_mark");
+            mark.Name = "Down";
             head.AddChild(mark);
+            mark.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.PortraitInset);
 
             // 队友的血条与主角的资源条是同一套槽与填充，只是窄到头像那么宽。
             var (fill, fillName) = FillOf(HudGaugeKind.Health);
             var bar = new GaugeBar(_art, fill, fillName, HudLayout.PortraitSize, _motion);
             cell.AddChild(bar);
 
-            _teammates.Add(new TeammateCell(cell, portrait, mark, bar));
+            _teammates.Add(new TeammateCell(cell, mark, bar));
         }
     }
 
@@ -336,7 +325,12 @@ public sealed partial class LevelHud : Control
             hint.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(hint);
 
-            _skills.Add(new SkillCell(slot, icon, mask, hint));
+            // 键鼠下的键名贴格子左上角，排在图标与遮罩后面，于是压在它们上面。
+            var key = new MiniText(_art, MiniText.Corner.TopLeft) { Name = "Key" };
+            cell.AddChild(key);
+            key.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
+
+            _skills.Add(new SkillCell(slot, icon, mask, hint, key));
         }
     }
 
@@ -381,10 +375,7 @@ public sealed partial class LevelHud : Control
             }
 
             var mate = _model.Teammates[i];
-            // 倒地那一张记号随设计仓台账 UI-46 换上，到那时头像框不再染色；在那之前倒地是换色加一个叉。
-            cell.Portrait.SelfModulate = mate.Down ? PixelTheme.ToColor(HudPalette.Down) : Colors.White;
             cell.Mark.Visible = mate.Down;
-            Paint(cell.Mark, HudPalette.Hot);
             cell.Bar.Set(mate.Ratio);
         }
     }
@@ -396,8 +387,8 @@ public sealed partial class LevelHud : Control
     /// 记号从 <see cref="InputHints"/> 来，它又从绑定表来 —— 改键位时提示自动跟着改，
     /// 不会一直教玩家按错的键。
     ///
-    /// 键鼠下不画记号：技能键与槽位从左到右一一对应，再在每格上画一遍字母只是多一行字，而冷却中
-    /// 的格记号为空还会让这一行看起来缺号。手柄不同，扳机加面键的组合玩家推不出来，记号照画。
+    /// 键鼠下是格子左上角的迷你字，不叠正文那款字，理由在设计仓 production/界面绘制约定.md 的「12 像素字落在哪几行」。
+    /// 手柄的面键图标跟设计仓台账 UI-54 走，在那之前叠一个方位字。
     /// </remarks>
     private void RefreshSkills()
     {
@@ -422,10 +413,10 @@ public sealed partial class LevelHud : Control
             // 按住扳机时那一组亮起来的那一张跟手柄适配一起后置（设计仓台账 UI-54），在那之前那一组的格子换色。
             cell.Slot.SelfModulate = lit ? PixelTheme.ToColor(HudPalette.Hot) : Colors.White;
 
-            // 冷却中不显示记号：那时按了也没用，留着记号是在教玩家按一个不会响的键。
-            cell.Hint.Text = slot.Ready && device == InputDeviceKind.Gamepad
-                ? InputHints.SkillLabel(slot.Action, device)
-                : InputHints.None;
+            // 没解锁与冷却中不显示记号：那时按了也没用，留着记号是在教玩家按一个不会响的键。
+            var label = slot.Ready ? InputHints.SkillLabel(slot.Action, device) : InputHints.None;
+            cell.Key.Text = device == InputDeviceKind.KeyboardMouse ? label : InputHints.None;
+            cell.Hint.Text = device == InputDeviceKind.Gamepad ? label : InputHints.None;
             Paint(cell.Hint, lit ? HudPalette.Hot : HudPalette.Dim);
         }
     }
@@ -496,7 +487,7 @@ public sealed partial class LevelHud : Control
 
     private sealed record GaugeRow(GaugeBar Bar);
 
-    private sealed record SkillCell(TextureRect Slot, TextureRect Icon, ColorRect Mask, Label Hint);
+    private sealed record SkillCell(TextureRect Slot, TextureRect Icon, ColorRect Mask, Label Hint, MiniText Key);
 
-    private sealed record TeammateCell(Control Root, TextureRect Portrait, Label Mark, GaugeBar Bar);
+    private sealed record TeammateCell(Control Root, TextureRect Mark, GaugeBar Bar);
 }
