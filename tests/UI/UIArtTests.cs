@@ -52,7 +52,10 @@ public class UIArtTests
         Assert.Empty(extra);
     }
 
-    /// <summary>界面绘制约定「尺寸阶梯」那张表里由排版单位定的几档。改了单位，这几件就要重画，这条先红。</summary>
+    /// <summary>
+    /// 界面绘制约定「尺寸阶梯」那张表里由排版单位定的几档，加上 HUD 排版照着它们的尺寸排的那几件。
+    /// 改了单位，这几件就要重画；作者换了图，HUD 的排版就要跟着改。哪一边先动，这条先红。
+    /// </summary>
     [Fact]
     public void 能由排版单位推出的那几档都对得上单位()
     {
@@ -69,7 +72,9 @@ public class UIArtTests
             (["panel/result_*"], UIMetrics.IconLarge, UIMetrics.IconLarge, "大图标"),
             (["hud/portrait_frame"], HudLayout.PortraitSize, HudLayout.PortraitSize, "头像框"),
             (["kit/row_*", "glyph/keycap"], null, UIMetrics.LineHeight, "行"),
-            (["hud/bar_fill_*"], null, HudLayout.GaugeBarHeight, "条高"),
+            (["hud/bar_track"], null, HudLayout.GaugeBarHeight, "资源条的槽"),
+            (["hud/vigor_tube_*"], HudLayout.VigorTubeWidth, HudLayout.VigorTubeHeight, "精力条"),
+            (["hud/actionbar_frame"], null, HudLayout.SizeOf(HudBlock.ActionBar, UIContext.Level).Height, "那条栏"),
         ];
 
         var problems = new List<string>();

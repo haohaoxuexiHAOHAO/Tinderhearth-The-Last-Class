@@ -31,6 +31,27 @@ public partial class Main : Node2D
     [Export]
     public UIArt? Art { get; set; }
 
+    /// <summary>主场景预览哪个场合的 HUD。</summary>
+    /// <remarks>
+    /// 不直接导出 <see cref="UIContext"/>：它的第一个取值是基地，导出它就等于留了一个能用的默认值，没选也不报错。
+    /// 这里第一个取值是「没选」，没选就当场报错。
+    /// </remarks>
+    public enum HudPreview
+    {
+        /// <summary>没选。启动时当场报错，不悄悄挑一个。</summary>
+        Unset,
+
+        /// <summary>关卡那一套：资源、任务目标、队友与技能栏，全部在顶上。</summary>
+        Level,
+
+        /// <summary>基地那一套：精力与状态位在左下，随身栏在右下，带演示内容。</summary>
+        Base,
+    }
+
+    /// <summary>预览哪一套 HUD，在检查器里选。手环按同一个场合判哪些页可用。</summary>
+    [Export]
+    public HudPreview Preview { get; set; }
+
     public override void _Ready()
     {
         // 数字照游戏的语言印、不照玩家系统的区域设置印，理由在 GameLanguage。要排在第一行：
@@ -82,25 +103,35 @@ public partial class Main : Node2D
         _art = UIArtGuard.Require(Art, $"{nameof(Main)}（节点 {Name}）");
         GD.Print("[界面] 素材资源 ", UIArtManifest.Pieces.Count, " 格，全部在、尺寸都对（", _art.ResourcePath, "）");
 
+        _context = Preview switch
+        {
+            HudPreview.Level => UIContext.Level,
+            HudPreview.Base => UIContext.Base,
+            _ => throw new InvalidOperationException(
+                $"{nameof(Main)}（节点 {Name}）的 {nameof(Preview)} 没选 —— 在检查器里选预览关卡还是基地那一套 HUD"),
+        };
+        GD.Print("[界面] 预览场合 ", _context);
+
         BuildUI();
         BuildInputRouter();
         BuildHud();
     }
 
     private UIArt _art = null!;
+    private UIContext _context;
     private UIRoot _ui = null!;
     private InputRouter _router = null!;
-    private LevelHud _hud = null!;
     private WristbandPanel _wristband = null!;
     private TextCatalog _text = null!;
     private IReadOnlyList<PixelTheme.Check> _fontChecks = [];
 
     /// <summary>
-    /// 建关卡 HUD。它不进导航栈 —— 常驻显示，不压栈也不弹栈。
+    /// 建 <see cref="Preview"/> 选的那一套 HUD。它不进导航栈 —— 常驻显示，不压栈也不弹栈。
     /// </summary>
     /// <remarks>
     /// 显示的数值来自 <see cref="HudDemoModel"/>，那是一份明确标为演示用的数据，真数据要等玩法
-    /// 做起来。四块各贴一个屏幕角，具体贴哪个角见 <see cref="HudLayout.AnchorOf"/>。
+    /// 做起来。各块贴哪见 <see cref="HudLayout.PlacementOf"/>。基地那一套的随身栏在正式场景里由作者摆，
+    /// 这里的场景树是代码搭的，所以由这里建一条、装上演示内容。
     /// </remarks>
     private void BuildHud()
     {
@@ -112,12 +143,39 @@ public partial class Main : Node2D
         // 手环也挂同一份主题。它自己不载字体，等的就是这一步。
         _wristband.Theme = theme;
 
-        _hud = new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates))
+        var layer = _ui.LayerOf(UILayer.Hud);
+        switch (_context)
         {
-            Name = "LevelHud",
-            Theme = theme,
-        };
-        _ui.LayerOf(UILayer.Hud).AddChild(_hud);
+            case UIContext.Level:
+                layer.AddChild(new LevelHud(_router, HudDemoModel.Build(_text, HudLayout.MaxTeammates), _art)
+                {
+                    Name = "LevelHud",
+                    Theme = theme,
+                });
+                break;
+
+            case UIContext.Base:
+                layer.AddChild(new BaseHud(HudDemoModel.BuildBase(_text), _art)
+                {
+                    Name = "BaseHud",
+                    Theme = theme,
+                });
+
+                // 内容在挂进树之前装好：就绪那一刻就按它画，图标从哪取也得在那之前给。
+                var carry = new CarrySlotBarView
+                {
+                    Name = "CarrySlotBar",
+                    Router = _router,
+                    Icons = HudDemoModel.CarryIcon,
+                    Theme = theme,
+                };
+                carry.Bar.Fill(HudDemoModel.CarrySlots());
+                layer.AddChild(carry);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(_context), $"没有这个场合：{_context}");
+        }
     }
 
     /// <summary>建界面根节点与手环面板。</summary>
@@ -136,8 +194,8 @@ public partial class Main : Node2D
         _wristband = wristband;
         ui.Open(Wristband.Surface);
 
-        ui.Context = UIContext.Level;
-        wristband.Context = UIContext.Level;
+        ui.Context = _context;
+        wristband.Context = _context;
     }
 
     /// <summary>建输入门面。引擎层查输入一律经它，不直接轮询 <c>Input</c>。</summary>

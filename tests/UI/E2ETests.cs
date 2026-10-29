@@ -20,7 +20,7 @@ public class E2ETests
 
     /// <summary>最小可用的 HUD 视图模型，数值全部是编的，只为撞契约。</summary>
     private static HudViewModel MakeHud(int teammates = HudLayout.MaxTeammates) => new(
-        gauges: [.. Enum.GetValues<HudGaugeKind>()
+        gauges: [.. HudLayout.GaugesIn(UIContext.Level)
                         .Select(k => new HudGauge(k, k.ToString(), FakeMax / 2, FakeMax))],
         skills: [.. InputActions.Skills.Select(a => new HudSkillSlot(a, a, true, 0.0))],
         objective: new HudObjective("素材", 1, 3, "已达成，返回入口点撤离"),
@@ -59,8 +59,8 @@ public class E2ETests
         Assert.Equal(0, nav.Depth);
 
         // HUD 数据在整条链路里不变（视图模型是不可变记录）
-        Assert.Equal(4, hud.Gauges.Count);
-        Assert.Equal(6, hud.Skills.Count);
+        Assert.Equal(HudLayout.GaugesIn(UIContext.Level).Count, hud.Gauges.Count);
+        Assert.Equal(InputActions.Skills.Count, hud.Skills.Count);
     }
 
     [Fact]
@@ -107,18 +107,22 @@ public class E2ETests
     }
 
     [Fact]
-    public void 主路径_HUD四块在侧视基准分辨率下一块都不压角色可读区()
+    public void 主路径_关卡HUD收在顶上而基地HUD不压角色可读区()
     {
-        // 侧视场景 HUD 出现后，确认整套放置对角色可读区无干扰
+        // 两种场合各自那条判据合起来验一次：关卡里人能站到任何横坐标上，基地里相机跟着人走
+        Assert.Empty(HudLayout.BlocksBelowTopBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
         Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
 
-        var band = HudLayout.ClearBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        Assert.Equal(UIMetrics.BaseWidth, band.Width);    // 贯通两端
-        Assert.True(band.Height > 0);
+        foreach (var context in (UIContext[])[UIContext.Level, UIContext.Base])
+        {
+            var band = HudLayout.ClearBand(context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+            Assert.Equal(UIMetrics.BaseWidth, band.Width);    // 贯通两端
+            Assert.True(band.Height > 0, $"{context} 的可读横带被切断了");
+        }
     }
 
     [Fact]
-    public void 主路径_HUD四块与世界空间层都落在正确的UILayer层级()
+    public void 主路径_HUD与世界空间层都落在正确的UILayer层级()
     {
         // 层级约束是全部 UI 条目的基础；合起来验一次
         Assert.True(UILayer.World < UILayer.WorldSpace);
@@ -158,8 +162,11 @@ public class E2ETests
         // 如果这里抛了，小窗口下的 HUD 排版就会整块失效
         const int tiny = 320;
         const int tinyH = 180;
-        var rects = HudLayout.RectsOf(tiny, tinyH);
-        Assert.Equal(4, rects.Count);    // 四块都算出来了，即使坐标可能超界
+        foreach (var context in (UIContext[])[UIContext.Level, UIContext.Base])
+        {
+            // 每一块都算出来了，即使坐标可能超界
+            Assert.Equal(HudLayout.BlocksIn(context).Count, HudLayout.RectsOf(context, tiny, tinyH).Count);
+        }
     }
 
     [Fact]
@@ -169,18 +176,21 @@ public class E2ETests
         const int wide = 649;
         var delta = wide - UIMetrics.BaseWidth;
 
-        foreach (var block in Enum.GetValues<HudBlock>())
+        foreach (var context in (UIContext[])[UIContext.Level, UIContext.Base])
         {
-            var narrow    = HudLayout.RectOf(block, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-            var stretched = HudLayout.RectOf(block, wide, UIMetrics.BaseHeight);
-
-            var xDelta = HudLayout.AnchorOf(block) switch
+            foreach (var block in HudLayout.BlocksIn(context))
             {
-                HudAnchor.TopLeft or HudAnchor.BottomLeft   => 0,
-                HudAnchor.TopRight or HudAnchor.BottomRight => delta,
-                _ => throw new InvalidOperationException(),
-            };
-            Assert.Equal(xDelta, stretched.X - narrow.X);
+                var narrow    = HudLayout.RectOf(block, context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+                var stretched = HudLayout.RectOf(block, context, wide, UIMetrics.BaseHeight);
+
+                var xDelta = HudLayout.PlacementOf(block, context).Anchor switch
+                {
+                    HudAnchor.TopLeft or HudAnchor.BottomLeft   => 0,
+                    HudAnchor.TopRight or HudAnchor.BottomRight => delta,
+                    _ => throw new InvalidOperationException(),
+                };
+                Assert.Equal(xDelta, stretched.X - narrow.X);
+            }
         }
     }
 
@@ -188,8 +198,11 @@ public class E2ETests
     public void 失败路径_宽屏下占屏仍不超过一成()
     {
         const int wide = 649;
-        var share = HudLayout.CoverageRatio(wide, UIMetrics.BaseHeight);
-        Assert.True(share < 0.10, $"宽屏下 HUD 占屏 {share:P1}");
+        foreach (var context in (UIContext[])[UIContext.Level, UIContext.Base])
+        {
+            var share = HudLayout.CoverageRatio(context, wide, UIMetrics.BaseHeight);
+            Assert.True(share < 0.10, $"宽屏下 {context} 的 HUD 占屏 {share:P1}");
+        }
     }
 
     // ── 失败路径：队友数为 0 ─────────────────────────────────────────
@@ -211,12 +224,12 @@ public class E2ETests
     [Fact]
     public void 失败路径_零队友时HUD整体约束仍然成立()
     {
-        // 队友区收起后，其余三块与可读横带的约束不能因此失效
+        // 队友区收起后，其余几块与顶上那一段的约束不能因此失效
         var hud = MakeHud(teammates: 0);
         Assert.False(hud.ShowTeammates);
 
-        // 布局算法本身不依赖 ShowTeammates，四块坐标不变
-        Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
+        // 布局算法本身不依赖 ShowTeammates，各块坐标不变
+        Assert.Empty(HudLayout.BlocksBelowTopBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
     }
 
     // ── 失败路径：目标进度为 0 与已完成 ─────────────────────────────
@@ -312,9 +325,12 @@ public class E2ETests
     }
 
     [Fact]
-    public void 综合_整条链路在侧视基准分辨率下占屏不超过一成()
+    public void 综合_整条链路在基准分辨率下占屏不超过一成()
     {
-        var share = HudLayout.CoverageRatio(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        Assert.True(share < 0.10, $"HUD 占屏 {share:P1}");
+        foreach (var context in (UIContext[])[UIContext.Level, UIContext.Base])
+        {
+            var share = HudLayout.CoverageRatio(context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+            Assert.True(share < 0.10, $"{context} 的 HUD 占屏 {share:P1}");
+        }
     }
 }

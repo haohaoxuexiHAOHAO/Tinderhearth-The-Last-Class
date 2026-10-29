@@ -3,10 +3,10 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
-/// <summary>关卡 HUD 的测试：排版关系、放置候选、视图模型契约与像素字体取值。</summary>
+/// <summary>HUD 的测试：两种场合各自的排版关系与放置、视图模型契约与像素字体取值。</summary>
 /// <remarks>
 /// 这些要有测试，因为失效方式全都不报错。块高从行高倍数变成随手取的数，只表现为某一行文字与
-/// 旁边的条差半格；居中偏移落到半像素上，只表现为在某些窗口尺寸下有点糊；视图模型少给一条资源，
+/// 旁边的条差半格；关卡里一块越过顶上那一段，只表现为人站到那一排时被挡住；视图模型少给一条资源，
 /// 只表现为界面上少一根条，而没人记得本来有几根。
 ///
 /// 这里不含任何玩法数值，测的是排版量之间的关系和界面契约，不是「生命上限该是几」。视图模型里
@@ -17,9 +17,14 @@ public class HudTests
     // ── 一份最小可用的假视图模型。数字全是编的，只为撞契约 ──
     private const int FakeMax = 40;
 
+    /// <summary>实测过的那个宽窗口的逻辑宽度（3840×2130 的窗口得到 649×360）。</summary>
+    private const int Wide = 649;
+
+    private static List<HudGauge> FakeGauges(UIContext context) =>
+        [.. HudLayout.GaugesIn(context).Select(k => new HudGauge(k, k.ToString(), FakeMax / 2, FakeMax))];
+
     private static HudViewModel Fake(int teammates = HudLayout.MaxTeammates) => new(
-        gauges: [.. Enum.GetValues<HudGaugeKind>()
-                        .Select(k => new HudGauge(k, k.ToString(), FakeMax / 2, FakeMax))],
+        gauges: FakeGauges(UIContext.Level),
         skills: [.. InputActions.Skills.Select(a => new HudSkillSlot(a, a, true, 0.0))],
         objective: new HudObjective("素材", 1, 3, "已达成"),
         teammates: [.. Enumerable.Range(0, teammates)
@@ -27,82 +32,90 @@ public class HudTests
 
     // ── 排版关系 ────────────────────────────────────────────────────
 
-    [Fact]
-    public void 每一块的宽高都是正整数()
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 每一块的宽高都是正整数(UIContext context)
     {
-        foreach (var block in Enum.GetValues<HudBlock>())
+        foreach (var block in HudLayout.BlocksIn(context))
         {
-            var size = HudLayout.SizeOf(block);
-            Assert.True(size.Width > 0, $"{block} 宽 {size.Width}");
-            Assert.True(size.Height > 0, $"{block} 高 {size.Height}");
+            var size = HudLayout.SizeOf(block, context);
+            Assert.True(size.Width > 0, $"{context} 的 {block} 宽 {size.Width}");
+            Assert.True(size.Height > 0, $"{context} 的 {block} 高 {size.Height}");
         }
     }
 
     [Fact]
-    public void 资源块内容高是行高的整数倍且等于资源条数()
+    public void 关卡资源块每条一行再加一行状态位()
     {
         // 不成倍数的话标签基线与条会差半格，而那种错只在并排看两块时才发现。
-        var content = HudLayout.ContentSizeOf(HudBlock.Resources);
+        var content = HudLayout.ContentSizeOf(HudBlock.Resources, UIContext.Level);
         Assert.Equal(0, content.Height % UIMetrics.LineHeight);
-        Assert.Equal(HudLayout.GaugeCount, content.Height / UIMetrics.LineHeight);
+        Assert.Equal(HudLayout.GaugesIn(UIContext.Level).Count * HudLayout.GaugeRowHeight,
+                     content.Height - HudLayout.StatusRowHeight);
     }
 
     [Fact]
-    public void 外框等于内容加两边内边距()
+    public void 基地资源块是那支精力条加一行状态位且与关卡那一块同宽()
     {
-        // 占屏比例算的是外框。漏掉内边距会让「HUD 占几成」偏小，而那个数正是选放置方案的依据。
-        foreach (var block in Enum.GetValues<HudBlock>())
+        // 同宽是为了状态位那一行两边一样长：同一个状态在两种场合里落在同一处。
+        var content = HudLayout.ContentSizeOf(HudBlock.Resources, UIContext.Base);
+        Assert.Equal(HudLayout.VigorTubeHeight + HudLayout.StatusRowHeight, content.Height);
+        Assert.Equal(HudLayout.ContentSizeOf(HudBlock.Resources, UIContext.Level).Width, content.Width);
+
+        // 标签、间距与那支管子放得进那一段。
+        Assert.True(HudLayout.GaugeLabelSize + UIMetrics.ItemGap + HudLayout.VigorTubeWidth <= content.Width);
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 外框等于内容加两边框边(UIContext context)
+    {
+        // 占屏比例算的是外框。漏掉框边会让「HUD 占几成」偏小，而那个数正是选放置方案的依据。
+        foreach (var block in HudLayout.BlocksIn(context))
         {
-            var content = HudLayout.ContentSizeOf(block);
-            var outer = HudLayout.SizeOf(block);
-            Assert.Equal(content.Width + (UIMetrics.PanelPadding * 2), outer.Width);
-            Assert.Equal(content.Height + (UIMetrics.PanelPadding * 2), outer.Height);
+            var content = HudLayout.ContentSizeOf(block, context);
+            var outer = HudLayout.SizeOf(block, context);
+            var (x, y) = HudLayout.InsetOf(block);
+            Assert.Equal(content.Width + (x * 2), outer.Width);
+            Assert.Equal(content.Height + (y * 2), outer.Height);
         }
     }
 
     [Fact]
-    public void 资源条比行高矮好让它在一行里居中()
+    public void 资源条与标签都比行高矮且能在一行里居中()
     {
-        Assert.True(HudLayout.GaugeBarHeight < UIMetrics.LineHeight);
-        Assert.Equal(0, (UIMetrics.LineHeight - HudLayout.GaugeBarHeight) % 2);
+        // 差值为奇数时居中会落在半格上。
+        foreach (var height in (int[])[HudLayout.GaugeBarHeight, HudLayout.GaugeLabelSize])
+        {
+            Assert.True(height < UIMetrics.LineHeight);
+            Assert.Equal(0, (UIMetrics.LineHeight - height) % 2);
+        }
+
+        Assert.Equal(0, (HudLayout.VigorTubeHeight - HudLayout.GaugeLabelSize) % 2);
     }
 
     [Fact]
-    public void 技能位分组与输入侧同源()
+    public void 那条横排格子照画好的栏排()
     {
-        // 两处各写一个 2 必然漂移：修饰键那边改成三个组时，这里不跟着改也不会报错。
-        Assert.Equal(InputActions.SkillsPerGroup, HudLayout.SkillsPerGroup);
-        Assert.Equal(InputActions.Skills.Count,
-                     HudLayout.SkillGroupCount * HudLayout.SkillsPerGroup);
-    }
-
-    [Fact]
-    public void 技能位单元只占图标一格且手柄提示叠在图标内()
-    {
-        Assert.Equal(UIMetrics.IconSmall, HudLayout.SkillCellHeight);
-    }
-
-    [Fact]
-    public void 六个技能位排成一行且两组之间空一个栅格()
-    {
-        // 那条六格横排。块高只占一个单元，宽度是两组加中间那道分界。
-        var content = HudLayout.ContentSizeOf(HudBlock.ActionBar);
-        Assert.Equal(HudLayout.SkillCellHeight, content.Height);
-        Assert.Equal((HudLayout.SkillGroupCount * HudLayout.SkillGroupWidth)
-                     + ((HudLayout.SkillGroupCount - 1) * UIMetrics.Grid), content.Width);
-
-        // 槽框本身分隔同组三格，组内不留空；两组之间仍由上面的栅格明确分开。
-        // 没有「L」「R」记号列：一组就是三个紧邻的图标格。
-        Assert.Equal(HudLayout.SkillsPerGroup * UIMetrics.IconSmall, HudLayout.SkillGroupWidth);
+        // 两头的框边、每格一个格子、格与格之间一段格距。格数与技能位同源。
+        var outer = HudLayout.SizeOf(HudBlock.ActionBar, UIContext.Level);
+        var cells = HudLayout.ActionBarCellCount;
+        Assert.Equal(InputActions.Skills.Count, cells);
+        Assert.Equal((HudLayout.ActionBarCapX * 2) + (cells * UIMetrics.Cell) + ((cells - 1) * HudLayout.ActionBarCellGap),
+                     outer.Width);
+        Assert.Equal((HudLayout.ActionBarCapY * 2) + UIMetrics.Cell, outer.Height);
     }
 
     [Fact]
     public void 队友块容纳编队上限四名()
     {
-        var content = HudLayout.ContentSizeOf(HudBlock.Teammates);
+        var content = HudLayout.ContentSizeOf(HudBlock.Teammates, UIContext.Level);
         var expected = (HudLayout.MaxTeammates * HudLayout.PortraitSize)
                        + ((HudLayout.MaxTeammates - 1) * UIMetrics.ItemGap);
         Assert.Equal(expected, content.Width);
+        Assert.Equal(HudLayout.PortraitSize + HudLayout.GaugeBarHeight, content.Height);
         Assert.Equal(4, HudLayout.MaxTeammates);        // 正典：主角 + 1 至 4 名学生
     }
 
@@ -111,133 +124,108 @@ public class HudTests
     {
         // 「已达成，返回入口点撤离」11 个全宽汉字。按短的定宽会让达成态被截断，
         // 而正典要求进度始终可见 —— 达成那句正是最需要看清的时刻。
-        var content = HudLayout.ContentSizeOf(HudBlock.Objective);
+        var content = HudLayout.ContentSizeOf(HudBlock.Objective, UIContext.Level);
         Assert.True(content.Width >= "已达成，返回入口点撤离".Length * UIMetrics.FontSize);
         Assert.Equal(UIMetrics.LineHeight, content.Height);
     }
 
-    // ── 放置 ────────────────────────────────────────────────────────
-
-    [Fact]
-    public void 一块都不压角色可能出现的那块()
+    [Theory]
+    [InlineData(-0.5, HudLayout.VigorLiquidInset)]
+    [InlineData(0.0, HudLayout.VigorLiquidInset)]
+    [InlineData(1.0, HudLayout.VigorTubeHeight - HudLayout.VigorLiquidInset)]
+    [InlineData(2.0, HudLayout.VigorTubeHeight - HudLayout.VigorLiquidInset)]
+    public void 精力条露出的高度按液面那一段算且钳在两端(double ratio, int expected)
     {
-        // 这是 HUD 排版最要紧的一条。角色 32px 在侧视 2 倍下占屏 64px，加上死区允许的偏移，
-        // 中间那块必须一块 HUD 都不压。
-        Assert.Empty(HudLayout.BlocksOverActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight));
+        // 为 0 时露的只有底下那段透明，为 1 时液面整段露出、管顶那段透明照旧不露。
+        Assert.Equal(expected, HudLayout.VigorShownHeight(ratio));
     }
 
     [Fact]
-    public void 留出一条通到两端的可读横带()
+    public void 精力条每多一成露出的只多不少()
     {
-        // 侧视关卡是一条水平走廊，左右两端的敌人与平台跟正中间一样要紧，
-        // 所以量的是「整幅宽的横带」而不是「最大空白面积」。
-        var band = HudLayout.ClearBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        Assert.Equal(UIMetrics.BaseWidth, band.Width);
-        // 下限取五分之三：它必须比角色可读区（128px）宽出一截，否则「不压角色」这条就靠得太紧，
-        // 一点排版变动就把余量吃光。实测 238px。
-        Assert.True(band.Height >= UIMetrics.BaseHeight * 3 / 5,
-                    $"可读横带只有 {band.Height}px");
-        Assert.True(band.Height > HudLayout.ActorBand(
-            UIMetrics.BaseWidth, UIMetrics.BaseHeight).Height);
+        var shown = Enumerable.Range(0, 11).Select(i => HudLayout.VigorShownHeight(i / 10.0)).ToList();
+        Assert.Equal(shown.OrderBy(h => h), shown);
+        Assert.Equal(HudLayout.VigorLiquidHeight, shown[^1] - shown[0]);
     }
 
-    [Fact]
-    public void 占屏不超过一成()
-    {
-        var share = HudLayout.CoverageRatio(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        Assert.True(share < 0.10, $"HUD 占屏 {share:P1}，超过一成就开始挤中间那块");
-    }
-
-    [Fact]
-    public void 逻辑宽度撑开时左锚点不动右锚点跟着走()
-    {
-        // 视口按 expand 拉伸时逻辑宽度是个变量（实测 3840×2130 的窗口得到 649×360）。
-        // 这条把「用锚点而不是写死坐标」变成算得出来的性质。
-        const int wide = 649;
-        var delta = wide - UIMetrics.BaseWidth;
-
-        foreach (var block in Enum.GetValues<HudBlock>())
-        {
-            var narrow = HudLayout.RectOf(block, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-            var stretched = HudLayout.RectOf(block, wide, UIMetrics.BaseHeight);
-            var expected = HudLayout.AnchorOf(block) switch
-            {
-                HudAnchor.TopLeft or HudAnchor.BottomLeft => 0,
-                HudAnchor.TopRight or HudAnchor.BottomRight => delta,
-                _ => throw new InvalidOperationException(),
-            };
-            Assert.Equal(expected, stretched.X - narrow.X);
-            Assert.Equal(narrow.Y, stretched.Y);        // 高度锁在 360，纵向不该动
-        }
-    }
-
-    [Fact]
-    public void 没有居中锚点所以横坐标不会落在半格上()
-    {
-        // 立项时另一套候选把技能条摆在底边居中，奇数逻辑宽度下它落在 .5 上（649 宽时实测 −35.5）。
-        // 选定的是四角，居中那套删掉了。这条挡的是「有人把居中加回来」：
-        // 加回来会让它失败，逼人先读 HudAnchor 的注释（那里写明要先补一次 ×3 缩放下的测量）。
-        Assert.DoesNotContain("Center", string.Join(",", Enum.GetNames<HudAnchor>()));
-
-        // 块宽一律偶数，所以将来真要居中时只在逻辑宽度为奇数时才落到半格，而不是每次都落。
-        foreach (var block in Enum.GetValues<HudBlock>())
-        {
-            Assert.Equal(0, HudLayout.SizeOf(block).Width % 2);
-        }
-    }
+    // ── 关卡那一套：全部收在顶上那一段 ────────────────────────────────
 
     [Theory]
-    [InlineData(640)]
-    [InlineData(649)]
-    public void 四块都在屏幕内且留着安全边距(int viewportWidth)
+    [InlineData(UIMetrics.BaseWidth)]
+    [InlineData(Wide)]
+    public void 关卡那一套每一块都不越过顶上那一段(int viewportWidth)
     {
-        foreach (var (block, rect) in HudLayout.RectsOf(viewportWidth, UIMetrics.BaseHeight))
+        // 战斗片段就是一屏、人能站到任何横坐标上，纵向账只给 HUD 留了顶上那一段。
+        Assert.Empty(HudLayout.BlocksBelowTopBand(viewportWidth, UIMetrics.BaseHeight));
+    }
+
+    [Fact]
+    public void 反证_关卡任一块挪进纵深带就被判出来()
+    {
+        // 上面那条用的就是这个判定。它得真能判出越界，否则上面那条只会说「通过」。
+        foreach (var (block, rect) in HudLayout.RectsOf(UIContext.Level, UIMetrics.BaseWidth, UIMetrics.BaseHeight))
         {
-            Assert.True(rect.X >= UIMetrics.SafeMargin, $"{block} 左边越过安全边距");
-            Assert.True(rect.Y >= UIMetrics.SafeMargin, $"{block} 上边越过安全边距");
-            Assert.True(rect.Right <= viewportWidth - UIMetrics.SafeMargin,
-                        $"{block} 右边越过安全边距");
-            Assert.True(rect.Bottom <= UIMetrics.BaseHeight - UIMetrics.SafeMargin,
-                        $"{block} 下边越过安全边距");
+            Assert.False(HudLayout.ExceedsTopBand(rect), $"{block} 本来就越界了");
+
+            var flush = rect with { Y = HudLayout.LevelTopBandHeight - rect.Height };
+            Assert.False(HudLayout.ExceedsTopBand(flush), $"{block} 底边贴着那一段的下沿不算越界");
+
+            var intruding = flush with { Y = flush.Y + 1 };
+            Assert.True(HudLayout.ExceedsTopBand(intruding), $"{block} 挪进纵深带一像素没被判出来");
         }
     }
 
     [Fact]
-    public void 四块贴四个不同的角()
+    public void 关卡那一套全贴顶边()
     {
-        // 四角贴边：目标左上、队友右上、资源左下、技能右下。
-        Assert.Equal(HudAnchor.TopLeft, HudLayout.AnchorOf(HudBlock.Objective));
-        Assert.Equal(HudAnchor.TopRight, HudLayout.AnchorOf(HudBlock.Teammates));
-        Assert.Equal(HudAnchor.BottomLeft, HudLayout.AnchorOf(HudBlock.Resources));
-        Assert.Equal(HudAnchor.BottomRight, HudLayout.AnchorOf(HudBlock.ActionBar));
-
-        // 四个角各一块，没有两块抢同一个角。
-        var anchors = Enum.GetValues<HudBlock>().Select(HudLayout.AnchorOf).ToList();
-        Assert.Equal(anchors.Count, anchors.Distinct().Count());
-    }
-
-    [Fact]
-    public void 四块两两不重叠()
-    {
-        var rects = HudLayout.RectsOf(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        for (var i = 0; i < rects.Count; i++)
+        foreach (var block in HudLayout.BlocksIn(UIContext.Level))
         {
-            for (var j = i + 1; j < rects.Count; j++)
-            {
-                Assert.False(rects[i].Rect.Overlaps(rects[j].Rect),
-                             $"{rects[i].Block} 与 {rects[j].Block} 重叠");
-            }
+            Assert.True(HudLayout.PlacementOf(block, UIContext.Level).Anchor is HudAnchor.TopLeft or HudAnchor.TopRight,
+                        $"关卡里的 {block} 没贴顶边");
         }
     }
 
     [Fact]
-    public void 角色可读区取死区加一个精灵格()
+    public void 技能栏的位置只按队友块的尺寸算()
     {
+        // 单人出征时队友块收起，技能栏不跟着上移：位置固定才有肌肉记忆。放置只吃尺寸、不吃显隐，
+        // 所以它等于「安全边距、队友块的高、一个栅格」，与队友块显不显示无关。
+        var placement = HudLayout.PlacementOf(HudBlock.ActionBar, UIContext.Level);
+        var teammates = HudLayout.PlacementOf(HudBlock.Teammates, UIContext.Level);
+        Assert.Equal(teammates.Anchor, placement.Anchor);
+        Assert.Equal(teammates.InsetX, placement.InsetX);
+        Assert.Equal(teammates.InsetY + HudLayout.SizeOf(HudBlock.Teammates, UIContext.Level).Height + UIMetrics.Grid,
+                     placement.InsetY);
+    }
+
+    // ── 基地那一套：照旧贴四角，判据是跟随死区 ────────────────────────
+
+    [Theory]
+    [InlineData(UIMetrics.BaseWidth)]
+    [InlineData(Wide)]
+    [InlineData(1280)]
+    public void 基地那一套一块都不压角色可能出现的那块(int viewportWidth)
+    {
+        Assert.Empty(HudLayout.BlocksOverActorBand(viewportWidth, UIMetrics.BaseHeight));
+    }
+
+    [Fact]
+    public void 角色可读区取死区加一个本体且不乘缩放()
+    {
+        // 两种视角的相机都不缩放，俯视本体两个基础单位在屏上就是两个基础单位。
         var band = HudLayout.ActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight);
-        var sprite = UIMetrics.IconLarge * UIMetrics.SideViewZoom;      // 32 世界像素占屏 64
-        Assert.Equal((CameraFeel.DeadzoneHalfWidthScreenPx * 2) + sprite, band.Width);
-        Assert.Equal((CameraFeel.DeadzoneHalfHeightScreenPx * 2) + sprite, band.Height);
+        Assert.Equal((CameraFeel.DeadzoneHalfWidthScreenPx * 2) + UIMetrics.IconLarge, band.Width);
+        Assert.Equal((CameraFeel.DeadzoneHalfHeightScreenPx * 2) + UIMetrics.IconLarge, band.Height);
         Assert.Equal(UIMetrics.BaseWidth / 2, band.X + (band.Width / 2));
+        Assert.Equal(UIMetrics.BaseHeight / 2, band.Y + (band.Height / 2));
+    }
+
+    [Fact]
+    public void 基地那一套贴的角各不相同()
+    {
+        var anchors = HudLayout.BlocksIn(UIContext.Base)
+            .Select(b => HudLayout.PlacementOf(b, UIContext.Base).Anchor).ToList();
+        Assert.Equal(anchors.Count, anchors.Distinct().Count());
     }
 
     [Fact]
@@ -251,7 +239,149 @@ public class HudTests
             UIMetrics.BaseWidth, UIMetrics.BaseHeight)));
     }
 
+    // ── 两种场合都要守的 ────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 留出一条通到两端的可读横带(UIContext context)
+    {
+        // 左右两端的敌人与平台跟正中间一样要紧，所以量的是「整幅宽的横带」而不是「最大空白面积」。
+        // 下限取五分之三：它必须比角色可读区宽出一截，否则一点排版变动就把余量吃光。
+        var band = HudLayout.ClearBand(context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+        Assert.Equal(UIMetrics.BaseWidth, band.Width);
+        Assert.True(band.Height >= UIMetrics.BaseHeight * 3 / 5, $"{context} 的可读横带只有 {band.Height}px");
+        Assert.True(band.Height > HudLayout.ActorBand(UIMetrics.BaseWidth, UIMetrics.BaseHeight).Height);
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level, UIMetrics.BaseWidth)]
+    [InlineData(UIContext.Level, Wide)]
+    [InlineData(UIContext.Base, UIMetrics.BaseWidth)]
+    [InlineData(UIContext.Base, Wide)]
+    public void 占屏不超过一成(UIContext context, int viewportWidth)
+    {
+        var share = HudLayout.CoverageRatio(context, viewportWidth, UIMetrics.BaseHeight);
+        Assert.True(share < 0.10, $"{context} 的 HUD 占屏 {share:P1}，超过一成就开始挤中间那块");
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 逻辑宽度撑开时左锚点不动右锚点跟着走(UIContext context)
+    {
+        // 视口按 expand 拉伸时逻辑宽度是个变量。这条把「用锚点而不是写死坐标」变成算得出来的性质。
+        var delta = Wide - UIMetrics.BaseWidth;
+
+        foreach (var block in HudLayout.BlocksIn(context))
+        {
+            var narrow = HudLayout.RectOf(block, context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+            var stretched = HudLayout.RectOf(block, context, Wide, UIMetrics.BaseHeight);
+            var expected = HudLayout.PlacementOf(block, context).Anchor switch
+            {
+                HudAnchor.TopLeft or HudAnchor.BottomLeft => 0,
+                HudAnchor.TopRight or HudAnchor.BottomRight => delta,
+                _ => throw new InvalidOperationException(),
+            };
+            Assert.Equal(expected, stretched.X - narrow.X);
+            Assert.Equal(narrow.Y, stretched.Y);        // 高度锁在 360，纵向不该动
+        }
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 没有居中锚点且块宽都是偶数(UIContext context)
+    {
+        // 这条挡的是「有人把居中加回来」：加回来会让它失败，逼人先读 HudAnchor 的注释（奇数逻辑宽度下
+        // 居中块落在半格上）。块宽一律偶数，所以将来真要居中时也只在逻辑宽度为奇数时才落到半格。
+        Assert.DoesNotContain("Center", string.Join(",", Enum.GetNames<HudAnchor>()));
+
+        foreach (var block in HudLayout.BlocksIn(context))
+        {
+            Assert.Equal(0, HudLayout.SizeOf(block, context).Width % 2);
+        }
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level, UIMetrics.BaseWidth)]
+    [InlineData(UIContext.Level, Wide)]
+    [InlineData(UIContext.Base, UIMetrics.BaseWidth)]
+    [InlineData(UIContext.Base, Wide)]
+    public void 每一块都在屏幕内且留着安全边距(UIContext context, int viewportWidth)
+    {
+        foreach (var (block, rect) in HudLayout.RectsOf(context, viewportWidth, UIMetrics.BaseHeight))
+        {
+            Assert.True(rect.X >= UIMetrics.SafeMargin, $"{block} 左边越过安全边距");
+            Assert.True(rect.Y >= UIMetrics.SafeMargin, $"{block} 上边越过安全边距");
+            Assert.True(rect.Right <= viewportWidth - UIMetrics.SafeMargin, $"{block} 右边越过安全边距");
+            Assert.True(rect.Bottom <= UIMetrics.BaseHeight - UIMetrics.SafeMargin, $"{block} 下边越过安全边距");
+        }
+    }
+
+    [Theory]
+    [InlineData(UIContext.Level)]
+    [InlineData(UIContext.Base)]
+    public void 各块两两不重叠(UIContext context)
+    {
+        var rects = HudLayout.RectsOf(context, UIMetrics.BaseWidth, UIMetrics.BaseHeight);
+        for (var i = 0; i < rects.Count; i++)
+        {
+            for (var j = i + 1; j < rects.Count; j++)
+            {
+                Assert.False(rects[i].Rect.Overlaps(rects[j].Rect),
+                             $"{context} 里 {rects[i].Block} 与 {rects[j].Block} 重叠");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(UIMetrics.BaseWidth)]
+    [InlineData(Wide)]
+    public void 技能栏与随身栏同宽都贴右且横坐标对齐(int viewportWidth)
+    {
+        // 换场景时格位不跳：两种内容是同一条栏、落在同一批横坐标上，只是纵向一个在顶上、一个在底边。
+        var level = HudLayout.RectOf(HudBlock.ActionBar, UIContext.Level, viewportWidth, UIMetrics.BaseHeight);
+        var home = HudLayout.RectOf(HudBlock.ActionBar, UIContext.Base, viewportWidth, UIMetrics.BaseHeight);
+        Assert.Equal(level.Width, home.Width);
+        Assert.Equal(level.X, home.X);
+        Assert.Equal(HudLayout.ActionBarCellCount, HudLayout.CarrySlotCount);
+
+        Assert.Equal(HudAnchor.TopRight, HudLayout.PlacementOf(HudBlock.ActionBar, UIContext.Level).Anchor);
+        Assert.Equal(HudAnchor.BottomRight, HudLayout.PlacementOf(HudBlock.ActionBar, UIContext.Base).Anchor);
+    }
+
+    [Fact]
+    public void 场合里没有的块要不到尺寸也要不到放置()
+    {
+        // 静默给一个尺寸的话，基地里会多出一块没人画的空框，而占屏那笔账照算不误。
+        Assert.Throws<ArgumentOutOfRangeException>(() => HudLayout.PlacementOf(HudBlock.Objective, UIContext.Base));
+        Assert.Throws<ArgumentOutOfRangeException>(() => HudLayout.SizeOf(HudBlock.Teammates, UIContext.Base));
+    }
+
     // ── 视图模型契约 ────────────────────────────────────────────────
+
+    [Fact]
+    public void 关卡资源块恰好生命体力法力基地恰好精力()
+    {
+        Assert.Equal((HudGaugeKind[])[HudGaugeKind.Health, HudGaugeKind.Stamina, HudGaugeKind.Mana],
+                     HudLayout.GaugesIn(UIContext.Level));
+        Assert.Equal((HudGaugeKind[])[HudGaugeKind.DailyVigor], HudLayout.GaugesIn(UIContext.Base));
+        Assert.Single(new BaseHudViewModel(FakeGauges(UIContext.Base)).Gauges);
+    }
+
+    [Fact]
+    public void 资源条数或种类对不上场合时抛()
+    {
+        // 只核条数不够：「生命、体力、精力」也是三条，界面照画，玩家看到的法力就不见了。
+        var full = Fake();
+        var wrongKind = full.Gauges.Take(2).Append(new HudGauge(HudGaugeKind.DailyVigor, "精力", 1, 2)).ToList();
+        Assert.Throws<ArgumentException>(() => full.WithGauges(wrongKind));
+        Assert.Throws<ArgumentException>(() => full.WithGauges([.. full.Gauges, .. FakeGauges(UIContext.Base)]));
+
+        Assert.Throws<ArgumentException>(() => new BaseHudViewModel(FakeGauges(UIContext.Level)));
+        Assert.Throws<ArgumentException>(() => new BaseHudViewModel([]));
+    }
 
     [Fact]
     public void 资源上限为零时不除零也不显示成满格()

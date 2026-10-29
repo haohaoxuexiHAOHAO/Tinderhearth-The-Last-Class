@@ -23,7 +23,7 @@ public class CarrySlotTests
     [Fact]
     public void 格数与技能位同一个数()
     {
-        // HUD 那一块的宽度按「几个 16px 图标横排」算，两种内容同宽是算式保证的，不是巧合。
+        // HUD 那一块的宽度按「几个格子横排」算，两种内容同宽是算式保证的，不是巧合。
         // 另抄一份格数的后果是改格数时两块宽度悄悄分叉，而分叉只在拉宽窗口时看得出来。
         Assert.Equal(InputActions.Skills.Count, CarrySlotBar.SlotCount);
         Assert.Equal(CarrySlotBar.SlotCount, HudLayout.CarrySlotCount);
@@ -41,21 +41,22 @@ public class CarrySlotTests
     }
 
     [Fact]
-    public void 随身栏那一行放得进动作条那一块()
+    public void 随身栏与技能栏是同一块同一个尺寸()
     {
-        // 随身栏沿用技能位那一块的框，所以整行紧邻横排必须装得下。
-        // 装不下的表现是最后一格被面板边框切掉半个图标。
-        var block = HudLayout.ContentSizeOf(HudBlock.ActionBar);
+        // 随身栏坐在技能栏那一块上、格数同源，所以两种场合里那一块一样大，一行格子正好一格高。
+        // 尺寸一分叉，换场景时格位就跳。
+        var level = HudLayout.ContentSizeOf(HudBlock.ActionBar, UIContext.Level);
+        var home = HudLayout.ContentSizeOf(HudBlock.ActionBar, UIContext.Base);
 
-        Assert.True(HudLayout.CarryRowWidth <= block.Width,
-            $"随身栏 {HudLayout.CarryRowWidth}px 宽，装不进 {block.Width}px 的块");
-        Assert.Equal(UIMetrics.IconSmall, block.Height);   // 一行 16px 图标，高度两种内容一致
+        Assert.Equal(level, home);
+        Assert.Equal(UIMetrics.Cell, home.Height);
+        Assert.Contains(HudBlock.ActionBar, HudLayout.BlocksIn(UIContext.Base));
     }
 
     [Fact]
     public void 没有为随身栏新开HUD块()
     {
-        // HUD 块的个数不变。新开一块就要重算占屏面积与角色可读区那两笔账。
+        // 随身栏用的是技能栏那一块。新开一块就要重算占屏面积与角色可读区那两笔账。
         Assert.Equal(4, Enum.GetValues<HudBlock>().Length);
     }
 
@@ -63,10 +64,9 @@ public class CarrySlotTests
     [InlineData(UIMetrics.BaseWidth, UIMetrics.BaseHeight)]
     [InlineData(649, UIMetrics.BaseHeight)]     // 实测过的那个宽窗口逻辑尺寸
     [InlineData(1280, UIMetrics.BaseHeight)]
-    public void 随身栏进来之后没有哪一块压到角色可读区(int width, int height)
+    public void 随身栏进来之后基地没有哪一块压到角色可读区(int width, int height)
     {
-        // 随身栏既没有新开块、也没有改那一块的尺寸算式，所以这条原有的约束自动仍然成立。
-        // 它留在这里是为了：哪天真改了尺寸算式，这一条会先红。
+        // 随身栏在基地那一套里，判据是跟随死区那块可读区。哪天改了尺寸算式或放置，这一条会先红。
         Assert.Empty(HudLayout.BlocksOverActorBand(width, height));
     }
 

@@ -4,19 +4,21 @@ using Tinderhearth.Rules.UI;
 namespace Tinderhearth.UI;
 
 /// <summary>
-/// 关卡 HUD 的屏幕空间部分：资源条、技能位、目标进度、队友状态。
+/// 关卡 HUD 的屏幕空间部分：资源条与状态位、技能位、目标进度、队友状态，全部收在屏幕顶上那一段。
 /// </summary>
 /// <remarks>
-/// 本文件里不自己定任何「量」：尺寸与放置从 <see cref="HudLayout"/> 与 <see cref="UIMetrics"/> 取，
-/// 显示的数值从 <see cref="HudViewModel"/> 取，颜色从 <see cref="HudPalette"/> 取。除 0 与 1
-/// 之外不写数字字面量，这两个是结构量（第一个元素、间距为零、加一取编号），不是玩法数值。
+/// 本文件里不自己定任何「量」：尺寸与放置从 <see cref="HudLayout"/> 与 <see cref="UIMetrics"/> 取（场合是
+/// <see cref="UIContext.Level"/>），显示的数值从 <see cref="HudViewModel"/> 取，颜色从 <see cref="HudPalette"/>
+/// 取。除 0 与 1 之外不写数字字面量，这两个是结构量（第一个元素、间距为零、加一取编号），不是玩法数值。
 ///
-/// 位置一律走 <see cref="Control.SetAnchorsAndOffsetsPreset"/>，不写 <c>Position</c>。逻辑宽度
-/// 不是定值：实测 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在
-/// 640 宽的窗口上完全看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
+/// 位置一律走锚点预设加偏移（<see cref="HudPlace"/>），不写 <c>Position</c>。逻辑宽度不是定值：实测
+/// 3840×2130 的窗口得到逻辑 649×360，写死横向坐标的界面在宽窗口上会错位，而在 640 宽的窗口上完全
+/// 看不出来 —— 所以实机验 HUD 时拉一下窗口宽度。
 ///
-/// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见
-/// <see cref="WorldSpaceUI"/>。
+/// 各块已经按画好的件的尺寸排好（资源条的标签是迷你图标、槽高 10，格子 22、格距 6，头像框 20），框与
+/// 格里的图还有几张是占位图，换成素材资源里那几张跟着设计仓台账 <c>UI-44</c> 的接线走。
+///
+/// 读条、精英血条与伤害数字不在这里，它们画在执行者身上、跟着角色走，见 <see cref="WorldSpaceUI"/>。
 /// </remarks>
 public sealed partial class LevelHud : Control
 {
@@ -33,7 +35,10 @@ public sealed partial class LevelHud : Control
     /// </summary>
     private const string DownMark = "×";
 
+    private const UIContext Here = UIContext.Level;
+
     private readonly InputRouter _router;
+    private readonly UIArt _art;
     private readonly Dictionary<HudBlock, Control> _roots = [];
     private readonly List<GaugeRow> _gauges = [];
     private readonly List<SkillCell> _skills = [];
@@ -42,11 +47,12 @@ public sealed partial class LevelHud : Control
     private Label _objective = null!;
     private HudViewModel _model;
 
-    /// <summary>装一份 HUD。视图模型由调用方给，本类不挑数据。</summary>
-    public LevelHud(InputRouter router, HudViewModel model)
+    /// <summary>装一份 HUD。视图模型由调用方给，本类不挑数据；资源条的标签图从素材资源取。</summary>
+    public LevelHud(InputRouter router, HudViewModel model, UIArt art)
     {
         _router = router;
         _model = model;
+        _art = art;
     }
 
     /// <summary>当前视图模型。换一份就整屏刷新。</summary>
@@ -70,7 +76,7 @@ public sealed partial class LevelHud : Control
     /// HUD 根节点自己占的矩形。
     /// </summary>
     /// <remarks>
-    /// 它必须铺满视口。不铺满的话，贴下边与贴右边的块会按一个错的父矩形算偏移、落到屏幕外去 ——
+    /// 它必须铺满视口。不铺满的话，贴右边的块会按一个错的父矩形算偏移、落到屏幕外去 ——
     /// 实测踩过，细节见 <see cref="_Ready"/> 里那段注释。
     /// </remarks>
     public Rect2 RootRect => GetGlobalRect();
@@ -82,9 +88,8 @@ public sealed partial class LevelHud : Control
     /// 某一块的容器自己要多大，单位是界面像素（不含 <c>CustomMinimumSize</c>）。
     /// </summary>
     /// <remarks>
-    /// 用它核对排版算式和实际摆出来的东西有没有分叉。光比实际矩形与预测矩形不够：贴上边的块
-    /// 算式偏大时只会往下多长几像素、位置一点不变，两边照样对得上（实测撞出来的）。容器要多少
-    /// 是它自己按间距与内边距算的，拿它与 <see cref="HudLayout.SizeOf"/> 比就与贴哪个角无关。
+    /// 用它核对排版算式和实际摆出来的东西有没有分叉：容器要多少是它自己按间距与框边算的，拿它与
+    /// <see cref="HudLayout.SizeOf"/> 比就与贴哪个角无关。
     /// </remarks>
     public Vector2 ContentMinOf(HudBlock block) => _roots[block].GetMinimumSize();
 
@@ -117,14 +122,14 @@ public sealed partial class LevelHud : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
 
-        BuildObjective();
         BuildResources();
-        BuildSkills();
+        BuildObjective();
         BuildTeammates();
+        BuildSkills();
 
         // 等自己的尺寸定下来再摆块：实测 _Ready 这一刻根节点还是 0×0（视口拉伸没算完），而块的
-        // 偏移是拿当时的父矩形算的，于是贴下边与贴右边的块落到负坐标、画在屏幕外，还不报错。
-        // 挂上 Resized 之后尺寸每变一次重摆一遍；这几个锚点预设算出的偏移与父尺寸无关，重摆幂等。
+        // 偏移是拿当时的父矩形算的，于是贴右边的块落到负坐标、画在屏幕外，还不报错。
+        // 挂上 Resized 之后尺寸每变一次重摆一遍；放置每次都从锚点预设重算，重摆幂等。
         Resized += AnchorBlocks;
         AnchorBlocks();
         Refresh();
@@ -143,45 +148,30 @@ public sealed partial class LevelHud : Control
 
     // ── 搭四块 ──────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 目标进度：一个图标加一行字。
-    /// </summary>
-    /// <remarks>
-    /// 宽度按最长那句（达成时那句）定，并开 <see cref="Label.ClipText"/>：内容比框长时截断，
-    /// 不把整块撑开。撑开会改掉这一块占多大屏，而块占多大屏是当初挑放置方案的依据。
-    /// </remarks>
-    private void BuildObjective()
-    {
-        var content = Row(HudBlock.Objective, UIMetrics.ItemGap);
-        content.AddChild(Picture(ObjectiveIconPath, UIMetrics.IconSmall, UIMetrics.IconSmall));
-
-        _objective = new Label
-        {
-            Name = "Text",
-            ClipText = true,
-            VerticalAlignment = VerticalAlignment.Center,
-            CustomMinimumSize = new Vector2(
-                HudLayout.ObjectiveMaxChars * UIMetrics.FontSize, UIMetrics.LineHeight),
-        };
-        content.AddChild(_objective);
-    }
-
-    /// <summary>主角资源：每条一行，标签在左、条在右。</summary>
+    /// <summary>主角资源：每条一行，迷你图标在左、条在右；最下面一行留给状态位。</summary>
     private void BuildResources()
     {
         // 行距为零：一条资源正好占一个行高，行与行之间靠基线节奏区分，不靠空隙。
         var column = Column(HudBlock.Resources, separation: 0);
         foreach (var gauge in _model.Gauges)
         {
-            var row = new HBoxContainer { Name = gauge.Kind.ToString() };
+            var row = new HBoxContainer
+            {
+                Name = gauge.Kind.ToString(),
+                CustomMinimumSize = new Vector2(HudLayout.ResourcesContentWidth, HudLayout.GaugeRowHeight),
+            };
             row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
             column.AddChild(row);
 
-            var label = new Label
+            // 标签是一张迷你图标，不写字：与语言无关，将来出英文版不用重排。比行矮，靠 ShrinkCenter 居中。
+            var label = new TextureRect
             {
                 Name = "Label",
-                VerticalAlignment = VerticalAlignment.Center,
-                CustomMinimumSize = new Vector2(HudLayout.GaugeLabelWidth, UIMetrics.LineHeight),
+                Texture = GaugeIcon(gauge.Kind),
+                CustomMinimumSize = new Vector2(HudLayout.GaugeLabelSize, HudLayout.GaugeLabelSize),
+                StretchMode = TextureRect.StretchModeEnum.Keep,
+                SizeFlagsVertical = SizeFlags.ShrinkCenter,
+                MouseFilter = MouseFilterEnum.Ignore,
             };
             row.AddChild(label);
 
@@ -205,80 +195,39 @@ public sealed partial class LevelHud : Control
             fill.SelfModulate = PixelTheme.ToColor(HudPalette.ColorOf(gauge.Kind));
             holder.AddChild(fill);
 
-            _gauges.Add(new GaugeRow(label, fill));
+            _gauges.Add(new GaugeRow(fill));
         }
+
+        // 状态位那一行这一轮只留位置：里面挂什么跟状态系统走，界面侧不新增读口。
+        column.AddChild(new Control
+        {
+            Name = "Status",
+            CustomMinimumSize = new Vector2(HudLayout.ResourcesContentWidth, HudLayout.StatusRowHeight),
+            MouseFilter = MouseFilterEnum.Ignore,
+        });
     }
 
     /// <summary>
-    /// 技能位：横排一行，两组之间空一个栅格。
+    /// 目标进度：一个图标加一行字。
     /// </summary>
     /// <remarks>
-    /// 玩家要能看出哪几个归哪个扳机，靠的是两组之间那道空隙，加上按住修饰键时那一组连着高亮 ——
-    /// 横排下连续的几格比分成两行更像「一组」。
+    /// 宽度按最长那句（达成时那句）定，并开 <see cref="Label.ClipText"/>：内容比框长时截断，
+    /// 不把整块撑开。撑开会改掉这一块占多大屏，而块占多大屏是放置判据的依据。
     /// </remarks>
-    private void BuildSkills()
+    private void BuildObjective()
     {
-        // 两组之间留一个栅格：那道空隙就是「这三个归左扳机、那三个归右扳机」的视觉分界。
-        var line = Row(HudBlock.ActionBar, UIMetrics.Grid);
+        var content = Row(HudBlock.Objective, UIMetrics.ItemGap);
+        content.AddChild(Picture(ObjectiveIconPath, UIMetrics.IconSmall, UIMetrics.IconSmall));
 
-        for (var group = 0; group < HudLayout.SkillGroupCount; group++)
+        _objective = new Label
         {
-            // 槽框本身已有边界，同一组的格子紧邻；空隙只留给两组之间那道分界。
-            // 这里不画「L」「R」记号列：键鼠下它永远是空的，手柄靠组间距、高亮与图标上的面键记号分辨。
-            var triad = new HBoxContainer { Name = $"Group{group}" };
-            triad.AddThemeConstantOverride("separation", 0);
-            line.AddChild(triad);
-
-            for (var seat = 0; seat < HudLayout.SkillsPerGroup; seat++)
-            {
-                var index = (group * HudLayout.SkillsPerGroup) + seat;
-                var cell = new VBoxContainer { Name = $"Slot{index}" };
-                cell.AddThemeConstantOverride("separation", 0);
-                triad.AddChild(cell);
-
-                var frame = new Control
-                {
-                    Name = "Frame",
-                    CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
-                };
-                cell.AddChild(frame);
-
-                var slot = Picture(Numbered(SlotPathFormat, index),
-                                   UIMetrics.IconSmall, UIMetrics.IconSmall);
-                slot.SetAnchorsPreset(LayoutPreset.FullRect);
-                frame.AddChild(slot);
-
-                var icon = Picture(Numbered(IconPathFormat, index),
-                                   UIMetrics.IconSmall, UIMetrics.IconSmall);
-                icon.SetAnchorsPreset(LayoutPreset.FullRect);
-                frame.AddChild(icon);
-
-                // 冷却遮罩：不透明色块，从上往下遮住图标的一部分，退完即可用。
-                // 用遮住而不是压暗，因为半透明会在屏幕上造出插值出来的中间色（见 PixelColor）。
-                var mask = new ColorRect
-                {
-                    Name = "Cooldown",
-                    Color = PixelTheme.ToColor(HudPalette.Cooldown),
-                    AnchorBottom = 0,
-                    AnchorRight = 1,
-                };
-                frame.AddChild(mask);
-
-                // 手柄的面键提示叠在图标里，不另占一行 —— 多一行会改块高。
-                var hint = new Label
-                {
-                    Name = "Hint",
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    MouseFilter = MouseFilterEnum.Ignore,
-                    CustomMinimumSize = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
-                };
-                hint.SetAnchorsPreset(LayoutPreset.FullRect);
-                frame.AddChild(hint);
-
-                _skills.Add(new SkillCell(slot, icon, mask, hint));
-            }
-        }
+            Name = "Text",
+            ClipText = true,
+            VerticalAlignment = VerticalAlignment.Center,
+            CustomMinimumSize = new Vector2(
+                HudLayout.ObjectiveMaxChars * UIMetrics.FontSize, UIMetrics.LineHeight),
+        };
+        content.AddChild(_objective);
     }
 
     /// <summary>
@@ -340,28 +289,74 @@ public sealed partial class LevelHud : Control
         }
     }
 
-    // ── 摆位与刷新 ──────────────────────────────────────────────────────
-
     /// <summary>
-    /// 按当前方案把四块贴到各自那条边上。
+    /// 技能位：一行格子，格距照画好的那条栏。
     /// </summary>
     /// <remarks>
-    /// 走引擎自己的锚点预设，尺寸取每块的最小尺寸、边距取安全边距。这里没有一个坐标，所以逻辑
-    /// 宽度撑开时靠右那几块自动跟着走 —— 实机把窗口拉宽，它们该一直贴住右边。
+    /// 格与格等距，两组之间不另留空：画好的那条栏就是等距的。手柄上哪几格归哪个扳机靠按住扳机时那一组
+    /// 连着高亮，和每格里叠的面键记号（手柄那一套跟设计仓台账 <c>UI-54</c> 走）。格子 22、图标放在
+    /// (3,3)，与随身栏那一条逐格对齐。
     /// </remarks>
+    private void BuildSkills()
+    {
+        var line = Row(HudBlock.ActionBar, HudLayout.ActionBarCellGap);
+        for (var index = 0; index < HudLayout.ActionBarCellCount; index++)
+        {
+            var cell = new Control
+            {
+                Name = $"Slot{index}",
+                CustomMinimumSize = new Vector2(UIMetrics.Cell, UIMetrics.Cell),
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            line.AddChild(cell);
+
+            // 图标那一格在格子里往里让一个格内边距（描边加留白）。
+            var inner = new Control { Name = "Inner", MouseFilter = MouseFilterEnum.Ignore };
+            cell.AddChild(inner);
+            inner.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, UIMetrics.CellInset);
+
+            var slot = Picture(Numbered(SlotPathFormat, index), UIMetrics.IconSmall, UIMetrics.IconSmall);
+            slot.SetAnchorsPreset(LayoutPreset.FullRect);
+            inner.AddChild(slot);
+
+            var icon = Picture(Numbered(IconPathFormat, index), UIMetrics.IconSmall, UIMetrics.IconSmall);
+            icon.SetAnchorsPreset(LayoutPreset.FullRect);
+            inner.AddChild(icon);
+
+            // 冷却遮罩：不透明色块，从上往下遮住图标的一部分，退完即可用。
+            // 用遮住而不是压暗，因为半透明会在屏幕上造出插值出来的中间色（见 PixelColor）。
+            var mask = new ColorRect
+            {
+                Name = "Cooldown",
+                Color = PixelTheme.ToColor(HudPalette.Cooldown),
+                AnchorBottom = 0,
+                AnchorRight = 1,
+            };
+            inner.AddChild(mask);
+
+            // 手柄的面键提示叠在图标里，不另占一行 —— 多一行会改块高。
+            var hint = new Label
+            {
+                Name = "Hint",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            hint.SetAnchorsPreset(LayoutPreset.FullRect);
+            inner.AddChild(hint);
+
+            _skills.Add(new SkillCell(slot, icon, mask, hint));
+        }
+    }
+
+    // ── 摆位与刷新 ──────────────────────────────────────────────────────
+
+    /// <summary>按关卡那一套把各块贴到各自的位置上。放置全从规则层取，这里没有一个坐标。</summary>
     private void AnchorBlocks()
     {
         foreach (var (block, root) in _roots)
         {
-            var preset = HudLayout.AnchorOf(block) switch
-            {
-                HudAnchor.TopLeft => LayoutPreset.TopLeft,
-                HudAnchor.TopRight => LayoutPreset.TopRight,
-                HudAnchor.BottomLeft => LayoutPreset.BottomLeft,
-                HudAnchor.BottomRight => LayoutPreset.BottomRight,
-                _ => throw new ArgumentOutOfRangeException(nameof(block)),
-            };
-            root.SetAnchorsAndOffsetsPreset(preset, LayoutPresetMode.Minsize, UIMetrics.SafeMargin);
+            HudPlace.Apply(root, HudLayout.PlacementOf(block, Here));
         }
     }
 
@@ -377,13 +372,12 @@ public sealed partial class LevelHud : Control
 
         for (var i = 0; i < _gauges.Count; i++)
         {
-            var gauge = _model.Gauges[i];
-            _gauges[i].Label.Text = gauge.Label;
-            _gauges[i].Fill.OffsetRight = Extent(gauge.Ratio, HudLayout.GaugeBarWidth);
+            _gauges[i].Fill.OffsetRight = Extent(_model.Gauges[i].Ratio, HudLayout.GaugeBarWidth);
         }
 
         RefreshSkills();
 
+        // 队友那一块收起时别的块一动不动：每一块的放置都只按尺寸算，不看谁显示着。
         _roots[HudBlock.Teammates].Visible = _model.ShowTeammates;
         for (var i = 0; i < _teammates.Count; i++)
         {
@@ -428,8 +422,13 @@ public sealed partial class LevelHud : Control
 
             cell.Icon.Visible = slot.Unlocked;
             cell.Mask.OffsetBottom = Extent(slot.MaskRatio, UIMetrics.IconSmall);
-            cell.Slot.SelfModulate = PixelTheme.ToColor(
-                lit ? HudPalette.Hot : slot.Unlocked ? HudPalette.Ink : HudPalette.Dim);
+            var tint = (lit, slot.Unlocked) switch
+            {
+                (true, _) => HudPalette.Hot,
+                (_, true) => HudPalette.Ink,
+                _ => HudPalette.Dim,
+            };
+            cell.Slot.SelfModulate = PixelTheme.ToColor(tint);
 
             // 冷却中不显示记号：那时按了也没用，留着记号是在教玩家按一个不会响的键。
             cell.Hint.Text = slot.Ready && device == InputDeviceKind.Gamepad
@@ -455,11 +454,17 @@ public sealed partial class LevelHud : Control
     private static string Numbered(string format, int index) =>
         string.Format(format, index + 1);
 
-    /// <summary>
-    /// 一块的外框：面板底 + 描边 + 一圈内边距，里面横排。
-    /// </summary>
-    /// <param name="block">哪一块。</param>
-    /// <param name="separation">列距，单位是界面像素。必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致，理由见 <see cref="Column"/>。</param>
+    /// <summary>资源条前面那个迷你图标，按是哪一条从素材资源取。素材资源启动时核过，这里缺了就是没核。</summary>
+    private Texture2D GaugeIcon(HudGaugeKind kind) => (kind switch
+    {
+        HudGaugeKind.Health => _art.HudGaugeIconHp,
+        HudGaugeKind.Stamina => _art.HudGaugeIconSp,
+        HudGaugeKind.Mana => _art.HudGaugeIconMp,
+        HudGaugeKind.DailyVigor => _art.HudGaugeIconVigor,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), $"没有这条资源：{kind}"),
+    }) ?? throw new InvalidOperationException($"素材资源里少了资源条「{kind}」的标签图 —— 应当已在启动时核过");
+
+    /// <summary>一块的外框，里面横排。列距必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致。</summary>
     private HBoxContainer Row(HudBlock block, int separation)
     {
         var box = new HBoxContainer { Name = "Content" };
@@ -471,12 +476,11 @@ public sealed partial class LevelHud : Control
     /// <summary>
     /// 一块的外框，里面竖排。
     /// </summary>
-    /// <param name="block">哪一块。</param>
-    /// <param name="separation">
-    /// 行距，单位是界面像素。必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致：偏移是按
-    /// 内容最小尺寸算的，而实际尺寸取「内容最小尺寸与 <c>CustomMinimumSize</c> 里较大的那个」，
-    /// 两边不一致时整块会偏出安全边距几像素（实测撞过）。改这个数之后实机看一眼块有没有偏出去。
-    /// </param>
+    /// <remarks>
+    /// 行距必须与 <see cref="HudLayout.ContentSizeOf"/> 的算法一致：偏移是按块的最小尺寸算的，而实际
+    /// 尺寸取「内容最小尺寸与 <c>CustomMinimumSize</c> 里较大的那个」，两边不一致时整块会偏出安全边距
+    /// 几像素（实测撞过）。改这个数之后实机看一眼块有没有偏出去。
+    /// </remarks>
     private VBoxContainer Column(HudBlock block, int separation)
     {
         var box = new VBoxContainer { Name = "Content" };
@@ -485,33 +489,9 @@ public sealed partial class LevelHud : Control
         return box;
     }
 
-    /// <summary>
-    /// 造一块的面板底。
-    /// </summary>
-    /// <remarks>
-    /// 用 <see cref="StyleBoxFlat"/> 而不是九宫格素材：描边宽度与内边距要从 <see cref="UIMetrics"/>
-    /// 取，而九宫格的边距跟着素材尺寸走，换一张素材就多出一份说法。抗锯齿必须关掉 —— 圆角加抗
-    /// 锯齿会造出半透明边，见设计仓 production/像素绘制原则.md 的「硬边、抗锯齿与点绘」一节。
-    /// </remarks>
     private PanelContainer Frame(HudBlock block)
     {
-        var size = HudLayout.SizeOf(block);
-        var style = new StyleBoxFlat
-        {
-            BgColor = PixelTheme.ToColor(HudPalette.Panel),
-            BorderColor = PixelTheme.ToColor(HudPalette.Edge),
-            AntiAliasing = false,
-        };
-        style.SetBorderWidthAll(1);
-        style.SetContentMarginAll(UIMetrics.PanelPadding);
-
-        var frame = new PanelContainer
-        {
-            Name = block.ToString(),
-            CustomMinimumSize = new Vector2(size.Width, size.Height),
-            MouseFilter = MouseFilterEnum.Ignore,
-        };
-        frame.AddThemeStyleboxOverride("panel", style);
+        var frame = HudPlace.Frame(block, Here);
         AddChild(frame);
         _roots[block] = frame;
         return frame;
@@ -541,7 +521,7 @@ public sealed partial class LevelHud : Control
             ? GD.Load<Texture2D>(path)
             : throw new FileNotFoundException($"HUD 缺素材：{path}（在 Godot 里确认这个文件已导入）");
 
-    private sealed record GaugeRow(Label Label, NinePatchRect Fill);
+    private sealed record GaugeRow(NinePatchRect Fill);
 
     private sealed record SkillCell(TextureRect Slot, TextureRect Icon, ColorRect Mask, Label Hint);
 

@@ -167,19 +167,19 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 
 | 东西 | 落点 | 为什么在那里 |
 | --- | --- | --- |
-| 排版量（块尺寸、贴哪个角、占屏比例、可读区） | `rules/UI/HudLayout.cs` | 它们之间有**可以判死的关系**（块高是行高的整数倍、块不许压角色可读区、四块不许两两重叠），放规则层就有单元测试盯着 |
+| 排版量（块尺寸、按场合贴哪个角、占屏比例、可读区） | `rules/UI/HudLayout.cs` | 它们之间有**可以判死的关系**（块高是行高的整数倍；关卡那一套的块不许越过纵向账留给 HUD 的顶上那一段，基地那一套的块不许压跟随死区那块可读区；各块不许两两重叠），放规则层就有单元测试盯着 |
 | 显示的量（HP／技能冷却／目标进度／队友血量） | 调用方传进来的 `rules/UI/HudViewModel.cs` | 玩法数值归 `design/数值模型.md`，`UI-1` 不读也不搬 |
 | 代码设的颜色 | `rules/UI/HudPalette.cs` | 只在这一处。按名字取色板的那几档带着 `assets/self-drawn/palette.gpl` 里的项名，值抄在代码里（色板不进发行包），由 `tests/UI/PaletteTests.cs` 逐项对；其余是占位色，随画的界面件删。颜色类型**没有 alpha 字段** —— 半透明遮罩画上去就是屏幕上的插值像素 |
 | 字体的期望渲染参数 | `rules/UI/PixelFont.cs` | 设置在 `.ttf.import`、期望在这里、实际值由引擎报，三处独立才互为量具 |
-| 节点、锚点、素材加载 | `src/UI/LevelHud.cs` | 碰引擎的那一半 |
+| 节点、锚点、素材加载 | `src/UI/LevelHud.cs`、`src/UI/BaseHud.cs`，贴角共用 `src/UI/HudPlace.cs` | 碰引擎的那一半 |
 | 演示数据 | `src/World/HudDemoModel.cs` | 与脚手架同性质。**唯一有数字的地方必须在界面之外**，那个分工正是「界面里没有写死的数」扫得干净的前提 |
 
-结果是 `LevelHud.cs` 里**除 0 与 1 之外一个数字字面量都没有**。这条原先有静态扫描守着，守卫随
+结果是 `LevelHud.cs` 与 `BaseHud.cs` 里**除 0 与 1 之外一个数字字面量都没有**。这条原先有静态扫描守着，守卫随
 `ADR-0009` 删除，现在是一句约定（见 `CONVENTIONS.md`）。
 
 **两个 Godot 的坑写在这里，因为它们会让「界面看起来少了几块」而不报错：**
 
-1. **对已经在树里的 Control 调 `SetAnchorsPreset` 不会让它铺满。** 2026-08-31 实测：引擎会把
+1. **对已经在树里的 Control 调 `SetAnchorsPreset` 不会让它铺满。** 实测：引擎会把
    偏移改写成负的父尺寸以保住当前那个 0×0 矩形 —— 锚点确实变成了 0,0,1,1，尺寸还是 0×0，
    于是贴下边与贴右边的子节点落到负坐标、画在屏幕外。那个 `keepOffsets` 参数的含义与名字给人的
    印象相反。**要铺满就用 `SetAnchorsAndOffsetsPreset`**，它与调用顺序无关。`UIRoot.Register`

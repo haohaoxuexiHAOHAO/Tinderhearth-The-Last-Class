@@ -1,6 +1,6 @@
 namespace Tinderhearth.Rules.UI;
 
-/// <summary>哪一条资源。它只用来决定配色，量与上限由视图模型带进来。</summary>
+/// <summary>哪一条资源。它决定配色与标签图标，按场合核资源条时也比对它；量与上限由视图模型带进来。</summary>
 public enum HudGaugeKind
 {
     /// <summary>生命。</summary>
@@ -16,8 +16,8 @@ public enum HudGaugeKind
     Mana,
 
     /// <summary>
-    /// 精力：经营侧当日一切行动的共同预算，关卡内不变。摆在 HUD 上是为了让玩家出征前后看到的
-    /// 是同一个数。
+    /// 精力：经营侧当日一切行动的共同预算，关卡内不变，所以只在基地那一套 HUD 上（见
+    /// <see cref="HudLayout.GaugesIn"/>）。
     /// </summary>
     DailyVigor,
 }
@@ -25,8 +25,8 @@ public enum HudGaugeKind
 /// <summary>
 /// 一条资源条。
 /// </summary>
-/// <param name="Kind">哪一条，决定配色。</param>
-/// <param name="Label">显示的标签。已经查过文本表的成品字符串，界面不再查表。</param>
+/// <param name="Kind">哪一条，决定配色与标签图标。</param>
+/// <param name="Label">这条资源叫什么，已经查过文本表的成品字符串。HUD 上的标签是一张迷你图标，这串字不画在 HUD 上。</param>
 /// <param name="Current">当前值。</param>
 /// <param name="Max">上限。</param>
 /// <remarks>
@@ -114,7 +114,7 @@ public sealed class HudViewModel
     public HudViewModel(IReadOnlyList<HudGauge> gauges, IReadOnlyList<HudSkillSlot> skills,
                         HudObjective objective, IReadOnlyList<HudTeammate> teammates)
     {
-        Gauges = Require(gauges, HudLayout.GaugeCount, "资源条");
+        Gauges = RequireGauges(gauges, UIContext.Level);
         Skills = Require(skills, InputActions.Skills.Count, "技能位");
         Objective = objective;
         Teammates = teammates.Count <= HudLayout.MaxTeammates
@@ -157,8 +157,46 @@ public sealed class HudViewModel
     public HudViewModel WithTeammates(IReadOnlyList<HudTeammate> teammates) =>
         new(Gauges, Skills, Objective, teammates);
 
+    /// <summary>
+    /// 核一个场合的资源条：条数与每一条是哪一种都要对上 <see cref="HudLayout.GaugesIn"/>，对不上直接抛。
+    /// </summary>
+    /// <remarks>
+    /// 只核条数不够：关卡那一块给成「生命、体力、精力」也是三条，界面照画，而玩家看到的法力就不见了。
+    /// </remarks>
+    public static IReadOnlyList<HudGauge> RequireGauges(IReadOnlyList<HudGauge> gauges, UIContext context)
+    {
+        var expected = HudLayout.GaugesIn(context);
+        if (gauges.Count != expected.Count)
+        {
+            throw new ArgumentException($"{context} 的资源条应有 {expected.Count} 条，实际 {gauges.Count} 条");
+        }
+
+        var kinds = gauges.Select(g => g.Kind).ToList();
+        return kinds.SequenceEqual(expected)
+            ? gauges
+            : throw new ArgumentException(
+                $"{context} 的资源条应是 {string.Join("、", expected)}，实际是 {string.Join("、", kinds)}");
+    }
+
     private static IReadOnlyList<T> Require<T>(IReadOnlyList<T> items, int expected, string what) =>
         items.Count == expected
             ? items
             : throw new ArgumentException($"{what}应有 {expected} 条，实际 {items.Count} 条");
+}
+
+/// <summary>基地 HUD 要显示的东西：那支精力。随身栏另有它自己的本体（<see cref="CarrySlotBar"/>）。</summary>
+/// <remarks>
+/// 不与关卡那一份并成一个类：基地里没有技能位、目标进度与队友，并成一个就得给那三样造「空」的
+/// 取值，而一个本该有却给成空的格子不报错。条数与种类照样在构造时核。
+/// </remarks>
+public sealed class BaseHudViewModel
+{
+    /// <summary>装一份基地视图模型。资源条对不上 <see cref="HudLayout.GaugesIn"/> 直接抛。</summary>
+    public BaseHudViewModel(IReadOnlyList<HudGauge> gauges)
+    {
+        Gauges = HudViewModel.RequireGauges(gauges, UIContext.Base);
+    }
+
+    /// <summary>各条资源，顺序就是显示顺序。现在只有精力一条。</summary>
+    public IReadOnlyList<HudGauge> Gauges { get; }
 }
