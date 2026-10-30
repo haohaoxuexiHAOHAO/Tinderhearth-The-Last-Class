@@ -68,6 +68,13 @@ public sealed class Plot
     /// </remarks>
     public bool Mutated { get; private set; }
 
+    /// <summary>复制一份。每日结算在世界状态的副本上跑，所以每一格都要复制得出来。</summary>
+    /// <remarks>
+    /// 字段全是值类型与字符串，浅拷贝就是整份拷贝，有测试盯着这一点。往这里加一个会变的引用类型字段时，
+    /// 那条测试会失败，这里要改成逐项复制。
+    /// </remarks>
+    public Plot Clone() => (Plot)MemberwiseClone();
+
     /// <summary>清掉石头、树木与杂草。</summary>
     public bool Clear()
     {

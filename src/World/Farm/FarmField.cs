@@ -11,8 +11,9 @@ namespace Tinderhearth.World.Farm;
 /// </summary>
 /// <remarks>
 /// 规则一行都不在这里。状态、流转、浇水、荒置退化全在 <see cref="Plot"/> 里（规则层，不引用
-/// Godot，有单元测试盯着）。本类只做三件事：把格坐标对上 <see cref="Plot"/> 实例、把玩家按下的
-/// 那一下翻译成一次状态机调用、把状态画出来。规则出自设计仓 design/地块系统.md。
+/// Godot，有单元测试盯着），那片地本身在规则层的世界状态里（<see cref="WorldState"/>）。本类只做三件事：
+/// 把瓦片层的格坐标对上那片地的一格、把玩家按下的那一下翻译成一次状态机调用、把状态画出来。
+/// 规则出自设计仓 design/地块系统.md。
 ///
 /// 一个键按当前格的状态派发，不是先选工具再用。六个状态各自恰好对应一个动作：未清理→清理、
 /// 可耕→锄、已锄→播种、已播种→浇水、待收→收获、待清→清枯株。代价是实机试不到「对着可耕地
@@ -146,8 +147,8 @@ public partial class FarmField : Node
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
+    private WorldState _world = null!;
 
-    private readonly Dictionary<Vector2I, Plot> _plots = [];
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
     private readonly Dictionary<Vector2I, Sprite2D> _cropSprites = [];
@@ -197,7 +198,7 @@ public partial class FarmField : Node
         LoadCropDefinitions();
         IndexCropArts();
         FillCarryBarWithSeeds();
-        BuildPlots();
+        NewWorld();
         RefreshAll();
 
         SetProcess(true);
@@ -253,7 +254,7 @@ public partial class FarmField : Node
     /// </remarks>
     public void AdvanceDay()
     {
-        foreach (var (cell, plot) in _plots)
+        foreach (var (cell, plot) in _world.Plots.Cells)
         {
             var wasMutated = plot.Mutated;
             plot.AdvanceDay(CropOf(plot), FallowRevertDays, RollMutation);
@@ -283,7 +284,7 @@ public partial class FarmField : Node
             return;
         }
 
-        if (!_plots.TryGetValue(_cursor.Cell, out var plot))
+        if (!_world.Plots.TryGet(ToGridCell(_cursor.Cell), out var plot))
         {
             GD.Print("[地块] ", _cursor.Cell, " 不在这一片地里");
             return;
@@ -401,16 +402,9 @@ public partial class FarmField : Node
         _carry.OnContentChanged();
     }
 
-    private void BuildPlots()
-    {
-        for (var x = 0; x < FieldSizeInCells.X; x++)
-        {
-            for (var y = 0; y < FieldSizeInCells.Y; y++)
-            {
-                _plots[FieldOrigin + new Vector2I(x, y)] = new Plot(InitialState);
-            }
-        }
-    }
+    /// <summary>开新档：日期是开局那一天，地按检查器里那几格铺出来。</summary>
+    private void NewWorld() => _world = WorldState.NewGame(
+        PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState));
 
     /// <summary>整片重画。</summary>
     /// <remarks>
@@ -428,14 +422,14 @@ public partial class FarmField : Node
         var dry = new Godot.Collections.Array<Vector2I>();
         var wet = new Godot.Collections.Array<Vector2I>();
 
-        foreach (var (cell, plot) in _plots)
+        foreach (var (cell, plot) in _world.Plots.Cells)
         {
             if (!ShowsTilledSoil(plot.State))
             {
                 continue;
             }
 
-            (plot.WateredToday ? wet : dry).Add(cell);
+            (plot.WateredToday ? wet : dry).Add(ToTileCell(cell));
         }
 
         _tilled.Clear();
@@ -461,8 +455,9 @@ public partial class FarmField : Node
     {
         Vector2I tileSize = _tilled.TileSet.TileSize;
 
-        foreach (var (cell, plot) in _plots)
+        foreach (var (gridCell, plot) in _world.Plots.Cells)
         {
+            Vector2I cell = ToTileCell(gridCell);
             Texture2D? texture = TextureFor(plot);
             if (texture is null)
             {
@@ -532,4 +527,10 @@ public partial class FarmField : Node
 
     private InvalidOperationException Missing(string exportName, string what) =>
         new($"{nameof(FarmField)}（节点 {Name}）的 {exportName} 没接上 —— 它要的是{what}");
+
+    /// <summary>瓦片层的格坐标换成规则层那一片地的格坐标。两边一格对一格，只是类型不同。</summary>
+    private static GridCell ToGridCell(Vector2I cell) => new(cell.X, cell.Y);
+
+    /// <summary>规则层那一片地的一格换回瓦片层的格坐标。</summary>
+    private static Vector2I ToTileCell(GridCell cell) => new(cell.X, cell.Y);
 }
