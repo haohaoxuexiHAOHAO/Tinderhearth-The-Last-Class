@@ -130,7 +130,8 @@ dotnet run --project tests
 <Godot 可执行文件> --headless --export-release "Windows Desktop"
 ```
 
-产物落在 `export/`（不入库）。**导出命令的退出码不可信** —— 必须另行校验产物文件确实生成、
+产物落在 `export/`（产物不入库，只有那个让 Godot 不扫这个目录的 `.gdignore` 入库：没有它的话，
+在编辑器里再导一次会把上一次的产物打进包）。**导出命令的退出码不可信** —— 必须另行校验产物文件确实生成、
 并实际运行产物看它有没有起来。这些都已经串进 `python tools/verify.py`，日常别单独敲这条。
 
 `rules/`、`tests/` 与 `tools/` 各有一个 `.gdignore`，让 Godot 的资源扫描跳过它们，否则源码与

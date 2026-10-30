@@ -62,6 +62,7 @@ from loglib import prune_runs, KEEP_RUNS  # noqa: E402  同目录工具（跑完
 ROOT = Path(__file__).resolve().parent.parent
 LOG_ROOT = ROOT / "logs" / "verify"
 EXPORT_DIR = ROOT / "export"
+EXPORT_GUARD = ".gdignore"  # 让 Godot 不扫 export/；清空时留住它，理由见 clean_export_dir
 EXPORT_PRESET = "Windows Desktop"
 EXPORT_EXE = EXPORT_DIR / "Tinderhearth-The-Last-Class.exe"
 EXPORT_PCK = EXPORT_DIR / "Tinderhearth-The-Last-Class.pck"
@@ -808,22 +809,30 @@ def manifest_report(pck: Path, release: bool = False) -> tuple[bool, list[str], 
 
 # ── 导出 ──────────────────────────────────────────────────────────────
 def clean_export_dir() -> list[str]:
-    """导出前清空 export/，好让「文件存在」直接等于「本轮生成」。
+    """导出前清空 export/，好让「文件存在」直接等于「本轮生成」；只留下 .gdignore，缺了就补。
 
     不靠比 mtime：那要求脚本自己算「多新才算新」，而清空之后存在性本身就是证据。
-    只删 export/ 里的内容，它已被 .gitignore 忽略，且每轮导出都会重建。
+    只删 export/ 里的内容，那些已被 .gitignore 忽略，且每轮导出都会重建。
+
+    .gdignore 要留：export/ 长在 res:// 里，没有它的话 Godot 会扫进这个目录，再导一次就把上一次的
+    产物打进包（实测，编辑器里直接导出撞得到）。它入库，所以平时靠提交；这里补一次，是为了有人
+    整个删掉 export/ 之后，本入口不会在没有它的目录里导出。
     """
     removed: list[str] = []
     if EXPORT_DIR.resolve().parent != ROOT or EXPORT_DIR.name != "export":
         raise RuntimeError(f"拒绝清理 {EXPORT_DIR}：它不是代码仓根下的 export/")
-    if not EXPORT_DIR.is_dir():
-        return removed
+    EXPORT_DIR.mkdir(exist_ok=True)
     for child in sorted(EXPORT_DIR.iterdir()):
+        if child.name == EXPORT_GUARD:
+            continue
         if child.is_dir():
             shutil.rmtree(child)
         else:
             child.unlink()
         removed.append(child.name)
+    guard = EXPORT_DIR / EXPORT_GUARD
+    if not guard.exists():
+        guard.write_text("", encoding="utf-8")
     return removed
 
 
