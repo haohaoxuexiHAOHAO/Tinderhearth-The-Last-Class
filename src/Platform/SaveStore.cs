@@ -6,7 +6,7 @@ namespace Tinderhearth.Platform;
 /// <remarks>
 /// 这里刻意不用 Godot 的 FileAccess 与 DirAccess：4.7.2 的 DirAccess.RenameAbsolute 在 Windows 上是先删掉目标、再改名，
 /// 删完改名之前断电，盘上一份存档都没有；FileAccess.Flush 也只把数据交给系统缓存。.NET 那一套能落盘、能一次带覆盖地改名。
-/// 源码出处与只读实测在设计仓 spec/prd-sleep-advances-day.md 的「技术考虑」一节。
+/// 源码出处与只读实测在设计仓 reference/godot/文件读写与存档.md 的「七、原子替换：写坏了不丢档」一节。
 ///
 /// 只做一位存档。存档位那一组、存档位摘要与临时续玩点还没有，归设计仓台账 GP-54。
 /// </remarks>
