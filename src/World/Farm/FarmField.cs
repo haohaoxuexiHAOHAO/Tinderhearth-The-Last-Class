@@ -147,7 +147,7 @@ public partial class FarmField : Node
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
-    private WorldState _world = null!;
+    private CurrentWorld _world = null!;
     private DailySettlement _settlement = null!;
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
@@ -204,7 +204,7 @@ public partial class FarmField : Node
         }
 
         LoadCropDefinitions();
-        _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation);
+        _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
         FillCarryBarWithSeeds();
         NewWorld();
@@ -254,25 +254,40 @@ public partial class FarmField : Node
         GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
-    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。这一夜枯死与变异的每一格各打一行。</summary>
+    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。</summary>
     /// <remarks>
     /// 推进一天没有第二条路，调试键也走这一条（设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节）：
     /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。
     ///
-    /// 那几行是醒来那份摘要的替身：摘要还没有，归设计仓台账 UI-59。
+    /// 没推进时世界一格没动，说清停在哪一步、为什么；那个弹窗还没有，归设计仓台账 UI-59，先打在输出面板上。
     /// </remarks>
     public void EndDay()
     {
-        var day = _settlement.Run(_world, DayEndSource.Sleep);
-        foreach (var change in day.CropChanges)
+        var outcome = _settlement.EndDay(_world, DayEndSource.Sleep);
+        if (!outcome.Advanced)
+        {
+            GD.PrintErr("[结算] 这一天没有推进：停在「", outcome.FailedStep, "」，", outcome.Reason);
+            return;
+        }
+
+        GameDate today = _world.State.Date;
+        GD.Print("[结算] 推进到第 ", today.Year, " 年 ", today.Season, " 第 ", today.Day, " 天");
+        RefreshAll();
+    }
+
+    /// <summary>写正式存档。读写文件还没接上，归设计仓台账 GP-153：这一下现在什么都不写，当作写成了。</summary>
+    private static void WriteSave(WorldState world)
+    {
+    }
+
+    /// <summary>醒来那一步交出来的摘要。弹窗还没有，归设计仓台账 UI-59，先逐格打在输出面板上。</summary>
+    private static void PrintSummary(SettlementSummary summary)
+    {
+        foreach (var change in summary.CropChanges)
         {
             GD.Print("[地块] ", change.Cell, " 的 ", change.CropId,
                      change.Kind == CropChangeKind.Mutated ? " 长成时变异了" : " 换季枯死了");
         }
-
-        GameDate today = day.World.Date;
-        GD.Print("[结算] 推进到第 ", today.Year, " 年 ", today.Season, " 第 ", today.Day, " 天");
-        RefreshAll();
     }
 
     /// <summary>掷一次变异，用系统随机数。几率读的是这一刻作用在地上的修饰。</summary>
@@ -292,7 +307,7 @@ public partial class FarmField : Node
             return;
         }
 
-        if (!_world.Plots.TryGet(ToGridCell(_cursor.Cell), out var plot))
+        if (!_world.State.Plots.TryGet(ToGridCell(_cursor.Cell), out var plot))
         {
             GD.Print("[地块] ", _cursor.Cell, " 不在这一片地里");
             return;
@@ -411,8 +426,8 @@ public partial class FarmField : Node
     }
 
     /// <summary>开新档：日期是开局那一天，地按检查器里那几格铺出来。</summary>
-    private void NewWorld() => _world = WorldState.NewGame(
-        PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState));
+    private void NewWorld() => _world = new CurrentWorld(WorldState.NewGame(
+        PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState)));
 
     /// <summary>整片重画。</summary>
     /// <remarks>
@@ -430,7 +445,7 @@ public partial class FarmField : Node
         var dry = new Godot.Collections.Array<Vector2I>();
         var wet = new Godot.Collections.Array<Vector2I>();
 
-        foreach (var (cell, plot) in _world.Plots.Cells)
+        foreach (var (cell, plot) in _world.State.Plots.Cells)
         {
             if (!ShowsTilledSoil(plot.State))
             {
@@ -463,7 +478,7 @@ public partial class FarmField : Node
     {
         Vector2I tileSize = _tilled.TileSet.TileSize;
 
-        foreach (var (gridCell, plot) in _world.Plots.Cells)
+        foreach (var (gridCell, plot) in _world.State.Plots.Cells)
         {
             Vector2I cell = ToTileCell(gridCell);
             Texture2D? texture = TextureFor(plot);

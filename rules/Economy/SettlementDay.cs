@@ -30,25 +30,26 @@ public enum CropChangeKind
     Mutated,
 }
 
-/// <summary>结算的这一天：被推进的那份世界，以及各步记下的结果。</summary>
+/// <summary>结算的这一天：被推进的那份世界副本，以及各步记下的结果。</summary>
 /// <remarks>
 /// 每一步只读写这里。各步记下的结果是摘要的来源：摘要从这里算，不另存一份账
 /// （设计仓 design/每日结算系统.md 的「摘要：简版是弹窗，完整明细是一个读口」一节）。
+/// 只有结算驱动造得出它，也只有驱动在自动存档写成之后提交它。
 /// </remarks>
 public sealed class SettlementDay
 {
     private readonly List<CropChange> _cropChanges = [];
+    private readonly CurrentWorld _current;
 
-    public SettlementDay(WorldState world, DayEndSource source)
+    internal SettlementDay(CurrentWorld current, DayEndSource source)
     {
-        ArgumentNullException.ThrowIfNull(world);
-
-        World = world;
+        _current = current;
+        World = current.State.Clone();
         Source = source;
-        SettledDate = world.Date;
+        SettledDate = World.Date;
     }
 
-    /// <summary>被推进的那份世界。</summary>
+    /// <summary>被推进的那份世界：当前那一份的副本，提交之前改它不碰当前那一份。</summary>
     public WorldState World { get; }
 
     /// <summary>这一天是怎么结束的。</summary>
@@ -63,5 +64,26 @@ public sealed class SettlementDay
     /// <summary>这一夜各格地上的变化，按记下的先后。</summary>
     public IReadOnlyList<CropChange> CropChanges => _cropChanges;
 
+    /// <summary>这一天的摘要；「生成结算摘要」那一步之前为 <c>null</c>。</summary>
+    public SettlementSummary? Summary { get; private set; }
+
+    /// <summary>提交了没有：自动存档写成、副本已经换成当前那一份。</summary>
+    public bool Committed { get; private set; }
+
     internal void Record(CropChange change) => _cropChanges.Add(change);
+
+    /// <summary>从这一天记下的变化算出摘要。</summary>
+    internal void ProduceSummary() => Summary = new SettlementSummary(SettledDate, [.. _cropChanges]);
+
+    /// <summary>提交：把副本换成当前那一份。只在自动存档那一步正常走完之后调一次。</summary>
+    internal void Commit()
+    {
+        if (Committed)
+        {
+            throw new InvalidOperationException("这一天已经提交过一次了");
+        }
+
+        _current.Replace(World);
+        Committed = true;
+    }
 }

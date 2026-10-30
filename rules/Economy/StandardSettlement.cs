@@ -8,19 +8,31 @@ namespace Tinderhearth.Rules.Economy;
 public static class StandardSettlement
 {
     /// <summary>建一份完整的每日结算。</summary>
-    /// <param name="crops">按标识找作物定义。地里那种作物找不到时，推进那一格当场报错。</param>
+    /// <param name="crops">按标识找作物定义。地里那种作物找不到时，推进那一格当场报错，这一天不推进。</param>
     /// <param name="fallowRevertDays">已锄的空格荒置几天退回可耕，至少 1。这个天数还没定、要实机试，本层不带默认值。</param>
     /// <param name="rollMutation">掷一次变异，中了返回真。只在一株长成的那一下调。</param>
+    /// <param name="writeSave">把推进完的那份世界写成正式存档；写不成就抛，抛的那句话就是「这一天没有推进」的原因。</param>
+    /// <param name="onWake">醒来那一步把这一天的摘要交出去。写档没成的那一天它一次都不被调。</param>
     public static DailySettlement Create(
-        IReadOnlyDictionary<string, CropDefinition> crops, int fallowRevertDays, Func<bool> rollMutation) =>
-        new(Steps(crops, fallowRevertDays, rollMutation), AskEvents);
+        IReadOnlyDictionary<string, CropDefinition> crops,
+        int fallowRevertDays,
+        Func<bool> rollMutation,
+        Action<WorldState> writeSave,
+        Action<SettlementSummary> onWake) =>
+        new(Steps(crops, fallowRevertDays, rollMutation, writeSave, onWake), AskEvents);
 
     /// <summary>那串步序的每一步，名字与做法。测试拿它替换其中几步。</summary>
     public static IReadOnlyList<(string Name, SettlementStep Run)> Steps(
-        IReadOnlyDictionary<string, CropDefinition> crops, int fallowRevertDays, Func<bool> rollMutation)
+        IReadOnlyDictionary<string, CropDefinition> crops,
+        int fallowRevertDays,
+        Func<bool> rollMutation,
+        Action<WorldState> writeSave,
+        Action<SettlementSummary> onWake)
     {
         ArgumentNullException.ThrowIfNull(crops);
         ArgumentNullException.ThrowIfNull(rollMutation);
+        ArgumentNullException.ThrowIfNull(writeSave);
+        ArgumentNullException.ThrowIfNull(onWake);
         if (fallowRevertDays < 1)
         {
             throw new ArgumentOutOfRangeException(
@@ -60,10 +72,13 @@ public static class StandardSettlement
             (SettlementSteps.EnergyCapRecompute, Nothing),
             (SettlementSteps.EnergyRestore, Nothing),
 
-            // 摘要、写档与醒来交出摘要归设计仓台账 GP-152。
-            (SettlementSteps.Summary, Nothing),
-            (SettlementSteps.AutoSave, Nothing),
-            (SettlementSteps.Wake, Nothing),
+            (SettlementSteps.Summary, static day => day.ProduceSummary()),
+
+            // 写成了才算数：这一步正常走完，驱动就把副本换成当前那一份。
+            (SettlementSteps.AutoSave, day => writeSave(day.World)),
+
+            (SettlementSteps.Wake, day => onWake(day.Summary
+                ?? throw new InvalidOperationException($"醒来时还没有摘要：「{SettlementSteps.Summary}」那一步没有产出"))),
         ];
     }
 
