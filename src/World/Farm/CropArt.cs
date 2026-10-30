@@ -8,10 +8,11 @@ namespace Tinderhearth.World.Farm;
 /// <remarks>
 /// 同一种作物的信息分成两半，分界是「它进不进判定」。阶段天数、季节列表、收获后退回哪一阶段、
 /// 产出哪种物品是行为，写在 <see cref="CropDefinition"/> 里（数据文件，规则层读）；长什么样在
-/// 这里。所以「缺哪张图」只能在这里报错，规则层看不见任何素材路径。
+/// 这里。所以每一格配没配只能从这里读出来，规则层看不见任何素材路径。
 ///
 /// 张数不是固定的，等于这条作物自己声明的阶段数（<see cref="CropDefinition.StageCount"/>）外加
-/// 一张变异成熟、一张枯死。速生菜交的图比慢熟的少，两边都不用改代码。校验在 <see cref="RequireMatching"/>。
+/// 一张变异成熟、一张枯死。速生菜交的图比慢熟的少，两边都不用改代码。校验在规则层的 <see cref="CropArtCheck"/>，
+/// 全部作物素材一次核、一次全报；这里只交出每一格配没配（<see cref="ToEntry"/>）。
 ///
 /// 变异成熟与枯死那两张不塞进 <see cref="StageTextures"/> 末尾：它们都不是生长阶段，一张是待收那一株
 /// 变了的样子，一张是 <see cref="PlotState.Withered"/> 那个状态的样子。混进同一个数组之后要按下标挑，
@@ -47,54 +48,16 @@ public partial class CropArt : Resource
     [Export]
     public Texture2D? WitheredTexture { get; set; }
 
-    /// <summary>这份素材配不配得上那条作物定义。配不上就抛，并说清缺的是哪一张。</summary>
+    /// <summary>这份素材配了什么：给哪一种作物、每一格配没配。交给 <see cref="CropArtCheck"/> 核。</summary>
     /// <remarks>
-    /// 在载入时一次判完，不等到显示那一刻。缺图在显示时的表现是那一格空着，而玩家分不清
+    /// 核在载入时一次判完，不等到显示那一刻。缺图在显示时的表现是那一格空着，而玩家分不清
     /// 「这一格没种东西」和「这一格种了但没图」。
     /// </remarks>
-    public void RequireMatching(CropDefinition crop)
-    {
-        ArgumentNullException.ThrowIfNull(crop);
-
-        if (CropId != crop.Id)
-        {
-            throw new InvalidOperationException(
-                $"这份 {nameof(CropArt)} 的 {nameof(CropId)} 是「{CropId}」，"
-                    + $"而要配的作物定义是「{crop.Id}」，两边的标识必须逐字符一致");
-        }
-
-        if (StageTextures.Count != crop.StageCount)
-        {
-            throw new InvalidOperationException(
-                $"作物「{crop.Id}」声明了 {crop.StageCount} 个阶段"
-                    + $"（{crop.StageDays.Count} 个计时阶段加成熟），"
-                    + $"所以 {nameof(StageTextures)} 要有 {crop.StageCount} 张，实际 {StageTextures.Count} 张");
-        }
-
-        for (var stage = 0; stage < StageTextures.Count; stage++)
-        {
-            if (StageTextures[stage] is null)
-            {
-                throw new InvalidOperationException(
-                    $"作物「{crop.Id}」的第 {stage} 阶段那一张是空的"
-                        + $"（阶段从 0 起算，第 {crop.RipeStage} 阶段是成熟）");
-            }
-        }
-
-        if (MutatedRipeTexture is null)
-        {
-            throw new InvalidOperationException(
-                $"作物「{crop.Id}」缺 {nameof(MutatedRipeTexture)}，也就是变异成熟那一张。"
-                    + "每种作物长成时都可能变异，变了的那一株待收时显示它");
-        }
-
-        if (WitheredTexture is null)
-        {
-            throw new InvalidOperationException(
-                $"作物「{crop.Id}」缺 {nameof(WitheredTexture)}。枯株会停在地里等玩家清掉，"
-                    + "所以那个状态一定会被看到");
-        }
-    }
+    public CropArtEntry ToEntry() => new(
+        CropId,
+        [.. StageTextures.Select(texture => texture is not null)],
+        MutatedRipeTexture is not null,
+        WitheredTexture is not null);
 
     /// <summary>某个阶段该显示哪一张。</summary>
     public Texture2D TextureForStage(int stage) => StageTextures[stage];

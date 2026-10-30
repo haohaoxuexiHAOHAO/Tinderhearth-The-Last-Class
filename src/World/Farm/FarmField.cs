@@ -368,34 +368,20 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>把素材按标识索引起来，并逐份核对它配不配得上那条作物定义。</summary>
+    /// <summary>核全部作物素材，再按标识索引起来。有一处不对就抛，全部问题一次列出来。</summary>
+    /// <remarks>判在规则层（<see cref="CropArtCheck"/>），这里只把每一份配了什么交过去。</remarks>
     private void IndexCropArts()
     {
-        foreach (var art in CropArts)
-        {
-            if (art is null)
-            {
-                throw new InvalidOperationException(
-                    $"{nameof(FarmField)}（节点 {Name}）的 {nameof(CropArts)} 里有一项是空的");
-            }
-
-            if (!_cropDefs.TryGetValue(art.CropId, out var crop))
-            {
-                throw new InvalidOperationException(
-                    $"素材配的作物「{art.CropId}」没有对应的作物定义 —— "
-                        + $"已载入的有：{string.Join("、", _cropDefs.Keys)}");
-            }
-
-            art.RequireMatching(crop);
-            _cropArts[art.CropId] = art;
-        }
-
-        var missing = _cropDefs.Keys.Where(id => !_cropArts.ContainsKey(id)).ToList();
-        if (missing.Count > 0)
+        var problems = CropArtCheck.Problems(_cropDefs.Values, [.. CropArts.Select(art => art?.ToEntry())]);
+        if (problems.Count > 0)
         {
             throw new InvalidOperationException(
-                $"这几种作物有定义但没有素材：{string.Join("、", missing)} —— "
-                    + $"每一种都要在 {nameof(CropArts)} 里配一份");
+                $"{nameof(FarmField)}（节点 {Name}）的作物素材有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+        }
+
+        foreach (var art in CropArts)
+        {
+            _cropArts[art.CropId] = art;
         }
     }
 
