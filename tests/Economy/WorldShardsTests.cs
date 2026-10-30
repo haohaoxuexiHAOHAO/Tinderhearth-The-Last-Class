@@ -261,4 +261,22 @@ public class WorldShardsTests
         Assert.All(registry.Shards, s => Assert.Equal(SaveSide.FormalSave, s.Side));
         AssertSameWorld(newGame, fromDefaults);
     }
+
+    /// <summary>追加内容永远是兼容的那一种：存档里存的是标识，多一种作物不碰任何一个已经存下的标识。</summary>
+    [Fact]
+    public void 只往作物定义里加一种作物旧存档照样打得开()
+    {
+        var world = BusyWorld();
+        var text = FormalSaveOf(world);
+        var moreCrops = new Dictionary<string, CropDefinition>(Crops)
+        {
+            ["radish"] = Turnip with { Id = "radish", YieldItemId = "item_radish" },
+        };
+        var registry = new SaveShardRegistry();
+        WorldShards.Register(registry, world.Plots);
+
+        var back = WorldShards.Read(SaveFile.ReadFormalSave(registry, text), moreCrops);
+
+        AssertSameWorld(world, back);
+    }
 }

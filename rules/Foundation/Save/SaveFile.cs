@@ -5,7 +5,7 @@ using System.Text.Unicode;
 
 namespace Tinderhearth.Rules.Foundation.Save;
 
-/// <summary>一份存档文件的外形：最外层一个版本号，加各分片各一格。</summary>
+/// <summary>一份存档文件的外形与读写：最外层一个版本号，加各分片各一格。</summary>
 /// <remarks>
 /// 明文 JSON、缩进排好，用文本编辑器打得开；版本号全存档只有一个，分片不各带版本（设计仓
 /// decisions/ADR-0015-存档的版本与缺字段口径.md）。读写文件那一下不在这里：规则层只吃字符串，文件归引擎层。
@@ -16,6 +16,13 @@ public static class SaveFile
 {
     /// <summary>当前的存档版本号。只增不减：任何一个分片的形状变了就加一。</summary>
     public const int CurrentVersion = 1;
+
+    /// <summary>最低兼容存档版本：低于它的存档被拒并指向更新公告。只增不减，是规则常量，mod 改不了。</summary>
+    /// <remarks>
+    /// 它与 <see cref="CurrentVersion"/> 写在一起，读版本与判兼容是同一步（设计仓
+    /// decisions/ADR-0017-版本更新对旧存档的两种后果.md）。能迁就必须迁：只有迁移写不出来时才许升它。
+    /// </remarks>
+    public const int MinimumCompatibleVersion = 1;
 
     /// <summary>最外层版本号那一格的键。</summary>
     public const string VersionKey = "version";
@@ -30,6 +37,12 @@ public static class SaveFile
         WriteIndented = true,
         NewLine = "\n",
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+    };
+
+    private static readonly JsonDocumentOptions ReadOptions = new()
+    {
+        AllowTrailingCommas = false,
+        CommentHandling = JsonCommentHandling.Disallow,
     };
 
     /// <summary>把各分片拼成一份正式存档的文本。</summary>
@@ -81,5 +94,117 @@ public static class SaveFile
             [ShardsKey] = bodies,
         };
         return root.ToJsonString(WriteOptions);
+    }
+
+    /// <summary>读一份正式存档：先判兼容，再按版本补或拒缺字段，丢掉多出来的字段，拒认不出的分片。</summary>
+    /// <returns>每个进正式存档的分片各一份，按标识给；缺的字段已按存档默认值补上，多出来的已丢掉。</returns>
+    /// <exception cref="SaveRejectedException">打不开的时候，带着是哪一种。这时没有任何一个分片交出去。</exception>
+    public static IReadOnlyDictionary<string, JsonObject> ReadFormalSave(SaveShardRegistry registry, string text) =>
+        ReadFormalSave(registry, text, CurrentVersion, MinimumCompatibleVersion);
+
+    /// <summary>同上，版本界限由调用方给。</summary>
+    /// <remarks>
+    /// 游戏里一律用上面那个；这一个给测试演练「当前是第 N 版、最低兼容是第 M 版」，现在这两个常量相等，演练不出中间那一段。
+    ///
+    /// 补与丢都只在分片的第一层：分片里的一格是什么形状由它的持有者定，持有者读的时候自己判。
+    /// </remarks>
+    public static IReadOnlyDictionary<string, JsonObject> ReadFormalSave(
+        SaveShardRegistry registry, string text, int currentVersion, int minimumCompatibleVersion)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(text);
+
+        var root = ParseRoot(text);
+        var version = root[VersionKey] is JsonValue versionValue && versionValue.TryGetValue<int>(out var number)
+            ? number
+            : throw new SaveRejectedException(SaveRejection.Unreadable, $"存档最外层缺「{VersionKey}」，或者它不是一个整数");
+
+        if (version < minimumCompatibleVersion)
+        {
+            throw new SaveRejectedException(SaveRejection.BelowMinimumVersion,
+                $"这份存档是第 {version} 版，这一版的游戏最低只认第 {minimumCompatibleVersion} 版：这一版要求重开档");
+        }
+
+        if (version > currentVersion)
+        {
+            throw new SaveRejectedException(SaveRejection.NewerVersion,
+                $"这份存档是第 {version} 版，比这一版的游戏（第 {currentVersion} 版）新：它是更新的游戏写的");
+        }
+
+        var saved = root[ShardsKey] as JsonObject
+            ?? throw new SaveRejectedException(SaveRejection.Unreadable, $"存档最外层缺「{ShardsKey}」，或者它不是一个对象");
+
+        var formal = registry.Shards.Where(s => s.Side == SaveSide.FormalSave).ToList();
+        var unknown = saved.Select(p => p.Key).Where(id => formal.All(s => s.Id != id)).ToList();
+        if (unknown.Count > 0)
+        {
+            throw new SaveRejectedException(SaveRejection.UnknownShard,
+                $"存档里有认不出的分片：{string.Join("、", unknown.Select(id => $"「{id}」"))}。它不许被丢掉，所以这份存档先不读");
+        }
+
+        var older = version < currentVersion;
+        var missing = new List<string>();
+        var result = new Dictionary<string, JsonObject>();
+        foreach (var shard in formal)
+        {
+            var defaults = shard.Default();
+            if (!saved.TryGetPropertyValue(shard.Id, out var node) || node is null)
+            {
+                if (older)
+                {
+                    result[shard.Id] = defaults;
+                }
+                else
+                {
+                    missing.Add($"分片「{shard.Id}」整个");
+                }
+
+                continue;
+            }
+
+            var body = node as JsonObject
+                ?? throw new SaveRejectedException(SaveRejection.Unreadable, $"分片「{shard.Id}」不是一个对象");
+            var normalized = new JsonObject();
+            foreach (var (key, fallback) in defaults)
+            {
+                if (body.TryGetPropertyValue(key, out var value))
+                {
+                    normalized[key] = value?.DeepClone();
+                }
+                else if (older)
+                {
+                    normalized[key] = fallback?.DeepClone();
+                }
+                else
+                {
+                    missing.Add($"分片「{shard.Id}」的「{key}」");
+                }
+            }
+
+            result[shard.Id] = normalized;
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new SaveRejectedException(SaveRejection.MissingField,
+                $"这份存档与这一版的游戏同为第 {version} 版，却缺{string.Join("、", missing)}：同一版不会缺字段，是文件被写坏了");
+        }
+
+        return result;
+    }
+
+    private static JsonObject ParseRoot(string text)
+    {
+        JsonNode? root;
+        try
+        {
+            root = JsonNode.Parse(text, documentOptions: ReadOptions);
+        }
+        catch (JsonException e)
+        {
+            throw new SaveRejectedException(SaveRejection.Unreadable, $"存档不是一份读得通的 JSON：{e.Message}");
+        }
+
+        return root as JsonObject ?? throw new SaveRejectedException(SaveRejection.Unreadable, "存档最外层不是一个对象");
     }
 }
