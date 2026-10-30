@@ -79,7 +79,7 @@ public partial class FarmField : Node
     /// <summary>荒置退化天数：已锄的空格连着这么多天没作物就退回可耕。</summary>
     /// <remarks>
     /// 没有默认值，必须在检查器里填，而且要实机试：太短会罚出远门的玩家，太长则荒置这条规则
-    /// 形同虚设。<see cref="Plot.AdvanceDay"/> 自己会拒掉小于 1 的值。
+    /// 形同虚设。小于 1（没填就是 0）时启动当场报错。
     /// </remarks>
     [Export]
     public int FallowRevertDays { get; set; }
@@ -148,6 +148,7 @@ public partial class FarmField : Node
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
     private WorldState _world = null!;
+    private DailySettlement _settlement = null!;
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
@@ -195,7 +196,15 @@ public partial class FarmField : Node
         // 两个变异几率的量同理，没填（全 0）也在这一行当场抛。
         _mutation = new MutationChanceRule(MutationBaseChance, MutationChanceCap);
 
+        if (FallowRevertDays < 1)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmField)}（节点 {Name}）的 {nameof(FallowRevertDays)} 是 {FallowRevertDays} —— "
+                    + "荒置退化天数至少 1 天，要在检查器里填");
+        }
+
         LoadCropDefinitions();
+        _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation);
         IndexCropArts();
         FillCarryBarWithSeeds();
         NewWorld();
@@ -217,7 +226,7 @@ public partial class FarmField : Node
     /// 直接读按键、不走 <c>InputMap</c>，因为它们是工具键不是玩法绑定。进了输入映射就会出现在
     /// 「玩家能重绑的键」那份清单里，而玩家根本不该看见它们。TrainingRoom.cs 那三个调试键同理。
     ///
-    /// 正式的一天推进是睡觉那条路，走每日结算的固定步序，还没有实现。
+    /// <c>N</c> 走的是每日结算那唯一的入口（<see cref="EndDay"/>），与睡觉同一条路。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
@@ -228,7 +237,7 @@ public partial class FarmField : Node
 
         switch (key.Keycode)
         {
-            case Key.N: AdvanceDay(); break;
+            case Key.N: EndDay(); break;
             case Key.B: NextSeedBatch(); break;
         }
     }
@@ -245,25 +254,24 @@ public partial class FarmField : Node
         GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
-    /// <summary>把这一片地推进一天，然后重画。这一晚长成时变异的每一格各打一行。</summary>
+    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。这一夜枯死与变异的每一格各打一行。</summary>
     /// <remarks>
-    /// 以后接上季节时，<see cref="Plot.ApplySeasonChange"/> 要排在本方法之前跑。反了的话，换季
-    /// 那天的作物会先白长一天再枯死。
+    /// 推进一天没有第二条路，调试键也走这一条（设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节）：
+    /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。
     ///
-    /// 变异那几行是睡后简报那一项的替身：简报还没有，归设计仓台账 GP-56。
+    /// 那几行是醒来那份摘要的替身：摘要还没有，归设计仓台账 UI-59。
     /// </remarks>
-    public void AdvanceDay()
+    public void EndDay()
     {
-        foreach (var (cell, plot) in _world.Plots.Cells)
+        var day = _settlement.Run(_world, DayEndSource.Sleep);
+        foreach (var change in day.CropChanges)
         {
-            var wasMutated = plot.Mutated;
-            plot.AdvanceDay(CropOf(plot), FallowRevertDays, RollMutation);
-            if (plot.Mutated && !wasMutated)
-            {
-                GD.Print("[地块] ", cell, " 的 ", plot.CropId, " 长成时变异了");
-            }
+            GD.Print("[地块] ", change.Cell, " 的 ", change.CropId,
+                     change.Kind == CropChangeKind.Mutated ? " 长成时变异了" : " 换季枯死了");
         }
 
+        GameDate today = day.World.Date;
+        GD.Print("[结算] 推进到第 ", today.Year, " 年 ", today.Season, " 第 ", today.Day, " 天");
         RefreshAll();
     }
 
