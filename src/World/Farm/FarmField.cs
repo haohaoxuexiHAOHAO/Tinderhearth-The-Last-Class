@@ -1,6 +1,7 @@
 using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.Rules.Economy;
+using Tinderhearth.Rules.Foundation.Save;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
@@ -149,6 +150,8 @@ public partial class FarmField : Node
     private int _seedBatch;
     private CurrentWorld _world = null!;
     private DailySettlement _settlement = null!;
+    private SaveShardRegistry _registry = null!;
+    private SaveStore _store = null!;
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
@@ -156,9 +159,11 @@ public partial class FarmField : Node
 
     public override void _Ready()
     {
-        // 先停掉每帧回调，全部校验过了再开。_Ready 抛出之后引擎并不会停掉这个节点，_Process
-        // 照旧每帧跑而下面那几个字段还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走。
+        // 先停掉每帧回调与调试键，全部校验过了、存档也读回来了再开。_Ready 抛出之后引擎并不会停掉这个节点，
+        // _Process 照旧每帧跑而下面那几个字段还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走；
+        // 存档读不出来之后再按 N，也只会在那条报错下面多刷一条空引用。
         SetProcess(false);
+        SetProcessUnhandledKeyInput(false);
 
         _tilled = TilledLayer ?? throw Missing(nameof(TilledLayer), "耕地那一层（叠在天然地形之上的 TileMapLayer）");
         _crops = CropsContainer ?? throw Missing(nameof(CropsContainer), "放作物精灵的那个节点");
@@ -207,10 +212,11 @@ public partial class FarmField : Node
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
         FillCarryBarWithSeeds();
-        NewWorld();
+        LoadWorld();
         RefreshAll();
 
         SetProcess(true);
+        SetProcessUnhandledKeyInput(true);
     }
 
     public override void _Process(double delta)
@@ -275,9 +281,20 @@ public partial class FarmField : Node
         RefreshAll();
     }
 
-    /// <summary>写正式存档。读写文件还没接上，归设计仓台账 GP-153：这一下现在什么都不写，当作写成了。</summary>
-    private static void WriteSave(WorldState world)
+    /// <summary>写正式存档：拼成文本、原子替换那个文件，写成之后报出路径与各分片的字节数。</summary>
+    /// <remarks>
+    /// 写不成就抛：结算接住它，这一天不推进，那句话就是原因。
+    ///
+    /// 写进文件那一下必须是这一步里最后一件会失败的事：它之后再抛，盘上已经是新的一天，结算却当这一天没有推进。
+    /// 所以各分片的字节数在写之前量好。
+    /// </remarks>
+    private void WriteSave(WorldState world)
     {
+        var text = FarmSave.Write(_registry, world);
+        var shards = SaveFile.ShardBytes(text);
+        var total = _store.Write(text);
+        GD.Print("[存档] 写成 ", _store.Path, "，共 ", total, " 字节（",
+                 string.Join("、", shards.Select(s => $"{s.Id} {s.Bytes}")), "）");
     }
 
     /// <summary>醒来那一步交出来的摘要。弹窗还没有，归设计仓台账 UI-59，先逐格打在输出面板上。</summary>
@@ -425,9 +442,36 @@ public partial class FarmField : Node
         _carry.OnContentChanged();
     }
 
-    /// <summary>开新档：日期是开局那一天，地按检查器里那几格铺出来。</summary>
-    private void NewWorld() => _world = new CurrentWorld(WorldState.NewGame(
-        PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState)));
+    /// <summary>有存档就读回，没有就开新档：日期是开局那一天，地按检查器里那几格铺出来。</summary>
+    /// <remarks>
+    /// 存档在、却读不出来或被拒时当场报错，不开新档：开了新档，下一次睡觉就会把那份存档盖掉，而它多半只是改过一次
+    /// 场景里那片地、或者装少了一个 mod。判在规则层（<see cref="FarmSave"/>），这里只把文件读进来、把报错写上路径。
+    /// </remarks>
+    private void LoadWorld()
+    {
+        var sceneField = PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState);
+        _registry = new SaveShardRegistry();
+        WorldShards.Register(_registry, sceneField);
+        _store = new SaveStore(ModPaths.ResolveUserPath(ModPaths.SaveRoot));
+
+        string? text;
+        WorldState world;
+        try
+        {
+            text = _store.ReadOrNull();
+            world = FarmSave.LoadOrNew(text, _registry, _cropDefs, sceneField);
+        }
+        catch (Exception e) when (e is SaveRejectedException or InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException(
+                $"存档 {_store.Path} 读不出来，没有开新档（开了新档，下一次睡觉就会把它盖掉）：{e.Message}", e);
+        }
+
+        _world = new CurrentWorld(world);
+        GameDate date = world.Date;
+        GD.Print(text is null ? "[存档] 还没有存档，按开局那一天开新档：" : "[存档] 读回存档：", _store.Path,
+                 "，第 ", date.Year, " 年 ", date.Season, " 第 ", date.Day, " 天");
+    }
 
     /// <summary>整片重画。</summary>
     /// <remarks>

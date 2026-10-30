@@ -193,6 +193,20 @@ public static class SaveFile
         return result;
     }
 
+    /// <summary>一份存档里每个分片各占多少字节，按存档里的先后。</summary>
+    /// <remarks>
+    /// 体积要按分片分摊才说得出是哪一块在长（设计仓 design/存档系统.md 的「存档位摘要与体积实测」一节）。
+    /// 每一块按写存档的那套选项单独量一次，所以几块加起来比整份略少：差的是最外层那几个键，和嵌在里面每一行多出来的缩进。
+    /// </remarks>
+    public static IReadOnlyList<(string Id, int Bytes)> ShardBytes(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var shards = ParseRoot(text)[ShardsKey] as JsonObject
+            ?? throw new SaveRejectedException(SaveRejection.Unreadable, $"存档最外层缺「{ShardsKey}」，或者它不是一个对象");
+        return [.. shards.Select(p => (p.Key, System.Text.Encoding.UTF8.GetByteCount(p.Value?.ToJsonString(WriteOptions) ?? "null")))];
+    }
+
     private static JsonObject ParseRoot(string text)
     {
         JsonNode? root;
