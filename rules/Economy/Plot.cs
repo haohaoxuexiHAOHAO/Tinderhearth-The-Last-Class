@@ -75,6 +75,79 @@ public sealed class Plot
     /// </remarks>
     public Plot Clone() => (Plot)MemberwiseClone();
 
+    /// <summary>这一格存档里记的那几项。</summary>
+    public PlotRecord ToRecord() => new(
+        State: State,
+        CropId: CropId,
+        Stage: Stage,
+        DaysInStage: DaysInStage,
+        WateredToday: WateredToday,
+        WateredDaysThisCrop: WateredDaysThisCrop,
+        DaysThisCrop: DaysThisCrop,
+        DaysFallow: DaysFallow,
+        Mutated: Mutated);
+
+    /// <summary>按存档里记的那几项恢复一格地。几项彼此矛盾时当场拒绝，问题一次列全。</summary>
+    /// <param name="record">存档里记的那几项。</param>
+    /// <param name="crop">那一格里那种作物的定义；没有作物、或者按标识找不到时传 <c>null</c>。</param>
+    public static Plot Restore(PlotRecord record, CropDefinition? crop)
+    {
+        var problems = Problems(record, crop);
+        if (problems.Count > 0)
+        {
+            throw new InvalidDataException(string.Join("；", problems));
+        }
+
+        return new Plot
+        {
+            State = record.State,
+            CropId = record.CropId,
+            Stage = record.Stage,
+            DaysInStage = record.DaysInStage,
+            WateredToday = record.WateredToday,
+            WateredDaysThisCrop = record.WateredDaysThisCrop,
+            DaysThisCrop = record.DaysThisCrop,
+            DaysFallow = record.DaysFallow,
+            Mutated = record.Mutated,
+        };
+    }
+
+    /// <summary>存档里记的那几项彼此矛盾的地方；一处都没有时为空。</summary>
+    /// <remarks>
+    /// 每一条都是这台状态机自己走不出来的组合。只拦这些、不拦得更严：拦得比状态机还严，一份正常走出来的存档
+    /// 就会被拒，而那等于丢档。
+    /// </remarks>
+    public static IReadOnlyList<string> Problems(PlotRecord r, CropDefinition? crop)
+    {
+        if (!Enum.IsDefined(r.State))
+        {
+            return [$"没有 {r.State} 这个状态"];
+        }
+
+        var hasCrop = r.State is PlotState.Planted or PlotState.Harvestable or PlotState.Withered;
+        var countsZero = r.Stage == 0 && r.DaysInStage == 0 && r.DaysThisCrop == 0 && r.WateredDaysThisCrop == 0;
+        var rules = new (bool Broken, string What)[]
+        {
+            (r.Stage < 0 || r.DaysInStage < 0 || r.WateredDaysThisCrop < 0 || r.DaysThisCrop < 0 || r.DaysFallow < 0,
+                "计数不许为负"),
+            (!hasCrop && r.CropId is not null, $"{r.State} 没有作物，却带着作物标识 {r.CropId}"),
+            (!hasCrop && !countsZero, $"{r.State} 没有作物，这一茬的计数却不是零"),
+            (!hasCrop && r.WateredToday, $"{r.State} 没有作物，却记着今天浇过"),
+            (r.State != PlotState.Tilled && r.DaysFallow != 0, $"只有已锄的空地计荒置天数，{r.State} 却记着 {r.DaysFallow} 天"),
+            (hasCrop && r.CropId is null, $"{r.State} 要有作物标识"),
+            (hasCrop && r.CropId is not null && crop is null, $"作物标识 {r.CropId} 在作物定义里找不到"),
+            (hasCrop && crop is not null && crop.Id != r.CropId, $"作物标识是 {r.CropId}，交进来的定义却是 {crop?.Id}"),
+            (r.Mutated && r.State != PlotState.Harvestable, $"「变异」只在待收时为真，{r.State} 却记着变异"),
+            (r.State == PlotState.Planted && crop is not null && r.Stage >= crop.RipeStage,
+                $"在长的作物停在第 {r.Stage} 阶段，可 {crop?.Id} 到第 {crop?.RipeStage} 阶段就成熟了"),
+            (r.State == PlotState.Harvestable && crop is not null && r.Stage != crop.RipeStage,
+                $"待收的作物应停在成熟那一阶段（{crop?.Id} 是第 {crop?.RipeStage} 阶段），实际第 {r.Stage} 阶段"),
+            (r.State == PlotState.Withered && !countsZero, "枯死的那一株这一茬的计数却不是零"),
+        };
+
+        return [.. rules.Where(rule => rule.Broken).Select(rule => rule.What)];
+    }
+
     /// <summary>清掉石头、树木与杂草。</summary>
     public bool Clear()
     {
