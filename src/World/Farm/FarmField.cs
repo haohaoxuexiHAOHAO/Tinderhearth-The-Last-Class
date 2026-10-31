@@ -12,9 +12,9 @@ namespace Tinderhearth.World.Farm;
 /// </summary>
 /// <remarks>
 /// 规则一行都不在这里。状态、流转、浇水、荒置退化全在 <see cref="Plot"/> 里（规则层，不引用
-/// Godot，有单元测试盯着），那片地本身在规则层的世界状态里（<see cref="WorldState"/>）。本类只做三件事：
-/// 把瓦片层的格坐标对上那片地的一格、把玩家按下的那一下翻译成一次状态机调用、把状态画出来。
-/// 规则出自设计仓 design/地块系统.md。
+/// Godot，有单元测试盯着），那片地本身在规则层的世界状态里（<see cref="WorldState"/>）。本类只把引擎那一侧接到
+/// 规则上：把瓦片层的格坐标对上那片地的一格；把玩家按下的那一下翻译成一次状态机调用，或者站在床边时的一次睡觉；
+/// 把状态画出来；读回与写下存档那个文件。规则出自设计仓 design/地块系统.md。
 ///
 /// 一个键按当前格的状态派发，不是先选工具再用。六个状态各自恰好对应一个动作：未清理→清理、
 /// 可耕→锄、已锄→播种、已播种→浇水、待收→收获、待清→清枯株。代价是实机试不到「对着可耕地
@@ -152,6 +152,7 @@ public partial class FarmField : Node
     private DailySettlement _settlement = null!;
     private SaveShardRegistry _registry = null!;
     private SaveStore _store = null!;
+    private readonly List<Bed> _beds = [];
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
@@ -219,13 +220,33 @@ public partial class FarmField : Node
         SetProcessUnhandledKeyInput(true);
     }
 
+    /// <summary>交互键只在这里听：站在床边是睡，否则作用在当前操作格上，由规则层挑。</summary>
     public override void _Process(double delta)
     {
-        if (_router.IsJustPressed(InputActions.Interact))
+        if (!_router.IsJustPressed(InputActions.Interact))
         {
-            ActOnCurrentCell();
+            return;
+        }
+
+        switch (FarmInteraction.Pick(_beds.Any(bed => bed.SleeperInReach)))
+        {
+            case FarmInteractTarget.Bed: EndDay(); break;
+            case FarmInteractTarget.CurrentCell: ActOnCurrentCell(); break;
         }
     }
+
+    /// <summary>一张床把自己登记到这片地上，由床在它的 _Ready 里调。</summary>
+    /// <remarks>床与这片地谁先 _Ready 取决于它们在场景树里的先后，所以这里只记下来，不读这片地的任何状态。</remarks>
+    internal void RegisterBed(Bed bed)
+    {
+        if (!_beds.Contains(bed))
+        {
+            _beds.Add(bed);
+        }
+    }
+
+    /// <summary>床离开场景树时把自己撤掉。</summary>
+    internal void UnregisterBed(Bed bed) => _beds.Remove(bed);
 
     /// <summary>开发期的调试键：按 <c>N</c> 推进一天，按 <c>B</c> 换下一批种子。</summary>
     /// <remarks>
@@ -260,14 +281,14 @@ public partial class FarmField : Node
         GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
-    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。</summary>
+    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。床与调试键 <c>N</c> 都调它，别处调不到。</summary>
     /// <remarks>
     /// 推进一天没有第二条路，调试键也走这一条（设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节）：
     /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。
     ///
     /// 没推进时世界一格没动，说清停在哪一步、为什么；那个弹窗还没有，归设计仓台账 UI-59，先打在输出面板上。
     /// </remarks>
-    public void EndDay()
+    private void EndDay()
     {
         var outcome = _settlement.EndDay(_world, DayEndSource.Sleep);
         if (!outcome.Advanced)
