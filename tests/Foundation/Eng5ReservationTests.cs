@@ -22,12 +22,13 @@ public class Eng5ReservationTests
 {
     /// <summary>配置里除被测字段之外的其余字段，用合法值填满 —— 缺字段现在会当场抛。</summary>
     private static string ConfigJson(
-        int rosterCapacity = 9, int buildableWidth = 80, int buildableHeight = 60) =>
+        int rosterCapacity = 9, int buildableWidth = 80, int buildableHeight = 60, string backpackSlots = "[16, 20]") =>
         $$"""
         {
           "rosterCapacity": {{rosterCapacity}},
           "buildableWidthCells": {{buildableWidth}},
-          "buildableHeightCells": {{buildableHeight}}
+          "buildableHeightCells": {{buildableHeight}},
+          "backpackSlotsByLevel": {{backpackSlots}}
         }
         """;
 
