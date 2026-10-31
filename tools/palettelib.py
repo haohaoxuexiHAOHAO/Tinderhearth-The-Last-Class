@@ -55,25 +55,76 @@ def pick(entries: dict[str, tuple[int, int, int]], entry: str) -> tuple[int, int
     return entries[entry]
 
 
-def read_ramps() -> dict[str, list[tuple[int, int, int]]]:
-    """同一份色板，按色带分组返回：「色带名 → 按档号排好的 RGB 列表」。
+_STEP = re.compile(r"^(\d+)(\.5)?$")
 
-    项名的格式是「<色带名> <档号>」，档号从 1 连续。不连续会在这里报出来 ——
-    那通常是手改色板时漏了一行或者重复了一个档号。
+
+def is_half(name: str) -> bool:
+    """项名（`gemred 1.5`）或档号（`1.5`）是不是半档。"""
+    return name.endswith(".5")
+
+
+def half_step(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
+    """相邻两个整数档之间的那个半档：逐通道取中点，正好落在一半上的进一。
+
+    取 RGB 中点、不换一个色彩空间去插：本模块的明度（Rec.601）是 RGB 的线性函数，所以中点的
+    明度就是两档的平均（取整只差半个单位）；彩度（最大通道 − 最小通道）在两档通道大小顺序相同时
+    也是平均，不同时会略低于平均。两档同色相时，这正是 `make_ramp` 按「明度、彩度各自线性走」
+    会在两档中间给出的那一点。
+    """
+    r, g, bl = ((x + y + 1) // 2 for x, y in zip(a, b))
+    return r, g, bl
+
+
+def read_steps() -> dict[str, list[tuple[str, tuple[int, int, int]]]]:
+    """同一份色板按色带分组，整数档与半档一起按明暗排：「色带名 → [(档号, RGB), …]」。
+
+    档号是整数（1、2…，从 1 连续）或半档（1.5、2.5…）。半档给画得比一个基础单位大的东西用，
+    口径在设计仓 `production/像素绘制原则.md` 的「本项目的色带口径」。手改色板会犯的下面这几种错
+    在这里当场报出来，因为别处都不报：
+
+    - 整数档不连续 —— 漏了一行或者重复了一个档号；
+    - 半档两边少了一个整数档；
+    - 文件里的先后与明暗顺序对不上 —— Aseprite 按文件顺序摆格子，排错了画的人会挑错档；
+    - **半档不等于两边的中点** —— 改了整数档而忘了重算半档，表现只是那个半档不再夹在正中间。
     """
     ramps: dict[str, list[tuple[str, tuple[int, int, int]]]] = {}
     for name, rgb in read_palette().items():
         parts = name.rsplit(" ", 1)
-        if len(parts) != 2 or not parts[1].isdigit():
-            raise SystemExit(f"[FAIL] 色板项名「{name}」不是「<色带名> <档号>」的样子")
+        if len(parts) != 2 or not _STEP.match(parts[1]):
+            raise SystemExit(f"[FAIL] 色板项名「{name}」不是「<色带名> <档号>」的样子"
+                             "（档号是 1、2…，半档是 1.5、2.5…）")
         ramps.setdefault(parts[0], []).append((parts[1], rgb))
-    out: dict[str, list[tuple[int, int, int]]] = {}
     for ramp_name, items in ramps.items():
-        idx = [int(i) for i, _ in items]
+        idx = [int(s) for s, _ in items if not is_half(s)]
         if idx != list(range(1, len(idx) + 1)):
-            raise SystemExit(f"[FAIL] 色带「{ramp_name}」的档号不是 1..N 连续：{idx}")
-        out[ramp_name] = [rgb for _, rgb in items]
-    return out
+            raise SystemExit(f"[FAIL] 色带「{ramp_name}」的整数档不是 1..N 连续：{idx}")
+        order = [float(s) for s, _ in items]
+        if order != sorted(order):
+            raise SystemExit(f"[FAIL] 色带「{ramp_name}」的档在文件里的先后不对："
+                             f"{[s for s, _ in items]} —— 半档要排在它两边那两档中间")
+        whole = dict(zip(idx, (rgb for s, rgb in items if not is_half(s))))
+        for s, rgb in items:
+            if not is_half(s):
+                continue
+            k = int(s.split(".")[0])
+            if k not in whole or k + 1 not in whole:
+                raise SystemExit(f"[FAIL] 「{ramp_name} {s}」两边没有 {k} 与 {k + 1} 两档")
+            want = half_step(whole[k], whole[k + 1])
+            if rgb != want:
+                raise SystemExit(
+                    f"[FAIL] 「{ramp_name} {s}」应是 {k} 与 {k + 1} 两档的中点 "
+                    f"{want[0]} {want[1]} {want[2]}，现在是 {rgb[0]} {rgb[1]} {rgb[2]}。"
+                    f"整数档改了就重算：python tools/palette_probe.py half {ramp_name}")
+    return ramps
+
+
+def read_ramps() -> dict[str, list[tuple[int, int, int]]]:
+    """同一份色板按色带分组：「色带名 → 按档号排好的 RGB 列表」，**只有整数档**。
+
+    半档不在里面：各条的档数、明度区间、彩度峰值与色相都按整数档量，那是画一个基础单位的
+    小件也在用的那一套。要连半档一起（查撞色、切大画幅用的小表）用 `read_steps`，校验也在那里。
+    """
+    return {r: [rgb for s, rgb in items if not is_half(s)] for r, items in read_steps().items()}
 
 
 def read_families() -> list[tuple[str, list[str]]]:

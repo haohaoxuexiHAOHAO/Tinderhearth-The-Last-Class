@@ -19,15 +19,20 @@
 
 另外两件是画画时用的：**统计一批图的色彩分布**（参考图与自己画的素材都能跑，用来核
 「大面材质的主色有没有堆在亮端」），与**从主表切一份小色板**（Aseprite 一次只用一个色板，
-整张表一百多色找起来慢）。
+整张表色太多、找起来慢）。
+
+还有一件是改色板时用的：**算半档**。半档是两边整数档的中点、不手调，所以整数档一改就要重算 ——
+`half` 把那几行算好打出来；忘了重算的话，读色板的 `palettelib.read_steps` 会报出是哪一个。
 
 用法（从代码仓根目录跑）：
     python tools/palette_probe.py                              列现有色带的区间与色相分布
     python tools/palette_probe.py near "#6E767E" "#3A3F45"     查这几个色取不取得到
     python tools/palette_probe.py check spirit                 改了一条色带的值之后，查它离别的色带多近
     python tools/palette_probe.py ramp 210 5 46 232 0.04 0.11  生成一条候选并查撞色
+    python tools/palette_probe.py half gemred                  算一条色带每两档之间的半档，可直接贴进 .gpl
     python tools/palette_probe.py image temp/ref --crop 0.7    统计一批图的色彩分布
     python tools/palette_probe.py split 植被 土木                切一份小色板
+    python tools/palette_probe.py split gemred --coarse        切一份只有整数档的（画一个基础单位的小件用）
 
 本脚本没有自证入口。
 """
@@ -39,9 +44,9 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from palettelib import (NEAR, ROOT, chroma, distance, hue_deg, luma, make_ramp,
-                        nearest, read_families, read_palette, read_ramps,
-                        verdict)
+from palettelib import (NEAR, ROOT, chroma, distance, half_step, hue_deg, is_half,
+                        luma, make_ramp, nearest, read_families, read_palette,
+                        read_ramps, read_steps, verdict)
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -62,25 +67,35 @@ def show(rgb: tuple[int, int, int]) -> str:
 
 
 def cmd_ramps() -> int:
-    """列现有色带：档数、明度区间、彩度峰值、色相。
+    """列现有色带：档数、明度区间、彩度峰值、色相，外加有没有半档。
 
     彩度峰值那一列是定上限时唯一要看的东西 —— 新色带该不该比它艳，得先知道它是多少。
     色相那一列答「借得到吗」的前半步：想画一件黄的东西，先看表里这一片色相上有哪几条。
+    除了「半档」「含半档」那两列，各列都只按整数档量 —— 那是画小件也在用的那一套。
     """
     ramps = read_ramps()
-    print(f"色板共 {sum(len(v) for v in ramps.values())} 色、{len(ramps)} 条色带\n")
-    print(f"{'色带':14s} {'档':>3s}  {'明度区间':>13s}  {'彩度峰值':>9s}  {'峰值档':>5s}  "
-          f"{'相邻明度差':>10s}  {'色相':>6s}  冷暖走向")
+    steps = read_steps()
+    total = sum(len(v) for v in steps.values())
+    halves = total - sum(len(v) for v in ramps.values())
+    print(f"色板共 {total} 色（其中半档 {halves} 色）、{len(ramps)} 条色带\n")
+    print(f"{'色带':14s} {'档':>3s} {'半档':>4s}  {'明度区间':>13s}  {'彩度峰值':>9s}  {'峰值档':>5s}  "
+          f"{'相邻明度差':>10s}  {'含半档':>9s}  {'色相':>6s}  冷暖走向")
     for name, cols in ramps.items():
         lums = [luma(c) for c in cols]
         chromas = [chroma(c) for c in cols]
         peak = max(range(len(chromas)), key=lambda i: chromas[i])
         diffs = [lums[i + 1] - lums[i] for i in range(len(lums) - 1)]
         gap = f"{min(diffs):.0f}–{max(diffs):.0f}" if diffs else "—"
+        nh = len(steps[name]) - len(cols)
+        full = [luma(c) for _, c in steps[name]]
+        fdiffs = [full[i + 1] - full[i] for i in range(len(full) - 1)]
+        fgap = f"{min(fdiffs):.0f}–{max(fdiffs):.0f}" if nh else "—"
         h = ramp_hue(cols)
         hcol = "无彩" if h is None else f"{h:.0f}°"
-        print(f"{name:14s} {len(cols):>3d}  {lums[0]:>5.0f} → {lums[-1]:<5.0f}  "
-              f"{chromas[peak]:>9.3f}  {peak + 1:>5d}  {gap:>10s}  {hcol:>6s}  {warmth(cols)}")
+        print(f"{name:14s} {len(cols):>3d} {(nh or '—')!s:>4s}  {lums[0]:>5.0f} → {lums[-1]:<5.0f}  "
+              f"{chromas[peak]:>9.3f}  {peak + 1:>5d}  {gap:>10s}  {fgap:>9s}  {hcol:>6s}  {warmth(cols)}")
+    print("\n半档是两边整数档的中点，画得比一个基础单位大时才用；「—」是那条没有半档 ——")
+    print("  哪些有、为什么在设计仓 production/像素绘制原则.md 的「本项目的色带口径」。")
     print("\n冷暖那一列按每档的 R−B 定（正为暖、负为冷）。**一条色带中途翻冷暖是要注意的**：")
     print("  它对有些材质是对的（混凝土暗处冷、受光面暖），但钢不行 —— 暖色调的世界里钢只有用冷色")
     print("  才和金、铜分得开，翻暖之后会读成旧锡或水泥。")
@@ -164,21 +179,53 @@ def cmd_check(ramp_name: str) -> int:
     它自己、距离 0。**改了一条已有色带的值之后**要问的是「它现在离别人多近」，而那只有
     把它自己那条排掉才答得出来。
     """
-    ramps = read_ramps()
-    if ramp_name not in ramps:
-        raise SystemExit(f"[FAIL] 色板里没有「{ramp_name}」这条色带，有的是：{'、'.join(ramps)}")
+    steps = read_steps()
+    if ramp_name not in steps:
+        raise SystemExit(f"[FAIL] 色板里没有「{ramp_name}」这条色带，有的是：{'、'.join(steps)}")
     others = {k: v for k, v in read_palette().items() if k.rsplit(" ", 1)[0] != ramp_name}
-    print(f"「{ramp_name}」逐档的最近邻（它自己那条除外）。"
+    print(f"「{ramp_name}」逐档的最近邻（它自己那条除外，半档也列）。"
           f"距离是 RGB 欧氏距离，档是人定的判断 —— 自己看数。\n")
     worst: tuple[float, str] | None = None
-    for i, rgb in enumerate(ramps[ramp_name], 1):
+    for label, rgb in steps[ramp_name]:
         name, _, dist = nearest(rgb, others)
-        print(f"  第 {i} 档 {show(rgb)}  明度 {luma(rgb):5.1f}  彩度 {chroma(rgb):.3f}  "
+        print(f"  第 {label:>3s} 档 {show(rgb)}  明度 {luma(rgb):5.1f}  彩度 {chroma(rgb):.3f}  "
               f"色相 {hue_deg(rgb):5.1f}°  → {name:16s} {dist:5.1f}  {verdict(dist)}")
         if worst is None or dist < worst[0]:
-            worst = (dist, f"第 {i} 档 vs {name}")
+            worst = (dist, f"第 {label} 档 vs {name}")
     assert worst is not None
     print(f"\n最近的一对：{worst[1]}，距离 {worst[0]:.1f}")
+    if any(is_half(label) for label, _ in steps[ramp_name]):
+        print("  半档离别的色带近也照留：它只在本条里用，不会变成「同一种东西两份近似色」"
+              "（口径在像素绘制原则「本项目的色带口径」）。")
+    return 0
+
+
+def cmd_half(ramp_name: str) -> int:
+    """算一条色带每两档之间的半档，打成可直接贴进 .gpl 的行，并报它离别的色带多近。
+
+    半档是两边整数档的中点（理由在 `palettelib.half_step`），**不手调**：整数档一改就重跑这个，
+    把那几行换掉。色板里已有的半档会标出对不对得上。
+
+    这里刻意只用 `read_palette`、不用 `read_steps`：后者遇到算错的半档会停，而这个命令
+    恰好是用来修它的。
+    """
+    entries = read_palette()
+    cols: list[tuple[int, int, int]] = []
+    while f"{ramp_name} {len(cols) + 1}" in entries:
+        cols.append(entries[f"{ramp_name} {len(cols) + 1}"])
+    if len(cols) < 2:
+        raise SystemExit(f"[FAIL] 色板里没有「{ramp_name}」这条色带，或者它只有一档")
+    others = {k: v for k, v in entries.items() if k.rsplit(" ", 1)[0] != ramp_name}
+    print(f"「{ramp_name}」每两档之间的半档（两档中点）—— 每一行插在它两边那两档中间：\n")
+    for i in range(len(cols) - 1):
+        h = half_step(cols[i], cols[i + 1])
+        label = f"{i + 1}.5"
+        have = entries.get(f"{ramp_name} {label}")
+        mark = "已在色板里" if have == h else ("色板里的值不对，换成这一行" if have else "色板里还没有")
+        name, _, dist = nearest(h, others)
+        print(f"{h[0]:3d} {h[1]:3d} {h[2]:3d}\t{ramp_name} {label}"
+              f"   # {show(h)}  明度 {luma(h):5.1f}（离两边 {luma(h) - luma(cols[i]):4.1f}"
+              f"／{luma(cols[i + 1]) - luma(h):4.1f}）  最近 {name} {dist:5.1f}  {mark}")
     return 0
 
 
@@ -351,8 +398,11 @@ def cmd_image(target: str, top: int, crop: float, only: str) -> int:
     return 0
 
 
-def cmd_split(wanted: list[str], out: str) -> int:
+def cmd_split(wanted: list[str], out: str, coarse: bool) -> int:
     """从主表切一份只含指定族或色带的小色板，供 Aseprite 画单个物件时载入。
+
+    `coarse` 只留整数档：半档在 Aseprite 里夹在两档中间，画一个基础单位的小件时
+    得自己分出哪几格是整数档，切掉它们就不用分了。
 
     **切出来的是派生物，不是第二份真相。** 改色一律改 `palette.gpl` 再重切一次 ——
     所以切出来的文件写在 `temp/` 下、**用完即删**，而且头部写明它是生成的、手改会被下次
@@ -361,6 +411,7 @@ def cmd_split(wanted: list[str], out: str) -> int:
     只有在一张表里才看得见。
     """
     entries = read_palette()
+    read_steps()    # 只为它那几条校验：算错的半档不该被切进小表里带走
     families = read_families()
     all_ramps = [r for _, rs in families for r in rs]
 
@@ -385,7 +436,7 @@ def cmd_split(wanted: list[str], out: str) -> int:
     # 去重但保持主表顺序 —— 切出来的小表里，色带之间的先后仍然照主表走
     keep = [r for r in all_ramps if r in set(picked)]
     rows = [(name, rgb) for name, rgb in entries.items()
-            if name.rsplit(" ", 1)[0] in set(keep)]
+            if name.rsplit(" ", 1)[0] in set(keep) and not (coarse and is_half(name))]
 
     # 默认总是同一个文件名：临时件不该攒一堆，而且族名是中文、进文件名会在终端里乱码。
     # 要同时留几份（画草地一份、画水一份）就各给一个 --out。
@@ -400,12 +451,14 @@ def cmd_split(wanted: list[str], out: str) -> int:
         "# **不要手改**：改了不会回到主表，而下次切会把它覆盖掉。要改色就去改主表再切一次。",
         "# 它是临时件，画完即删 —— 色值的唯一来源始终是那张主表。",
         f"# 这一份含 {len(keep)} 条色带、{len(rows)} 色：{'、'.join(keep)}",
+        ("# 只有整数档（切的时候加了 --coarse），画一个基础单位的小件用。" if coarse else
+         "# 整数档与半档（档号带 .5）都在、按明暗排；画一个基础单位的小件只用整数档。"),
         "#",
     ]
     for name, rgb in rows:
         lines.append(f"{rgb[0]:3d} {rgb[1]:3d} {rgb[2]:3d}\t{name}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\n切出 {len(keep)} 条色带、{len(rows)} 色 → {path}")
+    print(f"\n切出 {len(keep)} 条色带、{len(rows)} 色{'（只有整数档）' if coarse else ''} → {path}")
     print("  在 Aseprite 里：色板右上角菜单 → Load Palette → 选这个文件。")
     print("  ⚠️ 画完删掉它。色值改了要回主表改，然后重切。")
     print("  ⚠️ 再切一次会覆盖这一份 —— 要同时留几份就各给一个 --out。")
@@ -419,6 +472,11 @@ def main() -> int:
     p_split = sub.add_parser("split", help="从主表切一份小色板（按族名或色带名）")
     p_split.add_argument("wanted", nargs="+", metavar="族名或色带名")
     p_split.add_argument("--out", default="", help="输出路径（默认写到工作区根的 temp/ 下）")
+    p_split.add_argument("--coarse", action="store_true",
+                         help="只切整数档、不要半档（画一个基础单位的小件用）")
+
+    p_half = sub.add_parser("half", help="算一条色带每两档之间的半档（两档中点），可直接贴进 .gpl")
+    p_half.add_argument("ramp", metavar="色带名")
 
     p_img = sub.add_parser("image", help="统计一批参考图的色彩分布，与现有色板并排对比")
     p_img.add_argument("target", help="图片文件或装着图片的目录")
@@ -445,7 +503,9 @@ def main() -> int:
 
     args = ap.parse_args()
     if args.cmd == "split":
-        return cmd_split(args.wanted, args.out)
+        return cmd_split(args.wanted, args.out, args.coarse)
+    if args.cmd == "half":
+        return cmd_half(args.ramp)
     if args.cmd == "image":
         return cmd_image(args.target, args.top, args.crop, args.only)
     if args.cmd == "near":
