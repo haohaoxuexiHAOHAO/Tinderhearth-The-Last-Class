@@ -1,6 +1,7 @@
 using Godot;
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Text;
+using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
 namespace Tinderhearth.World.Farm;
@@ -53,6 +54,11 @@ public partial class SleepPresentation : Node
     [Export]
     public WakeDialog? NotAdvanced { get; set; }
 
+    /// <summary>素材资源。两个窗的字体、字色与按钮的样子由它组装成像素主题，缺了或缺格当场报错并一次列全。</summary>
+    /// <remarks>接的是 <c>assets/self-drawn/ui/ui_art.tres</c>，与随身栏接的是同一份。</remarks>
+    [Export]
+    public UIArt? Art { get; set; }
+
     /// <summary>睡下到醒来那一段里：输入关着，调试键也不该响应。</summary>
     public bool InputClosed => _sequence.InputClosed;
 
@@ -85,6 +91,14 @@ public partial class SleepPresentation : Node
                         + "把它摆成界面根的子节点，界面根才会把它挪到它那一层");
             }
         }
+
+        // 两个窗的字体、字色与按钮的样子从这一份主题来，窗自己不载字体（与主场景给手环挂主题同一个做法）。
+        // 农场不经过主场景，这里不装的话，窗上的字退回引擎默认字体，而那不报错。
+        var theme = PixelTheme.Install(UIArtGuard.Require(Art, $"{nameof(SleepPresentation)}（节点 {Name}）"), out var checks);
+        _summary.Theme = theme;
+        _notAdvanced.Theme = theme;
+        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
+                 checks.Count(c => c.Ok), "/", checks.Count, " 一致");
 
         // 本节点不会被挪动，_Ready 只跑一次，所以订阅写在这里、校验过了之后；离开场景树时解掉。
         _summary.CloseRequested += CloseSummary;

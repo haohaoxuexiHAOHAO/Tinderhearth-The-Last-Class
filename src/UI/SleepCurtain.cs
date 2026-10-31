@@ -11,7 +11,8 @@ namespace Tinderhearth.UI;
 /// 它不进导航栈：栈里有东西世界就暂停，而睡下到醒来这一段不碰暂停（设计仓 design/每日结算系统.md 的
 /// 「结算期间没有输入入口」一节）。遮罩层在弹窗那一层之上，所以淡入播完就把自己藏起来，否则会盖住随即弹出的窗。
 ///
-/// 两段都要能播完：不存在的、循环的、长度为零的，启动时当场报错。播不完的话「播完」永远不来，输入就一直关着。
+/// 两段都要能播完：不存在的、循环的、长度为零的，以及播放器关着、速度不大于零、只能手动推的，启动时当场报错。
+/// 播不完的话「播完」永远不来，输入就一直关着。
 /// </remarks>
 public sealed partial class SleepCurtain : Control, IPlacedUI
 {
@@ -41,6 +42,27 @@ public sealed partial class SleepCurtain : Control, IPlacedUI
     {
         _animator = Animator ?? throw new InvalidOperationException(
             $"{nameof(SleepCurtain)}（节点 {Name}）的 {nameof(Animator)} 没接上 —— 它要的是放淡出与淡入那两段的 AnimationPlayer");
+
+        // 下面三种都让动画一帧都不往前走：「播完」永远不来，睡下之后输入就一直关着，而那不报错。
+        if (!_animator.Active)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SleepCurtain)}（节点 {Name}）的动画播放器（{_animator.Name}）关着 Active —— 关着它就一帧都不播");
+        }
+
+        if (_animator.SpeedScale <= 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SleepCurtain)}（节点 {Name}）的动画播放器（{_animator.Name}）Speed Scale 是 {_animator.SpeedScale} —— "
+                    + "要比零大，否则那两段播不到头");
+        }
+
+        if (_animator.CallbackModeProcess == AnimationMixer.AnimationCallbackModeProcess.Manual)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(SleepCurtain)}（节点 {Name}）的动画播放器（{_animator.Name}）Callback Mode Process 是 Manual —— "
+                    + "那样它只在有人手动推时才走，这里没人推；改回 Idle");
+        }
 
         Require(nameof(FadeOut), FadeOut);
         Require(nameof(FadeIn), FadeIn);
