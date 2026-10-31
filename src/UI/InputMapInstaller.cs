@@ -127,6 +127,13 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
+        // 开发期调试键那几个位：不进输入映射，只给 IsDebugKey 比物理键位。
+        InputSymbol.KeyN => Key(Godot.Key.N),
+        InputSymbol.KeyB => Key(Godot.Key.B),
+        InputSymbol.KeyV => Key(Godot.Key.V),
+        InputSymbol.KeyP => Key(Godot.Key.P),
+        InputSymbol.KeyPeriod => Key(Godot.Key.Period),
+
         // 鼠标键走另一种事件类型，所以不经 Key()。鼠标也没有「物理位」这回事：键盘那条讲究是
         // 为了 AZERTY 之类的布局，而左键在任何布局下都是左键。
         InputSymbol.MouseLeft => Mouse(MouseButton.Left),
@@ -154,6 +161,19 @@ public static class InputMapInstaller
         _ => throw new ArgumentOutOfRangeException(
             nameof(symbol), $"没有给这个物理位写翻译：{symbol}"),
     };
+
+    /// <summary>这一下按键是不是那个调试键。比的是物理键位，翻译走 <see cref="ToEvent"/> 这同一处。</summary>
+    /// <remarks>
+    /// 调试键不进输入映射（理由在 <see cref="DebugKeys"/>），所以按下去要自己比。比物理键位而不比字符，
+    /// 与绑定表同一条理由：冲突测试比的是物理位，这里比的也必须是物理位，两边才说的是同一个键。
+    /// </remarks>
+    public static bool IsDebugKey(InputEventKey key, DebugKey debugKey)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(debugKey);
+
+        return ToEvent(debugKey.Symbol) is InputEventKey expected && key.PhysicalKeycode == expected.PhysicalKeycode;
+    }
 
     private static InputEventKey Key(Key key) => new() { PhysicalKeycode = key };
 

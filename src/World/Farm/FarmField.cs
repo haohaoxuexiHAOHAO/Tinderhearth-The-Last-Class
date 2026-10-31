@@ -171,7 +171,7 @@ public partial class FarmField : Node
     {
         // 先停掉每帧回调与调试键，全部校验过了、存档也读回来了再开。_Ready 抛出之后引擎并不会停掉这个节点，
         // _Process 照旧每帧跑而下面那几个字段还是 null —— 于是说清缺了什么的那一条会被成百条空引用刷走；
-        // 存档读不出来之后再按 N，也只会在那条报错下面多刷一条空引用。
+        // 存档读不出来之后再按推进一天那个调试键，也只会在那条报错下面多刷一条空引用。
         SetProcess(false);
         SetProcessUnhandledKeyInput(false);
 
@@ -297,12 +297,11 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>开发期的调试键：按 <c>N</c> 推进一天，按 <c>B</c> 换下一批种子。</summary>
+    /// <summary>开发期的调试键：推进一天、换下一批种子。哪个键登在 <see cref="DebugKeys"/>。</summary>
     /// <remarks>
-    /// 直接读按键、不走 <c>InputMap</c>，因为它们是工具键不是玩法绑定。进了输入映射就会出现在
-    /// 「玩家能重绑的键」那份清单里，而玩家根本不该看见它们。TrainingRoom.cs 那三个调试键同理。
+    /// 直接读按键、不走 <c>InputMap</c>，理由在 <see cref="DebugKeys"/>；键从那一处取，冲突测试才看得见它们。
     ///
-    /// <c>N</c> 与床走同一条路（<see cref="Sleep"/>），所以摆了醒来那一套时它也淡出淡入、也弹摘要。
+    /// 推进一天与床走同一条路（<see cref="Sleep"/>），所以摆了醒来那一套时它也淡出淡入、也弹摘要。
     /// 睡下到醒来那一段里两个键都不响应：它们不经输入门面，门面上那道闸挡不住它们，只能在这里挡。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
@@ -312,16 +311,19 @@ public partial class FarmField : Node
             return;
         }
 
-        switch (key.Keycode)
+        if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmEndDay))
         {
-            case Key.N: Sleep(); break;
-            case Key.B: NextSeedBatch(); break;
+            Sleep();
+        }
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmNextSeedBatch))
+        {
+            NextSeedBatch();
         }
     }
 
-    /// <summary>开发期的调试键：按 <c>B</c> 把随身栏换成下一批种子，最后一批之后回到第一批。</summary>
+    /// <summary>开发期的调试键：把随身栏换成下一批种子，最后一批之后回到第一批。</summary>
     /// <remarks>
-    /// 作物比随身栏的格数多，不换批就种不到后面那几种。它与 <c>N</c> 一样直接读按键、不进输入映射，
+    /// 作物比随身栏的格数多，不换批就种不到后面那几种。它与推进一天那个键一样直接读按键、不进输入映射，
     /// 理由同上；换的是格子里装什么，选中第几格不变。
     /// </remarks>
     private void NextSeedBatch()
@@ -331,7 +333,7 @@ public partial class FarmField : Node
         GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
-    /// <summary>睡下去：床与调试键 <c>N</c> 都调它，别处调不到。</summary>
+    /// <summary>睡下去：床与推进一天那个调试键都调它，别处调不到。</summary>
     /// <remarks>
     /// 推进一天没有第二条路，调试键也走这一条（设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节）：
     /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。

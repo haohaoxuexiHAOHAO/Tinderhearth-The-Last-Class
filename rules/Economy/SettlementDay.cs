@@ -7,7 +7,7 @@ namespace Tinderhearth.Rules.Economy;
 /// </remarks>
 public enum DayEndSource
 {
-    /// <summary>玩家在床前睡下（调试键 N 也算这一种）。</summary>
+    /// <summary>玩家在床前睡下（农场里推进一天那个调试键也算这一种）。</summary>
     Sleep,
 
     /// <summary>时间走到那个硬边界，替玩家结束这一天。</summary>

@@ -76,20 +76,62 @@ public class InputMappingTests
         }
     }
 
+    /// <summary>
+    /// 哪几个物理位有不止一个主人：绑定表里每一条算它那个动作一个主人，每个调试键也算一个。
+    /// 一个动作在同一个位上绑了两条，也算两个主人。
+    /// </summary>
+    private static List<string> SharedSymbols(
+        IReadOnlyDictionary<string, IReadOnlyList<InputBinding>> table, IEnumerable<DebugKey> debugKeys) =>
+        [.. table.SelectMany(entry => entry.Value.Select(b => (b.Symbol, Owner: entry.Key)))
+            .Concat(debugKeys.Select(k => (k.Symbol, Owner: $"调试键（{k.Scene}：{k.Does}）")))
+            .GroupBy(o => o.Symbol)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.Key} 被 {string.Join("、", g.Select(o => o.Owner))} 同时占用")];
+
     [Fact]
     public void 同一个物理位不被两个动作抢()
     {
         // 抢同一个键的表现是「按一下同时干两件事」，而且只有一件是你想要的。
-        var seen = new Dictionary<InputSymbol, string>();
-        foreach (var (action, bindings) in InputBindings.Table)
+        // 开发期调试键直接读按键、不进绑定表，可它们占的也是物理位，所以一起判。
+        Assert.Empty(SharedSymbols(InputBindings.Table, DebugKeys.All));
+    }
+
+    [Fact]
+    public void 调试键与一条绑定撞同一个物理位时判得出来()
+    {
+        // 反过来构造一次：一个调试键落在交互那个 F 上，上面那条必须判得出来，否则它是在空转。
+        var onInteract = new DebugKey("测试", InputSymbol.KeyF, "随便做点什么");
+
+        var shared = SharedSymbols(InputBindings.Table, [.. DebugKeys.All, onInteract]);
+
+        Assert.Single(shared);
+        Assert.Contains(InputActions.Interact, shared[0]);
+    }
+
+    [Fact]
+    public void 每个调试键都登在全部那一份里()
+    {
+        // 加了一个调试键字段却忘了放进 All，冲突测试就看不见它 —— 而那正是这份登记要防的事。
+        var fields = typeof(DebugKeys)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(f => f.FieldType == typeof(DebugKey))
+            .Select(f => (DebugKey)f.GetValue(null)!);
+
+        Assert.Equal(fields.OrderBy(k => k.Symbol), DebugKeys.All.OrderBy(k => k.Symbol));
+    }
+
+    [Fact]
+    public void 调试键都在键盘上且写清了场景与做什么()
+    {
+        // 它们是作者在键盘上按的工具键；落到手柄位上，「直接读按键」那条读法就接不住了。
+        Assert.All(DebugKeys.All, k =>
         {
-            foreach (var binding in bindings)
-            {
-                Assert.False(seen.TryGetValue(binding.Symbol, out var other),
-                    $"{binding.Symbol} 被 {action} 与 {other} 同时占用");
-                seen[binding.Symbol] = action;
-            }
-        }
+            Assert.Equal(InputDeviceKind.KeyboardMouse, new InputBinding(k.Symbol, "").Device);
+            Assert.NotEqual(InputSymbol.MouseLeft, k.Symbol);
+            Assert.NotEqual(InputSymbol.MouseRight, k.Symbol);
+            Assert.False(string.IsNullOrWhiteSpace(k.Scene));
+            Assert.False(string.IsNullOrWhiteSpace(k.Does));
+        });
     }
 
     [Fact]

@@ -105,7 +105,7 @@ public partial class TrainingRoom : Node2D
         _blocker.Add(_targetAlly);
         _blocker.Add(_targetEnemy);
 
-        // 叠层默认关着：进场看到的是干净画面，按 V 才把框叫出来。
+        // 叠层默认关着：进场看到的是干净画面，按开关叠层那个调试键（DebugKeys.TrainingOverlay）才把框叫出来。
         _overlay = new CombatDebugOverlay
         {
             Hitbox = _hitbox,
@@ -172,10 +172,9 @@ public partial class TrainingRoom : Node2D
         });
     }
 
-    /// <summary>调试叠层的几个按键：V 开关框，P 暂停，句点键往前走一帧。</summary>
+    /// <summary>调试叠层的几个按键：开关框、暂停、往前走一帧。哪个键登在 <see cref="DebugKeys"/>。</summary>
     /// <remarks>
-    /// 刻意不走 InputMap。它们是调试工具的键、不是玩法绑定，登进 InputMap 会让「玩家能重绑的键」
-    /// 那份清单里多出几个玩家根本不该看见的条目。所以这几个键只在这里出现一次。
+    /// 刻意不走 InputMap，理由在 <see cref="DebugKeys"/>；键从那一处取，冲突测试才看得见它们。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
@@ -184,11 +183,17 @@ public partial class TrainingRoom : Node2D
             return;
         }
 
-        switch (key.Keycode)
+        if (InputMapInstaller.IsDebugKey(key, DebugKeys.TrainingOverlay))
         {
-            case Key.V: _overlay.Enabled = !_overlay.Enabled; break;
-            case Key.P: _overlay.Paused = !_overlay.Paused; break;
-            case Key.Period: _overlay.RequestStep(); break;
+            _overlay.Enabled = !_overlay.Enabled;
+        }
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.TrainingPause))
+        {
+            _overlay.Paused = !_overlay.Paused;
+        }
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.TrainingStep))
+        {
+            _overlay.RequestStep();
         }
     }
 

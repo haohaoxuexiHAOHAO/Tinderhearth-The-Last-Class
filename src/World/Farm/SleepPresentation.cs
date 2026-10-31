@@ -13,7 +13,7 @@ namespace Tinderhearth.World.Farm;
 /// <see cref="WakeReport"/>。窗一弹出，世界照导航栈那一套暂停，按什么都推不动一天，所以这一段到弹窗那一刻就交回了。
 /// 这一段不碰 <c>SceneTree.Paused</c>（设计仓 design/每日结算系统.md 的「结算期间没有输入入口」一节）。
 ///
-/// 它在 _Ready 里把自己登记到那片地上。没摆它的农场按 N 照样推进一天，摘要与失败只打在输出面板上；摆了床就必须有它，
+/// 它在 _Ready 里把自己登记到那片地上。没摆它的农场按推进一天那个调试键照样过一天，摘要与失败只打在输出面板上；摆了床就必须有它，
 /// 那一条由那片地在启动之后核。缺了哪一格，当场报错说清缺谁。
 /// </remarks>
 public partial class SleepPresentation : Node
