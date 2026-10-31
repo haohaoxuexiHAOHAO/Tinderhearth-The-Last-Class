@@ -1,0 +1,9 @@
+{
+  "//": "稀有度中级。各格的来路同 low.json。",
+  "id": "mid",
+  "nameKey": "item_rarity.mid.name",
+  "sortOrder": 2,
+  "basePriceFactor": null,
+  "positiveAffixCount": 1,
+  "displayColor": "ice 4"
+}

@@ -1,0 +1,6 @@
+{
+  "//": "药材属于材料。占位作物的收获物都归这一类：它们季节全开，而跨季的作物不能是粮食（设计仓 design/地块系统.md）；正式的作物清单与各自的类别归设计仓台账 GP-88。",
+  "id": "herb",
+  "nameKey": "item_category.herb.name",
+  "parentId": "material"
+}

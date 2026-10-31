@@ -169,7 +169,7 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 | --- | --- | --- |
 | 排版量（块尺寸、按场合贴哪个角、占屏比例、可读区） | `rules/UI/HudLayout.cs` | 它们之间有**可以判死的关系**（块高是行高的整数倍；关卡那一套的块不许越过纵向账留给 HUD 的顶上那一段，基地那一套的块不许压跟随死区那块可读区；各块不许两两重叠），放规则层就有单元测试盯着 |
 | 显示的量（HP／技能冷却／目标进度／队友血量） | 调用方传进来的 `rules/UI/HudViewModel.cs` | 玩法数值归 `design/数值模型.md`，`UI-1` 不读也不搬 |
-| 代码设的颜色 | `rules/UI/HudPalette.cs` | 只在这一处，而且每一档都带着 `assets/self-drawn/palette.gpl` 里的项名：值抄在代码里（色板不进发行包），由 `tests/UI/PaletteTests.cs` 逐项对，另有一条判这里没有不带项名的颜色。颜色类型**没有 alpha 字段** —— 半透明遮罩画上去就是屏幕上的插值像素 |
+| 代码设的颜色 | `rules/UI/HudPalette.cs` | 只在这一处，而且每一档都带着 `assets/self-drawn/palette.gpl` 里的项名：值抄在代码里（理由在 `PaletteEntry` 的注释里；色板本身随发行包走，物品档位的显示色载入时按名字查它），由 `tests/UI/PaletteTests.cs` 逐项对，另有一条判这里没有不带项名的颜色。颜色类型**没有 alpha 字段** —— 半透明遮罩画上去就是屏幕上的插值像素 |
 | 字体的期望渲染参数 | `rules/UI/PixelFont.cs` | 设置在 `.ttf.import`、期望在这里、实际值由引擎报，三处独立才互为量具 |
 | 节点、锚点、素材加载 | `src/UI/LevelHud.cs`、`src/UI/BaseHud.cs`，贴角与框共用 `src/UI/HudPlace.cs`，资源条共用 `src/UI/GaugeBar.cs` | 碰引擎的那一半 |
 | 演示数据 | `src/World/HudDemoModel.cs` | 与脚手架同性质。**唯一有数字的地方必须在界面之外**，那个分工正是「界面里没有写死的数」扫得干净的前提 |
@@ -260,7 +260,7 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 
 | 那一半 | 落点 | 为什么在那里 |
 | --- | --- | --- |
-| 阶段天数、季节列表、收获后退回哪一阶段、产出哪种物品 | `rules/Economy/CropDefinition.cs` ＋ 将来的 `data/crops/*.json` | 它们进判定，要能脱引擎单测 |
+| 阶段天数、季节列表、收获后退回哪一阶段、产出哪种物品 | `rules/Economy/CropDefinition.cs` ＋ `data/crops/*.json` | 它们进判定，要能脱引擎单测 |
 | 那几张图（每个阶段各一张加一张枯死，张数按它声明的阶段数算） | 引擎层，由作者在 Godot 里配 | `ADR-0009` 的分工；与角色逐帧素材同一条路 |
 | 收几件、浇水系数的上下限 | **谁都不持有，由调用方传** `HarvestYieldRule` | 那两个量归设计仓 `design/数值模型.md` 且**还没有值** —— 代码不留能用的默认值 |
 
@@ -271,7 +271,8 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 `System.Text.Json` 时缺字段不报错、拿 `default` 填（`GameConfig` 的注释记着那次实测），而
 `RegrowFromStage` 的 `null` **是合法值**（一次性作物），所以「缺键」与「显式写 null」用构造校验
 区分不出来。`required` 把缺键这件事交给反序列化器报。**下一个有这种「null 是合法值」字段的内容
-类型照这条办。**
+类型照这条办。** 物品与两条轴的档位（`rules/Progression/`）就是这么办的：还没给值的价与系数写显式的
+`null`；图标与作物素材同一条线，每个物品一份图标资源，规则层看不见。
 
 顺带改了一处共享的东西：`ContentJson.Options` 现在**按名字读写枚举**。默认按序号，而序号在手写
 数据文件里读不出含义，且往枚举中间插一个值会**静默改掉全部旧数据的含义**；按名字则是解析失败，

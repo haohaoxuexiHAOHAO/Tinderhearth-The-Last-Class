@@ -1,0 +1,8 @@
+{
+  "//": "品质变异：灵给出来的极致，只能从变异来。与传奇同一级，只靠星色分。各格的来路同 poor.json。",
+  "id": "mutated",
+  "nameKey": "item_quality.mutated.name",
+  "sortOrder": 5,
+  "basePriceFactor": null,
+  "displayColor": "spirit 3"
+}

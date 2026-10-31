@@ -1,0 +1,9 @@
+{
+  "//": "稀有度高级。各格的来路同 low.json。",
+  "id": "high",
+  "nameKey": "item_rarity.high.name",
+  "sortOrder": 3,
+  "basePriceFactor": null,
+  "positiveAffixCount": 2,
+  "displayColor": "gold 5"
+}

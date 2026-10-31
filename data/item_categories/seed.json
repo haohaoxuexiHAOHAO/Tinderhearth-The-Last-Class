@@ -1,0 +1,6 @@
+{
+  "//": "种子：播种用掉的那一样，先放在最顶层；要不要挂到哪一类下面跟正式的作物清单走（设计仓台账 GP-88）。",
+  "id": "seed",
+  "nameKey": "item_category.seed.name",
+  "parentId": null
+}

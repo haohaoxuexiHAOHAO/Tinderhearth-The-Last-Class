@@ -25,9 +25,10 @@ public readonly record struct PixelColor(byte R, byte G, byte B)
 /// 色板里的一档：代码仓 <c>assets/self-drawn/palette.gpl</c> 里那一项的名字，加它的色值。
 /// </summary>
 /// <remarks>
-/// 值抄在代码里、不在运行时读那份色板：<c>.gpl</c> 不是引擎资源，导出包里没有它（实测：
-/// <c>tools/verify.py</c> 写出的导出清单里查不到）。抄一份就多一个家，所以由测试拿名字去色板里逐项对
-/// （<c>tests/UI/PaletteTests.cs</c>）—— 色板改了值而这里没跟，或者名字拼错，那条测试点名报出是哪一档。
+/// 值抄在代码里：这几档是静态的，搭主题与 HUD 那一刻就要用，而读色板（<see cref="Palette"/>）是内容载入那一步的事。
+/// 色板随发行包走（物品档位按项名声明显示色，载入时要查），所以改成运行时查表做得到，代价是把色板传进每一处用色的
+/// 地方。抄一份就多一个家，所以由测试拿名字去色板里逐项对（<c>tests/UI/PaletteTests.cs</c>）—— 色板改了值而这里没跟，
+/// 或者名字拼错，那条测试点名报出是哪一档。
 ///
 /// 能直接当 <see cref="PixelColor"/> 用：名字只给测试核对，用色的地方不必管它。
 /// </remarks>

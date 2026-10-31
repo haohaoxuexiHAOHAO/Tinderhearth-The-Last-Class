@@ -1,0 +1,8 @@
+{
+  "//": "品质的一档：一份文件一档，加一档不改代码。每一格是什么在设计仓 design/物品系统.md 的「两条轴的档位各是一张在册的声明表」一节，各档是什么在同一页「品质五级，顶上那一级有两个名字」。sortOrder 是级：传奇与变异同级，所以那两份都是 5。basePriceFactor 还没给值（设计仓台账 GP-7），写 null —— 不写这个键是漏填。品质那一轴不填 positiveAffixCount。displayColor 是星的颜色，取哪几档记在设计仓台账 UI-52：顶上那一级的几个值彼此不许同一条色带，其余各档也不许与它们同一条色带，载入时核。",
+  "id": "poor",
+  "nameKey": "item_quality.poor.name",
+  "sortOrder": 1,
+  "basePriceFactor": null,
+  "displayColor": "ash 6"
+}

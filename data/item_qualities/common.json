@@ -1,0 +1,8 @@
+{
+  "//": "品质寻常：日常制作与采集的常态。各格的来路同 poor.json。",
+  "id": "common",
+  "nameKey": "item_quality.common.name",
+  "sortOrder": 2,
+  "basePriceFactor": null,
+  "displayColor": "ash 6"
+}

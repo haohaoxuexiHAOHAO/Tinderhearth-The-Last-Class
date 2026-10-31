@@ -1,0 +1,8 @@
+{
+  "//": "品质传奇：人做出来的极致。与变异同一级（sortOrder 相同、基础价系数相同），只靠星色分。各格的来路同 poor.json。",
+  "id": "legendary",
+  "nameKey": "item_quality.legendary.name",
+  "sortOrder": 5,
+  "basePriceFactor": null,
+  "displayColor": "ember 5"
+}

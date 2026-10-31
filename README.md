@@ -163,7 +163,7 @@ dotnet run --project tests
 | `src/` | 场景、节点、输入、显示与文件 I/O |
 | `rules/` | 判定与结算规则，**不引用 Godot** |
 | `tests/` | 规则层测试 |
-| `data/` | 外置内容：配置、文本、角色定义 |
+| `data/` | 外置内容：配置、文本与各类内容定义（角色、作物、物品与两条轴的档位） |
 | `scenes/` | 场景文件 |
 | `tools/` | 本仓的 Python 入口：`verify.py` 验收总入口（有哪几步以它那张步骤表为准）、`check_names.py` 命名守卫、`check_eol.py` 行尾守卫（`ENG-11`）、`loglib.py` 日志落盘共用件、`run_local_check.py` 本地一键跑；`ui_art.py` 界面素材生成器（把工作区根 `art-source/self-material/ui/` 里的模板切成 `assets/self-drawn/ui/` 下的件，只做拆解与拼接，用法在它文件头）；`check_art.py` 交图核对（作者交图后按需跑，核色板、硬 alpha、尺寸这类事实，不进 `verify.py`）；`tilled_wet.py` 照干耕地那张写出湿耕地那张（锈红每一档换成同一档的湿耕地色，形状不改；改了干那张就重跑，湿那张有人手改过就停）。专项守卫与图形探针那一批已随 `ADR-0009` 全删 |
 

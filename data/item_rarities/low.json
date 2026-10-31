@@ -1,0 +1,10 @@
+{
+  "//": "稀有度的一档：一份文件一档，加一档不改代码。每一格是什么在设计仓 design/物品系统.md 的「两条轴的档位各是一张在册的声明表」一节。basePriceFactor 还没给值（设计仓台账 GP-7），所以写 null —— 不写这个键是漏填，载入被拒。displayColor 是色板 assets/self-drawn/palette.gpl 里一档的名字，取哪几档记在设计仓台账 UI-52。",
+  "//positiveAffixCount": "正面副词条几条。来路在设计仓 canon/gameplay/角色与成长.md 的「装备：宝物与宝石」那一节：条数逐档递增、最低一档 1 条且那一条是负面、负面恰好一条，所以正面那几条是总条数减一。",
+  "id": "low",
+  "nameKey": "item_rarity.low.name",
+  "sortOrder": 1,
+  "basePriceFactor": null,
+  "positiveAffixCount": 0,
+  "displayColor": "copper 3"
+}

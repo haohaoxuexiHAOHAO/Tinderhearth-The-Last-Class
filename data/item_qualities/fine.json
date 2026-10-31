@@ -1,0 +1,8 @@
+{
+  "//": "品质精良。各格的来路同 poor.json。",
+  "id": "fine",
+  "nameKey": "item_quality.fine.name",
+  "sortOrder": 3,
+  "basePriceFactor": null,
+  "displayColor": "ash 6"
+}

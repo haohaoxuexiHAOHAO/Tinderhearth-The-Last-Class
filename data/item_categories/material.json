@@ -1,0 +1,6 @@
+{
+  "//": "物品类别：一份文件一个类别，parentId 是上一层（null 表示最顶层）。一件物品只有一个类别，层级只写在这里、不写在每件物品上；规则在设计仓 design/物品系统.md 的「物品定义的字段：只写「它是什么」，不写「它能干什么」」一节。名字在 data/text/zh-CN.json。",
+  "id": "material",
+  "nameKey": "item_category.material.name",
+  "parentId": null
+}

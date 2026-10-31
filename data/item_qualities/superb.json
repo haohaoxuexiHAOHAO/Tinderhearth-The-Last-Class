@@ -1,0 +1,8 @@
+{
+  "//": "品质极品。各格的来路同 poor.json。",
+  "id": "superb",
+  "nameKey": "item_quality.superb.name",
+  "sortOrder": 4,
+  "basePriceFactor": null,
+  "displayColor": "ash 6"
+}

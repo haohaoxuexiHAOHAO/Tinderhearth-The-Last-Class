@@ -90,10 +90,15 @@ public partial class Main : Node2D
         var characters = LoadCharacters(catalog);
         var crops = LoadCrops(catalog, text);
 
+        // 主场景用不上物品，读它们只为这一次核对，理由同 LoadCrops：坏一份只有导出冒烟判得到。
+        var items = ContentBootstrap.LoadItems(catalog, text);
+
         GD.Print("[启动] 名册容量 ", config.RosterCapacity, "（读的是配置文件，不是代码里的常量）");
         GD.Print("[启动] 文本条目 ", text.Count, " 条");
         GD.Print("[启动] 角色定义 ", characters.Count, " 份");
         GD.Print("[启动] 作物定义 ", crops.Count, " 份");
+        GD.Print("[启动] 物品定义 ", items.Items.Count, " 份，类别 ", items.Categories.Count, " 个，稀有度 ",
+                 items.Rarities.Count, " 档，品质 ", items.Qualities.Count, " 档");
 
         _text = text;
         var roster = new Roster(config.RosterCapacity);
