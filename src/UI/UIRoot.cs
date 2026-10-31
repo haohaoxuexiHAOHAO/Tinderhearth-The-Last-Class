@@ -148,9 +148,36 @@ public partial class UIRoot : Node
         control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
     }
 
-    /// <summary>打开一个界面。关卡内不可用的会被拒绝并说明原因，而不是静默不动。</summary>
+    /// <summary>往上找挂着这个节点的界面根；不在任何界面根下面时是 <c>null</c>。</summary>
+    public static UIRoot? Above(Node node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        for (var at = node.GetParent(); at is not null; at = at.GetParent())
+        {
+            if (at is UIRoot root)
+            {
+                return root;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>打开一个界面。关卡内不可用的会被拒绝并说明原因，而不是静默不动；没登记的当场抛。</summary>
+    /// <remarks>
+    /// 没登记的不许打开：它进了导航栈、世界停了，屏上却什么都没出来，而那不报错。摆进场景的界面没直接摆在本节点下面、
+    /// 或者代码搭的那一方忘了 <see cref="Register"/>，都是这个样子。
+    /// </remarks>
     public bool Open(UISurface surface)
     {
+        ArgumentNullException.ThrowIfNull(surface);
+        if (!_surfaces.ContainsKey(surface.Id))
+        {
+            throw new InvalidOperationException(
+                $"界面「{surface.Id}」没登记到界面根（节点 {Name}）上 —— 摆进场景的那种要直接摆在它下面，"
+                    + $"代码搭的那种要先 {nameof(Register)}");
+        }
+
         if (Context == UIContext.Level && !surface.AvailableInLevel)
         {
             GD.Print($"[界面] 关卡内不可用：{surface.Id} —— 它是管理功能，关卡里只许查看");

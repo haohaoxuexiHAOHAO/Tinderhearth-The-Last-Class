@@ -170,13 +170,13 @@ public class InputMappingTests
     {
         // AZERTY 上 WASD 的物理位置是 ZQSD，按字符绑会让那批玩家的移动键散开。
         // 引擎给物理键位的自报名带 "- Physical" 后缀，所以这条能机器判。
-        // 两个例外：Shift 是修饰键，引擎只打 "Shift" 没有后缀；鼠标按键根本不在键盘布局上，
-        // 左键在 AZERTY 上还是左键，所以「物理键位」这件事对它没有意义。
+        // 例外：Shift 与 Tab 引擎只打键名、不带后缀（实测 4.7.2 自报的就是 "Shift" 与 "Tab"）；
+        // 鼠标按键根本不在键盘布局上，左键在 AZERTY 上还是左键，所以「物理键位」这件事对它没有意义。
         foreach (var (_, bindings) in InputBindings.Table)
         {
             foreach (var binding in bindings)
             {
-                if (binding.Symbol is InputSymbol.KeyShift
+                if (binding.Symbol is InputSymbol.KeyShift or InputSymbol.KeyTab
                         or InputSymbol.MouseLeft or InputSymbol.MouseRight
                     || binding.Device == InputDeviceKind.Gamepad)
                 {

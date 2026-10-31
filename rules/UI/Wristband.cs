@@ -80,6 +80,11 @@ public static class Wristband
     /// <summary>全部子页，按页签从左到右、页签里从左到右。</summary>
     public static IEnumerable<WristbandPage> Pages => Tabs.SelectMany(t => t.Pages);
 
+    /// <summary>按标识取一个顶层页签。找不到就抛 —— 拼错不该静默变成「打不开」。</summary>
+    public static WristbandTab TabById(string tabId) =>
+        Tabs.FirstOrDefault(t => t.Id == tabId)
+            ?? throw new KeyNotFoundException($"手环没有这个页签：{tabId}");
+
     /// <summary>按标识取一个子页。找不到就抛 —— 拼错不该静默变成「不可用」。</summary>
     public static WristbandPage PageById(string pageId) =>
         Pages.FirstOrDefault(p => p.Id == pageId)

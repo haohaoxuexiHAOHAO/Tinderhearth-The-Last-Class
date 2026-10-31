@@ -48,6 +48,10 @@ public enum InputSymbol
     // 按住 WASD 的时候按；换随身的那一格是低频动作，抬一次手付得起。
     Digit1, Digit2, Digit3, Digit4, Digit5, Digit6,
 
+    // 打开手环与直达它三个页签的键，键位照设计仓 design/proposals/键鼠技能位挪到右手.md 那张表。
+    // 它们接管输入、按下去世界就停，所以放得远一点也付得起：按完不用赶着把手放回去。
+    KeyTab, KeyB, KeyM, KeyC,
+
     // 开发期调试键占的那几个位，登在 DebugKeys 里、不进绑定表。它们占的也是物理位，所以与绑定表用同一套符号，
     // 「同一个物理位不被两个动作抢」那条测试才比得了两边。
     KeyN, KeyG, KeyV, KeyP, KeyPeriod,
@@ -70,6 +74,9 @@ public enum InputSymbol
     PadFaceBottom, PadFaceRight, PadFaceLeft, PadFaceTop,
     PadShoulderLeft, PadShoulderRight,
     PadStickLeftClick,
+
+    // Start：打开手环。手柄上开手环只有这一个新绑定，三个直达页签的键在手柄上没有对应，见豁免登记。
+    PadStart,
 
     // D-pad 左右：挪随身栏的选中位。
     //
@@ -270,6 +277,17 @@ public static class InputBindings
                 new(InputSymbol.PadDpadRight, "Joypad Button 14 (D-pad Right)"),
             ],
 
+            // ── 打开手环与直达三个页签。手柄上只有 Start 开手环，三个直达键见豁免登记 ──
+            // Tab 的自报名同样没有 - Physical 后缀，引擎就是这么打的（与 Shift 一样，实测）。
+            [InputActions.OpenWristband] =
+            [
+                new(InputSymbol.KeyTab, "Tab"),
+                new(InputSymbol.PadStart, "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"),
+            ],
+            [InputActions.OpenBag] = [new(InputSymbol.KeyB, "B - Physical")],
+            [InputActions.OpenMap] = [new(InputSymbol.KeyM, "M - Physical")],
+            [InputActions.OpenCharacter] = [new(InputSymbol.KeyC, "C - Physical")],
+
             // ── 技能位。键鼠上每个键对一个槽位、没有修饰键这一层；手柄由组合解算发出，
             // 见下面的豁免登记 ──
             //
@@ -358,7 +376,17 @@ public static class InputBindings
             [(InputActions.CarrySlots[5], InputDeviceKind.Gamepad)] = CarryPadWhy,
             [(InputActions.CarryPrev, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
             [(InputActions.CarryNext, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
+
+            // 直达三个页签只在键鼠上有。手柄上进了手环再换页签：现在靠焦点走过去，
+            // 用肩键换页与手柄的按键提示一起后置（设计仓台账 UI-54）。
+            [(InputActions.OpenBag, InputDeviceKind.Gamepad)] = WristbandPadWhy,
+            [(InputActions.OpenMap, InputDeviceKind.Gamepad)] = WristbandPadWhy,
+            [(InputActions.OpenCharacter, InputDeviceKind.Gamepad)] = WristbandPadWhy,
         };
+
+    /// <summary>手柄上为什么没有直达三个页签的键。</summary>
+    private const string WristbandPadWhy =
+        "手柄的键位紧，开手环只给 Start 一个新绑定，三个页签进了手环再换";
 
     /// <summary>手柄上随身栏各格为什么没有直选键。</summary>
     private const string CarryPadWhy =

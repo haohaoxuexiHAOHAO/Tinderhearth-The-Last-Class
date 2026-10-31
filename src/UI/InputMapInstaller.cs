@@ -127,6 +127,12 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
+        // 打开手环与直达三个页签。
+        InputSymbol.KeyTab => Key(Godot.Key.Tab),
+        InputSymbol.KeyB => Key(Godot.Key.B),
+        InputSymbol.KeyM => Key(Godot.Key.M),
+        InputSymbol.KeyC => Key(Godot.Key.C),
+
         // 开发期调试键那几个位：不进输入映射，只给 IsDebugKey 比物理键位。
         InputSymbol.KeyN => Key(Godot.Key.N),
         InputSymbol.KeyG => Key(Godot.Key.G),
@@ -147,6 +153,7 @@ public static class InputMapInstaller
         InputSymbol.PadShoulderLeft => Pad(JoyButton.LeftShoulder),
         InputSymbol.PadShoulderRight => Pad(JoyButton.RightShoulder),
         InputSymbol.PadStickLeftClick => Pad(JoyButton.LeftStick),
+        InputSymbol.PadStart => Pad(JoyButton.Start),
         InputSymbol.PadDpadLeft => Pad(JoyButton.DpadLeft),
         InputSymbol.PadDpadRight => Pad(JoyButton.DpadRight),
 

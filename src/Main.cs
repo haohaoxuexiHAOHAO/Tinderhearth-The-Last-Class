@@ -132,8 +132,9 @@ public partial class Main : Node2D
         };
         GD.Print("[界面] 预览场合 ", _context);
 
-        BuildUI();
+        // 门面先建：手环就绪时就要它（打开手环的键经它问）。
         BuildInputRouter();
+        BuildUI();
         BuildHud();
     }
 
@@ -218,7 +219,7 @@ public partial class Main : Node2D
         GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
                  fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
 
-        var wristband = new WristbandPanel { Art = _art, Catalog = _text, Theme = _theme };
+        var wristband = new WristbandPanel { Art = _art, Catalog = _text, Theme = _theme, Router = _router };
         ui.Register(Wristband.Surface, wristband);
         ui.Open(Wristband.Surface);
 

@@ -30,6 +30,10 @@ namespace Tinderhearth.UI;
 /// 停满一段时间就在它下面弹出写着名字的小窗（<c>ui.wristband.tab.*</c>）。两种操作方式走同一个小窗、同一个
 /// 时长 —— 焦点与悬停是同一个样子（设计仓 production/界面绘制约定.md），而 Godot 自带的提示框只认鼠标，
 /// 键盘与手柄停上去永远不弹，所以这里自己做。
+///
+/// 打开手环与直达三个页签的键也由它自己听：每帧问一次输入门面，按下去该开、该换页签还是该关判在规则层的
+/// <see cref="WristbandKeys"/>，本类只照做，开关一律经界面根的导航栈。经门面问，睡下到醒来那一段闸关着时就按不开。
+/// 它挂在面板那一层上，那一层在世界暂停时照跑，所以手环开着时同一个键关得上。
 /// </remarks>
 public partial class WristbandPanel : Control, IPlacedSurface
 {
@@ -49,6 +53,13 @@ public partial class WristbandPanel : Control, IPlacedSurface
     private WristbandPage? _activePage;
     private UIContext _context = UIContext.Base;
     private bool _built;
+    private InputRouter _router = null!;
+    private UIRoot _ui = null!;
+
+    /// <summary>输入门面。打开手环与直达三个页签的键一律经它问，缺了当场报错。</summary>
+    /// <remarks>摆进场景时在检查器里拖挂了 <see cref="InputRouter"/> 的那个节点；主场景由代码在挂上之前给。</remarks>
+    [Export]
+    public InputRouter? Router { get; set; }
 
     /// <summary>素材资源。页签上的图标从这里取，缺了或缺格当场报错并一次列全。</summary>
     /// <remarks>
@@ -79,7 +90,16 @@ public partial class WristbandPanel : Control, IPlacedSurface
 
     public override void _Ready()
     {
+        // 先停掉每帧回调，校验过了、搭好了再开：_Ready 抛出之后引擎并不会停掉这个节点，_Process 照旧每帧跑，
+        // 说清缺了什么的那一条会被成百条空引用刷走（与随身栏同一个做法）。
+        SetProcess(false);
+
         _art = UIArtGuard.Require(Art, $"{nameof(WristbandPanel)}（节点 {Name}）");
+        _router = Router ?? throw new InvalidOperationException(
+            $"{nameof(WristbandPanel)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
+                + $"打开手环的键要经输入门面问（挂了 {nameof(InputRouter)} 的那个节点）");
+        _ui = UIRoot.Above(this) ?? throw new InvalidOperationException(
+            $"{nameof(WristbandPanel)}（节点 {Name}）不在界面根下面 —— 把它直接摆成挂了 {nameof(UIRoot)} 的那个节点的子节点");
 
         // 摆进场景的那一种没有人给文本表与主题：自己拿，与主场景同一个来源。不拿的话子页签上一片缺文本的占位，
         // 字也退回引擎默认字体，而后者不报错。
@@ -213,15 +233,62 @@ public partial class WristbandPanel : Control, IPlacedSurface
 
         _built = true;
         RefreshStates();
+
+        SetProcess(true);
+    }
+
+    /// <summary>每帧问一次门面：打开手环与直达三个页签的键有没有按下去。</summary>
+    /// <remarks>
+    /// 同一帧只认一个，先问的是 <see cref="WristbandKeys.Actions"/> 里排在前面的那个：两个都照做的话，
+    /// 结果取决于问的先后，而那不该由玩家去猜。
+    /// </remarks>
+    public override void _Process(double delta)
+    {
+        foreach (var action in WristbandKeys.Actions)
+        {
+            if (_router.IsJustPressed(action))
+            {
+                Apply(WristbandKeys.Press(action, _ui.Navigation, _activeTab?.Id));
+                return;
+            }
+        }
+    }
+
+    /// <summary>照规则层的结论开、换页签或关。开关经导航栈，世界停不停、HUD 藏不藏都由界面根照栈去设。</summary>
+    private void Apply(WristbandKeyResult result)
+    {
+        switch (result.Outcome)
+        {
+            case WristbandKeyOutcome.Open:
+                // 先换好页签再打开：一显示就把焦点放在当前那个页签上，换在后面焦点就落在旧的那个上。
+                if (result.TabId is { } openOn)
+                {
+                    SelectTab(Wristband.TabById(openOn));
+                }
+
+                _ui.Open(Surface);
+                break;
+
+            case WristbandKeyOutcome.Switch:
+                SelectTab(Wristband.TabById(result.TabId!));
+                PlaceFocus();
+                break;
+
+            case WristbandKeyOutcome.Close:
+                _ui.Close(Surface);
+                break;
+
+            case WristbandKeyOutcome.Ignored:
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(result), $"没有这个结论：{result.Outcome}");
+        }
     }
 
     /// <summary>
     /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点，也收起页签名字的小窗。
     /// </summary>
-    /// <remarks>
-    /// 焦点落在当前那个页签上，而当前那个一定是可用的（见 <see cref="RefreshStates"/>）：关卡里那些整个
-    /// 用不了的页签是禁用的，而禁用按钮拿不到焦点，落在它身上等于没落。
-    /// </remarks>
     private void OnVisibilityChanged()
     {
         if (!IsVisibleInTree())
@@ -230,6 +297,16 @@ public partial class WristbandPanel : Control, IPlacedSurface
             return;
         }
 
+        PlaceFocus();
+    }
+
+    /// <summary>把焦点放在当前那个页签上。</summary>
+    /// <remarks>
+    /// 当前那个一定是可用的（见 <see cref="RefreshStates"/>）：关卡里那些整个用不了的页签是禁用的，
+    /// 而禁用按钮拿不到焦点，落在它身上等于没落。
+    /// </remarks>
+    private void PlaceFocus()
+    {
         if (_activeTab is { } tab)
         {
             // 这一下是面板自己把焦点放上去，不是玩家停在页签上：不挡的话，每次打开手环什么都不动，
