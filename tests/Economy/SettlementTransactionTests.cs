@@ -143,7 +143,8 @@ public class SettlementTransactionTests
     [Fact]
     public void 一项变化都没有的那天也交出一份摘要_只是没有项()
     {
-        var quiet = new WorldState(new GameDate(1, Season.Spring, 3), PlotGrid.Rectangle(new GridCell(0, 0), 2, 1, PlotState.Tilled));
+        var quiet = new WorldState(
+            new GameDate(1, Season.Spring, 3), PlotGrid.Rectangle(new GridCell(0, 0), 2, 1, PlotState.Tilled), TestBags.Empty());
         var world = new CurrentWorld(quiet);
         var delivered = new List<SettlementSummary>();
 

@@ -51,10 +51,14 @@ public static class ShardFields
     public static JsonObject Object(JsonNode? node, string where) =>
         node as JsonObject ?? throw new InvalidDataException($"{where}要是一个对象，实际是 {Show(node)}");
 
+    /// <summary>一串，项数不限。</summary>
+    public static JsonArray Array(JsonNode? node, string where) =>
+        node as JsonArray ?? throw new InvalidDataException($"{where}要是一串，实际是 {Show(node)}");
+
     /// <summary>一串，项数要正好是给的那个数。</summary>
     public static JsonArray Array(JsonNode? node, int count, string where)
     {
-        var array = node as JsonArray ?? throw new InvalidDataException($"{where}要是一串，实际是 {Show(node)}");
+        var array = Array(node, where);
         return array.Count == count
             ? array
             : throw new InvalidDataException($"{where}要正好 {count} 项，实际 {array.Count} 项");

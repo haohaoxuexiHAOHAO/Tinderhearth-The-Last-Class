@@ -111,7 +111,7 @@ public class SleepE2ETests
         Assert.True(calendar.Remove(dropped));
 
         var e = Assert.Throws<SaveRejectedException>(
-            () => FarmSave.LoadOrNew(root.ToJsonString(), RegistryFor(room.Scene), crops, room.Scene));
+            () => FarmSave.LoadOrNew(root.ToJsonString(), RegistryFor(room.Scene), crops, room.Scene, TestBags.Empty()));
 
         Assert.Equal(SaveRejection.MissingField, e.Reason);
         Assert.Contains($"「{dropped}」", e.Message);
@@ -124,7 +124,7 @@ public class SleepE2ETests
         var crops = new Dictionary<string, CropDefinition> { [springOnly.Id] = springOnly };
         var room = new Bedroom(crops, rollMutation: () => false);
         var lastDayOfSpring = new GameDate(1, Season.Spring, Calendar.DaysPerSeason);
-        var world = new CurrentWorld(new WorldState(lastDayOfSpring, room.NewGame().State.Plots));
+        var world = new CurrentWorld(new WorldState(lastDayOfSpring, room.NewGame().State.Plots, TestBags.Empty()));
         Assert.True(PlotAt(world.State, Seeded).Plant(springOnly));
 
         var outcome = room.Sleep(world);
@@ -167,13 +167,13 @@ public class SleepE2ETests
         public bool WriteFails { get; set; }
 
         /// <summary>还没有存档时进农场：按开局那一天与场景里那片地开新档。</summary>
-        public CurrentWorld NewGame() => new(FarmSave.LoadOrNew(null, Registry, Crops, Scene));
+        public CurrentWorld NewGame() => new(FarmSave.LoadOrNew(null, Registry, Crops, Scene, TestBags.Empty()));
 
         /// <summary>睡一觉：走结算那唯一的入口。</summary>
         public SettlementOutcome Sleep(CurrentWorld world) => Settlement.EndDay(world, DayEndSource.Sleep);
 
         /// <summary>停掉游戏再进来：用最后写成的那一份读回来。</summary>
-        public WorldState Reload() => FarmSave.LoadOrNew(Saved, RegistryFor(Scene), Crops, Scene);
+        public WorldState Reload() => FarmSave.LoadOrNew(Saved, RegistryFor(Scene), Crops, Scene, TestBags.Empty());
 
         private void Write(WorldState world)
         {
@@ -189,7 +189,7 @@ public class SleepE2ETests
     private static SaveShardRegistry RegistryFor(PlotGrid scene)
     {
         var registry = new SaveShardRegistry();
-        WorldShards.Register(registry, scene);
+        WorldShards.Register(registry, scene, TestBags.Empty());
         return registry;
     }
 

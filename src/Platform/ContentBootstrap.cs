@@ -1,4 +1,5 @@
 using Godot;
+using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
@@ -30,6 +31,17 @@ public static class ContentBootstrap
         }
 
         return catalog;
+    }
+
+    /// <summary>读结构性容量那份配置。缺了那一份当场抛；缺字段、写了不合理的数，由 <see cref="GameConfig"/> 报。</summary>
+    /// <remarks>主场景与在编辑器里单独跑的农场都要它（农场要背包的格数），理由同 <see cref="BuildCatalog"/>。</remarks>
+    public static GameConfig LoadConfig(ContentCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return catalog.Resolve("config").TryGetValue(GameConfig.ContentPath, out var entry)
+            ? GameConfig.Parse(entry.Text)
+            : throw new FileNotFoundException($"缺少 {GameConfig.ContentPath}");
     }
 
     /// <summary>读这种语言的文本表：各来源里那一份逐条按键合并，后面的覆盖前面的同键条目。</summary>

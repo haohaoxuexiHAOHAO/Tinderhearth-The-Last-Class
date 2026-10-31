@@ -6,7 +6,7 @@ namespace Tinderhearth.Rules.Tests.Foundation;
 
 /// <summary>存档分片的声明与注册，以及一份正式存档的外形。</summary>
 /// <remarks>
-/// 分片的内容在这里只是几格测试用的数，日历与地块那两个真分片的用例在 <c>tests/Economy</c> 下。
+/// 分片的内容在这里只是几格测试用的数，世界那几个真分片（日历、地块、背包）的用例在 <c>tests/Economy</c> 下。
 /// </remarks>
 public class SaveShardTests
 {

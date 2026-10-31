@@ -14,8 +14,9 @@ namespace Tinderhearth.Rules.Foundation.Save;
 /// </remarks>
 public static class SaveFile
 {
-    /// <summary>当前的存档版本号。只增不减：任何一个分片的形状变了就加一。</summary>
-    public const int CurrentVersion = 1;
+    /// <summary>当前的存档版本号。只增不减：任何一个分片的形状变了、或者多了一个分片，就加一。</summary>
+    /// <remarks>旧版本的存档缺的那几片与那几格，按各分片的存档默认值补（<see cref="ReadFormalSave(SaveShardRegistry, string)"/>）。</remarks>
+    public const int CurrentVersion = 2;
 
     /// <summary>最低兼容存档版本：低于它的存档被拒并指向更新公告。只增不减，是规则常量，mod 改不了。</summary>
     /// <remarks>
@@ -104,7 +105,7 @@ public static class SaveFile
 
     /// <summary>同上，版本界限由调用方给。</summary>
     /// <remarks>
-    /// 游戏里一律用上面那个；这一个给测试演练「当前是第 N 版、最低兼容是第 M 版」，现在这两个常量相等，演练不出中间那一段。
+    /// 游戏里一律用上面那个；这一个给测试演练「当前是第 N 版、最低兼容是第 M 版」那几种组合，不必等那两个常量真的走到那一步。
     ///
     /// 补与丢都只在分片的第一层：分片里的一格是什么形状由它的持有者定，持有者读的时候自己判。
     /// </remarks>

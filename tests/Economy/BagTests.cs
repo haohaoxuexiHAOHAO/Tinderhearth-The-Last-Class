@@ -180,7 +180,7 @@ public class BagTests
         Assert.Empty(Stacks(bag));
     }
 
-    /// <summary>每一堆记着自己最近一次进东西是第几次：后进的更大，合进旧的那一堆也算一次新的。</summary>
+    /// <summary>每一堆记着自己最近一次进东西的先后序号：后进的更大，合进旧的那一堆也算一次新的。</summary>
     [Fact]
     public void 最近获得跟着每一次进东西走()
     {

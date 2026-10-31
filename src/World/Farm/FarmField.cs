@@ -157,6 +157,9 @@ public partial class FarmField : Node
     private SaveStore _store = null!;
     private TextCatalog _text = TextCatalog.Empty;
     private ItemCatalog _items = null!;
+
+    /// <summary>开新档时的背包：空的，第一级的格数。存档默认值与读档时的格数上限都从它来。</summary>
+    private Bag _newGameBag = null!;
     private readonly List<Bed> _beds = [];
     private SleepPresentation? _wake;
 
@@ -219,6 +222,7 @@ public partial class FarmField : Node
         var catalog = ContentBootstrap.BuildCatalog();
         _text = ContentBootstrap.LoadText(catalog);
         _items = ContentBootstrap.LoadItems(catalog, _text);
+        _newGameBag = Bag.NewGame(ContentBootstrap.LoadConfig(catalog), _items);
         LoadCropDefinitions(catalog);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
@@ -535,7 +539,7 @@ public partial class FarmField : Node
     {
         var sceneField = PlotGrid.Rectangle(ToGridCell(FieldOrigin), FieldSizeInCells.X, FieldSizeInCells.Y, InitialState);
         _registry = new SaveShardRegistry();
-        WorldShards.Register(_registry, sceneField);
+        WorldShards.Register(_registry, sceneField, _newGameBag);
         _store = new SaveStore(ModPaths.ResolveUserPath(ModPaths.SaveRoot));
 
         string? text;
@@ -543,7 +547,7 @@ public partial class FarmField : Node
         try
         {
             text = _store.ReadOrNull();
-            world = FarmSave.LoadOrNew(text, _registry, _cropDefs, sceneField);
+            world = FarmSave.LoadOrNew(text, _registry, _cropDefs, sceneField, _newGameBag);
         }
         catch (Exception e) when (e is SaveRejectedException or InvalidDataException or IOException or UnauthorizedAccessException)
         {

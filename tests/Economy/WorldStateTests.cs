@@ -44,7 +44,9 @@ public class WorldStateTests
 
         plots[3].AdvanceDay(null, FallowDays, () => false);
 
-        return new WorldState(new GameDate(2, Season.Autumn, 17), grid);
+        var bag = TestBags.Empty();
+        Assert.True(bag.TryAdd(TestBags.Turnip, TestBags.Mutated, 3));
+        return new WorldState(new GameDate(2, Season.Autumn, 17), grid, bag);
     }
 
     /// <summary>对每一格做一件这一格做得了的事，好让每一格都真的变了。</summary>
@@ -86,6 +88,35 @@ public class WorldStateTests
 
         Assert.Equal(world.Date, copy.Date);
         Assert.Equal(PlotSnapshot.Of(world), PlotSnapshot.Of(copy));
+        Assert.Equal(world.Bag.Slots, copy.Bag.Slots);
+    }
+
+    /// <summary>背包也整份复制：往副本的背包里放东西，原件的背包一格不变。</summary>
+    [Fact]
+    public void 改副本的背包不碰原件的背包()
+    {
+        var world = BusyWorld();
+        var before = world.Bag.Slots.ToList();
+
+        var copy = world.Clone();
+        Assert.True(copy.Bag.TryAdd(TestBags.TurnipSeed, null, 5));
+        Assert.True(copy.Bag.TryAdd(TestBags.Turnip, TestBags.Mutated, 1));
+
+        Assert.Equal(before, world.Bag.Slots);
+        Assert.NotSame(world.Bag, copy.Bag);
+        Assert.NotEqual(before, copy.Bag.Slots);
+    }
+
+    /// <summary>开新档时背包是空的：交一个装着东西的进来就抛。</summary>
+    [Fact]
+    public void 开新档时背包是空的()
+    {
+        var full = TestBags.Empty();
+        Assert.True(full.TryAdd(TestBags.TurnipSeed, null, 1));
+
+        Assert.Throws<ArgumentException>(
+            () => WorldState.NewGame(PlotGrid.Rectangle(new GridCell(0, 0), 1, 1, PlotState.Tilled), full));
+        Assert.Equal(4, WorldState.NewGame(PlotGrid.Rectangle(new GridCell(0, 0), 1, 1, PlotState.Tilled), TestBags.Empty()).Bag.EmptySlotCount);
     }
 
     [Fact]

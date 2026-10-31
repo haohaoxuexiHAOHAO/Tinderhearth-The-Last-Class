@@ -78,7 +78,7 @@ public class CalendarTests
     [Fact]
     public void 开新档从第一年春季第一天开始()
     {
-        var world = WorldState.NewGame(PlotGrid.Rectangle(new GridCell(0, 0), 1, 1, PlotState.Tilled));
+        var world = WorldState.NewGame(PlotGrid.Rectangle(new GridCell(0, 0), 1, 1, PlotState.Tilled), TestBags.Empty());
 
         Assert.Equal(new GameDate(1, Season.Spring, 1), Calendar.StartDate);
         Assert.Equal(Calendar.StartDate, world.Date);

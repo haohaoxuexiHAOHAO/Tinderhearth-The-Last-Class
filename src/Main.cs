@@ -85,7 +85,7 @@ public partial class Main : Node2D
         var catalog = ContentBootstrap.BuildCatalog();
         GD.Print("[启动] 内容来源 ", string.Join(" → ", catalog.Sources.Select(s => s.Name)));
 
-        var config = LoadConfig(catalog);
+        var config = ContentBootstrap.LoadConfig(catalog);
         var text = ContentBootstrap.LoadText(catalog);
         var characters = LoadCharacters(catalog);
 
@@ -284,14 +284,6 @@ public partial class Main : Node2D
                  ProjectSettings.GetSetting("display/window/stretch/scale_mode"),
                  " 纹理过滤 ",
                  ProjectSettings.GetSetting("rendering/textures/canvas_textures/default_texture_filter"));
-    }
-
-    private static GameConfig LoadConfig(ContentCatalog catalog)
-    {
-        var entries = catalog.Resolve("config");
-        return entries.TryGetValue(GameConfig.ContentPath, out var entry)
-            ? GameConfig.Parse(entry.Text)
-            : throw new FileNotFoundException($"缺少 {GameConfig.ContentPath}");
     }
 
     /// <summary>读全部角色定义。两份文件用了同一个标识在这里当场报错，理由见 <see cref="ContentCatalog.ResolveById"/>。</summary>

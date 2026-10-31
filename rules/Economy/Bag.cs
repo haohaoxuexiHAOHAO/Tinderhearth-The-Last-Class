@@ -8,10 +8,10 @@ namespace Tinderhearth.Rules.Economy;
 /// <param name="QualityId">哪一档品质；那种物品声明了无品质时是 <c>null</c>，只按种类分堆。</param>
 /// <param name="Count">几件，至少 1：一件都没有的格是空格，不是一堆零件。</param>
 /// <param name="AcquiredSequence">
-/// 这一堆最近一次进东西是背包第几次进东西，越大越近。按「最近获得」排序读它（设计仓 design/背包系统.md 的
-/// 「分堆的代价由排序、筛选与一键整理来付」一节）。
+/// 这一堆最近一次进东西的先后序号，从 1 数起，越大越近；只拿来比先后，不是一个计数。一次放进去的那一份分进了几格，
+/// 那几格是同一个序号。按「最近获得」排序读它（设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节）。
 /// </param>
-public readonly record struct ItemStack(string ItemId, string? QualityId, int Count, long AcquiredSequence)
+public readonly record struct ItemStack(string ItemId, string? QualityId, int Count, int AcquiredSequence)
 {
     /// <summary>这一堆与给定的种类和品质是不是同一个堆标识。</summary>
     public bool Holds(string itemId, string? qualityId) =>
@@ -29,6 +29,8 @@ public readonly record struct ItemStack(string ItemId, string? QualityId, int Co
 ///
 /// 格数由调用方给（开新档时按背包等级从配置读，<see cref="NewGame"/>），堆上限按种类读物品定义。
 /// 物品不在册、品质那一位与物品的声明对不上，是调用方的错，当场抛 —— 不当成「放不下」。
+///
+/// 它是世界状态的一部分，跟着结算的那份副本走，所以 <see cref="Clone"/> 出来的与原件不共用任何会变的东西。
 /// </remarks>
 public sealed class Bag
 {
@@ -36,8 +38,13 @@ public sealed class Bag
     public const int StartingLevel = 1;
 
     private readonly ItemStack?[] _slots;
-    private readonly ItemCatalog _items;
-    private long _lastSequence;
+
+    /// <summary>最近一次进东西用掉的那个序号；一次都没进过是 0。</summary>
+    /// <remarks>
+    /// 它只拿来让新进的东西排在已有的后面，所以不进存档：读回来时取各堆里最大的那个，排出来的先后一样
+    /// （设计仓 design/存档系统.md 的「派生量不单独存」一节）。
+    /// </remarks>
+    private int _lastSequence;
 
     /// <param name="slotCount">几格，至少 1。</param>
     /// <param name="items">在册物品：堆上限与有无品质读这里。</param>
@@ -50,7 +57,7 @@ public sealed class Bag
         }
 
         _slots = new ItemStack?[slotCount];
-        _items = items;
+        Items = items;
     }
 
     /// <summary>开新档时的背包：第一级的格数，一件东西都没有。</summary>
@@ -60,6 +67,58 @@ public sealed class Bag
         return new Bag(config.BackpackSlotsAt(StartingLevel), items);
     }
 
+    /// <summary>
+    /// 从存档里读回来的那几格建一份背包。哪一格对不上 —— 物品不在册、品质那一位与物品的声明不符、件数不在 1 到堆上限之间、
+    /// 序号不为正 —— 一次全报，一行一处，格号从 1 数起。之后新进的东西排在各堆里最大的那个序号后面。
+    /// </summary>
+    /// <param name="slots">每一格，按格号排；<c>null</c> 是空格。项数就是格数。</param>
+    /// <param name="items">在册物品。</param>
+    public static Bag Restore(IReadOnlyList<ItemStack?> slots, ItemCatalog items)
+    {
+        ArgumentNullException.ThrowIfNull(slots);
+        ArgumentNullException.ThrowIfNull(items);
+
+        var problems = new List<string>();
+        for (var i = 0; i < slots.Count; i++)
+        {
+            if (slots[i] is not { } stack)
+            {
+                continue;
+            }
+
+            if (ProblemOf(stack.ItemId, stack.QualityId, stack.Count, items) is string problem)
+            {
+                problems.Add($"第 {i + 1} 格：{problem}");
+            }
+            else if (stack.Count > items.Items[stack.ItemId].StackLimit)
+            {
+                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」有 {stack.Count} 件，超过它的堆上限 {items.Items[stack.ItemId].StackLimit}");
+            }
+
+            if (stack.AcquiredSequence < 1)
+            {
+                problems.Add($"第 {i + 1} 格：序号 {stack.AcquiredSequence} 不为正");
+            }
+        }
+
+        if (problems.Count > 0)
+        {
+            throw new InvalidDataException($"背包有 {problems.Count} 处对不上：\n  " + string.Join("\n  ", problems));
+        }
+
+        var bag = new Bag(slots.Count, items);
+        for (var i = 0; i < slots.Count; i++)
+        {
+            bag._slots[i] = slots[i];
+            bag._lastSequence = Math.Max(bag._lastSequence, slots[i]?.AcquiredSequence ?? 0);
+        }
+
+        return bag;
+    }
+
+    /// <summary>在册物品：堆上限与有无品质读这里。</summary>
+    public ItemCatalog Items { get; }
+
     /// <summary>几格。</summary>
     public int SlotCount => _slots.Length;
 
@@ -68,6 +127,14 @@ public sealed class Bag
 
     /// <summary>还剩几个空格。</summary>
     public int EmptySlotCount => _slots.Count(s => s is null);
+
+    /// <summary>整份复制：副本与原件不共用任何会变的东西。</summary>
+    public Bag Clone()
+    {
+        var copy = new Bag(SlotCount, Items) { _lastSequence = _lastSequence };
+        _slots.CopyTo(copy._slots, 0);
+        return copy;
+    }
 
     /// <summary>这一份放不放得下：先合进没满的同标识堆，再占空格，全放得下才算。不改背包。</summary>
     public bool CanAdd(string itemId, string? qualityId, int count) => Plan(itemId, qualityId, count) is not null;
@@ -97,7 +164,12 @@ public sealed class Bag
     /// <summary>算出每一格各放几件：先按格号合进没满的同标识堆，再按格号占空格。放不下就是 <c>null</c>。</summary>
     private List<(int Slot, int Take)>? Plan(string itemId, string? qualityId, int count)
     {
-        var limit = Check(itemId, qualityId, count);
+        if (ProblemOf(itemId, qualityId, count, Items) is string problem)
+        {
+            throw count < 1 ? new ArgumentOutOfRangeException(nameof(count), problem) : new ArgumentException(problem);
+        }
+
+        var limit = Items.Items[itemId].StackLimit;
         var plan = new List<(int Slot, int Take)>();
         var remaining = count;
 
@@ -124,34 +196,31 @@ public sealed class Bag
         return remaining == 0 ? plan : null;
     }
 
-    /// <summary>核调用方给的这一份：物品在册、件数为正、品质那一位与物品的声明对得上。返回那种物品的堆上限。</summary>
-    private int Check(string itemId, string? qualityId, int count)
+    /// <summary>这一份对不对：件数为正、物品在册、品质那一位与物品的声明对得上。对就是 <c>null</c>。</summary>
+    private static string? ProblemOf(string itemId, string? qualityId, int count, ItemCatalog items)
     {
         if (count < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(count), $"一次至少放 1 件，实际 {count}");
+            return $"件数至少 1，实际 {count}";
         }
 
-        if (!_items.Items.TryGetValue(itemId, out var item))
+        if (!items.Items.TryGetValue(itemId, out var item))
         {
-            throw new ArgumentException($"物品「{itemId}」不在册，放不进背包", nameof(itemId));
+            return $"物品「{itemId}」不在册";
         }
 
         if (item.HasQuality && qualityId is null)
         {
-            throw new ArgumentException($"物品「{itemId}」声明了有品质，放进背包时要带一个品质", nameof(qualityId));
+            return $"物品「{itemId}」声明了有品质，却没带品质";
         }
 
         if (!item.HasQuality && qualityId is not null)
         {
-            throw new ArgumentException($"物品「{itemId}」声明了无品质，不能带品质「{qualityId}」", nameof(qualityId));
+            return $"物品「{itemId}」声明了无品质，却带了品质「{qualityId}」";
         }
 
-        if (qualityId is not null && !_items.Qualities.Any(q => q.Id == qualityId))
-        {
-            throw new ArgumentException($"品质「{qualityId}」不在册", nameof(qualityId));
-        }
-
-        return item.StackLimit;
+        return qualityId is not null && !items.Qualities.Any(q => q.Id == qualityId)
+            ? $"品质「{qualityId}」不在册"
+            : null;
     }
 }

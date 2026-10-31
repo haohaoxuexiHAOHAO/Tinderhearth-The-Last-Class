@@ -27,39 +27,55 @@ public class FarmSaveTests
     private static SaveShardRegistry RegistryFor(PlotGrid scene)
     {
         var registry = new SaveShardRegistry();
-        WorldShards.Register(registry, scene);
+        WorldShards.Register(registry, scene, TestBags.Empty());
         return registry;
     }
 
-    /// <summary>场景里那片地种了一格、日期推到夏季，写成一份存档的文本。</summary>
+    /// <summary>场景里那片地种了一格、日期推到夏季、背包里收了一堆，写成一份存档的文本。</summary>
     private static string SavedOn(PlotGrid scene)
     {
-        var world = new WorldState(new GameDate(1, Season.Summer, 4), scene.Clone());
+        var world = new WorldState(new GameDate(1, Season.Summer, 4), scene.Clone(), TestBags.Empty());
         world.Plots.Cells.First().Plot.Plant(Turnip);
+        Assert.True(world.Bag.TryAdd(TestBags.Turnip, TestBags.Common, 7));
         return FarmSave.Write(RegistryFor(scene), world);
     }
 
     [Fact]
-    public void 没有存档时按开局那一天与场景里那片地开新档()
+    public void 没有存档时按开局那一天场景里那片地与空背包开新档()
     {
         var scene = Scene();
 
-        var world = FarmSave.LoadOrNew(null, RegistryFor(scene), Crops, scene);
+        var world = FarmSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, TestBags.Empty());
 
         Assert.Equal(Calendar.StartDate, world.Date);
-        Assert.Equal(PlotSnapshot.Of(WorldState.NewGame(scene.Clone())), PlotSnapshot.Of(world));
+        Assert.Equal(PlotSnapshot.Of(WorldState.NewGame(scene.Clone(), TestBags.Empty())), PlotSnapshot.Of(world));
         Assert.NotSame(scene, world.Plots);
+        Assert.Equal(world.Bag.SlotCount, world.Bag.EmptySlotCount);
+    }
+
+    /// <summary>开新档拿的是开新档那个背包的一份副本：往新档的背包里放东西，那一份照旧是空的。</summary>
+    [Fact]
+    public void 开新档的背包与开新档那一份不共用()
+    {
+        var scene = Scene();
+        var newGameBag = TestBags.Empty();
+
+        var world = FarmSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, newGameBag);
+        Assert.True(world.Bag.TryAdd(TestBags.TurnipSeed, null, 3));
+
+        Assert.Equal(newGameBag.SlotCount, newGameBag.EmptySlotCount);
     }
 
     [Fact]
-    public void 有存档就读回存档里那一天与那片地()
+    public void 有存档就读回存档里那一天那片地与背包()
     {
         var scene = Scene();
 
-        var world = FarmSave.LoadOrNew(SavedOn(scene), RegistryFor(scene), Crops, scene);
+        var world = FarmSave.LoadOrNew(SavedOn(scene), RegistryFor(scene), Crops, scene, TestBags.Empty());
 
         Assert.Equal(new GameDate(1, Season.Summer, 4), world.Date);
         Assert.Equal(PlotState.Planted, world.Plots.Cells.First().Plot.State);
+        Assert.Equal(new ItemStack(TestBags.Turnip, TestBags.Common, 7, 1), world.Bag.Slots[0]);
     }
 
     [Fact]
@@ -68,7 +84,7 @@ public class FarmSaveTests
         var text = SavedOn(Scene(x: 2));
         var moved = Scene(x: 3);
 
-        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(moved), Crops, moved));
+        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(moved), Crops, moved, TestBags.Empty()));
 
         Assert.Contains("(5, 3)", e.Message);
         Assert.Contains("(2, 3)", e.Message);
@@ -80,7 +96,7 @@ public class FarmSaveTests
         var text = SavedOn(Scene(width: 3));
         var wider = Scene(width: 4);
 
-        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(wider), Crops, wider));
+        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(wider), Crops, wider, TestBags.Empty()));
 
         Assert.Contains("(5, 3)", e.Message);
         Assert.Contains("(5, 4)", e.Message);
@@ -92,7 +108,7 @@ public class FarmSaveTests
         var scene = Scene();
 
         var e = Assert.Throws<SaveRejectedException>(
-            () => FarmSave.LoadOrNew("{ 写坏了", RegistryFor(scene), Crops, scene));
+            () => FarmSave.LoadOrNew("{ 写坏了", RegistryFor(scene), Crops, scene, TestBags.Empty()));
 
         Assert.Equal(SaveRejection.Unreadable, e.Reason);
     }
@@ -101,7 +117,7 @@ public class FarmSaveTests
     public void 报得出每个分片各占多少字节()
     {
         var text = SavedOn(Scene());
-        string[] ids = [WorldShards.CalendarId, WorldShards.PlotsId];
+        string[] ids = [WorldShards.CalendarId, WorldShards.PlotsId, WorldShards.BagId];
 
         var sizes = SaveFile.ShardBytes(text);
 

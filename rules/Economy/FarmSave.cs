@@ -12,29 +12,32 @@ public static class FarmSave
     /// <summary>一个列表里最多点名几格，再多就只报个数。</summary>
     private const int NamedCellLimit = 12;
 
-    /// <summary>有存档就读回，没有就按开局那一天与场景里那片地开新档。</summary>
+    /// <summary>有存档就读回，没有就按开局那一天、场景里那片地与空背包开新档。</summary>
     /// <param name="text">存档文件的全文；没有存档时为 <c>null</c>。</param>
-    /// <param name="registry">已注册日历与地块两个分片的那一份（<see cref="WorldShards.Register"/>）。</param>
+    /// <param name="registry">已注册世界那几个分片的那一份（<see cref="WorldShards.Register"/>）。</param>
     /// <param name="crops">按标识找作物定义。</param>
     /// <param name="sceneField">场景里那片地的起始状态。</param>
+    /// <param name="newGameBag">开新档时的背包：空的，第一级的格数。读存档时现在配置的格数与在册物品也从它读。</param>
     /// <exception cref="SaveRejectedException">存档整份被拒：版本、分片、读不出来那几种。</exception>
     /// <exception cref="InvalidDataException">分片里哪一格读不出来，或者那片地对不上。</exception>
     public static WorldState LoadOrNew(
         string? text,
         SaveShardRegistry registry,
         IReadOnlyDictionary<string, CropDefinition> crops,
-        PlotGrid sceneField)
+        PlotGrid sceneField,
+        Bag newGameBag)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(crops);
         ArgumentNullException.ThrowIfNull(sceneField);
+        ArgumentNullException.ThrowIfNull(newGameBag);
 
         if (text is null)
         {
-            return WorldState.NewGame(sceneField.Clone());
+            return WorldState.NewGame(sceneField.Clone(), newGameBag.Clone());
         }
 
-        var world = WorldShards.Read(SaveFile.ReadFormalSave(registry, text), crops);
+        var world = WorldShards.Read(SaveFile.ReadFormalSave(registry, text), crops, newGameBag);
         var mismatch = LayoutMismatch(world.Plots, sceneField);
         return mismatch is null ? world : throw new InvalidDataException(mismatch);
     }

@@ -41,7 +41,7 @@ public class DailySettlementTests
         var plots = grid.Cells.Select(c => c.Plot).ToList();
         plots[0].Plant(SpringOnly);
         plots[1].Plant(SpringAndSummer);
-        return new WorldState(date, grid);
+        return new WorldState(date, grid, TestBags.Empty());
     }
 
     internal static IReadOnlyDictionary<string, CropDefinition> FieldCrops => Crops;
