@@ -29,7 +29,8 @@ public class UISkeletonTests
         Assert.True(UILayer.WorldSpace < UILayer.Hud);
         Assert.True(UILayer.Hud < UILayer.Panel);
         Assert.True(UILayer.Panel < UILayer.Dialog);
-        Assert.True(UILayer.Dialog < UILayer.Curtain);
+        Assert.True(UILayer.Dialog < UILayer.Notice);
+        Assert.True(UILayer.Notice < UILayer.Curtain);
     }
 
     [Fact]
@@ -128,6 +129,7 @@ public class UISkeletonTests
         Assert.True(UILayer.Panel.RunsWhilePaused());
         Assert.True(UILayer.Dialog.RunsWhilePaused());
         Assert.True(UILayer.Curtain.RunsWhilePaused());     // 淡入淡出不该被一次暂停冻在半路
+        Assert.True(UILayer.Notice.RunsWhilePaused());      // 面板开着时被拒的那一行要停够了收起，不能一直挂着
 
         // 世界冻住了读条还在涨、面板开着随身栏还在听按键，都是这一侧停漏了。
         Assert.False(UILayer.World.RunsWhilePaused());

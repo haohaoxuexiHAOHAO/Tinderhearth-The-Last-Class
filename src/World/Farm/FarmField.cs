@@ -143,11 +143,17 @@ public partial class FarmField : Node
     [Export]
     public CarrySlotBarView? CarryBar { get; set; }
 
+    /// <summary>即时提示那一行。一个动作被拒时，屏上由它说清是哪一种。</summary>
+    /// <remarks>缺了当场报错：没有它，被拒的那一下在屏上就是没反应，而玩家会把没反应当成坏了。</remarks>
+    [Export]
+    public InstantNoticeView? Notice { get; set; }
+
     private TileMapLayer _tilled = null!;
     private Node2D _crops = null!;
     private FarmCellCursor _cursor = null!;
     private InputRouter _router = null!;
     private CarrySlotBarView _carry = null!;
+    private InstantNoticeView _notice = null!;
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
@@ -180,6 +186,7 @@ public partial class FarmField : Node
         _cursor = Cursor ?? throw Missing(nameof(Cursor), $"当前操作格（挂了 {nameof(FarmCellCursor)} 的节点）");
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
         _carry = CarryBar ?? throw Missing(nameof(CarryBar), $"随身栏（挂了 {nameof(CarrySlotBarView)} 的节点）");
+        _notice = Notice ?? throw Missing(nameof(Notice), $"即时提示那一行（挂了 {nameof(InstantNoticeView)} 的节点）");
 
         if (_tilled.TileSet is null)
         {
@@ -441,7 +448,8 @@ public partial class FarmField : Node
 
     /// <summary>播一次，种子取随身栏选中那一格。</summary>
     /// <remarks>
-    /// 判定在 <see cref="Planting.TryPlant"/>，本方法只把被拒的三种情况各打一行。
+    /// 判定在 <see cref="Planting.TryPlant"/>，被拒时写哪一句在 <see cref="FarmNotices"/>；本方法把那一句交给即时提示，
+    /// 输出面板也打同一句，带上是哪一格。
     ///
     /// 三种原因要分得开（手上是空格、手上不是种子、这一格不许播）。合并成一句「不能播」之后，
     /// 玩家按下去没反应，而他不知道该换格子、换东西还是先锄地。
@@ -454,15 +462,10 @@ public partial class FarmField : Node
             hand.IsEmpty ? null : hand.ItemId,
             id => _cropDefs.TryGetValue(id, out var crop) ? crop : null);
 
-        if (result != PlantResult.Planted)
+        if (FarmNotices.ForSowing(result, _text) is string line)
         {
-            GD.Print("[地块] 播不了 ", _cursor.Cell, "：", result switch
-            {
-                PlantResult.NothingSelected => "手上第 " + (_carry.Bar.SelectedIndex + 1) + " 格是空的",
-                PlantResult.NotASeed => $"手上拿的「{hand.ItemId}」不是种子",
-                PlantResult.CellNotReady => $"这一格是 {plot.State}，不是已锄的地",
-                _ => result.ToString(),
-            });
+            _notice.Show(line);
+            GD.Print("[地块] 播不了 ", _cursor.Cell, "：", line);
         }
 
         return result == PlantResult.Planted;

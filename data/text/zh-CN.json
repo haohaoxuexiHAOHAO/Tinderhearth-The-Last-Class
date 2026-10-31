@@ -152,5 +152,10 @@
   "ui.wake.detail.withered": "{0} 的{1}换季枯死了",
   "ui.wake.detail.mutated": "{0} 的{1}长成时变异了",
   "ui.wake.close": "知道了",
-  "ui.wake.next_page": "下一页"
+  "ui.wake.next_page": "下一页",
+
+  "//即时提示": "ui.notice.* 是一个动作被拒时屏上那一行字，每一种被拒各一条，不合成一句「不能」；哪一种用哪一条写在代码仓 rules/Economy/FarmNotices.cs 的那几个键上。",
+  "ui.notice.sow_nothing_selected": "手上这一格是空的，没东西可播",
+  "ui.notice.sow_not_a_seed": "手上拿的不是种子，播不下去",
+  "ui.notice.sow_cell_not_ready": "这一格不是锄好的空地，播不下去"
 }

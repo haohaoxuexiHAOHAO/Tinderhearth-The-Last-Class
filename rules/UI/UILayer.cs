@@ -29,6 +29,13 @@ public enum UILayer
     /// <summary>弹窗：确认、每日结算摘要、错误提示。永远在面板之上。</summary>
     Dialog = 40,
 
+    /// <summary>即时提示：一个动作被拒时屏上那一行字。不接管输入、不进导航栈。</summary>
+    /// <remarks>
+    /// 它在面板与弹窗之上：面板开着时被拒的那一下（背包页里丢不掉那一样）也要看得见，而常驻显示那一层在面板开着时
+    /// 整层藏起来。它在幕布之下：淡入淡出盖住一切，也盖住它。
+    /// </remarks>
+    Notice = 45,
+
     /// <summary>遮罩层：淡入淡出与场景切换时盖住一切。</summary>
     /// <remarks>
     /// 刻意不叫「过场」。那个词在设计仓 design/剧情演出系统.md 里指的是剧情演出，而本层只是
@@ -54,12 +61,14 @@ public static class UILayerExtensions
     /// 面板接过输入的时候它不该再听按键（随身栏是每帧问门面有没有换格的）。它显示的数是有人塞进去的、不靠每帧去取，
     /// 所以停着照样刷新得了。
     ///
+    /// 即时提示那一层不接管输入，却照跑：面板开着时世界停着，跟着停的话面板里被拒的那一行就一直挂着、收不起来。
+    ///
     /// 暂停的判据在设计仓 canon/gameplay/玩法定位.md 的「弹界面接管输入就暂停世界，世界里的动作不暂停」。
     /// </remarks>
     public static bool RunsWhilePaused(this UILayer layer) => layer switch
     {
         UILayer.World or UILayer.WorldSpace or UILayer.Hud => false,
-        UILayer.Panel or UILayer.Dialog or UILayer.Curtain => true,
+        UILayer.Panel or UILayer.Dialog or UILayer.Notice or UILayer.Curtain => true,
         _ => throw new ArgumentOutOfRangeException(nameof(layer), $"没有这一层：{layer}"),
     };
 }
