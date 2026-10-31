@@ -42,6 +42,9 @@ public static class PixelTheme
     /// <summary>面板里的内容区：子页签下面那一大块浅底。</summary>
     public const string ContentInset = "ContentInset";
 
+    /// <summary>背包那一页装格子的那一圈深色厚框。</summary>
+    public const string BagFrame = "BagFrame";
+
     /// <summary>浅底上的字。</summary>
     public const string PaperLabel = "PaperLabel";
 
@@ -101,6 +104,7 @@ public static class PixelTheme
 
         // 子页签：只有字。没选中的底是 soil 3、字取 soil 8；选中的底是 soil 8、字取 rust 1。焦点与悬停那一张照顶层
         // 页签焦点那一态换了底色，那一档底上浅字读不清，所以那一态的字跟选中的一样取深字。焦点照顶层页签那样换、不叠。
+        // 上下的内容边距是 0，所以子页签那一行就是一行字高：WristbandLayout.SubTabRowHeight 照这个算。
         theme.SetTypeVariation(WristbandSubTab, "Button");
         var subPad = WristbandLayout.SubTabPaddingX;
         SetButton(theme, WristbandSubTab, normal: Box(art.KitTabtextNormal, subPad, 0),
@@ -115,7 +119,11 @@ public static class PixelTheme
         theme.SetStylebox("panel", WristbandFrame, Box(art.KitFrameThickDark, WristbandLayout.FramePadding,
             WristbandLayout.FramePadding));
         theme.SetTypeVariation(ContentInset, "PanelContainer");
-        theme.SetStylebox("panel", ContentInset, Box(art.KitInset, UIMetrics.Grid, UIMetrics.Grid));
+        theme.SetStylebox("panel", ContentInset, Box(art.KitInset, WristbandLayout.InsetPadding, WristbandLayout.InsetPadding));
+
+        // 背包那一页的格子装在一圈深色厚框里，与手环外框同一件；框到格子多远照背包页的排法。
+        theme.SetTypeVariation(BagFrame, "PanelContainer");
+        theme.SetStylebox("panel", BagFrame, Box(art.KitFrameThickDark, BagPageLayout.FramePadding, BagPageLayout.FramePadding));
         theme.SetTypeVariation(PaperLabel, "Label");
         theme.SetColor("font_color", PaperLabel, ToColor(HudPalette.PaperInk));
 

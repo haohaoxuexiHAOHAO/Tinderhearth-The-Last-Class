@@ -42,4 +42,23 @@ public static class WristbandLayout
 
     /// <summary>外框到里面的东西多远：排版那一节「两组之间、面板外框到里面的东西」那一档。</summary>
     public const int FramePadding = 2 * UIMetrics.Grid;
+
+    /// <summary>内容区（子页签下面那一大块浅底）到里面的东西多远。</summary>
+    public const int InsetPadding = UIMetrics.Grid;
+
+    /// <summary>子页签那一行多高：一行字。子页签的底上下不另留边，主题里那一格的上下内容边距是 0。</summary>
+    public const int SubTabRowHeight = UIMetrics.LineHeight;
+
+    /// <summary>
+    /// 有子页签的那几页，内容区里面放得下多高：外框去掉压着页签的那一截、外框的内边距、子页签那一行与内容区自己的内边距。
+    /// </summary>
+    /// <remarks>
+    /// 这个算式与手环里那几层容器的实际排法逐项对应（代码仓 <c>src/UI/WristbandPanel.cs</c> 与 <c>src/UI/PixelTheme.cs</c>）：
+    /// 改了那边的间距或内边距，这里要跟着改，否则「放得下」那几条测试判的就不是画出来的那一块。
+    /// </remarks>
+    public static int ContentHeight =>
+        ShellHeight - (TabSize - TabOverlap) - (2 * FramePadding) - SubTabRowHeight - (2 * InsetPadding);
+
+    /// <summary>内容区里面放得下多宽。</summary>
+    public static int ContentWidth => ShellWidth - (2 * FramePadding) - (2 * InsetPadding);
 }

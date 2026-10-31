@@ -155,12 +155,18 @@ public partial class FarmField : Node
     [Export]
     public InstantNoticeView? Notice { get; set; }
 
+    /// <summary>手环。背包那一页从这里读背包。</summary>
+    /// <remarks>缺了当场报错：没有手环，农场里看不见背包，打开手环的键按下去也没反应，而那不报错。</remarks>
+    [Export]
+    public WristbandPanel? Wristband { get; set; }
+
     private TileMapLayer _tilled = null!;
     private Node2D _crops = null!;
     private FarmCellCursor _cursor = null!;
     private InputRouter _router = null!;
     private CarrySlotBarView _carry = null!;
     private InstantNoticeView _notice = null!;
+    private WristbandPanel _wristband = null!;
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
@@ -198,6 +204,7 @@ public partial class FarmField : Node
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
         _carry = CarryBar ?? throw Missing(nameof(CarryBar), $"随身栏（挂了 {nameof(CarrySlotBarView)} 的节点）");
         _notice = Notice ?? throw Missing(nameof(Notice), $"即时提示那一行（挂了 {nameof(InstantNoticeView)} 的节点）");
+        _wristband = Wristband ?? throw Missing(nameof(Wristband), $"手环（挂了 {nameof(WristbandPanel)} 的节点）");
 
         if (_tilled.TileSet is null)
         {
@@ -248,9 +255,11 @@ public partial class FarmField : Node
         IndexCropArts();
         IndexItemIcons();
 
-        // 背包里的每一样都在册，在册的每一样都核过有图标，所以这里按标识直接取。
-        _carry.Icons = (itemId, qualityId) => _itemIcons[itemId].TextureFor(qualityId);
+        _carry.Icons = IconFor;
         LoadWorld();
+
+        // 背包每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。
+        _wristband.Bag = new BagPageSource(() => _world.State.Bag, IconFor, ContentBootstrap.LoadPalette());
         RefreshAll();
 
         // 床与醒来那一套各在自己的 _Ready 里登记过来，谁先谁后看场景树，所以等这一帧所有节点都就绪了再核。
@@ -575,6 +584,9 @@ public partial class FarmField : Node
             _itemIcons[icon.ItemId] = icon;
         }
     }
+
+    /// <summary>一样东西画哪一张图标。背包里的每一样都在册，在册的每一样都核过有图标，所以按标识直接取。</summary>
+    private Texture2D IconFor(string itemId, string? qualityId) => _itemIcons[itemId].TextureFor(qualityId);
 
     /// <summary>随身栏照背包前几格重画：随身栏自己不存东西，背包变了它就跟着变。</summary>
     /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。品质跟着那一堆走，画哪一张图标看它。</remarks>

@@ -44,6 +44,9 @@ public partial class WristbandPanel : Control, IPlacedSurface
     private TextCatalog _text = null!;
     private Control _shell = null!;
     private Label _content = null!;
+    private PanelContainer _inset = null!;
+    private BagPageSource? _bag;
+    private BagPageView? _bagView;
     private PanelContainer _tabName = null!;
     private Label _tabNameText = null!;
     private Godot.Timer _tabNameDelay = null!;
@@ -70,6 +73,21 @@ public partial class WristbandPanel : Control, IPlacedSurface
 
     /// <summary>文本表。子页签上的字从这里取。代码搭这个面板的那一方在挂上之前给；没给就在就绪时自己读一份。</summary>
     public TextCatalog? Catalog { get; set; }
+
+    /// <summary>背包那一页从哪读背包。农场在就绪时给；没给的场景（主场景）里那一页照旧只写页名。</summary>
+    /// <remarks>它不是检查器里的格子：背包是世界状态的一部分，由持有它的那一方交过来。</remarks>
+    public BagPageSource? Bag
+    {
+        get => _bag;
+        set
+        {
+            _bag = value;
+            if (_built)
+            {
+                ShowPageContent();
+            }
+        }
+    }
 
     /// <summary>这个面板挂在面板那一层。</summary>
     public UILayer Layer => Wristband.Surface.Layer;
@@ -207,6 +225,7 @@ public partial class WristbandPanel : Control, IPlacedSurface
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         column.AddChild(inset);
+        _inset = inset;
 
         _content = new Label { Name = "Content", ThemeTypeVariation = PixelTheme.PaperLabel };
         inset.AddChild(_content);
@@ -287,7 +306,7 @@ public partial class WristbandPanel : Control, IPlacedSurface
     }
 
     /// <summary>
-    /// 显示时给手柄一个焦点落点，隐藏时不留残余焦点，也收起页签名字的小窗。
+    /// 显示时给手柄一个焦点落点、把背包那一页照当前值重画；隐藏时不留残余焦点，也收起页签名字的小窗。
     /// </summary>
     private void OnVisibilityChanged()
     {
@@ -297,6 +316,7 @@ public partial class WristbandPanel : Control, IPlacedSurface
             return;
         }
 
+        ShowPageContent();
         PlaceFocus();
     }
 
@@ -418,6 +438,31 @@ public partial class WristbandPanel : Control, IPlacedSurface
         }
 
         _content.Text = page is null ? "" : _text[PageKey(page)];
+        ShowPageContent();
+    }
+
+    /// <summary>
+    /// 内容区里放什么：背包那一页有了从哪读背包，就画背包；其余各页，与还没接上背包的主场景，照旧只写页名。
+    /// </summary>
+    /// <remarks>背包那一页第一次露面时才搭，之后每次露面都照背包的当前值重画。</remarks>
+    private void ShowPageContent()
+    {
+        var showsBag = _activePage?.Id == Wristband.BagPageId && _bag is not null;
+        if (showsBag && _bagView is null)
+        {
+            _bagView = new BagPageView(_art, _text, _bag!);
+            _inset.AddChild(_bagView);
+        }
+
+        _content.Visible = !showsBag;
+        if (_bagView is not null)
+        {
+            _bagView.Visible = showsBag;
+            if (showsBag)
+            {
+                _bagView.Refresh();
+            }
+        }
     }
 
     /// <summary>

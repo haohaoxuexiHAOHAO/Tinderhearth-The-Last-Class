@@ -3,6 +3,10 @@ using Tinderhearth.Rules.Economy;
 
 namespace Tinderhearth.UI;
 
+/// <summary>拿一样东西的标识与那一堆的品质换一张图标。每一样在册的东西都有图标（载入时核过），所以它不返回空。</summary>
+/// <remarks>随身栏与背包页都按它取：图标那张表属于内容，由装东西的那一方持有，界面层只问、不存。</remarks>
+public delegate Texture2D ItemIconResolver(string itemId, string? qualityId);
+
 /// <summary>一个物品的图标。在 Godot 里存成 .tres，由作者配，一个物品一份。</summary>
 /// <remarks>
 /// 资源上写它是哪个物品，物品定义上没有这一格（设计仓 design/物品系统.md 字段表的「图标」与「变异时的图标」两行），

@@ -24,6 +24,9 @@ public static class Wristband
     public static readonly UISurface Surface =
         new("wristband", UILayer.Panel, SurfaceKind.View);
 
+    /// <summary>背包那一页的标识。这一页画背包里的东西（代码仓 <c>src/UI/BagPageView.cs</c>），其余各页还只写页名。</summary>
+    public const string BagPageId = "bag";
+
     /// <summary>顶层页签，顺序即从左到右；每个页签下的子页同样从左到右。</summary>
     /// <remarks>
     /// 顶层页签的标识也是它那张图标的文件名（设计仓 production/界面绘制约定.md 的「个人界面那一套」），
@@ -48,7 +51,7 @@ public static class Wristband
         ]),
         new("backpack",                                 // 背包
         [
-            Page("bag", SurfaceKind.Carried),           // 背包
+            Page(BagPageId, SurfaceKind.Carried),       // 背包
             NotInLevel("storage", SurfaceKind.Manage),  // 仓库：关卡里没有仓库
         ]),
         new("quests",                                   // 任务列表

@@ -159,5 +159,10 @@
   "ui.notice.sow_not_a_seed": "手上拿的不是种子，播不下去",
   "ui.notice.sow_cell_not_ready": "这一格不是锄好的空地，播不下去",
   "ui.notice.harvest_bag_full": "背包满了，这一株先留在地里",
-  "ui.notice.seed_batch_bag_full": "背包放不下这一批种子，一样都没放进去"
+  "ui.notice.seed_batch_bag_full": "背包放不下这一批种子，一样都没放进去",
+
+  "//背包页": "ui.bag.* 是手环里背包那一页的字。花括号是代码填进去的值，从 {0} 数起；哪一条填什么写在代码仓 rules/Economy/BagPage.cs 的那几个键上。",
+  "ui.bag.free_slots": "还剩 {0} 个空格",
+  "ui.bag.info": "{0}　{1}　{2} 件",
+  "ui.bag.info_no_quality": "{0}　{1} 件"
 }

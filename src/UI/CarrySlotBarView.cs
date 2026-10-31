@@ -49,9 +49,6 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     [Export]
     public UIArt? Art { get; set; }
 
-    /// <summary>拿一样东西的标识与那一堆的品质换一张图标。每一样在册的东西都有图标（载入时核过），所以它不返回空。</summary>
-    public delegate Texture2D CarryIconResolver(string itemId, string? qualityId);
-
     /// <summary>
     /// 图标从哪来。往格子里装东西的那一方在装之前设好。
     /// </summary>
@@ -60,7 +57,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     /// 东西，画到那一格时当场报错 —— 不悄悄画成空框，否则「没给图标」看起来就像「这件东西没有图标」。
     /// 全空的格子用不到它，所以接上背包之前不设也不报错。品质也交过去：变异的那一堆画变异那一张。
     /// </remarks>
-    public CarryIconResolver? Icons { get; set; }
+    public ItemIconResolver? Icons { get; set; }
 
     /// <summary>这个界面挂在常驻显示那一层。</summary>
     public UILayer Layer => UILayer.Hud;
