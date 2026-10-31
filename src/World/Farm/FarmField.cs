@@ -4,6 +4,7 @@ using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Save;
 using Tinderhearth.Rules.Foundation.Text;
+using Tinderhearth.Rules.Progression;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
@@ -155,6 +156,7 @@ public partial class FarmField : Node
     private SaveShardRegistry _registry = null!;
     private SaveStore _store = null!;
     private TextCatalog _text = TextCatalog.Empty;
+    private ItemCatalog _items = null!;
     private readonly List<Bed> _beds = [];
     private SleepPresentation? _wake;
 
@@ -213,9 +215,11 @@ public partial class FarmField : Node
                     + "荒置退化天数至少 1 天，要在检查器里填");
         }
 
+        // 作物要指到在册的物品，所以物品先读；读法与主场景是同一处（ContentBootstrap.LoadItems）。
         var catalog = ContentBootstrap.BuildCatalog();
-        LoadCropDefinitions(catalog);
         _text = ContentBootstrap.LoadText(catalog);
+        _items = ContentBootstrap.LoadItems(catalog, _text);
+        LoadCropDefinitions(catalog);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
         FillCarryBarWithSeeds();
@@ -381,7 +385,7 @@ public partial class FarmField : Node
     /// </remarks>
     private void PrintSummary(SettlementSummary summary)
     {
-        foreach (var line in WakeReport.DetailLines(summary, _text))
+        foreach (var line in WakeReport.DetailLines(summary, _text, id => _cropDefs[id].NameKeyIn(_items)))
         {
             GD.Print("[结算] ", line);
         }
@@ -483,7 +487,7 @@ public partial class FarmField : Node
     /// <summary>读全部作物定义。怎么读、什么算坏与启动时那一次核对是同一处（<see cref="CropDefinition.LoadAll"/>）。</summary>
     private void LoadCropDefinitions(ContentCatalog catalog)
     {
-        foreach (var (id, crop) in CropDefinition.LoadAll(catalog))
+        foreach (var (id, crop) in CropDefinition.LoadAll(catalog, _items))
         {
             _cropDefs[id] = crop;
         }

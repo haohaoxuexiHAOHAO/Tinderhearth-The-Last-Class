@@ -1,0 +1,15 @@
+{
+  "//": "占位作物 crop_01 的收获物：有品质，变了的那一株收上来是变异品质；作物的名字与描述读这一份。类别是药材，理由在 data/item_categories/herb.json。其余各格的来路同 crop_01_seed.json。",
+  "id": "crop_01_harvest",
+  "nameKey": "item.crop_01_harvest.name",
+  "descriptionKey": "item.crop_01_harvest.description",
+  "categoryId": "herb",
+  "rarityId": "low",
+  "hasQuality": true,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

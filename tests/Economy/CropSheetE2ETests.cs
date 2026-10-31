@@ -1,6 +1,7 @@
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Tests.Foundation;
+using Tinderhearth.Rules.Tests.Progression;
 using Tinderhearth.Rules.UI;
 using Xunit;
 
@@ -111,12 +112,12 @@ public class CropSheetE2ETests
         }
     }
 
-    /// <summary>工程里那批作物数据，经启动与农场共用的那个读法建表。睡一觉那份端到端也读它。</summary>
+    /// <summary>工程里那批作物数据，经启动与农场共用的那个读法建表，种子与产出对着工程里那批物品核。睡一觉那份端到端也读它。</summary>
     internal static IReadOnlyDictionary<string, CropDefinition> ShippedCrops()
     {
         var catalog = new ContentCatalog();
         catalog.AddSource(new InMemoryContentSource("base", ShippedCropFiles().ToDictionary(f => f.Path, f => f.Text)));
-        return CropDefinition.LoadAll(catalog);
+        return CropDefinition.LoadAll(catalog, ShippedItems.Load());
     }
 
     /// <summary>工程里那批作物数据文件，按路径排，路径写成内容目录里的相对路径。</summary>

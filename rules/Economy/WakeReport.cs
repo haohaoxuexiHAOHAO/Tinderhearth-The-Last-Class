@@ -92,16 +92,23 @@ public sealed record WakeReport(bool Advanced, string Title, IReadOnlyList<strin
 
     /// <summary>完整明细：每一格一行，写哪一格、哪种作物、枯死还是变异，按记下的先后。</summary>
     /// <remarks>与简版读的是同一份摘要，不另算。手环那一页还没有，归设计仓台账 UI-20，现在打在输出面板上。</remarks>
-    public static IReadOnlyList<string> DetailLines(SettlementSummary summary, TextCatalog text)
+    /// <param name="summary">结算交出来的摘要。</param>
+    /// <param name="text">文本表。</param>
+    /// <param name="cropNameKeyOf">
+    /// 一种作物的名字在文本表里是哪一条：作物没有自己的名字，读它产出的那一样物品（<see cref="CropDefinition.NameKeyIn"/>）。
+    /// </param>
+    public static IReadOnlyList<string> DetailLines(
+        SettlementSummary summary, TextCatalog text, Func<string, string> cropNameKeyOf)
     {
         ArgumentNullException.ThrowIfNull(summary);
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(cropNameKeyOf);
 
         return [.. summary.CropChanges.Select(change => Format(
             text,
             change.Kind == CropChangeKind.Mutated ? DetailMutatedKey : DetailWitheredKey,
             change.Cell,
-            text[CropDefinition.NameKeyOf(change.CropId)]))];
+            text[cropNameKeyOf(change.CropId)]))];
     }
 
     /// <summary>一个日期写成文本表里的那种写法。</summary>

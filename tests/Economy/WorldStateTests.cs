@@ -21,6 +21,7 @@ public class WorldStateTests
         StageDays = [1, 1],
         RegrowFromStage = null,
         Seasons = [Season.Spring],
+        SeedItemId = "item_turnip_seed",
         YieldItemId = "item_turnip",
     };
 

@@ -25,6 +25,7 @@ public class PlantingTests
         StageDays = [days],
         RegrowFromStage = null,
         Seasons = [Season.Spring],
+        SeedItemId = $"{id}_seed",
         YieldItemId = $"{id}_yield",
     };
 

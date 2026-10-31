@@ -15,6 +15,9 @@ public class WakeReportTests
     private static readonly GameDate Day3 = new(1, Season.Spring, 3);
     private const string SavePath = "D:/saves/slot_01.json";
 
+    /// <summary>芜菁的名字那一条。作物的名字读它产出的那一样物品，由调用方交给完整明细。</summary>
+    private const string TurnipNameKey = "item.turnip.name";
+
     private static readonly TextCatalog Fake = new(new Dictionary<string, string>
     {
         [WakeReport.DateKey] = "date:{0}/{1}/{2}",
@@ -29,7 +32,7 @@ public class WakeReportTests
         [WakeReport.RetryKey] = "retry",
         [WakeReport.DetailWitheredKey] = "dw:{0}:{1}",
         [WakeReport.DetailMutatedKey] = "dm:{0}:{1}",
-        [CropDefinition.NameKeyOf("turnip")] = "芜菁",
+        [TurnipNameKey] = "芜菁",
     });
 
     private static WakeReport Woke(params CropChange[] changes) =>
@@ -107,7 +110,7 @@ public class WakeReportTests
     {
         var summary = new SettlementSummary(Day3, [Change(0, CropChangeKind.Mutated), Change(1, CropChangeKind.Withered)]);
 
-        var lines = WakeReport.DetailLines(summary, Fake);
+        var lines = WakeReport.DetailLines(summary, Fake, cropId => cropId == "turnip" ? TurnipNameKey : "");
 
         Assert.Equal(["dm:(0, 0):芜菁", "dw:(1, 0):芜菁"], lines);
     }

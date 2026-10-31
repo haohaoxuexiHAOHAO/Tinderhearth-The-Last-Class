@@ -427,33 +427,8 @@ public class ItemCatalogTests
         return files;
     }
 
-    /// <summary>工程里那几个内容目录（类别、两条轴、物品）的全部文件，路径写成内容目录里的相对路径。</summary>
-    private static Dictionary<string, string> ShippedTableFiles()
-    {
-        string[] directories =
-        [
-            ItemCategory.ContentDirectory,
-            ItemTier.ContentDirectoryOf(ItemTierAxis.Rarity),
-            ItemTier.ContentDirectoryOf(ItemTierAxis.Quality),
-            ItemDefinition.ContentDirectory,
-        ];
-        var files = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var directory in directories)
-        {
-            var onDisk = Path.Combine(RepoFiles.Root(), "data", directory);
-            if (!Directory.Exists(onDisk))
-            {
-                continue;
-            }
-
-            foreach (var path in Directory.GetFiles(onDisk, "*.json").Order(StringComparer.Ordinal))
-            {
-                files[$"{directory}/{Path.GetFileName(path)}"] = File.ReadAllText(path);
-            }
-        }
-
-        return files;
-    }
+    /// <summary>工程里那几个内容目录（类别、两条轴、物品）的全部文件，见 <see cref="ShippedItems"/>。</summary>
+    private static Dictionary<string, string> ShippedTableFiles() => ShippedItems.Files();
 
     private static string CategoryJson(string id, string parentJson) =>
         $$"""{ "id": "{{id}}", "nameKey": "item_category.{{id}}.name", "parentId": {{parentJson}} }""";

@@ -260,7 +260,7 @@ src/    Tinderhearth-The-Last-Class ← 场景、节点、输入、显示、文�
 
 | 那一半 | 落点 | 为什么在那里 |
 | --- | --- | --- |
-| 阶段天数、季节列表、收获后退回哪一阶段、产出哪种物品 | `rules/Economy/CropDefinition.cs` ＋ `data/crops/*.json` | 它们进判定，要能脱引擎单测 |
+| 阶段天数、季节列表、收获后退回哪一阶段、用什么种子、产出哪种物品 | `rules/Economy/CropDefinition.cs` ＋ `data/crops/*.json` | 它们进判定，要能脱引擎单测 |
 | 那几张图（每个阶段各一张加一张枯死，张数按它声明的阶段数算） | 引擎层，由作者在 Godot 里配 | `ADR-0009` 的分工；与角色逐帧素材同一条路 |
 | 收几件、浇水系数的上下限 | **谁都不持有，由调用方传** `HarvestYieldRule` | 那两个量归设计仓 `design/数值模型.md` 且**还没有值** —— 代码不留能用的默认值 |
 

@@ -1,0 +1,15 @@
+{
+  "//": "占位作物 crop_12 的种子。各格的来路同 crop_01_seed.json。",
+  "id": "crop_12_seed",
+  "nameKey": "item.crop_12_seed.name",
+  "descriptionKey": "item.crop_12_seed.description",
+  "categoryId": "seed",
+  "rarityId": "low",
+  "hasQuality": false,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

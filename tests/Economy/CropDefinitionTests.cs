@@ -1,14 +1,16 @@
 using System.Text.Json;
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Content;
-using Tinderhearth.Rules.Foundation.Text;
+using Tinderhearth.Rules.Progression;
 using Tinderhearth.Rules.Tests.Foundation;
+using Tinderhearth.Rules.Tests.Progression;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>
-/// 作物定义的载入校验：缺字段、天数不足、季节列表为空、退回成熟那一阶段，都要当场报错。
+/// 作物定义的载入校验：缺字段、天数不足、季节列表为空、退回成熟那一阶段，都要当场报错；种子与产出那两格要指到在册的物品，
+/// 品质那一位要对。
 /// </summary>
 /// <remarks>
 /// 玩法数值这里一个都不测 —— 阶段天数与产量归设计仓 design/数值模型.md，现在还没有值。
@@ -22,6 +24,7 @@ public class CropDefinitionTests
           "stageDays": [1, 2, 2, 3],
           "regrowFromStage": null,
           "seasons": ["Spring", "Autumn"],
+          "seedItemId": "item_turnip_seed",
           "yieldItemId": "item_turnip"
         }
         """;
@@ -31,12 +34,14 @@ public class CropDefinitionTests
         IReadOnlyList<int>? stageDays = null,
         IReadOnlyList<Season>? seasons = null,
         string id = "turnip",
+        string seedItemId = "item_turnip_seed",
         string yieldItemId = "item_turnip") => new()
         {
             Id = id,
             StageDays = stageDays ?? [1, 1, 1, 1],
             RegrowFromStage = regrowFromStage,
             Seasons = seasons ?? [Season.Spring],
+            SeedItemId = seedItemId,
             YieldItemId = yieldItemId,
         };
 
@@ -48,6 +53,7 @@ public class CropDefinitionTests
         Assert.Equal("turnip", crop.Id);
         Assert.Equal([1, 2, 2, 3], crop.StageDays);
         Assert.Equal([Season.Spring, Season.Autumn], crop.Seasons);
+        Assert.Equal("item_turnip_seed", crop.SeedItemId);
         Assert.Equal("item_turnip", crop.YieldItemId);
         Assert.False(crop.Regrows);
         Assert.Null(crop.DaysToRegrow);
@@ -65,6 +71,7 @@ public class CropDefinitionTests
     [InlineData("stageDays")]
     [InlineData("regrowFromStage")]
     [InlineData("seasons")]
+    [InlineData("seedItemId")]
     [InlineData("yieldItemId")]
     public void 缺任一键都在解析时报错(string keyToDrop)
     {
@@ -148,6 +155,7 @@ public class CropDefinitionTests
               "stageDays": [{{days}}],
               "regrowFromStage": {{regrowFrom}},
               "seasons": ["Spring"],
+              "seedItemId": "item_turnip_seed",
               "yieldItemId": "item_turnip"
             }
             """;
@@ -166,6 +174,7 @@ public class CropDefinitionTests
               "stageDays": [1, 1],
               "regrowFromStage": 1,
               "seasons": ["Spring"],
+              "seedItemId": "item_turnip_seed",
               "yieldItemId": "item_turnip"
             }
             """;
@@ -176,15 +185,17 @@ public class CropDefinitionTests
         Assert.Equal(1, crop.RegrowFromStage);
     }
 
-    /// <summary>空白标识被拒 —— 它同时是查定义与入库时的键，空了之后两处都找不到东西。</summary>
+    /// <summary>空白标识被拒 —— 它同时是查定义、播种与入库时的键，空了之后几处都找不到东西。</summary>
     [Theory]
-    [InlineData("", "item_turnip")]
-    [InlineData("   ", "item_turnip")]
-    [InlineData("turnip", "")]
-    [InlineData("turnip", "  ")]
-    public void 空白标识被拒(string id, string yieldItemId)
+    [InlineData("", "item_turnip_seed", "item_turnip")]
+    [InlineData("   ", "item_turnip_seed", "item_turnip")]
+    [InlineData("turnip", "", "item_turnip")]
+    [InlineData("turnip", "  ", "item_turnip")]
+    [InlineData("turnip", "item_turnip_seed", "")]
+    [InlineData("turnip", "item_turnip_seed", "  ")]
+    public void 空白标识被拒(string id, string seedItemId, string yieldItemId)
     {
-        Assert.Throws<ArgumentException>(() => Crop(id: id, yieldItemId: yieldItemId));
+        Assert.Throws<ArgumentException>(() => Crop(id: id, seedItemId: seedItemId, yieldItemId: yieldItemId));
     }
 
     /// <summary>再生要几天由退回的那一阶段算出来，不另给一个字段。</summary>
@@ -223,9 +234,11 @@ public class CropDefinitionTests
     [Fact]
     public void 全部作物定义按标识建表()
     {
-        var crops = CropDefinition.LoadAll(Catalog(
-            ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"")),
-            ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\""))));
+        var crops = CropDefinition.LoadAll(
+            Catalog(
+                ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"")),
+                ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\""))),
+            Items(("item_turnip_seed", false), ("item_turnip", true)));
 
         Assert.Equal(["crop_01", "crop_02"], crops.Keys.Order(StringComparer.Ordinal));
         Assert.Equal([1, 2, 2, 3], crops["crop_01"].StageDays);
@@ -238,35 +251,67 @@ public class CropDefinitionTests
     {
         var catalog = Catalog(("characters/jin.json", """{ "id": "jin", "displayNameKey": "character.jin.name", "traitIds": [] }"""));
 
-        var error = Assert.Throws<InvalidDataException>(() => CropDefinition.LoadAll(catalog));
+        var error = Assert.Throws<InvalidDataException>(() => CropDefinition.LoadAll(catalog, Items()));
 
         Assert.Contains($"{CropDefinition.ContentDirectory}/", error.Message);
     }
 
-    /// <summary>名字与描述的键由标识拼出来，定义上没有这两格。</summary>
+    /// <summary>种子或产出指不到在册的物品，载入被拒，点名是哪种作物的哪一格；两格都错就一次报两句。</summary>
     [Fact]
-    public void 名字与描述的键由标识拼出来()
+    public void 种子或产出指不到在册物品就被拒并点名()
     {
-        var crop = Crop(id: "crop_07");
+        var catalog = Catalog(("crops/turnip.json", FullJson));
 
-        Assert.Equal("crop.crop_07.name", crop.NameKey);
-        Assert.Equal("crop.crop_07.description", crop.DescriptionKey);
-        Assert.Equal([crop.NameKey, crop.DescriptionKey], crop.TextKeys);
+        var error = Assert.Throws<InvalidDataException>(() => CropDefinition.LoadAll(catalog, Items(("unrelated", true))));
+
+        Assert.Contains("作物「turnip」的 SeedItemId「item_turnip_seed」不在册", error.Message);
+        Assert.Contains("作物「turnip」的 YieldItemId「item_turnip」不在册", error.Message);
     }
 
-    /// <summary>文本表里缺哪一条，按作物要的那几条一核就点得出来；启动时那一次核对就是这么核的。</summary>
+    /// <summary>种子要声明无品质、产出要声明有品质，反了就被拒。</summary>
+    /// <remarks>
+    /// 种子没有做得好坏之分；产出那一样要装得下变了的那一株收上来的变异品质（设计仓
+    /// decisions/ADR-0030-作物成熟时按几率变异.md）。
+    /// </remarks>
     [Fact]
-    public void 文本表里缺的那一条点得出来()
+    public void 种子有品质或产出无品质就被拒()
     {
-        var crops = new[] { Crop(id: "crop_01"), Crop(id: "crop_02") };
-        var text = new TextCatalog(new Dictionary<string, string>
+        var catalog = Catalog(("crops/turnip.json", FullJson));
+
+        var error = Assert.Throws<InvalidDataException>(
+            () => CropDefinition.LoadAll(catalog, Items(("item_turnip_seed", true), ("item_turnip", false))));
+
+        Assert.Contains("「item_turnip_seed」声明了有品质", error.Message);
+        Assert.Contains("「item_turnip」声明了无品质", error.Message);
+    }
+
+    /// <summary>作物叫什么读它产出的那一样物品，作物自己没有名字那一条。</summary>
+    [Fact]
+    public void 作物的名字读它产出的那一样物品()
+    {
+        var items = Items(("item_turnip_seed", false), ("item_turnip", true));
+
+        Assert.Equal(items.Items["item_turnip"].NameKey, Crop().NameKeyIn(items));
+    }
+
+    /// <summary>工程里每种作物都有一份种子与一份收获物：种子无品质、归种子那一类，收获物有品质。</summary>
+    [Fact]
+    public void 工程里每种作物都有一份种子与一份收获物()
+    {
+        var items = ShippedItems.Load();
+        var crops = CropSheetE2ETests.ShippedCrops();
+
+        Assert.NotEmpty(crops);
+        Assert.All(crops.Values, crop =>
         {
-            ["crop.crop_01.name"] = "作物1",
-            ["crop.crop_01.description"] = "作物描述1",
-            ["crop.crop_02.name"] = "作物2",
+            Assert.False(items.Items[crop.SeedItemId].HasQuality);
+            Assert.Equal("seed", items.Items[crop.SeedItemId].CategoryId);
+            Assert.True(items.Items[crop.YieldItemId].HasQuality);
         });
 
-        Assert.Equal(["crop.crop_02.description"], text.MissingKeys(crops.SelectMany(c => c.TextKeys)));
+        // 一种作物一份：没有两种作物共用一样种子或一样收获物，也没有哪一样既是种子又是收获物。
+        var referenced = crops.Values.SelectMany(c => new[] { c.SeedItemId, c.YieldItemId }).ToList();
+        Assert.Equal(referenced.Count, referenced.Distinct(StringComparer.Ordinal).Count());
     }
 
     private static ContentCatalog Catalog(params (string Path, string Json)[] files)
@@ -275,6 +320,29 @@ public class CropDefinitionTests
         catalog.AddSource(new InMemoryContentSource("base", files.ToDictionary(f => f.Path, f => f.Json)));
         return catalog;
     }
+
+    /// <summary>一份只有给定那几样物品的物品表：一个类别、一档稀有度、一档品质，够作物这一侧核引用就行。</summary>
+    private static ItemCatalog Items(params (string Id, bool HasQuality)[] items) =>
+        ItemCatalog.Build(
+            items.Select(i => new ItemDefinition
+            {
+                Id = i.Id,
+                NameKey = $"item.{i.Id}.name",
+                DescriptionKey = $"item.{i.Id}.description",
+                CategoryId = "seed",
+                RarityId = "low",
+                HasQuality = i.HasQuality,
+                StackLimit = 20,
+                BasePriceCopper = null,
+                Discardable = true,
+                Sellable = true,
+                UseEffectId = null,
+                ConfirmBeforeUse = false,
+            }),
+            [new ItemCategory { Id = "seed", NameKey = "item_category.seed.name", ParentId = null }],
+            [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, PositiveAffixCount = 0, DisplayColor = "copper 3" }],
+            [new ItemTier { Id = "common", NameKey = "item_quality.common.name", SortOrder = 2, BasePriceFactor = null, DisplayColor = "ash 6" }],
+            name => name.Split(' ')[0]);
 
     /// <summary>从一份 JSON 里去掉一个顶层键，用来造「缺字段」的输入。</summary>
     private static string WithoutKey(string json, string key)

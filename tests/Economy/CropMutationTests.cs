@@ -20,6 +20,7 @@ public class CropMutationTests
         StageDays = [1, 1, 1],
         RegrowFromStage = regrowFromStage,
         Seasons = [Season.Spring],
+        SeedItemId = "item_turnip_seed",
         YieldItemId = "item_turnip",
     };
 

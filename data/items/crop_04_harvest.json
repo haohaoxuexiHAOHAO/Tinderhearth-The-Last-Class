@@ -1,0 +1,15 @@
+{
+  "//": "占位作物 crop_04 的收获物。各格的来路同 crop_01_harvest.json。",
+  "id": "crop_04_harvest",
+  "nameKey": "item.crop_04_harvest.name",
+  "descriptionKey": "item.crop_04_harvest.description",
+  "categoryId": "herb",
+  "rarityId": "low",
+  "hasQuality": true,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

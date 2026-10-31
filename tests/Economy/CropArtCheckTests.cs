@@ -13,6 +13,7 @@ public class CropArtCheckTests
         StageDays = [1, 1, 1],
         RegrowFromStage = null,
         Seasons = [Season.Spring],
+        SeedItemId = $"{id}_seed",
         YieldItemId = $"{id}_harvest",
     };
 

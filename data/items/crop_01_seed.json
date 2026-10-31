@@ -1,0 +1,15 @@
+{
+  "//": "占位作物 crop_01 的种子：播种用掉它，无品质。每一格是什么在设计仓 design/物品系统.md 的「物品定义的字段：只写「它是什么」，不写「它能干什么」」一节；stackLimit 照设计仓 design/numeric-model-params.json 的 capacity.stack_limit_default，basePriceCopper 还没给值写 null。正式的作物清单归设计仓台账 GP-88；名字与描述在 data/text/zh-CN.json。",
+  "id": "crop_01_seed",
+  "nameKey": "item.crop_01_seed.name",
+  "descriptionKey": "item.crop_01_seed.description",
+  "categoryId": "seed",
+  "rarityId": "low",
+  "hasQuality": false,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

@@ -30,6 +30,7 @@ public class DailySettlementTests
         StageDays = [1],
         RegrowFromStage = null,
         Seasons = seasons,
+        SeedItemId = "item_" + id + "_seed",
         YieldItemId = "item_" + id,
     };
 

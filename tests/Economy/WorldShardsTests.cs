@@ -18,6 +18,7 @@ public class WorldShardsTests
         StageDays = [1, 1],
         RegrowFromStage = null,
         Seasons = [Season.Spring],
+        SeedItemId = "item_turnip_seed",
         YieldItemId = "item_turnip",
     };
 
@@ -28,6 +29,7 @@ public class WorldShardsTests
         StageDays = [1, 2, 1],
         RegrowFromStage = 1,
         Seasons = [Season.Spring, Season.Summer],
+        SeedItemId = "item_berry_seed",
         YieldItemId = "item_berry",
     };
 

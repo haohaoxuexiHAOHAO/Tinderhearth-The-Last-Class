@@ -33,6 +33,7 @@ public class PlotTests
             StageDays = stageDays ?? [1, 1, 1, 1],
             RegrowFromStage = regrowFromStage,
             Seasons = seasons ?? [Season.Spring],
+            SeedItemId = "item_turnip_seed",
             YieldItemId = "item_turnip",
         };
 

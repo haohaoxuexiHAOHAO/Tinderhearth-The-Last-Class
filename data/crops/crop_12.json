@@ -1,8 +1,9 @@
 {
-  "//": "占位作物：标识里的数字是它在素材表 assets/self-drawn/crops/crop1.png 上的行号，补零到两位，所以按标识排就是行序。下面的数都是占位值、没有平衡过：正式的作物清单归设计仓台账 GP-88，阶段天数这类数值归设计仓台账 GP-7。每个字段是什么、填错会怎样在设计仓 design/地块系统.md 的「作物定义：一张表，缺字段报错」一节；名字与描述在 data/text/zh-CN.json。",
+  "//": "占位作物：标识里的数字是它在素材表 assets/self-drawn/crops/crop1.png 上的行号，补零到两位，所以按标识排就是行序。下面的数都是占位值、没有平衡过：正式的作物清单归设计仓台账 GP-88，阶段天数这类数值归设计仓台账 GP-7。每个字段是什么、填错会怎样在设计仓 design/地块系统.md 的「作物定义：一张表，缺字段报错」一节；种子与收获物是 data/items/ 下的两份物品定义，作物的名字与描述读收获物那一份（文字在 data/text/zh-CN.json）。",
   "id": "crop_12",
   "stageDays": [1, 1, 1],
   "regrowFromStage": null,
   "seasons": ["Spring", "Summer", "Autumn", "Winter"],
+  "seedItemId": "crop_12_seed",
   "yieldItemId": "crop_12_harvest"
 }

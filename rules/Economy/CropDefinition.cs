@@ -1,4 +1,5 @@
 using Tinderhearth.Rules.Foundation.Content;
+using Tinderhearth.Rules.Progression;
 
 namespace Tinderhearth.Rules.Economy;
 
@@ -89,29 +90,42 @@ public sealed record CropDefinition
         init => field = CheckSeasons(value);
     }
 
+    /// <summary>播种用掉哪一种物品。存的是标识，与 <see cref="YieldItemId"/> 同一个形状。</summary>
+    /// <remarks>
+    /// 它指的那一样必须声明无品质：一颗种子长成什么、收上来什么品质由作物、浇水、技能与变异定，种子自己没有做得好坏之分
+    /// （设计仓 design/物品系统.md 的「有些物品没有品质这条轴」一节）。指不到在册物品、指到有品质的，<see cref="LoadAll"/> 报。
+    /// </remarks>
+    public required string SeedItemId
+    {
+        get;
+        init => field = NonEmpty(value, nameof(SeedItemId));
+    }
+
     /// <summary>产出哪一种物品。存的是标识，物品本身的定义在物品系统那一侧。</summary>
+    /// <remarks>
+    /// 它指的那一样必须声明有品质：变了的那一株收上来是变异品质（设计仓 decisions/ADR-0030-作物成熟时按几率变异.md），
+    /// 没有品质这条轴就装不下它。指不到在册物品、指到无品质的，<see cref="LoadAll"/> 报。
+    /// </remarks>
     public required string YieldItemId
     {
         get;
         init => field = NonEmpty(value, nameof(YieldItemId));
     }
 
-    /// <summary>文本表里这种作物的名字那一条的键，由标识拼出来。</summary>
+    /// <summary>这种作物叫什么：文本表里它产出的那一样物品的名字那一条。</summary>
     /// <remarks>
-    /// 名字与描述不是定义上的字段：作物的正式名字归物品定义的名称那一格（设计仓 design/数值模型.md 的
-    /// 「不占命名权」那一条），而作物还没有接到物品定义上（设计仓台账 GP-158）。现在给定义加一格键名的话，
-    /// 名字就有两个家；由标识拼键，文字只在文本表里一份。
+    /// 作物没有自己的名字与描述。地里那一株叫什么、图鉴里怎么写，都读它产出的那一样物品 —— 作物的正式名字归物品定义的
+    /// 名称那一格（设计仓 design/数值模型.md 的「不占命名权」那一条），两处各写一份就是同一个名字的两个家，改了一处
+    /// 另一处不报错。
     /// </remarks>
-    public string NameKey => NameKeyOf(Id);
-
-    /// <summary>按标识拼出名字那一条的键，给手上只有标识的地方用（摘要里的每一格）。拼法只在这一处。</summary>
-    public static string NameKeyOf(string id) => $"crop.{id}.name";
-
-    /// <summary>文本表里这种作物的描述那一条的键。拼法与理由同 <see cref="NameKey"/>。</summary>
-    public string DescriptionKey => $"crop.{Id}.description";
-
-    /// <summary>这种作物要在文本表里有的那几条。启动时逐条核，缺了打一条错误。</summary>
-    public IReadOnlyList<string> TextKeys => [NameKey, DescriptionKey];
+    public string NameKeyIn(ItemCatalog items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        return items.Items.TryGetValue(YieldItemId, out var item)
+            ? item.NameKey
+            : throw new InvalidOperationException(
+                $"作物 {Id} 产出的「{YieldItemId}」不在册 —— 作物要经 {nameof(LoadAll)} 读，那一步会先报出这一条");
+    }
 
     /// <summary>这种作物收获之后会退回生长中途、能反复收吗？</summary>
     public bool Regrows => RegrowFromStage is not null;
@@ -130,21 +144,57 @@ public sealed record CropDefinition
         return crop;
     }
 
-    /// <summary>读内容目录里的全部作物定义，按标识建表。一份都没有就抛：农场里至少要能种一种。</summary>
+    /// <summary>读内容目录里的全部作物定义，按标识建表，并核种子与产出那两格都指到在册的物品。</summary>
     /// <remarks>
     /// 启动时与农场里读的是同一处，所以「怎么读、什么算坏」只有这一份。两份文件用了同一个标识在
     /// <see cref="ContentCatalog.ResolveById"/> 里当场报错，不让后读到的那份静默顶掉前一份。
+    ///
+    /// 物品要先读：参数里要一份 <see cref="ItemCatalog"/>，所以读作物时不可能跳过这一次核对。指不到的、品质那一位不对的，
+    /// 一次全报，一行一处，点名是哪种作物的哪一格。一份作物都没有也抛：农场里至少要能种一种。
     /// </remarks>
-    public static IReadOnlyDictionary<string, CropDefinition> LoadAll(ContentCatalog catalog)
+    public static IReadOnlyDictionary<string, CropDefinition> LoadAll(ContentCatalog catalog, ItemCatalog items)
     {
         ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(items);
 
         var crops = catalog.ResolveById(ContentDirectory, e => Parse(e.Text, e.RelativePath), c => c.Id);
-        return crops.Count > 0
-            ? crops
-            : throw new InvalidDataException(
+        if (crops.Count == 0)
+        {
+            throw new InvalidDataException(
                 $"内容目录 {ContentDirectory}/ 下没有作物定义，至少要有一份 .json。"
                     + "字段表在设计仓 design/地块系统.md 的「作物定义：一张表，缺字段报错」一节");
+        }
+
+        var problems = crops.Values
+            .OrderBy(c => c.Id, StringComparer.Ordinal)
+            .SelectMany(c => c.ItemProblems(items))
+            .ToList();
+        return problems.Count == 0
+            ? crops
+            : throw new InvalidDataException(
+                $"作物指的物品对不上，共 {problems.Count} 处：{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
+    }
+
+    /// <summary>种子与产出那两格：指不到在册物品的，以及品质那一位不对的，各报一句。</summary>
+    private IEnumerable<string> ItemProblems(ItemCatalog items)
+    {
+        if (!items.Items.TryGetValue(SeedItemId, out var seed))
+        {
+            yield return $"作物「{Id}」的 {nameof(SeedItemId)}「{SeedItemId}」不在册";
+        }
+        else if (seed.HasQuality)
+        {
+            yield return $"作物「{Id}」的 {nameof(SeedItemId)}「{SeedItemId}」声明了有品质 —— 种子没有做得好坏之分，要声明无品质";
+        }
+
+        if (!items.Items.TryGetValue(YieldItemId, out var produce))
+        {
+            yield return $"作物「{Id}」的 {nameof(YieldItemId)}「{YieldItemId}」不在册";
+        }
+        else if (!produce.HasQuality)
+        {
+            yield return $"作物「{Id}」的 {nameof(YieldItemId)}「{YieldItemId}」声明了无品质 —— 变了的那一株收上来是变异品质，要声明有品质";
+        }
     }
 
     /// <summary>跨字段校验：退回的那一阶段要落在成熟之前。理由见 <see cref="RegrowFromStage"/>。</summary>
