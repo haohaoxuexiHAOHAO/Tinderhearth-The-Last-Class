@@ -236,12 +236,41 @@ public class CropDefinitionTests
     {
         var crops = CropDefinition.LoadAll(
             Catalog(
-                ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"")),
-                ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\""))),
-            Items(("item_turnip_seed", false), ("item_turnip", true)));
+                ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"").Replace("item_turnip_seed", "item_seed_02")),
+                ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\"").Replace("item_turnip_seed", "item_seed_01"))),
+            Items(("item_seed_01", false), ("item_seed_02", false), ("item_turnip", true)));
 
         Assert.Equal(["crop_01", "crop_02"], crops.Keys.Order(StringComparer.Ordinal));
         Assert.Equal([1, 2, 2, 3], crops["crop_01"].StageDays);
+    }
+
+    /// <summary>一份种子只长一种作物：两种作物用了同一份种子，载入被拒并点名那两种与那一份种子。</summary>
+    /// <remarks>不拦的话，手上拿着那一份种子播下去是哪一种取决于字典的先后，而那不报错。</remarks>
+    [Fact]
+    public void 两种作物用了同一份种子就被拒并点名()
+    {
+        var catalog = Catalog(
+            ("crops/a.json", FullJson.Replace("\"turnip\"", "\"crop_02\"")),
+            ("crops/b.json", FullJson.Replace("\"turnip\"", "\"crop_01\"")));
+
+        var error = Assert.Throws<InvalidDataException>(
+            () => CropDefinition.LoadAll(catalog, Items(("item_turnip_seed", false), ("item_turnip", true))));
+
+        Assert.Contains("作物「crop_01」「crop_02」用的是同一份种子「item_turnip_seed」", error.Message);
+    }
+
+    /// <summary>按种子找作物：手上拿的是哪一份种子，查到的就是哪一种作物。</summary>
+    [Fact]
+    public void 按种子那一样物品找得到它的作物()
+    {
+        var turnip = Crop();
+        var radish = Crop(id: "radish", seedItemId: "item_radish_seed", yieldItemId: "item_radish");
+
+        var bySeed = CropDefinition.BySeed(new Dictionary<string, CropDefinition> { [turnip.Id] = turnip, [radish.Id] = radish });
+
+        Assert.Same(radish, bySeed["item_radish_seed"]);
+        Assert.Same(turnip, bySeed["item_turnip_seed"]);
+        Assert.False(bySeed.ContainsKey("item_turnip"));
     }
 
     /// <summary>作物目录里一份都没有就抛，别的目录里有内容也不算。</summary>

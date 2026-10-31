@@ -20,8 +20,8 @@ public static class DebugKeys
     /// <summary>农场：结束这一天，与睡觉走同一个入口。</summary>
     public static readonly DebugKey FarmEndDay = new("农场", InputSymbol.KeyN, "结束这一天，与睡觉走同一个入口");
 
-    /// <summary>农场：随身栏换成下一批种子，最后一批之后回到第一批。</summary>
-    public static readonly DebugKey FarmNextSeedBatch = new("农场", InputSymbol.KeyB, "随身栏换成下一批种子");
+    /// <summary>农场：往背包里放下一批种子，每样一满堆，最后一批之后回到第一批。</summary>
+    public static readonly DebugKey FarmGiveSeeds = new("农场", InputSymbol.KeyG, "往背包里放下一批种子");
 
     /// <summary>训练房：开关战斗调试叠层（判定框）。</summary>
     public static readonly DebugKey TrainingOverlay = new("训练房", InputSymbol.KeyV, "开关战斗调试叠层");
@@ -34,5 +34,5 @@ public static class DebugKeys
 
     /// <summary>全部调试键。冲突测试读的是这一份。</summary>
     public static readonly IReadOnlyList<DebugKey> All =
-        [FarmEndDay, FarmNextSeedBatch, TrainingOverlay, TrainingPause, TrainingStep];
+        [FarmEndDay, FarmGiveSeeds, TrainingOverlay, TrainingPause, TrainingStep];
 }

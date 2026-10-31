@@ -70,4 +70,27 @@ public static class Planting
 
         return plot.Plant(crop) ? PlantResult.Planted : PlantResult.CellNotReady;
     }
+
+    /// <summary>拿背包第 <paramref name="slot"/> 格（从 0 数）里那一样去播这一格地；播下去了就从那一格扣一颗。</summary>
+    /// <param name="plot">对着的那一格地。</param>
+    /// <param name="bag">主角的背包。</param>
+    /// <param name="slot">手上那一格对着背包的第几格。</param>
+    /// <param name="resolveSeed">拿种子那一样物品的标识换一份作物定义；不是种子就返回 <c>null</c>。</param>
+    /// <remarks>
+    /// 判法与 <see cref="TryPlant"/> 是同一处，本方法只多两件事：手上那一样从背包那一格读，播成了从那一格扣一颗，
+    /// 扣到零那一格变成空格。被拒的那几种什么都不扣、那一格地也不动。随身栏只是背包前几格的投影，所以扣的是背包，不是随身栏。
+    /// </remarks>
+    public static PlantResult TryPlantFromBag(
+        Plot plot, Bag bag, int slot, Func<string, CropDefinition?> resolveSeed)
+    {
+        ArgumentNullException.ThrowIfNull(bag);
+
+        var result = TryPlant(plot, bag.Slots[slot]?.ItemId, resolveSeed);
+        if (result == PlantResult.Planted && !bag.TryRemoveAt(slot, 1))
+        {
+            throw new InvalidOperationException($"背包第 {slot + 1} 格播下去了，却扣不出那一颗种子 —— 读与扣分叉了");
+        }
+
+        return result;
+    }
 }

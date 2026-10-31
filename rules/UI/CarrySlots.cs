@@ -69,6 +69,22 @@ public sealed class CarrySlotBar
     public static CarrySlotBar Empty() =>
         new([.. Enumerable.Repeat(CarrySlot.Empty, SlotCount)]);
 
+    /// <summary>随身栏是背包的前几格：从背包那几格里取前 <see cref="SlotCount"/> 格，交给 <see cref="Fill"/>。</summary>
+    /// <param name="bagSlots">背包每一格，按格号排、已经换成随身栏的格子（空格是 <see cref="CarrySlot.Empty"/>）。</param>
+    /// <remarks>
+    /// 背包那一侧的东西由调用方换过来：规则层的界面这一侧不依赖经营那一侧。背包比随身栏少格时当场抛 ——
+    /// 那是配置对不上（背包的格数少于随身栏），后面那几格对着的背包格根本不存在，补成空格只会让它看起来像「那几格空着」。
+    /// </remarks>
+    public static IReadOnlyList<CarrySlot> ProjectionOf(IReadOnlyList<CarrySlot> bagSlots)
+    {
+        ArgumentNullException.ThrowIfNull(bagSlots);
+
+        return bagSlots.Count >= SlotCount
+            ? [.. bagSlots.Take(SlotCount)]
+            : throw new ArgumentException(
+                $"背包只有 {bagSlots.Count} 格，比随身栏的 {SlotCount} 格少 —— 随身栏是背包的前 {SlotCount} 格", nameof(bagSlots));
+    }
+
     /// <summary>
     /// 格数。与技能位同一个数，理由在类注释。
     /// </summary>

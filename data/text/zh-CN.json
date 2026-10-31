@@ -158,5 +158,6 @@
   "ui.notice.sow_nothing_selected": "手上这一格是空的，没东西可播",
   "ui.notice.sow_not_a_seed": "手上拿的不是种子，播不下去",
   "ui.notice.sow_cell_not_ready": "这一格不是锄好的空地，播不下去",
-  "ui.notice.harvest_bag_full": "背包满了，这一株先留在地里"
+  "ui.notice.harvest_bag_full": "背包满了，这一株先留在地里",
+  "ui.notice.seed_batch_bag_full": "背包放不下这一批种子，一样都没放进去"
 }

@@ -129,7 +129,7 @@ public static class InputMapInstaller
 
         // 开发期调试键那几个位：不进输入映射，只给 IsDebugKey 比物理键位。
         InputSymbol.KeyN => Key(Godot.Key.N),
-        InputSymbol.KeyB => Key(Godot.Key.B),
+        InputSymbol.KeyG => Key(Godot.Key.G),
         InputSymbol.KeyV => Key(Godot.Key.V),
         InputSymbol.KeyP => Key(Godot.Key.P),
         InputSymbol.KeyPeriod => Key(Godot.Key.Period),

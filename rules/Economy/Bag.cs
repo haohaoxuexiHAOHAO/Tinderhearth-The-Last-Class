@@ -161,6 +161,47 @@ public sealed class Bag
         return true;
     }
 
+    /// <summary>一次放进好几份：全放得下才动手，有一份放不下就一件都不放，背包一件不变。</summary>
+    /// <remarks>
+    /// 按给的先后一份一份放，与一份一份调 <see cref="TryAdd"/> 放出来的摆法一样；先在一份副本上放一遍，全成了才换上去。
+    /// 调用方给错的（物品不在册、品质那一位对不上、件数不为正）照样当场抛，不当成放不下。
+    /// </remarks>
+    public bool TryAddAll(IReadOnlyList<(string ItemId, string? QualityId, int Count)> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+
+        var trial = Clone();
+        foreach (var (itemId, qualityId, count) in parts)
+        {
+            if (!trial.TryAdd(itemId, qualityId, count))
+            {
+                return false;
+            }
+        }
+
+        trial._slots.CopyTo(_slots, 0);
+        _lastSequence = trial._lastSequence;
+        return true;
+    }
+
+    /// <summary>从第 <paramref name="slot"/> 格（从 0 数）拿走几件。拿完那一格变成空格。</summary>
+    /// <returns>那一格是空的、或者件数不够，就一件都不拿、返回 <c>false</c>。</returns>
+    /// <remarks>格号越界、件数不为正是调用方的错，当场抛。拿走不改那一堆的先后序号：「最近获得」问的是什么时候进来的。</remarks>
+    public bool TryRemoveAt(int slot, int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(slot);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(slot, _slots.Length);
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
+
+        if (_slots[slot] is not { } stack || stack.Count < count)
+        {
+            return false;
+        }
+
+        _slots[slot] = stack.Count == count ? null : stack with { Count = stack.Count - count };
+        return true;
+    }
+
     /// <summary>算出每一格各放几件：先按格号合进没满的同标识堆，再按格号占空格。放不下就是 <c>null</c>。</summary>
     private List<(int Slot, int Take)>? Plan(string itemId, string? qualityId, int count)
     {

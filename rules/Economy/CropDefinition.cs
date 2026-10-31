@@ -168,12 +168,34 @@ public sealed record CropDefinition
         var problems = crops.Values
             .OrderBy(c => c.Id, StringComparer.Ordinal)
             .SelectMany(c => c.ItemProblems(items))
+            .Concat(SharedSeedProblems(crops.Values))
             .ToList();
         return problems.Count == 0
             ? crops
             : throw new InvalidDataException(
                 $"作物指的物品对不上，共 {problems.Count} 处：{Environment.NewLine}{string.Join(Environment.NewLine, problems)}");
     }
+
+    /// <summary>按种子那一样物品找作物：手上拿的是哪一份种子，播下去就是哪一种作物。</summary>
+    /// <remarks>一份种子只长一种作物，两种作物用了同一份种子在 <see cref="LoadAll"/> 那一步就被拒，所以这张表里一份种子只对一种。</remarks>
+    public static IReadOnlyDictionary<string, CropDefinition> BySeed(IReadOnlyDictionary<string, CropDefinition> crops)
+    {
+        ArgumentNullException.ThrowIfNull(crops);
+
+        var problems = SharedSeedProblems(crops.Values).ToList();
+        return problems.Count == 0
+            ? crops.Values.ToDictionary(c => c.SeedItemId, StringComparer.Ordinal)
+            : throw new InvalidDataException(string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>两种以上作物用了同一份种子，各报一句：手上拿着那一份时播下去是哪一种，答不出来。</summary>
+    private static IEnumerable<string> SharedSeedProblems(IEnumerable<CropDefinition> crops) =>
+        crops
+            .GroupBy(c => c.SeedItemId, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => $"作物「{string.Join("」「", g.Select(c => c.Id).Order(StringComparer.Ordinal))}」用的是同一份种子「{g.Key}」"
+                + " —— 一份种子只长一种作物");
 
     /// <summary>种子与产出那两格：指不到在册物品的，以及品质那一位不对的，各报一句。</summary>
     private IEnumerable<string> ItemProblems(ItemCatalog items)

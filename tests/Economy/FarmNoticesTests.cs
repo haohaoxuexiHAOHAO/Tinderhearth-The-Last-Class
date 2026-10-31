@@ -43,6 +43,13 @@ public class FarmNoticesTests
     }
 
     [Fact]
+    public void 调试键那一批放不下才出提示()
+    {
+        Assert.Null(FarmNotices.ForSeedBatch(stored: true, Fake));
+        Assert.Equal($"<{FarmNotices.SeedBatchBagFullKey}>", FarmNotices.ForSeedBatch(stored: false, Fake));
+    }
+
+    [Fact]
     public void 收获只在背包放不下时出提示()
     {
         // 不是待收的那一格到不了收获，那一下不是被拒，不出提示。

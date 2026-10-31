@@ -32,11 +32,17 @@ public class CropSheetE2ETests
     public void 主路径_播种推进到长成必中之后待收且变异_收获带着变异再回到已锄()
     {
         var crops = ShippedCrops();
+        var items = ShippedItems.Load();
+        var bag = new Bag(CarrySlotBar.SlotCount, items);
+        Assert.True(bag.TryAddAll(SeedBatches.Batch(crops.Values, 0, CarrySlotBar.SlotCount, items)));
         var bar = CarrySlotBar.Empty();
-        bar.Fill(SeedBatches.Batch(crops.Keys, 0));
+        bar.Fill(CarrySlotBar.ProjectionOf(
+            [.. bag.Slots.Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)]));
         var plot = new Plot(PlotState.Tilled);
 
-        Assert.Equal(PlantResult.Planted, Planting.TryPlant(plot, bar.Selected.ItemId, crops.GetValueOrDefault));
+        Assert.Equal(
+            PlantResult.Planted,
+            Planting.TryPlantFromBag(plot, bag, bar.SelectedIndex, CropDefinition.BySeed(crops).GetValueOrDefault));
         var crop = crops[plot.CropId!];
         var draws = new Queue<double>([Hit]);
 

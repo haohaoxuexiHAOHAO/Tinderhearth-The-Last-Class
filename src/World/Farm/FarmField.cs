@@ -23,8 +23,8 @@ namespace Tinderhearth.World.Farm;
 /// 可耕→锄、已锄→播种、已播种→浇水、待收→收获、待清→清枯株。代价是实机试不到「对着可耕地
 /// 按播种被拒」那条路，那条由 tests/Economy/PlotTests.cs 守着。
 ///
-/// 播哪一种作物取随身栏选中那一格，判定在 <see cref="Planting.TryPlant"/>。
-/// 格子里先装什么还是临时做法，见 <see cref="FillCarryBarWithSeeds"/>。
+/// 播哪一种作物取随身栏选中那一格，随身栏是背包前几格的投影；判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>。
+/// 还没有商店，种子由开发期调试键往背包里放（<see cref="GiveSeedBatch"/>）。
 /// </remarks>
 public partial class FarmField : Node
 {
@@ -170,6 +170,9 @@ public partial class FarmField : Node
     private SleepPresentation? _wake;
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
+
+    /// <summary>按种子那一样物品找作物：手上拿的是哪一份种子，播下去就是哪一种。</summary>
+    private IReadOnlyDictionary<string, CropDefinition> _cropsBySeed = null!;
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
     private readonly Dictionary<Vector2I, Sprite2D> _cropSprites = [];
 
@@ -232,9 +235,13 @@ public partial class FarmField : Node
         Harvesting.RequireQualitiesIn(_items);
         _newGameBag = Bag.NewGame(ContentBootstrap.LoadConfig(catalog), _items);
         LoadCropDefinitions(catalog);
+        _cropsBySeed = CropDefinition.BySeed(_cropDefs);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
-        FillCarryBarWithSeeds();
+
+        // 物品还没有图标：每个物品一份的图标资源那一套还没接，所以格子先只画框。到那时这里换成按物品标识查图标资源。
+        // 设计仓台账 UI-63
+        _carry.Icons = static _ => null;
         LoadWorld();
         RefreshAll();
 
@@ -323,22 +330,35 @@ public partial class FarmField : Node
         {
             Sleep();
         }
-        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmNextSeedBatch))
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmGiveSeeds))
         {
-            NextSeedBatch();
+            GiveSeedBatch();
         }
     }
 
-    /// <summary>开发期的调试键：把随身栏换成下一批种子，最后一批之后回到第一批。</summary>
+    /// <summary>开发期的调试键：往背包里放下一批种子，每样一满堆，最后一批之后回到第一批。</summary>
     /// <remarks>
-    /// 作物比随身栏的格数多，不换批就种不到后面那几种。它与推进一天那个键一样直接读按键、不进输入映射，
-    /// 理由同上；换的是格子里装什么，选中第几格不变。
+    /// 还没有商店，种子由它给；一批几种取随身栏几格。它与推进一天那个键一样直接读按键、不进输入映射，理由同上。
+    /// 整批放不下就一件不放，屏上那一行说清，这一批也不往后挪 —— 腾出位置再按，给的还是这一批。
+    /// 放进去的种子落在背包里第一个放得下的地方；随身栏只看得到背包前几格，后面那几格要挪到前面来才拿得到。
     /// </remarks>
-    private void NextSeedBatch()
+    private void GiveSeedBatch()
     {
-        _seedBatch = SeedBatches.Next(_seedBatch, _cropDefs.Count);
-        FillCarryBarWithSeeds();
-        GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
+        var batch = SeedBatches.Batch(_cropDefs.Values, _seedBatch, CarrySlotBar.SlotCount, _items);
+        var stored = _world.State.Bag.TryAddAll(batch);
+        var batches = SeedBatches.CountFor(_cropDefs.Count, CarrySlotBar.SlotCount);
+
+        if (FarmNotices.ForSeedBatch(stored, _text) is string line)
+        {
+            _notice.Show(line);
+            GD.Print("[地块] 第 ", _seedBatch + 1, " 批种子（共 ", batches, " 批）没放进背包：", line);
+            return;
+        }
+
+        GD.Print("[地块] 第 ", _seedBatch + 1, " 批种子（共 ", batches, " 批）放进了背包：",
+                 string.Join("、", batch.Select(p => $"{p.ItemId}×{p.Count}")));
+        _seedBatch = SeedBatches.Next(_seedBatch, _cropDefs.Count, CarrySlotBar.SlotCount);
+        RefreshCarryBar();
     }
 
     /// <summary>睡下去：床与推进一天那个调试键都调它，别处调不到。</summary>
@@ -447,21 +467,21 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>播一次，种子取随身栏选中那一格。</summary>
+    /// <summary>播一次：手上那一格是背包里的哪一格，就从那一格拿一颗种子去播。</summary>
     /// <remarks>
-    /// 判定在 <see cref="Planting.TryPlant"/>，被拒时写哪一句在 <see cref="FarmNotices"/>；本方法把那一句交给即时提示，
-    /// 输出面板也打同一句，带上是哪一格。
+    /// 判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>，被拒时写哪一句在 <see cref="FarmNotices"/>；本方法把那一句交给
+    /// 即时提示，输出面板也打同一句，带上是哪一格。随身栏是背包前几格的投影，所以选中第几格就是背包第几格。
     ///
     /// 三种原因要分得开（手上是空格、手上不是种子、这一格不许播）。合并成一句「不能播」之后，
     /// 玩家按下去没反应，而他不知道该换格子、换东西还是先锄地。
     /// </remarks>
     private bool PlantFromHand(Plot plot)
     {
-        var hand = _carry.Bar.Selected;
-        var result = Planting.TryPlant(
+        var result = Planting.TryPlantFromBag(
             plot,
-            hand.IsEmpty ? null : hand.ItemId,
-            id => _cropDefs.TryGetValue(id, out var crop) ? crop : null);
+            _world.State.Bag,
+            _carry.Bar.SelectedIndex,
+            id => _cropsBySeed.TryGetValue(id, out var crop) ? crop : null);
 
         if (FarmNotices.ForSowing(result, _text) is string line)
         {
@@ -475,7 +495,7 @@ public partial class FarmField : Node
     /// <summary>收一次：收成经生产那条管道进主角的背包，放不下那一株照旧待收。</summary>
     /// <remarks>
     /// 判在规则层（<see cref="Harvesting.ByProtagonist"/>），被拒时写哪一句在 <see cref="FarmNotices"/>。不要在这里绕过它直接往背包里放：
-    /// 入库只有管道那一处，多一个入口，「放不下那一株还在」就只在其中一处成立。
+    /// 产出入库只有管道那一处，多一个入口，「放不下那一株还在」就只在其中一处成立。
     /// </remarks>
     private bool Harvest(Plot plot)
     {
@@ -528,19 +548,14 @@ public partial class FarmField : Node
         }
     }
 
-    /// <summary>往随身栏里塞当前那一批种子。临时做法，以后换成背包前几格的投影。</summary>
-    /// <remarks>
-    /// 只有「格子里先装什么」是临时的。换格、播种、被拒那几条路径都已经是正式的，所以以后换
-    /// 数据来源不用改本类的其它地方。怎么排、怎么分批在 <see cref="SeedBatches"/>。
-    /// </remarks>
-    private void FillCarryBarWithSeeds()
+    /// <summary>随身栏照背包前几格重画：随身栏自己不存东西，背包变了它就跟着变。</summary>
+    /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。</remarks>
+    private void RefreshCarryBar()
     {
-        var seeds = SeedBatches.Batch(_cropDefs.Keys, _seedBatch);
-
-        // 种子还没有图标：物品图标是每个物品一份的图标资源，那一套还没接（设计仓台账 UI-63），所以格子先只
-        // 画框。到那时这里换成按物品标识查图标资源。
-        _carry.Icons = static _ => null;
-        _carry.Bar.Fill(seeds);
+        var bagSlots = _world.State.Bag.Slots
+            .Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)
+            .ToList();
+        _carry.Bar.Fill(CarrySlotBar.ProjectionOf(bagSlots));
         _carry.OnContentChanged();
     }
 
@@ -583,6 +598,7 @@ public partial class FarmField : Node
     {
         RefreshTilledSoil();
         RefreshCropSprites();
+        RefreshCarryBar();
     }
 
     private void RefreshTilledSoil()

@@ -12,7 +12,7 @@ public static class FarmNotices
     /// <summary>手上那一格是空的。</summary>
     public const string SowNothingSelectedKey = "ui.notice.sow_nothing_selected";
 
-    /// <summary>手上拿着的不是种子。</summary>
+    /// <summary>手上拿着的不是种子（比如收上来的菜）。</summary>
     public const string SowNotASeedKey = "ui.notice.sow_not_a_seed";
 
     /// <summary>这一格不是锄好的空地。</summary>
@@ -22,9 +22,12 @@ public static class FarmNotices
     /// <summary>收上来的东西背包放不下，那一株留在地里。</summary>
     public const string HarvestBagFullKey = "ui.notice.harvest_bag_full";
 
+    /// <summary>开发期调试键那一批种子背包放不下，整批没放进去。</summary>
+    public const string SeedBatchBagFullKey = "ui.notice.seed_batch_bag_full";
+
     /// <summary>上面那几条键，给核文本表用。</summary>
     public static readonly IReadOnlyList<string> TextKeys =
-        [SowNothingSelectedKey, SowNotASeedKey, SowCellNotReadyKey, HarvestBagFullKey];
+        [SowNothingSelectedKey, SowNotASeedKey, SowCellNotReadyKey, HarvestBagFullKey, SeedBatchBagFullKey];
 
     /// <summary>播种被拒那一行；播下去了是 <c>null</c>，不出提示。</summary>
     public static string? ForSowing(PlantResult result, TextCatalog text)
@@ -53,5 +56,12 @@ public static class FarmNotices
             HarvestStatus.BagFull => text[HarvestBagFullKey],
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "收获多了一种结果，这里没有给它一句"),
         };
+    }
+
+    /// <summary>开发期调试键给种子那一下被拒那一行；放进去了不出提示。</summary>
+    public static string? ForSeedBatch(bool stored, TextCatalog text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return stored ? null : text[SeedBatchBagFullKey];
     }
 }
