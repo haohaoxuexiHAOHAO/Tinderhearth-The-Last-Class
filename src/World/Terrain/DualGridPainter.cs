@@ -1,4 +1,5 @@
 using Godot;
+using Tinderhearth.Rules.Foundation.Terrain;
 
 namespace Tinderhearth.World.Terrain;
 
@@ -20,10 +21,11 @@ namespace Tinderhearth.World.Terrain;
 [Tool]
 public partial class DualGridPainter : Node
 {
-    /// <summary>作者刷的那一层。它自己不显示，只存「每格是哪种地形」。</summary>
+    /// <summary>作者刷的那一层。它自己不显示，存「每格是哪种地形」，水那几张标记瓦片上还挂着碰撞。</summary>
     /// <remarks>
-    /// 把它的 <c>Enabled</c> 关掉，或者让它用一套纯色标记瓦片都行，玩家看到的是显示层。
-    /// 代码只读它每格的地形编号，不读那一格用的是哪张图。
+    /// 藏起它用 <c>Visible</c>（场景面板里那只眼睛），不要关 <c>Enabled</c>：关掉的是整层，碰撞也在内，于是地面照常
+    /// 画出来、水却走得进去。理由在设计仓 production/场景绘制约定.md 的「俯视里什么挡人」一节，关着时
+    /// <see cref="CheckCollisionSetup"/> 报错。代码只读它每格的地形编号，不读那一格用的是哪张图。
     /// </remarks>
     [Export]
     public TileMapLayer? DataLayer { get; set; }
@@ -98,6 +100,7 @@ public partial class DualGridPainter : Node
         _data!.Changed += OnDataLayerChanged;
         AlignDisplayLayer();
         Repaint();
+        CheckCollisionSetup();
     }
 
     public override void _ExitTree()
@@ -209,6 +212,60 @@ public partial class DualGridPainter : Node
         }
 
         throw new InvalidOperationException(message);
+    }
+
+    /// <summary>数据层的碰撞配得对不对。配错时编辑器里警告、运行时抛，几处一次全报。</summary>
+    /// <remarks>
+    /// 判在规则层（<see cref="TerrainCollisionCheck"/>），这里只把数据层的两个开关与 TileSet 里的每一张瓦片交过去。
+    /// 只在进树时核一次，不跟着重画核：刷地形时每一笔都发 Changed，配到一半时输出面板会被同一条警告刷满。
+    /// </remarks>
+    private void CheckCollisionSetup()
+    {
+        var problems = TerrainCollisionCheck.Problems(
+            _data!.Enabled, _data.CollisionEnabled, DataTerrainSet, [.. TilesOf(_data.TileSet)]);
+        if (problems.Count > 0)
+        {
+            Report($"数据层（{_data.Name}）的碰撞有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+        }
+    }
+
+    /// <summary>TileSet 里每个图集源的每一张瓦片（含备选），各标了什么、带不带碰撞。</summary>
+    private static IEnumerable<TerrainTile> TilesOf(TileSet tileSet)
+    {
+        var physicsLayers = tileSet.GetPhysicsLayersCount();
+        for (var sourceIndex = 0; sourceIndex < tileSet.GetSourceCount(); sourceIndex++)
+        {
+            var sourceId = tileSet.GetSourceId(sourceIndex);
+            if (tileSet.GetSource(sourceId) is not TileSetAtlasSource atlas)
+            {
+                continue;
+            }
+
+            for (var tileIndex = 0; tileIndex < atlas.GetTilesCount(); tileIndex++)
+            {
+                Vector2I coords = atlas.GetTileId(tileIndex);
+                for (var altIndex = 0; altIndex < atlas.GetAlternativeTilesCount(coords); altIndex++)
+                {
+                    var alternative = atlas.GetAlternativeTileId(coords, altIndex);
+                    TileData data = atlas.GetTileData(coords, alternative);
+                    var marked = data.TerrainSet >= 0 && data.Terrain >= 0;
+                    yield return new TerrainTile(
+                        data.TerrainSet,
+                        data.Terrain,
+                        marked ? tileSet.GetTerrainName(data.TerrainSet, data.Terrain) : "",
+                        TileLabel(atlas, sourceId, coords, alternative),
+                        Enumerable.Range(0, physicsLayers).Any(layer => data.GetCollisionPolygonsCount(layer) > 0));
+                }
+            }
+        }
+    }
+
+    /// <summary>一张瓦片在报错里怎么写：哪张图、第几个源、图集里哪一格，与 TileSet 面板里看到的对得上。</summary>
+    private static string TileLabel(TileSetAtlasSource atlas, int sourceId, Vector2I coords, int alternative)
+    {
+        var picture = atlas.Texture is null ? "没有图" : atlas.Texture.ResourcePath.GetFile();
+        var label = $"{picture}（源 {sourceId}）的 ({coords.X}, {coords.Y})";
+        return alternative == 0 ? label : $"{label} 备选 {alternative}";
     }
 
     /// <summary>把显示层往左上挪半格。这是双网格的关键一步，不是摆位。</summary>
