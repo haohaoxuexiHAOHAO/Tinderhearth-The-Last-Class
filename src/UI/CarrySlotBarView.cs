@@ -49,8 +49,8 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     [Export]
     public UIArt? Art { get; set; }
 
-    /// <summary>拿一个物品标识换一张图标；没有图标就返回 <c>null</c>，那一格画空框。</summary>
-    public delegate Texture2D? CarryIconResolver(string itemId);
+    /// <summary>拿一样东西的标识与那一堆的品质换一张图标。每一样在册的东西都有图标（载入时核过），所以它不返回空。</summary>
+    public delegate Texture2D CarryIconResolver(string itemId, string? qualityId);
 
     /// <summary>
     /// 图标从哪来。往格子里装东西的那一方在装之前设好。
@@ -58,7 +58,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     /// <remarks>
     /// 它不是检查器里的格子：标识对图标的那张表属于内容，由装东西的那一方持有。没设就往格子里装了
     /// 东西，画到那一格时当场报错 —— 不悄悄画成空框，否则「没给图标」看起来就像「这件东西没有图标」。
-    /// 全空的格子用不到它，所以接上背包之前不设也不报错。
+    /// 全空的格子用不到它，所以接上背包之前不设也不报错。品质也交过去：变异的那一堆画变异那一张。
     /// </remarks>
     public CarryIconResolver? Icons { get; set; }
 
@@ -256,20 +256,19 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             cell.Select.Visible = lit;
 
             // 空格不画图标，但框照画 —— 格位固定不动，玩家才记得住哪一格是哪一格。
-            cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot.ItemId);
+            cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot);
             cell.Icon.Visible = cell.Icon.Texture is not null;
 
             cell.Count.Text = slot.ShowsCount ? slot.Count.ToString(CultureInfo.InvariantCulture) : string.Empty;
         }
     }
 
-    private Texture2D? IconOf(string itemId) =>
+    private Texture2D IconOf(CarrySlot slot) =>
         Icons is { } icons
-            ? icons(itemId)
+            ? icons(slot.ItemId, slot.QualityId)
             : throw new InvalidOperationException(
-                $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Icons)} 没设，格子里却装了「{itemId}」—— "
-                    + "往随身栏里装东西的那一方要在装之前给一个按物品标识取图标的办法"
-                    + "（这件东西没有图标就返回 null，那一格只画框）");
+                $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Icons)} 没设，格子里却装了「{slot.ItemId}」—— "
+                    + "往随身栏里装东西的那一方要在装之前给一个按物品标识与品质取图标的办法");
 
     private sealed record Cell(TextureRect Select, TextureRect Icon, MiniText Count);
 }

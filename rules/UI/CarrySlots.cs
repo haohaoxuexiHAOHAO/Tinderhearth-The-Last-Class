@@ -5,15 +5,19 @@ namespace Tinderhearth.Rules.UI;
 /// </summary>
 /// <param name="ItemId">物品标识。空串表示这一格是空的。</param>
 /// <param name="Count">这一格里有几件。</param>
+/// <param name="QualityId">
+/// 那一堆的品质，画哪一张图标看它（变异的那一堆画变异那一张）。无品质的东西与空格是 <c>null</c>。
+/// </param>
 /// <remarks>
-/// 只存标识与件数，不存物品的定义。定义在数据文件里、会被 mod 换掉，所以图标、名字与「它能不能
-/// 播」都要调用方拿标识去查。<c>rules/Economy/Plot.cs</c> 只存作物标识、存档里只存标识，是同一条。
+/// 只存标识、件数与那一堆的品质，不存物品的定义。定义在数据文件里、会被 mod 换掉，所以图标、名字与「它能不能
+/// 播」都要调用方拿标识去查。<c>rules/Economy/Plot.cs</c> 只存作物标识、存档里只存标识，是同一条。品质是那一堆
+/// 自己的，不在定义上，所以它跟着这一格走。
 ///
 /// 这不是一个容器。随身栏显示的是背包前几格的投影，所以本记录不提供任何增减件数的方法 ——
 /// 少一件是背包那一侧的事。给它加一个 <c>Take()</c> 会立刻造出第二份存储，而两份存储一旦对不上，
 /// 没有任何东西发现得了。
 /// </remarks>
-public sealed record CarrySlot(string ItemId, int Count)
+public sealed record CarrySlot(string ItemId, int Count, string? QualityId = null)
 {
     /// <summary>空格。它是一个合法的选中对象，等于「手上没东西」。</summary>
     public static readonly CarrySlot Empty = new(string.Empty, 0);

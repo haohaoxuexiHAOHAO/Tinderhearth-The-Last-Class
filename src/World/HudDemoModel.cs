@@ -134,13 +134,12 @@ public static class HudDemoModel
     }
 
     /// <summary>
-    /// 随身栏演示那几件的图标，给 <see cref="Tinderhearth.UI.CarrySlotBarView.Icons"/> 用。
+    /// 随身栏演示那几件的图标，给 <see cref="Tinderhearth.UI.CarrySlotBarView.Icons"/> 用。演示那几件没有品质，品质不看。
     /// </summary>
     /// <remarks>
-    /// 不认识的标识当场抛、不返回空：返回空的意思是「这件东西没有图标」，而演示里的每一件都该有，
-    /// 认不出只能是这一份写错了。
+    /// 不认识的标识当场抛：演示里的每一件都该有图标，认不出只能是这一份写错了。
     /// </remarks>
-    public static Texture2D? CarryIcon(string itemId)
+    public static Texture2D CarryIcon(string itemId, string? qualityId)
     {
         if (!CarryIcons.TryGetValue(itemId, out var path))
         {

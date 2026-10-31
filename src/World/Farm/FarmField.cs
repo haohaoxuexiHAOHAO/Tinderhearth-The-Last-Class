@@ -136,6 +136,13 @@ public partial class FarmField : Node
     [Export]
     public Godot.Collections.Array<CropArt> CropArts { get; set; } = [];
 
+    /// <summary>每个物品的图标。一个物品一份，靠标识与物品定义配对；在册的每一个都要有。</summary>
+    /// <remarks>
+    /// 缺了、重了、变异那一格没写，农场启动时一次全报（<see cref="ItemIconCheck"/>）。随身栏的格子画的就是它。
+    /// </remarks>
+    [Export]
+    public Godot.Collections.Array<ItemIcon> ItemIcons { get; set; } = [];
+
     /// <summary>随身栏那条六格。播种时取它选中那一格里的东西。</summary>
     /// <remarks>
     /// 缺了当场报错。没有随身栏就没法知道玩家手上拿的是什么，那时播种只能退回写死一种作物。
@@ -174,6 +181,7 @@ public partial class FarmField : Node
     /// <summary>按种子那一样物品找作物：手上拿的是哪一份种子，播下去就是哪一种。</summary>
     private IReadOnlyDictionary<string, CropDefinition> _cropsBySeed = null!;
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ItemIcon> _itemIcons = new(StringComparer.Ordinal);
     private readonly Dictionary<Vector2I, Sprite2D> _cropSprites = [];
 
     public override void _Ready()
@@ -238,10 +246,10 @@ public partial class FarmField : Node
         _cropsBySeed = CropDefinition.BySeed(_cropDefs);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
+        IndexItemIcons();
 
-        // 物品还没有图标：每个物品一份的图标资源那一套还没接，所以格子先只画框。到那时这里换成按物品标识查图标资源。
-        // 设计仓台账 UI-63
-        _carry.Icons = static _ => null;
+        // 背包里的每一样都在册，在册的每一样都核过有图标，所以这里按标识直接取。
+        _carry.Icons = (itemId, qualityId) => _itemIcons[itemId].TextureFor(qualityId);
         LoadWorld();
         RefreshAll();
 
@@ -548,12 +556,32 @@ public partial class FarmField : Node
         }
     }
 
+    /// <summary>核全部物品图标，再按标识索引起来。有一处不对就抛，全部问题一次列出来。</summary>
+    /// <remarks>
+    /// 判在规则层（<see cref="ItemIconCheck"/>），这里只把每一份配了什么交过去。启动时就核，不等画到那一格：
+    /// 缺图在格子里的样子是空着，而玩家分不清「这一格没东西」和「这一格有东西但没图」。
+    /// </remarks>
+    private void IndexItemIcons()
+    {
+        var problems = ItemIconCheck.Problems(_items, [.. ItemIcons.Select(icon => icon?.ToEntry())]);
+        if (problems.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmField)}（节点 {Name}）的物品图标有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+        }
+
+        foreach (var icon in ItemIcons)
+        {
+            _itemIcons[icon.ItemId] = icon;
+        }
+    }
+
     /// <summary>随身栏照背包前几格重画：随身栏自己不存东西，背包变了它就跟着变。</summary>
-    /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。</remarks>
+    /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。品质跟着那一堆走，画哪一张图标看它。</remarks>
     private void RefreshCarryBar()
     {
         var bagSlots = _world.State.Bag.Slots
-            .Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)
+            .Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count, stack.QualityId) : CarrySlot.Empty)
             .ToList();
         _carry.Bar.Fill(CarrySlotBar.ProjectionOf(bagSlots));
         _carry.OnContentChanged();
