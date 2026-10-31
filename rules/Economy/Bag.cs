@@ -202,6 +202,119 @@ public sealed class Bag
         return true;
     }
 
+    /// <summary>挪格：第 <paramref name="from"/> 格与第 <paramref name="to"/> 格（都从 0 数）互换，目标格空着时就是搬过去。</summary>
+    /// <remarks>
+    /// 同标识的两堆挪到一起也只是互换，不合堆：合堆是一键整理的事，挪格只动摆法。格号越界是调用方的错，当场抛。
+    /// 挪格不改哪一堆的先后序号：「最近获得」问的是什么时候进来的，不是什么时候挪过。
+    /// </remarks>
+    public void Move(int from, int to)
+    {
+        RequireSlot(from, nameof(from));
+        RequireSlot(to, nameof(to));
+        (_slots[from], _slots[to]) = (_slots[to], _slots[from]);
+    }
+
+    /// <summary>丢弃第 <paramref name="slot"/> 格（从 0 数）那一整堆。</summary>
+    /// <remarks>
+    /// 那一样声明了不可丢弃时一件都不丢，说得出是这一种（物品定义那一格，设计仓 design/物品系统.md）。丢之前那一道确认
+    /// 在界面那一侧，这里只管确认之后那一下。格号越界是调用方的错，当场抛。
+    /// </remarks>
+    public BagDiscardResult TryDiscardAt(int slot)
+    {
+        RequireSlot(slot, nameof(slot));
+
+        if (_slots[slot] is not { } stack)
+        {
+            return BagDiscardResult.NothingThere;
+        }
+
+        if (!Items.Items[stack.ItemId].Discardable)
+        {
+            return BagDiscardResult.NotDiscardable;
+        }
+
+        _slots[slot] = null;
+        return BagDiscardResult.Discarded;
+    }
+
+    /// <summary>
+    /// 按一个键排一遍。只动前 <paramref name="keepLeading"/> 格之后、筛选看得见的那些格（空格也算看得见），
+    /// 看得见的那几堆从那些格里最前面的一格起挨个摆，剩下的变空。
+    /// </summary>
+    /// <param name="key">按什么排。</param>
+    /// <param name="keepLeading">开头几格一格都不动：随身栏就是背包开头那几格，玩家手上那一格不许被排序换掉。</param>
+    /// <param name="filter">筛选条件。被筛掉的那几堆留在原来那几格，排序越过它们。</param>
+    /// <remarks>
+    /// 开头那几格为什么不动：随身栏按格号读背包开头那几格，排一次就换掉玩家手上那一格，而他没按任何键（设计仓
+    /// design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节）。不筛的时候它把东西都挪到前面、空格留在最后。
+    /// </remarks>
+    public void Sort(BagSortKey key, int keepLeading, BagFilter filter) => Arrange(key, keepLeading, filter, merge: false);
+
+    /// <summary>
+    /// 一键整理：把同标识的散堆并起来，再按 <paramref name="key"/> 排。动哪几格与 <see cref="Sort"/> 一样。
+    /// </summary>
+    /// <remarks>
+    /// 散堆是没装满的那几堆：同一种同一品质的散堆并成满堆加至多一个零头，装满的那几堆不动它们的件数。
+    /// 总数一件不变、一件都不丢、不跨容器 —— 它只动摆法。整理两次与整理一次一样。并出来的那几堆记的是参与合并的
+    /// 那几堆里最近的那个序号：「最近获得」问的是这一堆里最近进来的那一件。
+    /// </remarks>
+    public void Tidy(BagSortKey key, int keepLeading, BagFilter filter) => Arrange(key, keepLeading, filter, merge: true);
+
+    private void Arrange(BagSortKey key, int keepLeading, BagFilter filter, bool merge)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentOutOfRangeException.ThrowIfNegative(keepLeading);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(keepLeading, _slots.Length);
+
+        var places = Enumerable.Range(keepLeading, _slots.Length - keepLeading)
+            .Where(i => _slots[i] is not { } stack || filter.Shows(stack, Items))
+            .ToList();
+        var stacks = places.Where(i => _slots[i] is not null).Select(i => _slots[i]!.Value).ToList();
+        if (merge)
+        {
+            stacks = Merge(stacks);
+        }
+
+        stacks.Sort(BagOrder.For(key, Items));
+        for (var n = 0; n < places.Count; n++)
+        {
+            _slots[places[n]] = n < stacks.Count ? stacks[n] : null;
+        }
+    }
+
+    /// <summary>同一种同一品质的散堆并成满堆加至多一个零头；装满的那几堆原样留着。</summary>
+    private List<ItemStack> Merge(List<ItemStack> stacks)
+    {
+        var merged = new List<ItemStack>();
+        foreach (var group in stacks.GroupBy(s => (s.ItemId, s.QualityId)))
+        {
+            var limit = Items.Items[group.Key.ItemId].StackLimit;
+            merged.AddRange(group.Where(s => s.Count >= limit));
+
+            var scattered = group.Where(s => s.Count < limit).ToList();
+            if (scattered.Count == 0)
+            {
+                continue;
+            }
+
+            var latest = scattered.Max(s => s.AcquiredSequence);
+            for (var left = scattered.Sum(s => s.Count); left > 0; left -= limit)
+            {
+                merged.Add(new ItemStack(group.Key.ItemId, group.Key.QualityId, Math.Min(limit, left), latest));
+            }
+        }
+
+        return merged;
+    }
+
+    private void RequireSlot(int slot, string name)
+    {
+        if (slot < 0 || slot >= _slots.Length)
+        {
+            throw new ArgumentOutOfRangeException(name, $"背包只有 {_slots.Length} 格（从 0 数），没有第 {slot} 格");
+        }
+    }
+
     /// <summary>算出每一格各放几件：先按格号合进没满的同标识堆，再按格号占空格。放不下就是 <c>null</c>。</summary>
     private List<(int Slot, int Take)>? Plan(string itemId, string? qualityId, int count)
     {

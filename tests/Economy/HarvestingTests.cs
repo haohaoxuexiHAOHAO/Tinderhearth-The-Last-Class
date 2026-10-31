@@ -106,18 +106,20 @@ public class HarvestingTests
         Assert.False(attempt.Delivery?.Stored);
     }
 
-    /// <summary>放不下的那一下什么都没动，所以腾出位置再收，收到的正是第一次本该收到的那一份。</summary>
-    /// <remarks>背包里挪格与丢弃归设计仓台账 GP-160，这里用另一个有空格的背包代替「腾出位置」。</remarks>
+    /// <summary>放不下的那一下什么都没动，所以丢掉一堆腾出位置再收，收到的正是第一次本该收到的那一份。</summary>
     [Fact]
     public void 腾出位置再收_收到的与第一次本该收到的一样()
     {
         var plot = Ripe(mutate: true);
+        var bag = FullBag();
 
-        var rejected = Harvesting.ByProtagonist(plot, Turnip, Yield, FullBag());
-        var stored = Harvesting.ByProtagonist(plot, Turnip, Yield, TestBags.Empty());
+        var rejected = Harvesting.ByProtagonist(plot, Turnip, Yield, bag);
+        Assert.Equal(BagDiscardResult.Discarded, bag.TryDiscardAt(0));
+        var stored = Harvesting.ByProtagonist(plot, Turnip, Yield, bag);
 
         Assert.Equal(HarvestStatus.Stored, stored.Status);
         Assert.Equal(rejected.Delivery?.Goods, stored.Delivery?.Goods);
+        Assert.Equal(TestBags.Turnip, bag.Slots[0]?.ItemId);
     }
 
     [Fact]
