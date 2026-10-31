@@ -41,4 +41,13 @@ public class FarmNoticesTests
         Assert.Equal(rejected.Count, lines.Distinct().Count());
         Assert.Equal($"<{FarmNotices.SowNotASeedKey}>", FarmNotices.ForSowing(PlantResult.NotASeed, Fake));
     }
+
+    [Fact]
+    public void 收获只在背包放不下时出提示()
+    {
+        // 不是待收的那一格到不了收获，那一下不是被拒，不出提示。
+        Assert.Null(FarmNotices.ForHarvest(HarvestStatus.Stored, Fake));
+        Assert.Null(FarmNotices.ForHarvest(HarvestStatus.NotHarvestable, Fake));
+        Assert.Equal($"<{FarmNotices.HarvestBagFullKey}>", FarmNotices.ForHarvest(HarvestStatus.BagFull, Fake));
+    }
 }

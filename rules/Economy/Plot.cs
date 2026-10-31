@@ -210,27 +210,38 @@ public sealed class Plot
         return true;
     }
 
-    /// <summary>收获。一次性作物收完回到已锄，循环作物退回它声明的那一阶段。</summary>
+    /// <summary>先算：这一格现在收的话收上来什么。不改这一格。</summary>
     /// <param name="crop">这一格里那种作物的定义。</param>
     /// <param name="rule">算收几件要用的那几个量，由调用方给，本层没有默认值。</param>
-    /// <param name="harvest">收上来什么；没收成时是 0 件、不变异。</param>
+    /// <param name="harvest">收上来什么；不是待收时是 0 件、不变异。</param>
     /// <remarks>
+    /// 收成要先放进背包、放得下才动这一格（设计仓 design/背包系统.md 的「满了怎么办：不自动丢弃，四个入口各有一条明确的拒绝路径」
+    /// 一节：拒绝不许吞掉世界状态），所以算与改拆成两半。算的这一半没有副作用：变异那一位在长成那一下已经掷定，件数由浇水记录算出来。
+    /// <see cref="TryHarvest"/> 算的就是这一份，两处条件不会分叉。
+    ///
     /// 件数一律是整数、而且至少 1 件。玩家看到的不能是「收了 5.4 颗」，也不能是「收了 0 颗」。
     /// 变了的那一株件数照常按浇水算，与没变的同一套：变异改的是收上来的品质，不是件数。
     /// </remarks>
-    public bool TryHarvest(CropDefinition crop, HarvestYieldRule rule, out HarvestResult harvest)
+    public bool PeekHarvest(CropDefinition crop, HarvestYieldRule rule, out HarvestResult harvest)
     {
         ArgumentNullException.ThrowIfNull(crop);
         ArgumentNullException.ThrowIfNull(rule);
         RequireMatchingCrop(crop);
 
-        harvest = default;
-        if (State != PlotState.Harvestable)
+        harvest = State == PlotState.Harvestable ? new HarvestResult(YieldCount(rule), Mutated) : default;
+        return State == PlotState.Harvestable;
+    }
+
+    /// <summary>收获。一次性作物收完回到已锄，循环作物退回它声明的那一阶段。</summary>
+    /// <param name="crop">这一格里那种作物的定义。</param>
+    /// <param name="rule">算收几件要用的那几个量，由调用方给，本层没有默认值。</param>
+    /// <param name="harvest">收上来什么；没收成时是 0 件、不变异。与收之前 <see cref="PeekHarvest"/> 算出来的是同一份。</param>
+    public bool TryHarvest(CropDefinition crop, HarvestYieldRule rule, out HarvestResult harvest)
+    {
+        if (!PeekHarvest(crop, rule, out harvest))
         {
             return false;
         }
-
-        harvest = new HarvestResult(YieldCount(rule), Mutated);
 
         if (crop.RegrowFromStage is int back)
         {

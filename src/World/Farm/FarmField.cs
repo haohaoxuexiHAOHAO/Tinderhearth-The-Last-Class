@@ -229,6 +229,7 @@ public partial class FarmField : Node
         var catalog = ContentBootstrap.BuildCatalog();
         _text = ContentBootstrap.LoadText(catalog);
         _items = ContentBootstrap.LoadItems(catalog, _text);
+        Harvesting.RequireQualitiesIn(_items);
         _newGameBag = Bag.NewGame(ContentBootstrap.LoadConfig(catalog), _items);
         LoadCropDefinitions(catalog);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
@@ -471,22 +472,30 @@ public partial class FarmField : Node
         return result == PlantResult.Planted;
     }
 
-    /// <summary>收一次。收上来的东西往哪去还没有实现，见方法里的注释。</summary>
+    /// <summary>收一次：收成经生产那条管道进主角的背包，放不下那一株照旧待收。</summary>
+    /// <remarks>
+    /// 判在规则层（<see cref="Harvesting.ByProtagonist"/>），被拒时写哪一句在 <see cref="FarmNotices"/>。不要在这里绕过它直接往背包里放：
+    /// 入库只有管道那一处，多一个入口，「放不下那一株还在」就只在其中一处成立。
+    /// </remarks>
     private bool Harvest(Plot plot)
     {
         var crop = CropOf(plot) ?? throw new InvalidOperationException(
             $"这一格是 {plot.State}、作物标识是 {plot.CropId}，但找不到那份作物定义");
 
-        if (!plot.TryHarvest(crop, _yield, out var harvest))
+        var attempt = Harvesting.ByProtagonist(plot, crop, _yield, _world.State.Bag);
+        if (FarmNotices.ForHarvest(attempt.Status, _text) is string line)
         {
-            return false;
+            _notice.Show(line);
+            GD.Print("[地块] 收不了 ", _cursor.Cell, "：", line);
         }
 
-        // 收获结果到此为止。归属、付酬、入库都走生产系统那条管道，而它和背包都还不存在，所以现在
-        // 只打出来。不要在这里顺手加一个容器装它，那会让入库多出第二个入口。
-        GD.Print("[地块] 收上来 ", harvest.Count, " 件 ", crop.YieldItemId, harvest.Mutated ? "（变异）" : "",
-                 "（还没有仓库，先只打出来）");
-        return true;
+        if (attempt is { Status: HarvestStatus.Stored, Delivery: { } delivery })
+        {
+            var goods = delivery.Goods;
+            GD.Print("[地块] 收上来 ", goods.Count, " 件 ", goods.ItemId, "（", goods.QualityId, "），进了背包");
+        }
+
+        return attempt.Status == HarvestStatus.Stored;
     }
 
     /// <summary>这一格里那种作物的定义；空地为 <c>null</c>。</summary>
