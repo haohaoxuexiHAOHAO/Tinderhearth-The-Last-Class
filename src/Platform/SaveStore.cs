@@ -61,9 +61,19 @@ public sealed class SaveStore
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             TryDelete(temporary);
-            throw new IOException($"存档写不进 {Path}：{e.Message}", e);
+            throw new IOException(WhyNotWritten(e), e);
         }
     }
+
+    /// <summary>写不进去的原因：先一句中文说是哪一类，再跟系统原话。</summary>
+    /// <remarks>
+    /// 这一句会出现在「这一天没有推进」那个窗的原因那一行上。系统原话是英文（本机实测如此），只给它的话玩家读不懂；
+    /// 只给中文的话，少见的那几种就说不清。路径不写在这里：那个窗与输出面板各自另起一行写它，写两遍只是更长。
+    /// 只读那一类是实测过的：存档文件设成只读时，改名那一下抛 <see cref="UnauthorizedAccessException"/>。
+    /// </remarks>
+    private static string WhyNotWritten(Exception e) => e is UnauthorizedAccessException
+        ? $"没有写入权限，存档文件可能设成了只读，或者存档目录不让写（{e.Message}）"
+        : $"写不进去（{e.Message}）";
 
     private static void TryDelete(string path)
     {

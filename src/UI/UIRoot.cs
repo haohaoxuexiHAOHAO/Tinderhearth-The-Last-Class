@@ -16,6 +16,7 @@ namespace Tinderhearth.UI;
 ///
 /// 界面有两条路挂上来：代码建的走 <see cref="Register"/>（或直接挂到 <see cref="LayerOf"/> 上）；
 /// 作者在编辑器里摆的，摆成本节点的子节点，就绪时按它自己声明的层挪过去（<see cref="IPlacedUI"/>）。
+/// 后一种里开关要走导航栈的（弹窗这一类）还声明它是哪一个界面，挪过去时一并登记（<see cref="IPlacedSurface"/>）。
 /// 后一条只认那种节点，摆了别的东西当场报错 —— 不认的话它会留在本节点下面、画在世界坐标里，
 /// 有相机之后跟着地面一起滚走，而那不报错。
 ///
@@ -94,6 +95,23 @@ public partial class UIRoot : Node
 
         control.Reparent(LayerOf(placed.Layer), keepGlobalTransform: false);
         control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+
+        // 要走导航栈的那种（弹窗这一类）一并登记、先藏起来，之后由 Open 与 Close 开关。
+        if (placed is IPlacedSurface surfaced)
+        {
+            if (surfaced.Surface.Layer != placed.Layer)
+            {
+                throw new InvalidOperationException(
+                    $"「{child.Name}」声明挂在 {placed.Layer}，它的界面「{surfaced.Surface.Id}」却在 {surfaced.Surface.Layer}");
+            }
+
+            if (!_surfaces.TryAdd(surfaced.Surface.Id, control))
+            {
+                throw new InvalidOperationException($"界面 id 重复登记：{surfaced.Surface.Id}（「{child.Name}」）");
+            }
+
+            control.Visible = false;
+        }
     }
 
     /// <summary>取某一层的画布，用来往上挂节点。</summary>

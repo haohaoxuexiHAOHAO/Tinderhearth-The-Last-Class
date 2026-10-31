@@ -1,4 +1,5 @@
 using Tinderhearth.Rules.Foundation.Content;
+using Tinderhearth.Rules.Foundation.Text;
 
 namespace Tinderhearth.Platform;
 
@@ -23,5 +24,24 @@ public static class ContentBootstrap
         }
 
         return catalog;
+    }
+
+    /// <summary>读这种语言的文本表：各来源里那一份逐条按键合并，后面的覆盖前面的同键条目。</summary>
+    /// <remarks>
+    /// 一条一条按键合并，不是整个文件覆盖：否则 mod 只想改一句台词就会抹掉其余全部文本。
+    /// 主场景与在编辑器里单独跑的农场都要它，理由同 <see cref="BuildCatalog"/>。
+    /// </remarks>
+    public static TextCatalog LoadText(ContentCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        // 读哪种语言的文本表由 GameLanguage 定，以后改成读玩家级偏好也在那里改。
+        var wanted = GameLanguage.TextTablePath;
+        var tables = catalog.ResolveAll("text")
+            .Where(e => e.RelativePath == wanted)
+            .Select(e => (IReadOnlyDictionary<string, string>)
+                ContentJson.Parse<Dictionary<string, string>>(e.Text, $"{e.SourceName}:{wanted}"));
+
+        return TextCatalog.Merge(tables);
     }
 }

@@ -20,3 +20,14 @@ public interface IPlacedUI
     /// <summary>这个界面挂在哪一层。</summary>
     UILayer Layer { get; }
 }
+
+/// <summary>作者摆进场景、开关又要走导航栈的那种界面（弹窗这一类）：除了挂哪一层，还要说清它是哪一个界面。</summary>
+/// <remarks>
+/// <see cref="UIRoot"/> 挪它过去时一并登记、先藏起来，之后由 <see cref="UIRoot.Open"/> 与 <see cref="UIRoot.Close"/>
+/// 开关，世界暂不暂停照导航栈那一套判。它自己不碰 <c>Visible</c>：两处都设的话，谁后设谁说了算，而那不报错。
+/// </remarks>
+public interface IPlacedSurface : IPlacedUI
+{
+    /// <summary>它是哪一个界面。层必须与 <see cref="IPlacedUI.Layer"/> 一致。</summary>
+    UISurface Surface { get; }
+}

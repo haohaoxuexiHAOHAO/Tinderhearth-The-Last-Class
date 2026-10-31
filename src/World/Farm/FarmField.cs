@@ -1,7 +1,9 @@
 using Godot;
 using Tinderhearth.Platform;
 using Tinderhearth.Rules.Economy;
+using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Save;
+using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
@@ -152,7 +154,9 @@ public partial class FarmField : Node
     private DailySettlement _settlement = null!;
     private SaveShardRegistry _registry = null!;
     private SaveStore _store = null!;
+    private TextCatalog _text = TextCatalog.Empty;
     private readonly List<Bed> _beds = [];
+    private SleepPresentation? _wake;
 
     private readonly Dictionary<string, CropDefinition> _cropDefs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CropArt> _cropArts = new(StringComparer.Ordinal);
@@ -209,15 +213,31 @@ public partial class FarmField : Node
                     + "荒置退化天数至少 1 天，要在检查器里填");
         }
 
-        LoadCropDefinitions();
+        var catalog = ContentBootstrap.BuildCatalog();
+        LoadCropDefinitions(catalog);
+        _text = ContentBootstrap.LoadText(catalog);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
         FillCarryBarWithSeeds();
         LoadWorld();
         RefreshAll();
 
+        // 床与醒来那一套各在自己的 _Ready 里登记过来，谁先谁后看场景树，所以等这一帧所有节点都就绪了再核。
+        Callable.From(RequireWakeWhereBedsAre).CallDeferred();
+
         SetProcess(true);
         SetProcessUnhandledKeyInput(true);
+    }
+
+    /// <summary>摆了床就必须有醒来那一套：没有的话睡下去既没有淡出淡入，也没有摘要弹窗。</summary>
+    private void RequireWakeWhereBedsAre()
+    {
+        if (_beds.Count > 0 && _wake is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmField)}（节点 {Name}）这片地摆了床（{string.Join("、", _beds.Select(b => b.Name))}），"
+                    + $"却没有醒来那一套（挂了 {nameof(SleepPresentation)} 的节点）—— 睡下去之后没有淡出淡入，也没有摘要弹窗");
+        }
     }
 
     /// <summary>交互键只在这里听：站在床边是睡，否则作用在当前操作格上，由规则层挑。</summary>
@@ -230,7 +250,7 @@ public partial class FarmField : Node
 
         switch (FarmInteraction.Pick(_beds.Any(bed => bed.SleeperInReach)))
         {
-            case FarmInteractTarget.Bed: EndDay(); break;
+            case FarmInteractTarget.Bed: Sleep(); break;
             case FarmInteractTarget.CurrentCell: ActOnCurrentCell(); break;
         }
     }
@@ -248,23 +268,45 @@ public partial class FarmField : Node
     /// <summary>床离开场景树时把自己撤掉。</summary>
     internal void UnregisterBed(Bed bed) => _beds.Remove(bed);
 
+    /// <summary>醒来那一套把自己登记到这片地上，由它在自己的 _Ready 里调。一片地只认一套。</summary>
+    internal void RegisterWake(SleepPresentation wake)
+    {
+        if (_wake is not null && !ReferenceEquals(_wake, wake))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FarmField)}（节点 {Name}）接了两套醒来的表现（{_wake.Name} 与 {wake.Name}）—— 一片地只摆一套");
+        }
+
+        _wake = wake;
+    }
+
+    /// <summary>醒来那一套离开场景树时把自己撤掉。</summary>
+    internal void UnregisterWake(SleepPresentation wake)
+    {
+        if (ReferenceEquals(_wake, wake))
+        {
+            _wake = null;
+        }
+    }
+
     /// <summary>开发期的调试键：按 <c>N</c> 推进一天，按 <c>B</c> 换下一批种子。</summary>
     /// <remarks>
     /// 直接读按键、不走 <c>InputMap</c>，因为它们是工具键不是玩法绑定。进了输入映射就会出现在
     /// 「玩家能重绑的键」那份清单里，而玩家根本不该看见它们。TrainingRoom.cs 那三个调试键同理。
     ///
-    /// <c>N</c> 走的是每日结算那唯一的入口（<see cref="EndDay"/>），与睡觉同一条路。
+    /// <c>N</c> 与床走同一条路（<see cref="Sleep"/>），所以摆了醒来那一套时它也淡出淡入、也弹摘要。
+    /// 睡下到醒来那一段里两个键都不响应：它们不经输入门面，门面上那道闸挡不住它们，只能在这里挡。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key || _wake?.InputClosed == true)
         {
             return;
         }
 
         switch (key.Keycode)
         {
-            case Key.N: EndDay(); break;
+            case Key.N: Sleep(); break;
             case Key.B: NextSeedBatch(); break;
         }
     }
@@ -281,25 +323,40 @@ public partial class FarmField : Node
         GD.Print("[地块] 随身栏换成第 ", _seedBatch + 1, " 批种子，共 ", SeedBatches.CountFor(_cropDefs.Count), " 批");
     }
 
-    /// <summary>推进一天：走每日结算那唯一的入口，然后重画。床与调试键 <c>N</c> 都调它，别处调不到。</summary>
+    /// <summary>睡下去：床与调试键 <c>N</c> 都调它，别处调不到。</summary>
     /// <remarks>
     /// 推进一天没有第二条路，调试键也走这一条（设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节）：
     /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。
     ///
-    /// 没推进时世界一格没动，说清停在哪一步、为什么；那个弹窗还没有，归设计仓台账 UI-59，先打在输出面板上。
+    /// 摆了醒来那一套（<see cref="SleepPresentation"/>）就由它走淡出、结算、淡入、弹窗；没摆就当场结算，
+    /// 结果只打在输出面板上。后一种是作物素材表那份实机清单搭出来的农场，那时还没有床。
     /// </remarks>
-    private void EndDay()
+    private void Sleep()
+    {
+        if (_wake is null)
+        {
+            EndDay();
+            return;
+        }
+
+        _wake.Begin(EndDay, _text, _store.Path);
+    }
+
+    /// <summary>推进一天：走每日结算那唯一的入口，然后重画，并把结果打在输出面板上。只由 <see cref="Sleep"/> 走到。</summary>
+    /// <remarks>没推进时世界一格没动，输出面板上说清停在哪一步、为什么；停在自动存档那一步时连存档路径一起写。</remarks>
+    private SettlementOutcome EndDay()
     {
         var outcome = _settlement.EndDay(_world, DayEndSource.Sleep);
         if (!outcome.Advanced)
         {
-            GD.PrintErr("[结算] 这一天没有推进：停在「", outcome.FailedStep, "」，", outcome.Reason);
-            return;
+            GD.PrintErr("[结算] 这一天没有推进：停在「", outcome.FailedStep, "」，", outcome.Reason,
+                        outcome.FailedStep == SettlementSteps.AutoSave ? $"（存档 {_store.Path}）" : "");
+            return outcome;
         }
 
-        GameDate today = _world.State.Date;
-        GD.Print("[结算] 推进到第 ", today.Year, " 年 ", today.Season, " 第 ", today.Day, " 天");
+        GD.Print("[结算] 推进到 ", WakeReport.DateText(_world.State.Date, _text));
         RefreshAll();
+        return outcome;
     }
 
     /// <summary>写正式存档：拼成文本、原子替换那个文件，写成之后报出路径与各分片的字节数。</summary>
@@ -318,13 +375,15 @@ public partial class FarmField : Node
                  string.Join("、", shards.Select(s => $"{s.Id} {s.Bytes}")), "）");
     }
 
-    /// <summary>醒来那一步交出来的摘要。弹窗还没有，归设计仓台账 UI-59，先逐格打在输出面板上。</summary>
-    private static void PrintSummary(SettlementSummary summary)
+    /// <summary>醒来那一步交出来的摘要：完整明细逐格打在输出面板上，一格一行。</summary>
+    /// <remarks>
+    /// 完整明细的家是手环上那一页，那一页还没有，归设计仓台账 UI-20。简版弹窗读的也是这一份摘要，由醒来那一套弹。
+    /// </remarks>
+    private void PrintSummary(SettlementSummary summary)
     {
-        foreach (var change in summary.CropChanges)
+        foreach (var line in WakeReport.DetailLines(summary, _text))
         {
-            GD.Print("[地块] ", change.Cell, " 的 ", change.CropId,
-                     change.Kind == CropChangeKind.Mutated ? " 长成时变异了" : " 换季枯死了");
+            GD.Print("[结算] ", line);
         }
     }
 
@@ -422,9 +481,9 @@ public partial class FarmField : Node
         plot.CropId is string id && _cropDefs.TryGetValue(id, out var crop) ? crop : null;
 
     /// <summary>读全部作物定义。怎么读、什么算坏与启动时那一次核对是同一处（<see cref="CropDefinition.LoadAll"/>）。</summary>
-    private void LoadCropDefinitions()
+    private void LoadCropDefinitions(ContentCatalog catalog)
     {
-        foreach (var (id, crop) in CropDefinition.LoadAll(ContentBootstrap.BuildCatalog()))
+        foreach (var (id, crop) in CropDefinition.LoadAll(catalog))
         {
             _cropDefs[id] = crop;
         }
@@ -489,9 +548,8 @@ public partial class FarmField : Node
         }
 
         _world = new CurrentWorld(world);
-        GameDate date = world.Date;
         GD.Print(text is null ? "[存档] 还没有存档，按开局那一天开新档：" : "[存档] 读回存档：", _store.Path,
-                 "，第 ", date.Year, " 年 ", date.Season, " 第 ", date.Day, " 天");
+                 "，", WakeReport.DateText(world.Date, _text));
     }
 
     /// <summary>整片重画。</summary>

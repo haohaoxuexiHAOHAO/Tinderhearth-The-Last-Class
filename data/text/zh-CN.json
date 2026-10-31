@@ -87,5 +87,26 @@
   "crop.crop_14.name": "作物14",
   "crop.crop_14.description": "作物描述14",
   "crop.crop_15.name": "作物15",
-  "crop.crop_15.description": "作物描述15"
+  "crop.crop_15.description": "作物描述15",
+
+  "//日历": "season.* 是四个季节的名字，季节的先后在代码仓 rules/Economy/Calendar.cs。",
+  "season.spring": "春季",
+  "season.summer": "夏季",
+  "season.autumn": "秋季",
+  "season.winter": "冬季",
+
+  "//醒来": "ui.wake.* 是醒来那一刻弹的两个窗与完整明细的字。花括号是代码填进去的值，从 {0} 数起；哪一条填什么写在代码仓 rules/Economy/WakeReport.cs 的那几个键上。项名照设计仓 canon/gameplay/时间与经营.md 每日结算那份清单的写法。",
+  "ui.wake.date": "第 {0} 年 {1} 第 {2} 天",
+  "ui.wake.withered": "作物枯死 {0} 格",
+  "ui.wake.mutated": "作物变异 {0} 格",
+  "ui.wake.nothing": "没有要紧的变化",
+  "ui.wake.save_failed": "存档没写上，这一天没有推进",
+  "ui.wake.step_failed": "结算停在「{0}」，这一天没有推进",
+  "ui.wake.reason": "原因：{0}",
+  "ui.wake.save_path": "存档：{0}",
+  "ui.wake.retry": "处理好之后再睡一次",
+  "ui.wake.detail.withered": "{0} 的{1}换季枯死了",
+  "ui.wake.detail.mutated": "{0} 的{1}长成时变异了",
+  "ui.wake.close": "知道了",
+  "ui.wake.next_page": "下一页"
 }

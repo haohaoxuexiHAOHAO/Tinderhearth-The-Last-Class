@@ -50,34 +50,44 @@ public partial class InputRouter : Node
         ProcessMode = ProcessModeEnum.Always;
     }
 
+    /// <summary>门面上的那道闸。关着时下面几个读法全读不到：按着、刚按下、刚松开、移动方向。</summary>
+    /// <remarks>
+    /// 谁关谁开、两方都关着怎么办，判在规则层的 <see cref="InputGate"/>。关它的是世界没暂停、却不许玩家动的那几段，
+    /// 比如睡下到醒来那一段转场；设备族与修饰键照常记，按键提示不会因为关过一次闸就换错。
+    /// </remarks>
+    public InputGate Gate { get; } = new();
+
     /// <summary>
     /// 这个动作现在是不是按着。
     /// </summary>
     /// <remarks>
-    /// 只有一层遮挡：修饰键按住时被遮的动作（<see cref="SkillModifierState.ShouldSuppress"/>）。
+    /// 两层遮挡：闸关着时什么都读不到（<see cref="Gate"/>）；修饰键按住时被遮的动作也读不到
+    /// （<see cref="SkillModifierState.ShouldSuppress"/>）。
     ///
     /// 面板打开时这里不用遮任何东西。弹出界面接管输入时世界是暂停的，玩法节点不在跑（本类的
     /// <c>ProcessMode</c> 是 <c>Always</c>，玩法节点不是），所以手柄上「下面键既是跳跃又是界面
     /// 确认」那个歧义不会发生。暂停这条规则见设计仓 canon/gameplay/玩法定位.md。
     /// </remarks>
     public bool IsPressed(string action) =>
-        !_modifiers.ShouldSuppress(action)
+        Gate.IsOpen
+        && !_modifiers.ShouldSuppress(action)
         && Input.IsActionPressed(action);
 
-    /// <summary>这一帧这个动作是不是刚按下。同样受修饰键遮挡影响。</summary>
+    /// <summary>这一帧这个动作是不是刚按下。同样受闸与修饰键遮挡影响。</summary>
     public bool IsJustPressed(string action) =>
-        !_modifiers.ShouldSuppress(action)
+        Gate.IsOpen
+        && !_modifiers.ShouldSuppress(action)
         && Input.IsActionJustPressed(action);
 
-    /// <summary>这一帧这个动作是不是刚松开。</summary>
-    public bool IsJustReleased(string action) => Input.IsActionJustReleased(action);
+    /// <summary>这一帧这个动作是不是刚松开。闸关着时读不到。</summary>
+    public bool IsJustReleased(string action) => Gate.IsOpen && Input.IsActionJustReleased(action);
 
     /// <summary>
-    /// 移动方向。不受修饰键遮挡 —— 挑技能的时候还得能走位。
+    /// 移动方向。不受修饰键遮挡 —— 挑技能的时候还得能走位；闸关着时是零，按着方向键也站住不动。
     /// </summary>
-    public Vector2 MoveDirection() => Input.GetVector(
-        InputActions.MoveLeft, InputActions.MoveRight,
-        InputActions.MoveUp, InputActions.MoveDown);
+    public Vector2 MoveDirection() => Gate.IsOpen
+        ? Input.GetVector(InputActions.MoveLeft, InputActions.MoveRight, InputActions.MoveUp, InputActions.MoveDown)
+        : Vector2.Zero;
 
     public override void _Input(InputEvent @event)
     {

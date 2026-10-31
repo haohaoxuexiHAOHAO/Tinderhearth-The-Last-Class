@@ -86,7 +86,7 @@ public partial class Main : Node2D
         GD.Print("[启动] 内容来源 ", string.Join(" → ", catalog.Sources.Select(s => s.Name)));
 
         var config = LoadConfig(catalog);
-        var text = LoadText(catalog);
+        var text = ContentBootstrap.LoadText(catalog);
         var characters = LoadCharacters(catalog);
         var crops = LoadCrops(catalog, text);
 
@@ -286,21 +286,6 @@ public partial class Main : Node2D
         return entries.TryGetValue(GameConfig.ContentPath, out var entry)
             ? GameConfig.Parse(entry.Text)
             : throw new FileNotFoundException($"缺少 {GameConfig.ContentPath}");
-    }
-
-    /// <summary>
-    /// 文本一条一条按键合并，不是整个文件覆盖 —— 否则 mod 只想改一句台词就会抹掉其余全部文本。
-    /// </summary>
-    private static TextCatalog LoadText(ContentCatalog catalog)
-    {
-        // 读哪种语言的文本表由 GameLanguage 定，以后改成读玩家级偏好也在那里改。
-        var wanted = GameLanguage.TextTablePath;
-        var tables = catalog.ResolveAll("text")
-            .Where(e => e.RelativePath == wanted)
-            .Select(e => (IReadOnlyDictionary<string, string>)
-                ContentJson.Parse<Dictionary<string, string>>(e.Text, $"{e.SourceName}:{wanted}"));
-
-        return TextCatalog.Merge(tables);
     }
 
     /// <summary>读全部角色定义。两份文件用了同一个标识在这里当场报错，理由见 <see cref="ContentCatalog.ResolveById"/>。</summary>

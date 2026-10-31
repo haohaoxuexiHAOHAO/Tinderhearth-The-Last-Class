@@ -102,7 +102,10 @@ public sealed record CropDefinition
     /// 「不占命名权」那一条），而物品定义还没有，归设计仓台账 GP-22。现在给定义加一格键名的话，等物品定义
     /// 来了名字就有两个家；由标识拼键，文字只在文本表里一份。
     /// </remarks>
-    public string NameKey => $"crop.{Id}.name";
+    public string NameKey => NameKeyOf(Id);
+
+    /// <summary>按标识拼出名字那一条的键，给手上只有标识的地方用（摘要里的每一格）。拼法只在这一处。</summary>
+    public static string NameKeyOf(string id) => $"crop.{id}.name";
 
     /// <summary>文本表里这种作物的描述那一条的键。拼法与理由同 <see cref="NameKey"/>。</summary>
     public string DescriptionKey => $"crop.{Id}.description";
