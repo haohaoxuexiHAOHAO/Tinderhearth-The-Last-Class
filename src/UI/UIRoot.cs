@@ -83,6 +83,10 @@ public partial class UIRoot : Node
     /// <remarks>
     /// 铺满的做法与 <see cref="Register"/> 一样，理由也一样（见那里）。挪过去之后它的 <c>_Ready</c>
     /// 不会再跑，所以这里只挪、不碰它的内容：它在自己的 <c>_Ready</c> 里已经把自己搭好了。
+    ///
+    /// 要走导航栈的那种先藏再挪，与 <see cref="Register"/> 先藏再挂是同一个顺序。反过来的话，它进新那一层时
+    /// 自己先进树、子节点后进树，可见的话就在这个夹缝里发显示变化的信号：手环在信号里给页签拿焦点，页签还不在树里，
+    /// 引擎报错。实测：只摆了界面根与手环的一次性场景无头跑一次。
     /// </remarks>
     private void Adopt(Node child)
     {
@@ -92,9 +96,6 @@ public partial class UIRoot : Node
                 $"{nameof(UIRoot)}（节点 {Name}）下面只能放界面节点（挂了随身栏这类脚本的 Control），"
                     + $"「{child.Name}」不是 —— 别的东西摆到场景里别处去");
         }
-
-        control.Reparent(LayerOf(placed.Layer), keepGlobalTransform: false);
-        control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
         // 要走导航栈的那种（弹窗这一类）一并登记、先藏起来，之后由 Open 与 Close 开关。
         if (placed is IPlacedSurface surfaced)
@@ -112,6 +113,9 @@ public partial class UIRoot : Node
 
             control.Visible = false;
         }
+
+        control.Reparent(LayerOf(placed.Layer), keepGlobalTransform: false);
+        control.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
     }
 
     /// <summary>取某一层的画布，用来往上挂节点。</summary>

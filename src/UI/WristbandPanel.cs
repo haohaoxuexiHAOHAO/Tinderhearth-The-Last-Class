@@ -1,4 +1,5 @@
 using Godot;
+using Tinderhearth.Platform;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.UI;
 
@@ -19,12 +20,18 @@ namespace Tinderhearth.UI;
 ///
 /// 子页签上的字从文本表取（<c>ui.wristband.page.*</c>），缺了显成缺文本的占位，一眼看得出来。
 ///
+/// 它有两种来路。主场景里由代码建出来、登记到界面根上，素材资源、文本表与主题由主场景给；别的场景（农场）里由作者
+/// 摆成界面根的子节点、在检查器里接素材资源，界面根就绪时把它挪到面板那一层、登记成手环那个界面（<see cref="IPlacedSurface"/>）。
+/// 后一种没有人给文本表与主题，所以没给就自己拿：文本表与主场景读的是同一处（<see cref="ContentBootstrap.LoadText"/>），
+/// 主题用同一份素材资源装。它在自己的 <c>_Ready</c> 里搭好全部内容、连好全部信号，被界面根挪动之后不再搭第二遍。
+/// 那些信号都连在它自己与它的子节点之间、从不断开，所以挪动不丢 —— <see cref="IPlacedUI"/> 说会丢的，是出树时断开的那种。
+///
 /// 顶层页签只画了图标、不写字，也不另放一行当前页标题：鼠标指着一个页签、或者键盘与手柄的焦点停在它上面，
 /// 停满一段时间就在它下面弹出写着名字的小窗（<c>ui.wristband.tab.*</c>）。两种操作方式走同一个小窗、同一个
 /// 时长 —— 焦点与悬停是同一个样子（设计仓 production/界面绘制约定.md），而 Godot 自带的提示框只认鼠标，
 /// 键盘与手柄停上去永远不弹，所以这里自己做。
 /// </remarks>
-public partial class WristbandPanel : Control
+public partial class WristbandPanel : Control, IPlacedSurface
 {
     private readonly Dictionary<string, Button> _tabButtons = [];
     private readonly Dictionary<string, Button> _pageButtons = [];
@@ -43,11 +50,21 @@ public partial class WristbandPanel : Control
     private UIContext _context = UIContext.Base;
     private bool _built;
 
-    /// <summary>素材资源。页签上的图标从这里取。代码搭这个面板的那一方在挂上之前给。</summary>
+    /// <summary>素材资源。页签上的图标从这里取，缺了或缺格当场报错并一次列全。</summary>
+    /// <remarks>
+    /// 摆进场景时在检查器里接 <c>assets/self-drawn/ui/ui_art.tres</c>，与随身栏接的是同一份；主场景由代码在挂上之前给。
+    /// </remarks>
+    [Export]
     public UIArt? Art { get; set; }
 
-    /// <summary>文本表。子页签上的字从这里取。代码搭这个面板的那一方在挂上之前给。</summary>
+    /// <summary>文本表。子页签上的字从这里取。代码搭这个面板的那一方在挂上之前给；没给就在就绪时自己读一份。</summary>
     public TextCatalog? Catalog { get; set; }
+
+    /// <summary>这个面板挂在面板那一层。</summary>
+    public UILayer Layer => Wristband.Surface.Layer;
+
+    /// <summary>它就是手环那个界面：经导航栈开关，开着时世界停着。</summary>
+    public UISurface Surface => Wristband.Surface;
 
     /// <summary>当前场合。改它会立刻重算哪些页签可用、哪些灰着、哪些不显示。</summary>
     public UIContext Context
@@ -62,10 +79,12 @@ public partial class WristbandPanel : Control
 
     public override void _Ready()
     {
-        _art = Art ?? throw new InvalidOperationException(
-            $"{nameof(WristbandPanel)}（节点 {Name}）的 {nameof(Art)} 没给 —— 页签上的图标从素材资源取");
-        _text = Catalog ?? throw new InvalidOperationException(
-            $"{nameof(WristbandPanel)}（节点 {Name}）的 {nameof(Catalog)} 没给 —— 子页签上的字从文本表取");
+        _art = UIArtGuard.Require(Art, $"{nameof(WristbandPanel)}（节点 {Name}）");
+
+        // 摆进场景的那一种没有人给文本表与主题：自己拿，与主场景同一个来源。不拿的话子页签上一片缺文本的占位，
+        // 字也退回引擎默认字体，而后者不报错。
+        _text = Catalog ?? ContentBootstrap.LoadText(ContentBootstrap.BuildCatalog());
+        Theme ??= PixelTheme.Install(_art, out _);
 
         var center = new CenterContainer { Name = "Center" };
         center.SetAnchorsPreset(LayoutPreset.FullRect);

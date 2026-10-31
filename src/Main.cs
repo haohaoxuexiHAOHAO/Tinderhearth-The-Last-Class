@@ -142,7 +142,7 @@ public partial class Main : Node2D
     private UIContext _context;
     private UIRoot _ui = null!;
     private InputRouter _router = null!;
-    private WristbandPanel _wristband = null!;
+    private Theme _theme = null!;
     private TextCatalog _text = null!;
     private IReadOnlyList<PixelTheme.Check> _fontChecks = [];
 
@@ -156,14 +156,7 @@ public partial class Main : Node2D
     /// </remarks>
     private void BuildHud()
     {
-        var theme = PixelTheme.Install(_art, out var fontChecks);
-        _fontChecks = fontChecks;
-        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
-                 fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
-
-        // 手环也挂同一份主题。它自己不载字体，等的就是这一步。
-        _wristband.Theme = theme;
-
+        var theme = _theme;
         var layer = _ui.LayerOf(UILayer.Hud);
         switch (_context)
         {
@@ -218,9 +211,15 @@ public partial class Main : Node2D
         AddChild(ui);
         _ui = ui;
 
-        var wristband = new WristbandPanel { Art = _art, Catalog = _text };
+        // 手环与 HUD 挂同一份主题，在手环挂上之前给：手环就绪时没人给就自己装一份（摆进场景的那一种要这样），
+        // 晚给的话那一份白装。
+        _theme = PixelTheme.Install(_art, out var fontChecks);
+        _fontChecks = fontChecks;
+        GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
+                 fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
+
+        var wristband = new WristbandPanel { Art = _art, Catalog = _text, Theme = _theme };
         ui.Register(Wristband.Surface, wristband);
-        _wristband = wristband;
         ui.Open(Wristband.Surface);
 
         ui.Context = _context;
