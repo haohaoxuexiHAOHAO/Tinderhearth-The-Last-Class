@@ -258,8 +258,10 @@ public partial class FarmField : Node
         _carry.Icons = IconFor;
         LoadWorld();
 
-        // 背包每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。
-        _wristband.Bag = new BagPageSource(() => _world.State.Bag, IconFor, ContentBootstrap.LoadPalette());
+        // 背包每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。丢不掉那一下出在同一条即时提示上；
+        // 背包页挪了开头那几格，随身栏跟着重画。
+        _wristband.Bag = new BagPageSource(
+            () => _world.State.Bag, IconFor, ContentBootstrap.LoadPalette(), _notice.Show, RefreshCarryBar);
         RefreshAll();
 
         // 床与醒来那一套各在自己的 _Ready 里登记过来，谁先谁后看场景树，所以等这一帧所有节点都就绪了再核。

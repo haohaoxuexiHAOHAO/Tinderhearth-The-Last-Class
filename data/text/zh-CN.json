@@ -164,5 +164,18 @@
   "//背包页": "ui.bag.* 是手环里背包那一页的字。花括号是代码填进去的值，从 {0} 数起；哪一条填什么写在代码仓 rules/Economy/BagPage.cs 的那几个键上。",
   "ui.bag.free_slots": "还剩 {0} 个空格",
   "ui.bag.info": "{0}　{1}　{2} 件",
-  "ui.bag.info_no_quality": "{0}　{1} 件"
+  "ui.bag.info_no_quality": "{0}　{1} 件",
+  "ui.bag.sort.quality": "按品质",
+  "ui.bag.sort.category": "按类别",
+  "ui.bag.sort.recent": "按最近获得",
+  "ui.bag.filter": "筛选",
+  "ui.bag.filter.any_category": "全部类别",
+  "ui.bag.filter.any_quality": "全部品质",
+  "ui.bag.tidy": "一键整理",
+  "ui.bag.discard": "丢弃",
+  "ui.bag.discard_ask": "丢掉{0}（{1}）{2} 件？丢了就找不回来。",
+  "ui.bag.discard_ask_no_quality": "丢掉{0} {1} 件？丢了就找不回来。",
+  "ui.bag.discard_yes": "丢掉",
+  "ui.bag.discard_no": "不丢",
+  "ui.bag.discard_rejected": "{0}不能丢"
 }

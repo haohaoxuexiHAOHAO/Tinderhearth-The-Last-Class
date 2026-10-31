@@ -7,7 +7,7 @@ namespace Tinderhearth.UI;
 
 /// <summary>
 /// 手环面板的外壳：一圈厚框、压在外框顶边上的一排图标页签、当前那个页签的一排子页签、一块浅底内容区，
-/// 外加一个页签名字的小窗。每一页里面显示什么还没做。
+/// 外加一个页签名字的小窗。内容区里背包那一页画背包（<see cref="BagPageView"/>），其余各页还只写页名。
 /// </summary>
 /// <remarks>
 /// 有哪些页、各自在什么场合怎么显示，都从规则层的 <see cref="Wristband"/> 读，本类只把结论翻译成按钮的
@@ -450,7 +450,7 @@ public partial class WristbandPanel : Control, IPlacedSurface
         var showsBag = _activePage?.Id == Wristband.BagPageId && _bag is not null;
         if (showsBag && _bagView is null)
         {
-            _bagView = new BagPageView(_art, _text, _bag!);
+            _bagView = new BagPageView(_art, _text, _bag!, _ui, Theme);
             _inset.AddChild(_bagView);
         }
 

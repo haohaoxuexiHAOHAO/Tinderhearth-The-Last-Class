@@ -45,6 +45,9 @@ public static class PixelTheme
     /// <summary>背包那一页装格子的那一圈深色厚框。</summary>
     public const string BagFrame = "BagFrame";
 
+    /// <summary>压在面板上的弹窗那一圈浅色厚框（丢弃之前那一问）。框里的字用浅底上的深字。</summary>
+    public const string DialogFrame = "DialogFrame";
+
     /// <summary>浅底上的字。</summary>
     public const string PaperLabel = "PaperLabel";
 
@@ -124,6 +127,12 @@ public static class PixelTheme
         // 背包那一页的格子装在一圈深色厚框里，与手环外框同一件；框到格子多远照背包页的排法。
         theme.SetTypeVariation(BagFrame, "PanelContainer");
         theme.SetStylebox("panel", BagFrame, Box(art.KitFrameThickDark, BagPageLayout.FramePadding, BagPageLayout.FramePadding));
+
+        // 压在面板上的弹窗用浅色那一族的厚框（素材资源里那一件就是给它的），与手环外框同一档内边距。
+        theme.SetTypeVariation(DialogFrame, "PanelContainer");
+        theme.SetStylebox("panel", DialogFrame, Box(art.KitFrameThickLight, WristbandLayout.FramePadding,
+            WristbandLayout.FramePadding));
+
         theme.SetTypeVariation(PaperLabel, "Label");
         theme.SetColor("font_color", PaperLabel, ToColor(HudPalette.PaperInk));
 
