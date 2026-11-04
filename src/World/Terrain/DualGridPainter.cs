@@ -42,6 +42,14 @@ public partial class DualGridPainter : Node
     [Export]
     public Godot.Collections.Array<DualGridPair> Pairs { get; set; } = [];
 
+    /// <summary>每种地形铺哪张纹理图。一项都没有时地面照双网格图原样画。</summary>
+    /// <remarks>
+    /// 声明了任意一项，数据层地形集里每一种地形都要有一项：一张纹理图，或勾上不铺。判在规则层
+    /// （<see cref="TerrainFillCheck"/>），改完之后点「重画显示层」重新挂上。
+    /// </remarks>
+    [Export]
+    public Godot.Collections.Array<TerrainFill> Fills { get; set; } = [];
+
     /// <summary>四角编码到图集格的映射表。下标是编码，值是图集里的格坐标。</summary>
     /// <remarks>
     /// 编码按「左上、右上、左下、右下」四位拼成 0 到 15，左上是最高位，0 表示那个角是
@@ -79,12 +87,15 @@ public partial class DualGridPainter : Node
     /// 刷格子有 <c>Changed</c> 信号自动接住，但改导出属性不发信号，那时点这个按钮比重开场景快。
     /// </remarks>
     [ExportToolButton("重画显示层")]
-    public Callable RepaintButton => Callable.From(Repaint);
+    public Callable RepaintButton => Callable.From(RepaintFromButton);
 
     private TileMapLayer? _data;
     private TileMapLayer? _display;
     private bool _repaintQueued;
     private bool _reportedUncoveredCorner;
+
+    /// <summary>编辑器存场景那一下先摘下来的纹理材质，存完挂回去。</summary>
+    private Material? _heldForSave;
 
     /// <summary>这次重画时数据层占的范围。<see cref="TerrainAt"/> 拿它把范围外的角钳到边缘上。</summary>
     private Rect2I _used;
@@ -101,6 +112,7 @@ public partial class DualGridPainter : Node
         AlignDisplayLayer();
         Repaint();
         CheckCollisionSetup();
+        ApplyFills();
     }
 
     public override void _ExitTree()
@@ -108,6 +120,35 @@ public partial class DualGridPainter : Node
         if (_data is not null)
         {
             _data.Changed -= OnDataLayerChanged;
+        }
+    }
+
+    /// <summary>编辑器存场景时先把代码挂的纹理材质摘下来，存完再挂回去。</summary>
+    /// <remarks>
+    /// 那个材质是照 <see cref="Fills"/> 现算的，进树时会重挂一次。存进场景文件只会多出一段跟着声明变的着色器代码，
+    /// 改一次纹理场景文件就跟着变，而那一段没有人该手改。
+    /// </remarks>
+    public override void _Notification(int what)
+    {
+        if (what == NotificationEditorPreSave && _display is not null && IsFillMaterial(_display.Material))
+        {
+            _heldForSave = _display.Material;
+            _display.Material = null;
+        }
+        else if (what == NotificationEditorPostSave && _display is not null && _heldForSave is not null)
+        {
+            _display.Material = _heldForSave;
+            _heldForSave = null;
+        }
+    }
+
+    /// <summary>检查器里那个按钮：重画显示层，并照 <see cref="Fills"/> 重新挂纹理材质。</summary>
+    private void RepaintFromButton()
+    {
+        Repaint();
+        if (_data is not null && _display is not null)
+        {
+            ApplyFills();
         }
     }
 
@@ -228,6 +269,119 @@ public partial class DualGridPainter : Node
             Report($"数据层（{_data.Name}）的碰撞有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
         }
     }
+
+    /// <summary>照 <see cref="Fills"/> 给显示层挂上或摘掉地面纹理的材质。配错时与这个类其余几条同一个口径报。</summary>
+    /// <remarks>
+    /// 一项都没声明时摘掉代码挂的那一个，地面照双网格图原样画，并在输出面板说一句。声明了就从双网格图里读出各地形的
+    /// 主色，连同声明交给 <see cref="TerrainFillCheck"/> 判。规矩在设计仓 production/场景绘制约定.md 的「双网格」一节。
+    /// </remarks>
+    private void ApplyFills()
+    {
+        if (Fills.Count == 0)
+        {
+            if (IsFillMaterial(_display!.Material))
+            {
+                _display.Material = null;
+            }
+
+            GD.Print($"[地形] {Name}：没配地面纹理，地面照双网格图原样画");
+            return;
+        }
+
+        if (_display!.Material is not null && !IsFillMaterial(_display.Material))
+        {
+            Report($"显示层（{_display.Name}）上已经挂着一个材质。地面纹理的材质由代码挂，把那个材质清掉");
+            return;
+        }
+
+        TileSet tileSet = _data!.TileSet;
+        if (DataTerrainSet < 0 || DataTerrainSet >= tileSet.GetTerrainSetsCount())
+        {
+            Report($"{nameof(DataTerrainSet)} 是 {DataTerrainSet}，数据层的 TileSet 里没有这个地形集，读不出有哪几种地形");
+            return;
+        }
+
+        Dictionary<int, Rgb8> keys = ReadKeys();
+        FillTerrain[] terrains =
+        [
+            .. Enumerable.Range(0, tileSet.GetTerrainsCount(DataTerrainSet)).Select(terrain => new FillTerrain(
+                terrain,
+                tileSet.GetTerrainName(DataTerrainSet, terrain),
+                keys.TryGetValue(terrain, out Rgb8 key) ? key : null)),
+        ];
+        FillDeclaration[] declarations =
+        [
+            .. Fills.Select((fill, index) => fill is null
+                ? new FillDeclaration(index, Empty: true, Terrain: -1, HasTexture: false, NoFill: false, Width: 0, Height: 0)
+                : new FillDeclaration(index, Empty: false, fill.Terrain, HasTexture: fill.Texture is not null, fill.NoFill,
+                    Width: fill.Texture?.GetWidth() ?? 0, Height: fill.Texture?.GetHeight() ?? 0)),
+        ];
+
+        var problems = TerrainFillCheck.Problems(terrains, declarations, tileSet.TileSize.X);
+        if (problems.Count > 0)
+        {
+            _display.Material = null;
+            Report($"地面纹理有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+            return;
+        }
+
+        TerrainFill[] textured = [.. Fills.Where(fill => fill.Texture is not null)];
+        _display.Material = textured.Length == 0 ? null : FillMaterial(textured, keys);
+    }
+
+    /// <summary>每种地形的主色：从认得它的第一套双网格图里四角全同那一张读左上角那个像素。</summary>
+    /// <remarks>那一张整张纯色（<c>tools/check_dualgrid.py</c> 判），而且同一种地形各套同色，所以哪一套先读到都一样。</remarks>
+    private Dictionary<int, Rgb8> ReadKeys()
+    {
+        var keys = new Dictionary<int, Rgb8>();
+        foreach (DualGridPair pair in Pairs)
+        {
+            if (!_display!.TileSet.HasSource(pair.DisplaySourceId)
+                || _display.TileSet.GetSource(pair.DisplaySourceId) is not TileSetAtlasSource { Texture: not null } atlas)
+            {
+                continue;
+            }
+
+            Image image = atlas.Texture.GetImage();
+            if (image is null || image.IsCompressed())
+            {
+                continue;
+            }
+
+            foreach (var (terrain, code) in new[] { (pair.TerrainA, 0), (pair.TerrainB, CodeToAtlasOffset.Length - 1) })
+            {
+                Vector2I coords = pair.AtlasOrigin + CodeToAtlasOffset[code];
+                if (keys.ContainsKey(terrain) || !atlas.HasTile(coords))
+                {
+                    continue;
+                }
+
+                Vector2I corner = atlas.GetTileTextureRegion(coords).Position;
+                Color color = image.GetPixel(corner.X, corner.Y);
+                keys[terrain] = new Rgb8((byte)color.R8, (byte)color.G8, (byte)color.B8);
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>按要铺的那几种地形现写一段着色器，填上各自的纹理图与主色。</summary>
+    private static ShaderMaterial FillMaterial(TerrainFill[] textured, Dictionary<int, Rgb8> keys)
+    {
+        var material = new ShaderMaterial { Shader = new Shader { Code = TerrainFillShader.Code(textured.Length) } };
+        material.SetMeta(TerrainFillShader.OwnerMeta, true);
+        for (var slot = 0; slot < textured.Length; slot++)
+        {
+            Rgb8 key = keys[textured[slot].Terrain];
+            material.SetShaderParameter(TerrainFillShader.TextureParam(slot), textured[slot].Texture!);
+            material.SetShaderParameter(TerrainFillShader.KeyParam(slot), new Vector3I(key.R, key.G, key.B));
+        }
+
+        return material;
+    }
+
+    private static bool IsFillMaterial(Material? material) =>
+        material is ShaderMaterial shaderMaterial && shaderMaterial.HasMeta(TerrainFillShader.OwnerMeta);
 
     /// <summary>TileSet 里每个图集源的每一张瓦片（含备选），各标了什么、带不带碰撞。</summary>
     private static IEnumerable<TerrainTile> TilesOf(TileSet tileSet)
