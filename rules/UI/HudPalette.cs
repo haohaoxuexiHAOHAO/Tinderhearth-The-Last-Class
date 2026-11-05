@@ -44,7 +44,7 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// 代码里设的颜色，只在这一处。
 /// </summary>
 /// <remarks>
-/// 每一个都是 <see cref="PaletteEntry"/>：按名字取色板里的一项，取哪一档、为什么，记在色板被借那一条的
+/// 每一个都是 <see cref="PaletteEntry"/>：按名字取色板里的一项，取哪一档记在色板被借那一条的
 /// 「借给界面」里；有测试判这里没有不带项名的颜色。资源条（HUD 那几根与精英血条）、倒地记号与格子角上的
 /// 迷你字都是作者画的、不染色，所以这里没有它们的颜色。
 ///
