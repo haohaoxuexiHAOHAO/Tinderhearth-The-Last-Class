@@ -11,7 +11,8 @@
   三、映射：每格四角的实际组合要对上 src/World/Terrain/DualGridPainter.cs 里那张表
            —— 表从 C# 里解析，不在本文件里再抄一份
   四、纯色：四角全同的那两张必须整张一种颜色
-  五、外圈：每格最外一圈要与规范边逐像素相同
+  五、外圈：每格最外一圈要与规范边逐像素相同。规范边可以按方向分别声明（A 在上、A 在下、
+      A 在左、A 在右），没声明方向的一套四个方向共用一串
 
 规范边只在本文件 TERRAINS、SETS 与 build_strips() 一处定义；`--emit-ring` 按同一定义写出可直接
 贴进 Aseprite 的外圈模板，所以「检查用的」与「画画用的」不会飘。**模板只从映射表与声明算、
@@ -104,11 +105,19 @@ TERRAINS = {
 
 # 每套素材是哪一对地形，外加两侧各自的过渡像素（这是美术选择，必须声明）。
 #
-# `shade_a` 与 `shade_b` 各是一串色板项，**按「从外侧往界线方向」排**，归哪一侧按它是谁的影判：
-# 草土、草水两套里深绿是草自己的阴影（草侧），棕与蓝是投在对侧地面上的影（对侧）。
-# 空列表是合法的：那一侧就从纯色直接接到界线 —— 深浅水那一套的浅水侧就是这样，过渡只在深水侧。
+# 过渡像素是一串色板项，**从界线往外数**：第一项紧挨着界线，往后离界线越来越远。归哪一侧按它画在
+# 哪一侧判：草土、草水两套里深绿画在草那一侧，棕与蓝画在对侧地面上。空列表是合法的：那一侧就从
+# 纯色直接接到界线 —— 深浅水那一套的浅水侧就是这样，过渡只在深水侧。一侧最多 HALF - 1 项，
+# 因为格边两端那一个像素是格角、必须是纯地形色。
+#
+# 两种写法二选一：
+#   `shade_a` 与 `shade_b`：四个方向共用这一对，镜像过去。
+#   `dirs`：四个方向各写一对 {"a": [...], "b": [...]}，键是 DIRS 那四个。用在交界本身有朝向的
+#   一套上 —— 例如北岸看得到墙面、南岸只露墙沿的石壁。方向按「一条格边上 A 在 B 的哪一边」说：
+#   「A在上」是竖着的格边上面是 A、下面是 B，也就是 A 那一片在界线北边。
 #
 # `--emit-ring` 出的模板里，`a` 那种地形记作编码 0。
+DIRS = ("A在上", "A在下", "A在左", "A在右")
 SETS = {
     "grass-dirt.png": {
         "a": "草", "b": "裸土",
@@ -169,28 +178,85 @@ def coords(edge: str) -> list[tuple[int, int]]:
     return [(TILE - 1, y) for y in range(TILE)]
 
 
-def build_strips(lit: tuple, shade: dict) -> dict:
+# 一条格边按「轴 + 两端各是 A 还是 B」分组，两端不同的四种各对应一个方向。竖边从上往下读、
+# 横边从左往右读，所以（竖，A 端在前）就是 A 在上。
+STRIP_DIR = {("竖", (0, 1)): "A在上", ("竖", (1, 0)): "A在下",
+             ("横", (0, 1)): "A在左", ("横", (1, 0)): "A在右"}
+# 把 A、B 两种地形对调之后，同一条格边换成哪个方向来说。
+SWAP_DIR = {"A在上": "A在下", "A在下": "A在上", "A在左": "A在右", "A在右": "A在左"}
+
+
+def set_dirs(cfg: dict) -> dict:
+    """一套素材四个方向各自的过渡像素，按声明里的 A、B 说。"""
+    if "dirs" in cfg:
+        return {d: {"a": list(cfg["dirs"][d]["a"]), "b": list(cfg["dirs"][d]["b"])} for d in DIRS}
+    shared = {"a": list(cfg["shade_a"]), "b": list(cfg["shade_b"])}
+    return {d: shared for d in DIRS}
+
+
+def swapped(dirs: dict) -> dict:
+    """A、B 对调之后的同一组声明：方向跟着翻，两侧的过渡跟着换边。"""
+    return {d: {"a": dirs[SWAP_DIR[d]]["b"], "b": dirs[SWAP_DIR[d]]["a"]} for d in DIRS}
+
+
+def declaration_problems() -> list[str]:
+    """SETS 本身写得对不对：写法二选一、方向写全、每侧不超过半条边减去格角那一个。"""
+    out = []
+    for name, cfg in SETS.items():
+        has_shared = "shade_a" in cfg or "shade_b" in cfg
+        if has_shared and "dirs" in cfg:
+            out.append(f"{name}：shade_a／shade_b 与 dirs 只能写一种")
+            continue
+        if not has_shared and "dirs" not in cfg:
+            out.append(f"{name}：要么写 shade_a 与 shade_b，要么写 dirs")
+            continue
+        if "dirs" in cfg and set(cfg["dirs"]) != set(DIRS):
+            missing = [d for d in DIRS if d not in cfg["dirs"]]
+            extra = [d for d in cfg["dirs"] if d not in DIRS]
+            out.append(f"{name}：dirs 要正好写 {'、'.join(DIRS)} 这四个"
+                       + (f"，缺 {'、'.join(missing)}" if missing else "")
+                       + (f"，多了 {'、'.join(extra)}" if extra else ""))
+            continue
+        if has_shared and not ("shade_a" in cfg and "shade_b" in cfg):
+            out.append(f"{name}：shade_a 与 shade_b 要一起写")
+            continue
+        for d, sides in set_dirs(cfg).items():
+            for side in ("a", "b"):
+                if len(sides[side]) > HALF - 1:
+                    where = f"{d} 的 {side} 侧" if "dirs" in cfg else f"shade_{side}"
+                    out.append(f"{name}：{where}写了 {len(sides[side])} 个过渡像素，最多 {HALF - 1} 个"
+                               "（半条边减去格角那一个）")
+    return out
+
+
+def build_strips(lit: tuple, dirs: dict) -> dict:
     """规范边。只此一处定义。
 
-    混合边：受光色×7 + 自己那侧的阴影 + 对侧的阴影 + 另一种受光色×7。于是两侧严格 8:8，
+    混合边：一种地形的纯色 + 它那一侧的过渡 + 另一侧的过渡 + 另一种地形的纯色。于是两侧严格 8:8，
     而 8:8 不是随便定的 —— 双网格里图块的四角落在数据格中心上，两个数据格之间的界线
     几何上就在图块边的正中。两端同色的边整条纯色，于是装饰性碎像素不许落在边上。
+
+    `dirs` 是 set_dirs() 那种形状：每个方向一对过渡，都从界线往外数。
     """
     a, b = lit
-    sa, sb = list(shade["a"]), list(shade["b"])
-    # 每一侧「纯色 + 自己那几格过渡」正好占半条边，于是界线落在正中。过渡都贴着界线放：
-    # 前一侧的排在它那半的末尾，后一侧的排在它那半的开头。
-    mixed_ab = ([a] * (HALF - len(sa)) + sa
-                + sb + [b] * (HALF - len(sb)))
-    mixed_ba = ([b] * (HALF - len(sb)) + sb[::-1]
-                + sa[::-1] + [a] * (HALF - len(sa)))
     out = {}
     for axis in ("竖", "横"):
         out[(axis, (0, 0))] = [a] * TILE
         out[(axis, (1, 1))] = [b] * TILE
-        out[(axis, (0, 1))] = list(mixed_ab)
-        out[(axis, (1, 0))] = list(mixed_ba)
+    for (axis, key), d in STRIP_DIR.items():
+        ta, tb = list(dirs[d]["a"]), list(dirs[d]["b"])
+        # 读的方向上先到哪一侧，那一侧的过渡就倒过来排，好让第一项落在界线旁边。
+        if key == (0, 1):
+            out[(axis, key)] = [a] * (HALF - len(ta)) + ta[::-1] + tb + [b] * (HALF - len(tb))
+        else:
+            out[(axis, key)] = [b] * (HALF - len(tb)) + tb[::-1] + ta + [a] * (HALF - len(ta))
     return out
+
+
+def dir_label(axis: str, key: tuple, name_a: str, name_b: str) -> str:
+    """报告里怎么说一条格边的方向：直接写两种地形谁在哪一边。"""
+    first, second = (name_a, name_b) if key == (0, 1) else (name_b, name_a)
+    return f"{first}在上、{second}在下" if axis == "竖" else f"{first}在左、{second}在右"
 
 
 def check_set(name: str, table: list[tuple[int, int]]) -> None:
@@ -290,11 +356,11 @@ def check_set(name: str, table: list[tuple[int, int]]) -> None:
                  f"　B（编码里的 1）＝{terrain_of[b]}（{name_of(b)}）"
                  " —— 场景里这一对的 TerrainA 要填 A 那种地形")
 
-    # 阴影色跟着 A／B 哪一侧走，而 A／B 是上面比对出来的，所以这里按实测的 a 判方向。
+    # 过渡跟着 A／B 哪一侧走，而 A／B 是上面比对出来的，所以这里按实测的 a 判方向：
+    # 实测的 A 是声明里的 B 时，声明里的「A在上」在这里说成「A在下」，两侧也跟着换边。
     flipped = a != TERRAINS[cfg["a"]]
-    shade = ({"a": cfg["shade_b"], "b": cfg["shade_a"]} if flipped
-             else {"a": cfg["shade_a"], "b": cfg["shade_b"]})
-    strips = build_strips((a, b), shade)
+    dirs = swapped(set_dirs(cfg)) if flipped else set_dirs(cfg)
+    strips = build_strips((a, b), dirs)
 
     nm = ("A", "B")
     groups: dict = {}
@@ -336,22 +402,24 @@ def check_set(name: str, table: list[tuple[int, int]]) -> None:
     off = []
     for (axis, key), members in sorted(groups.items()):
         want_strip = strips[(axis, key)]
-        wrong = [(pos, edge, sum(1 for i in range(TILE)
-                                 if s[i] != want_strip[i]))
+        wrong = [(pos, edge, [i for i in range(TILE) if s[i] != want_strip[i]])
                  for pos, edge, s in members]
         wrong = [w for w in wrong if w[2]]
         tag = f"{axis}边 {nm[key[0]]}→{nm[key[1]]}"
+        if key[0] != key[1]:
+            tag += f"（{dir_label(axis, key, terrain_of[a], terrain_of[b])}）"
         if wrong:
             off.extend(wrong)
             print(f"  [FAIL] {tag}：{len(wrong)}/{len(members)} 条与规范边不同"
                   f"（规范边是 {runs(want_strip)}）")
-            for pos, edge, n in wrong:
+            reading = "从上往下" if axis == "竖" else "从左往右"
+            for pos, edge, idx in wrong:
                 print(f"           第 {pos[1] * SIDE + pos[0] + 1} 格 {edge}"
-                      f" 差 {n} 个像素")
+                      f" 差 {len(idx)} 个像素：{reading}第 {'、'.join(str(i + 1) for i in idx)} 个")
         else:
             ok(f"{tag}：{len(members)} 条全部与规范边一致")
     if off:
-        fail(f"外圈共 {sum(n for _, _, n in off)} 个像素与规范边不同"
+        fail(f"外圈共 {sum(len(idx) for _, _, idx in off)} 个像素与规范边不同"
              f"（涉及 {len(off)} 条边）")
 
 def emit_ring(name: str, table: list[tuple[int, int]], emit_dir: Path) -> None:
@@ -362,7 +430,7 @@ def emit_ring(name: str, table: list[tuple[int, int]], emit_dir: Path) -> None:
     """
     cfg = SETS[name]
     a, b = TERRAINS[cfg["a"]], TERRAINS[cfg["b"]]
-    strips = build_strips((a, b), {"a": cfg["shade_a"], "b": cfg["shade_b"]})
+    strips = build_strips((a, b), set_dirs(cfg))
     size = (TILE * SIDE, TILE * SIDE)
     ring = Image.new("RGBA", size, (0, 0, 0, 0))
     for code, pos in enumerate(table):
@@ -380,8 +448,9 @@ def emit_ring(name: str, table: list[tuple[int, int]], emit_dir: Path) -> None:
     ring.save(emit_dir / f"{stem}-ring.png")
     ring.resize((size[0] * 8, size[1] * 8), Image.Resampling.NEAREST).save(
         emit_dir / f"{stem}-ring-x8.png")
+    how = "四个方向各按自己那一串" if "dirs" in cfg else "四个方向共用一串"
     notes.append(f"{name}：已按声明写出 {stem}-ring.png 与 -x8 预览"
-                 f"（{cfg['a']} {name_of(a)}、{cfg['b']} {name_of(b)}）")
+                 f"（{cfg['a']} {name_of(a)}、{cfg['b']} {name_of(b)}，{how}）")
 
 
 def main() -> int:
@@ -390,6 +459,16 @@ def main() -> int:
                     help="按映射表与声明写出可贴进 Aseprite 的外圈模板（不读素材，画之前就能出）")
     args = ap.parse_args()
     emit = Path(args.emit_ring).resolve() if args.emit_ring else None
+
+    problems = declaration_problems()
+    if problems:
+        # 声明本身写错时规范边算不出来，往下判只会拿错的规范边去比素材。
+        for p in problems:
+            fail(f"SETS 声明：{p}")
+        print("\n覆盖量：声明写错，一套素材都没判")
+        print(f"结果：{len(fails)} 项必须修复")
+        print("EXIT=1")
+        return 1
 
     table = code_to_atlas()
     if table is None:
@@ -406,7 +485,9 @@ def main() -> int:
     print()
     for n in notes:
         print(f"覆盖量：{n}")
-    print(f"覆盖量：检查 {len(SETS)} 套素材、每套 16 张、每张 4 条边")
+    directional = sum(1 for cfg in SETS.values() if "dirs" in cfg)
+    print(f"覆盖量：检查 {len(SETS)} 套素材、每套 16 张、每张 4 条边"
+          f"（{directional} 套按方向声明，其余四个方向共用一串）")
     if fails:
         print(f"结果：{len(fails)} 项必须修复")
         print("EXIT=1")
