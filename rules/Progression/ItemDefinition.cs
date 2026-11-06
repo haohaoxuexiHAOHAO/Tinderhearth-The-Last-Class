@@ -8,8 +8,8 @@ namespace Tinderhearth.Rules.Progression;
 /// 字段表在设计仓 design/物品系统.md 的「物品定义的字段：只写「它是什么」，不写「它能干什么」」一节，本类不复述每一格是什么。
 ///
 /// **图标那两格不在这里。** 每个物品一份图标资源，由作者在 Godot 里配，资源上写它是哪个物品 —— 与作物素材同一个做法，
-/// 规则层看不见图片；缺不缺、重不重在载入时一次全报（<see cref="Economy.ItemIconCheck"/>）。**品质也不在这里**：它是
-/// 实例属性，每一件各带一个，定义只声明这种东西有没有品质。
+/// 规则层看不见图片；缺不缺、重不重、尺寸与占地对不对得上，在载入时一次全报（<see cref="Economy.ItemIconCheck"/>）。
+/// **品质也不在这里**：它是实例属性，每一件各带一个，定义只声明这种东西有没有品质。
 ///
 /// 用 <c>required</c> 属性的理由同 <see cref="Economy.CropDefinition"/>：位置参数 record 缺字段不报错，会拿 <c>default</c>
 /// 填。这里好几格的 <c>null</c> 是合法值（还没给值的价、没有使用效果），只有 <c>required</c> 分得出「没写这个键」与
@@ -47,6 +47,14 @@ public sealed record ItemDefinition
         init => field = NonEmpty(value, nameof(CategoryId));
     }
 
+    /// <summary>在背包与仓库的网格里占多大一块。</summary>
+    /// <remarks>图标照它的大小画，对不对得上在载入时由 <see cref="Economy.ItemIconCheck"/> 核。</remarks>
+    public required ItemFootprint Footprint
+    {
+        get;
+        init => field = value ?? throw new ArgumentNullException(nameof(Footprint), "物品定义的 Footprint 不得为 null");
+    }
+
     /// <summary>它的稀有度，同一种物品只有一个。指一个在册的档，在不在册由 <see cref="ItemCatalog"/> 核。</summary>
     public required string RarityId
     {
@@ -57,7 +65,7 @@ public sealed record ItemDefinition
     /// <summary>这种东西有没有品质这条轴。没有的（种子、典籍、任务物品）只按种类分堆，也不画品质。</summary>
     public required bool HasQuality { get; init; }
 
-    /// <summary>一格装多少件。值归设计仓 design/数值模型.md，按种类给。</summary>
+    /// <summary>一堆装多少件。值归设计仓 design/数值模型.md，按种类给。</summary>
     public required int StackLimit
     {
         get;

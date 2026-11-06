@@ -1,5 +1,6 @@
 using Godot;
 using Tinderhearth.Rules.Economy;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -10,8 +11,8 @@ public delegate Texture2D ItemIconResolver(string itemId, string? qualityId);
 /// <summary>一个物品的图标。在 Godot 里存成 .tres，由作者配，一个物品一份。</summary>
 /// <remarks>
 /// 资源上写它是哪个物品，物品定义上没有这一格（设计仓 design/物品系统.md 字段表的「图标」与「变异时的图标」两行），
-/// 与作物素材同一个做法：长什么样归作者在 Godot 里配，规则层只看每一格配没配（<see cref="ToEntry"/>），
-/// 缺不缺、重不重、变异那一格写没写，由 <see cref="ItemIconCheck.Problems"/> 在载入时一次全报。
+/// 与作物素材同一个做法：长什么样归作者在 Godot 里配，规则层只看每一格配没配、配的那一张多大（<see cref="ToEntry"/>），
+/// 缺不缺、重不重、变异那一格写没写、尺寸与占地对不对得上，由 <see cref="ItemIconCheck.Problems"/> 在载入时一次全报。
 ///
 /// 变异那一张另开一格、不塞进同一个数组：它不是「第几张」，而是「品质是变异的那一堆换用哪一张」，混进数组就要按下标挑，
 /// 挑错了不报错。不另画时勾「同原图」，而不是把图标那一张再拖一遍：拖一遍与忘了改看起来一模一样。
@@ -36,11 +37,18 @@ public partial class ItemIcon : Resource
     [Export]
     public bool MutatedSameAsIcon { get; set; }
 
-    /// <summary>这份图标配了什么：给哪一个物品、每一格配没配。交给 <see cref="ItemIconCheck"/> 核。</summary>
-    public ItemIconEntry ToEntry() => new(ItemId, Icon is not null, MutatedIcon is not null, MutatedSameAsIcon);
+    /// <summary>这份图标配了什么：给哪一个物品、每一格配没配、配的那一张多大。交给 <see cref="ItemIconCheck"/> 核。</summary>
+    /// <remarks>
+    /// 尺寸取贴图自己报的宽高。从一张大图上框出来的那种（AtlasTexture）报的是框的宽高再加上它的 Margin
+    /// （引擎源码 AtlasTexture::get_width），所以 Margin 填了数，核的就是加上之后的大小。
+    /// </remarks>
+    public ItemIconEntry ToEntry() => new(ItemId, SizeOf(Icon), SizeOf(MutatedIcon), MutatedSameAsIcon);
 
     /// <summary>这一堆画哪一张。只在载入时核过之后用，所以这里不再判缺。</summary>
     /// <param name="qualityId">那一堆的品质；无品质的东西是 <c>null</c>。</param>
     public Texture2D TextureFor(string? qualityId) =>
         ItemIconCheck.ShowsMutated(qualityId) && !MutatedSameAsIcon ? MutatedIcon! : Icon!;
+
+    private static PixelSize? SizeOf(Texture2D? texture) =>
+        texture is null ? null : new PixelSize(Width: texture.GetWidth(), Height: texture.GetHeight());
 }

@@ -205,6 +205,7 @@ public class BagTests
         NameKey = $"item.{id}.name",
         DescriptionKey = $"item.{id}.description",
         CategoryId = "herb",
+        Footprint = new() { Width = 1, Height = 1 },
         RarityId = "low",
         HasQuality = hasQuality,
         StackLimit = stackLimit,

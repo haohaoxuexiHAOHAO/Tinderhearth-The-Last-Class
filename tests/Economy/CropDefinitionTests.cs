@@ -359,6 +359,7 @@ public class CropDefinitionTests
                 NameKey = $"item.{i.Id}.name",
                 DescriptionKey = $"item.{i.Id}.description",
                 CategoryId = "seed",
+                Footprint = new() { Width = 1, Height = 1 },
                 RarityId = "low",
                 HasQuality = i.HasQuality,
                 StackLimit = 20,

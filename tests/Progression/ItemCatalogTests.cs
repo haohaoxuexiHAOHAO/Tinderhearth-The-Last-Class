@@ -26,6 +26,7 @@ public class ItemCatalogTests
           "nameKey": "item.turnip_seed.name",
           "descriptionKey": "item.turnip_seed.description",
           "categoryId": "seed",
+          "footprint": { "width": 1, "height": 1 },
           "rarityId": "low",
           "hasQuality": false,
           "stackLimit": 20,
@@ -85,6 +86,7 @@ public class ItemCatalogTests
 
         Assert.Equal("turnip_seed", item.Id);
         Assert.Equal("seed", item.CategoryId);
+        Assert.Equal(new ItemFootprint { Width = 1, Height = 1 }, item.Footprint);
         Assert.False(item.HasQuality);
         Assert.Equal(20, item.StackLimit);
         Assert.Null(item.BasePriceCopper);
@@ -102,6 +104,7 @@ public class ItemCatalogTests
     [InlineData("nameKey")]
     [InlineData("descriptionKey")]
     [InlineData("categoryId")]
+    [InlineData("footprint")]
     [InlineData("rarityId")]
     [InlineData("hasQuality")]
     [InlineData("stackLimit")]
@@ -164,6 +167,47 @@ public class ItemCatalogTests
         var error = Assert.Throws<InvalidDataException>(() => ItemCatalog.Load(catalog, TestPalette.BandOf));
 
         Assert.Contains(key, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>占地的宽与高都要写，缺一格解析时就报错、点名缺的是哪一格。</summary>
+    [Theory]
+    [InlineData("{ \"height\": 1 }", "width")]
+    [InlineData("{ \"width\": 1 }", "height")]
+    public void 占地缺宽或高都在解析时报错(string footprintJson, string missing)
+    {
+        var broken = WithValue(FullItemJson, "footprint", footprintJson);
+
+        var error = Assert.Throws<JsonException>(() => ItemDefinition.Parse(broken, "broken.json"));
+
+        Assert.Contains(missing, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>占地的宽与高各是至少 1 的整数格；写成 0、负数、小数、字符串或干脆写 null，载入被拒并点名是哪一份、哪一格。</summary>
+    [Theory]
+    [InlineData("{ \"width\": 0, \"height\": 1 }", "width")]
+    [InlineData("{ \"width\": 1, \"height\": -2 }", "height")]
+    [InlineData("{ \"width\": 1.5, \"height\": 1 }", "width")]
+    [InlineData("{ \"width\": \"2\", \"height\": 1 }", "width")]
+    [InlineData("null", "footprint")]
+    public void 占地的宽高不是正整数就被拒(string footprintJson, string field)
+    {
+        var catalog = Catalog(ShippedLikeTables(("items/turnip_seed.json", WithValue(FullItemJson, "footprint", footprintJson))));
+
+        var error = Assert.Throws<InvalidDataException>(() => ItemCatalog.Load(catalog, TestPalette.BandOf));
+
+        Assert.Contains("items/turnip_seed.json", error.Message);
+        Assert.Contains(field, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>占地不止 1×1 也读得进来，宽与高各是各的。</summary>
+    [Fact]
+    public void 大东西的占地读得进来()
+    {
+        var item = ItemDefinition.Parse(WithValue(FullItemJson, "footprint", "{ \"width\": 2, \"height\": 3 }"), "big.json");
+
+        Assert.Equal(2, item.Footprint.Width);
+        Assert.Equal(3, item.Footprint.Height);
+        Assert.Equal("2×3", item.Footprint.ToString());
     }
 
     /// <summary>使用效果现在只许不填：效果那一侧还没有数据表，填了的引用解析不到。</summary>

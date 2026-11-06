@@ -4,6 +4,7 @@
   "nameKey": "item.crop_13_seed.name",
   "descriptionKey": "item.crop_13_seed.description",
   "categoryId": "seed",
+  "footprint": { "width": 1, "height": 1 },
   "rarityId": "low",
   "hasQuality": false,
   "stackLimit": 20,

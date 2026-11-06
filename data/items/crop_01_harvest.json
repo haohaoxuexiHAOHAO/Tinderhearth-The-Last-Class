@@ -4,6 +4,7 @@
   "nameKey": "item.crop_01_harvest.name",
   "descriptionKey": "item.crop_01_harvest.description",
   "categoryId": "herb",
+  "footprint": { "width": 1, "height": 1 },
   "rarityId": "low",
   "hasQuality": true,
   "stackLimit": 20,

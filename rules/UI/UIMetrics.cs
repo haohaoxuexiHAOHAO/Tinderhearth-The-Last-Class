@@ -15,7 +15,7 @@ namespace Tinderhearth.Rules.UI;
 /// </remarks>
 public static class UIMetrics
 {
-    /// <summary>基础单位。图块、背包图标与 1 格建筑都是它，人物占两个。</summary>
+    /// <summary>基础单位。图块、背包网格的一格与 1 格建筑都是它，人物占两个；物品图标是占地乘它。</summary>
     public const int BaseUnit = 16;
 
     /// <summary>
@@ -53,7 +53,7 @@ public static class UIMetrics
     /// 图标两档：小图标 16，大图标 32。
     /// </summary>
     /// <remarks>
-    /// 16 是一个基础单位（图块、背包图标），32 是两个（俯视本体与界面图标的大档都是两单位，见设计仓
+    /// 16 是一个基础单位（图块、占 1 格的物品图标），32 是两个（俯视本体与界面图标的大档都是两单位，见设计仓
     /// canon/gameplay/玩法定位.md 的「像素基准」）。中间档不设：中间任何尺寸在世界里都没有对应物。
     /// 格子与详情框那一格落在两档之间，但它们是装一个小图标的框，不是一档图标（见下面的格子）。
     ///
