@@ -1,6 +1,5 @@
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Progression;
-using Tinderhearth.Rules.UI;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;
@@ -13,11 +12,14 @@ namespace Tinderhearth.Rules.Tests.Economy;
 /// </remarks>
 public class ItemIconCheckTests
 {
+    /// <summary>一格 16 像素：设计仓 canon/gameplay/玩法定位.md 的「像素基准」。引擎层传的是界面那一侧的基础单位。</summary>
+    private const int CellPixels = 16;
+
     private const string Gem = "item_gem";
 
-    private static readonly PixelSize OneCell = new(Width: 16, Height: 16);
+    private static readonly IconSize OneCell = new(Width: 16, Height: 16);
 
-    private static readonly PixelSize TwoByTwo = new(Width: 32, Height: 32);
+    private static readonly IconSize TwoByTwo = new(Width: 32, Height: 32);
 
     /// <summary>测试那份小表加一颗占 2×2、有品质的宝石。</summary>
     private static readonly ItemCatalog WithGem = ItemCatalog.Build(
@@ -35,19 +37,22 @@ public class ItemIconCheckTests
     private static ItemIconEntry Turnip(bool mutatedIcon = true, bool sameAsIcon = false) =>
         new(TestBags.Turnip, Icon: OneCell, MutatedIcon: mutatedIcon ? OneCell : null, MutatedSameAsIcon: sameAsIcon);
 
-    private static ItemIconEntry GemIcon(PixelSize icon) => new(Gem, Icon: icon, MutatedIcon: null, MutatedSameAsIcon: true);
+    private static ItemIconEntry GemIcon(IconSize icon) => new(Gem, Icon: icon, MutatedIcon: null, MutatedSameAsIcon: true);
+
+    private static IReadOnlyList<string> Problems(ItemCatalog items, IReadOnlyList<ItemIconEntry?> icons) =>
+        ItemIconCheck.Problems(items, icons, CellPixels);
 
     [Fact]
     public void 每一样都配对了时没有问题()
     {
-        Assert.Empty(ItemIconCheck.Problems(TestBags.Items, [Seed(), Turnip()]));
-        Assert.Empty(ItemIconCheck.Problems(TestBags.Items, [Turnip(mutatedIcon: false, sameAsIcon: true), Seed()]));
+        Assert.Empty(Problems(TestBags.Items, [Seed(), Turnip()]));
+        Assert.Empty(Problems(TestBags.Items, [Turnip(mutatedIcon: false, sameAsIcon: true), Seed()]));
     }
 
     [Fact]
     public void 在册物品缺图标_一种一行()
     {
-        var problems = ItemIconCheck.Problems(TestBags.Items, []);
+        var problems = Problems(TestBags.Items, []);
 
         Assert.Equal(2, problems.Count);
         Assert.Contains(problems, p => p.Contains(TestBags.Turnip) && p.Contains("没有图标"));
@@ -57,7 +62,7 @@ public class ItemIconCheckTests
     [Fact]
     public void 有品质却没写变异那一张_报一行()
     {
-        var problems = ItemIconCheck.Problems(TestBags.Items, [Seed(), Turnip(mutatedIcon: false, sameAsIcon: false)]);
+        var problems = Problems(TestBags.Items, [Seed(), Turnip(mutatedIcon: false, sameAsIcon: false)]);
 
         var problem = Assert.Single(problems);
         Assert.Contains(TestBags.Turnip, problem);
@@ -67,8 +72,7 @@ public class ItemIconCheckTests
     [Fact]
     public void 变异那一张配了又勾了同原图_报一行()
     {
-        var problem = Assert.Single(
-            ItemIconCheck.Problems(TestBags.Items, [Seed(), Turnip(mutatedIcon: true, sameAsIcon: true)]));
+        var problem = Assert.Single(Problems(TestBags.Items, [Seed(), Turnip(mutatedIcon: true, sameAsIcon: true)]));
 
         Assert.Contains("只留一样", problem);
     }
@@ -78,7 +82,7 @@ public class ItemIconCheckTests
     {
         var seed = Seed() with { MutatedSameAsIcon = true };
 
-        var problem = Assert.Single(ItemIconCheck.Problems(TestBags.Items, [seed, Turnip()]));
+        var problem = Assert.Single(Problems(TestBags.Items, [seed, Turnip()]));
 
         Assert.Contains(TestBags.TurnipSeed, problem);
         Assert.Contains("无品质", problem);
@@ -88,7 +92,7 @@ public class ItemIconCheckTests
     public void 两份配给同一个物品_点名是哪两项()
     {
         // 照指南配好一份再复制、忘了改标识：后一份顶掉前一份，而芜菁就成了「在册但没有图标」。
-        var problems = ItemIconCheck.Problems(TestBags.Items, [Seed(), Seed()]);
+        var problems = Problems(TestBags.Items, [Seed(), Seed()]);
 
         Assert.Contains(problems, p => p.Contains("第 0 项与第 1 项") && p.Contains(TestBags.TurnipSeed));
         Assert.Contains(problems, p => p.Contains(TestBags.Turnip) && p.Contains("没有图标"));
@@ -97,7 +101,7 @@ public class ItemIconCheckTests
     [Fact]
     public void 图标那一张空着_不在册的物品_空着的一项_各报一行且一次全报()
     {
-        var problems = ItemIconCheck.Problems(TestBags.Items,
+        var problems = Problems(TestBags.Items,
         [
             Seed() with { Icon = null },
             new ItemIconEntry("item_turnp", Icon: OneCell, MutatedIcon: null, MutatedSameAsIcon: false),
@@ -116,23 +120,23 @@ public class ItemIconCheckTests
     [InlineData(2, 2, 32, 32)]
     [InlineData(1, 3, 16, 48)]
     [InlineData(3, 2, 48, 32)]
-    public void 图标应当多大_占地的宽高各乘一个基础单位(int width, int height, int expectedWidth, int expectedHeight)
+    public void 图标应当多大_占地的宽高各乘一格的像素数(int width, int height, int expectedWidth, int expectedHeight)
     {
         var footprint = new ItemFootprint { Width = width, Height = height };
 
-        Assert.Equal(new PixelSize(Width: expectedWidth, Height: expectedHeight), ItemIconCheck.IconSizeFor(footprint));
+        Assert.Equal(new IconSize(Width: expectedWidth, Height: expectedHeight), ItemIconCheck.IconSizeFor(footprint, CellPixels));
     }
 
     [Fact]
     public void 大东西的图标正好是它那一块那么大时没有问题()
     {
-        Assert.Empty(ItemIconCheck.Problems(WithGem, [Seed(), Turnip(), GemIcon(TwoByTwo)]));
+        Assert.Empty(Problems(WithGem, [Seed(), Turnip(), GemIcon(TwoByTwo)]));
     }
 
     [Fact]
     public void 图标尺寸与占地对不上_一行写清应当多大与实际多大()
     {
-        var problem = Assert.Single(ItemIconCheck.Problems(TestBags.Items, [Seed() with { Icon = TwoByTwo }, Turnip()]));
+        var problem = Assert.Single(Problems(TestBags.Items, [Seed() with { Icon = TwoByTwo }, Turnip()]));
 
         Assert.Contains(TestBags.TurnipSeed, problem);
         Assert.Contains("占地 1×1", problem);
@@ -143,7 +147,7 @@ public class ItemIconCheckTests
     [Fact]
     public void 大东西画成一格那么大_报的是它那一块的大小()
     {
-        var problem = Assert.Single(ItemIconCheck.Problems(WithGem, [Seed(), Turnip(), GemIcon(OneCell)]));
+        var problem = Assert.Single(Problems(WithGem, [Seed(), Turnip(), GemIcon(OneCell)]));
 
         Assert.Contains(Gem, problem);
         Assert.Contains("占地 2×2", problem);
@@ -154,13 +158,13 @@ public class ItemIconCheckTests
     [Fact]
     public void 变异那一张的尺寸也核_两张都不对时同一件只报一行()
     {
-        var wrongMutated = Turnip() with { MutatedIcon = new PixelSize(Width: 32, Height: 16) };
-        var problem = Assert.Single(ItemIconCheck.Problems(TestBags.Items, [Seed(), wrongMutated]));
+        var wrongMutated = Turnip() with { MutatedIcon = new IconSize(Width: 32, Height: 16) };
+        var problem = Assert.Single(Problems(TestBags.Items, [Seed(), wrongMutated]));
         Assert.Contains("Mutated Icon 是 32×16", problem);
         Assert.DoesNotContain("Icon 是 16×16", problem);
 
         var bothWrong = wrongMutated with { Icon = TwoByTwo };
-        var both = Assert.Single(ItemIconCheck.Problems(TestBags.Items, [Seed(), bothWrong]));
+        var both = Assert.Single(Problems(TestBags.Items, [Seed(), bothWrong]));
         Assert.Contains("Icon 是 32×32", both);
         Assert.Contains("Mutated Icon 是 32×16", both);
     }
@@ -170,7 +174,7 @@ public class ItemIconCheckTests
     {
         var seed = Seed() with { MutatedIcon = TwoByTwo };
 
-        var problem = Assert.Single(ItemIconCheck.Problems(TestBags.Items, [seed, Turnip()]));
+        var problem = Assert.Single(Problems(TestBags.Items, [seed, Turnip()]));
 
         Assert.Contains("用不上", problem);
     }

@@ -574,7 +574,7 @@ public partial class FarmField : Node
     /// </remarks>
     private void IndexItemIcons()
     {
-        var problems = ItemIconCheck.Problems(_items, [.. ItemIcons.Select(icon => icon?.ToEntry())]);
+        var problems = ItemIconCheck.Problems(_items, [.. ItemIcons.Select(icon => icon?.ToEntry())], UIMetrics.BaseUnit);
         if (problems.Count > 0)
         {
             throw new InvalidOperationException(

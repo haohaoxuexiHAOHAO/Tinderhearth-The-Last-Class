@@ -1,6 +1,5 @@
 using Godot;
 using Tinderhearth.Rules.Economy;
-using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
@@ -49,6 +48,6 @@ public partial class ItemIcon : Resource
     public Texture2D TextureFor(string? qualityId) =>
         ItemIconCheck.ShowsMutated(qualityId) && !MutatedSameAsIcon ? MutatedIcon! : Icon!;
 
-    private static PixelSize? SizeOf(Texture2D? texture) =>
-        texture is null ? null : new PixelSize(Width: texture.GetWidth(), Height: texture.GetHeight());
+    private static IconSize? SizeOf(Texture2D? texture) =>
+        texture is null ? null : new IconSize(Width: texture.GetWidth(), Height: texture.GetHeight());
 }

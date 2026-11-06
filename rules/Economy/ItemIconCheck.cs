@@ -1,7 +1,14 @@
 using Tinderhearth.Rules.Progression;
-using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.Rules.Economy;
+
+/// <summary>一张图标的像素尺寸。</summary>
+/// <remarks>不用界面那一侧的像素尺寸：规则层的经营这一侧不依赖界面那一侧。</remarks>
+public readonly record struct IconSize(int Width, int Height)
+{
+    /// <summary>写成「宽×高」。</summary>
+    public override string ToString() => $"{Width}×{Height}";
+}
 
 /// <summary>一份物品图标里配了什么：给哪一个物品、图标与变异那一张各多大、勾没勾同原图。</summary>
 /// <remarks>由引擎层从图标资源读出来。规则层只看每一格配没配、配的那一张多大，看不见任何图片路径。</remarks>
@@ -9,7 +16,7 @@ namespace Tinderhearth.Rules.Economy;
 /// <param name="Icon">图标那一张的像素尺寸；没配是 <c>null</c>。</param>
 /// <param name="MutatedIcon">变异那一张的像素尺寸；没配是 <c>null</c>。</param>
 /// <param name="MutatedSameAsIcon">勾没勾「变异那一张同原图」。</param>
-public sealed record ItemIconEntry(string ItemId, PixelSize? Icon, PixelSize? MutatedIcon, bool MutatedSameAsIcon);
+public sealed record ItemIconEntry(string ItemId, IconSize? Icon, IconSize? MutatedIcon, bool MutatedSameAsIcon);
 
 /// <summary>物品图标：载入时那一次核对，以及画一堆东西时挑哪一张、图标应当多大。</summary>
 /// <remarks>
@@ -21,7 +28,8 @@ public sealed record ItemIconEntry(string ItemId, PixelSize? Icon, PixelSize? Mu
 /// 也一种一行 —— 一份都还没配时，这几行就是要配的那张清单。
 ///
 /// 图标的宽高必须正好是占地乘基础单位：背包页把图原样画在那一堆占的那一块上、不缩放，大小对不上就画不满那一块或者
-/// 压出去，而那不报错。
+/// 压出去，而那不报错。一格多少像素由调用方给（引擎层给的是界面那一侧的基础单位），与 <see cref="SeedBatches"/>
+/// 取随身栏格数同一个做法：经营这一侧不依赖界面那一侧。
 /// </remarks>
 public static class ItemIconCheck
 {
@@ -29,21 +37,25 @@ public static class ItemIconCheck
     /// <remarks>变异品质从哪来见 <see cref="Harvesting.MutatedQualityId"/>；无品质的东西没有品质，传 <c>null</c>。</remarks>
     public static bool ShowsMutated(string? qualityId) => qualityId == Harvesting.MutatedQualityId;
 
-    /// <summary>一件东西的图标应当多大：占地乘基础单位，单位是像素。</summary>
-    /// <remarks>基础单位出自设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。</remarks>
-    public static PixelSize IconSizeFor(ItemFootprint footprint)
+    /// <summary>一件东西的图标应当多大：占地的宽高各乘一格的像素数。</summary>
+    /// <param name="footprint">它的占地。</param>
+    /// <param name="cellPixels">背包网格一格多少像素，至少 1。基础单位出自设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。</param>
+    public static IconSize IconSizeFor(ItemFootprint footprint, int cellPixels)
     {
         ArgumentNullException.ThrowIfNull(footprint);
-        return new PixelSize(Width: footprint.Width * UIMetrics.BaseUnit, Height: footprint.Height * UIMetrics.BaseUnit);
+        ArgumentOutOfRangeException.ThrowIfLessThan(cellPixels, 1);
+        return new IconSize(Width: footprint.Width * cellPixels, Height: footprint.Height * cellPixels);
     }
 
     /// <summary>核那一组图标资源。全对返回空表；顺序先按资源在那一组里的序号，最后是没有图标的那几种。</summary>
     /// <param name="items">在册的全部物品。</param>
     /// <param name="icons">那一组图标资源，顺序与检查器里一致；空着的那一项是 <c>null</c>。</param>
-    public static IReadOnlyList<string> Problems(ItemCatalog items, IReadOnlyList<ItemIconEntry?> icons)
+    /// <param name="cellPixels">背包网格一格多少像素，见 <see cref="IconSizeFor"/>。</param>
+    public static IReadOnlyList<string> Problems(ItemCatalog items, IReadOnlyList<ItemIconEntry?> icons, int cellPixels)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(icons);
+        ArgumentOutOfRangeException.ThrowIfLessThan(cellPixels, 1);
 
         var problems = new List<string>();
         var firstIndexOf = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -68,7 +80,7 @@ public static class ItemIconCheck
                 continue;
             }
 
-            problems.AddRange(ProblemsOf(icon, item));
+            problems.AddRange(ProblemsOf(icon, item, cellPixels));
         }
 
         problems.AddRange(items.Items.Keys
@@ -79,7 +91,7 @@ public static class ItemIconCheck
         return problems;
     }
 
-    private static IEnumerable<string> ProblemsOf(ItemIconEntry icon, ItemDefinition item)
+    private static IEnumerable<string> ProblemsOf(ItemIconEntry icon, ItemDefinition item, int cellPixels)
     {
         if (icon.Icon is null)
         {
@@ -91,7 +103,7 @@ public static class ItemIconCheck
             yield return mutated;
         }
 
-        if (SizeProblem(icon, item) is string size)
+        if (SizeProblem(icon, item, cellPixels) is string size)
         {
             yield return size;
         }
@@ -116,11 +128,11 @@ public static class ItemIconCheck
         };
     }
 
-    /// <summary>图标或变异那一张的宽高不等于占地乘基础单位时，一件物品报一行，写清应当多大、实际多大。</summary>
+    /// <summary>图标或变异那一张的宽高不等于占地乘一格的像素数时，一件物品报一行，写清应当多大、实际多大。</summary>
     /// <remarks>没配的那一张上面已经报过缺；无品质的东西不画变异那一张，配了也只报用不上，这里都不再核尺寸。</remarks>
-    private static string? SizeProblem(ItemIconEntry icon, ItemDefinition item)
+    private static string? SizeProblem(ItemIconEntry icon, ItemDefinition item, int cellPixels)
     {
-        var expected = IconSizeFor(item.Footprint);
+        var expected = IconSizeFor(item.Footprint, cellPixels);
         var wrong = new List<string>();
         if (icon.Icon is { } drawn && drawn != expected)
         {
