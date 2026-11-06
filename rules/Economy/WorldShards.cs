@@ -325,7 +325,7 @@ public static class WorldShards
 
         try
         {
-            return Bag.Restore(slots, newGameBag.Items);
+            return Bag.Restore(newGameBag.GridWidth, newGameBag.GridHeight, slots, newGameBag.Items);
         }
         catch (InvalidDataException e)
         {

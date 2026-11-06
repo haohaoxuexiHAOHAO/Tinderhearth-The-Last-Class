@@ -153,7 +153,7 @@ public class BagPageTests
     public void 丢不掉的那一样说清是哪一种_丢得掉的不拦()
     {
         var items = WithLetter();
-        var bag = new Bag(4, items);
+        var bag = new Bag(4, 1, items);
         bag.TryAdd(Letter, null, 1);
         bag.TryAdd(TestBags.TurnipSeed, null, 1);
         var cells = BagPage.CellsOf(bag);

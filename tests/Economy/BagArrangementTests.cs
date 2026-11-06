@@ -47,7 +47,7 @@ public class BagArrangementTests
     /// <summary>放五样进一个 8 格的背包，按放进去的先后各占一格：种子最早、信件最近。</summary>
     private static Bag FiveKinds()
     {
-        var bag = new Bag(8, Items);
+        var bag = new Bag(8, 1, Items);
         Assert.True(bag.TryAdd(Seed, null, 5));
         Assert.True(bag.TryAdd(Turnip, Common, 3));
         Assert.True(bag.TryAdd(Iron, Fine, 2));
@@ -57,6 +57,9 @@ public class BagArrangementTests
     }
 
     private static ItemStack Stack(string item, string? quality, int count, int sequence) => new(item, quality, count, sequence);
+
+    /// <summary>读回一份一行的背包：给的那几格从左往右排，格号与从前那一串格子一样。</summary>
+    private static Bag Row(IReadOnlyList<ItemStack?> slots) => Bag.Restore(slots.Count, 1, slots, Items);
 
     /// <summary>每一格写成「种类:品质:件数」，空格写 _，一眼看得出摆法。</summary>
     private static string Layout(Bag bag) =>
@@ -98,11 +101,11 @@ public class BagArrangementTests
     [Fact]
     public void 一键整理把同标识的散堆并成满堆加至多一个零头_装满的不动_总数一件不变()
     {
-        var bag = Bag.Restore(
+        var bag = Row(
         [
             Stack(Turnip, Common, 15, 1), null, Stack(Turnip, Common, 15, 4), Stack(Turnip, Common, 20, 2),
             Stack(Turnip, Mutated, 3, 3), null, Stack(Seed, null, 5, 5), Stack(Seed, null, 7, 6),
-        ], Items);
+        ]);
         var before = Totals(bag);
 
         bag.Tidy(BagSortKey.Category, keepLeading: 0, BagFilter.All);
@@ -120,10 +123,10 @@ public class BagArrangementTests
     [Fact]
     public void 整理两次与整理一次一样_没有散堆又排好了时整理什么都不变()
     {
-        var bag = Bag.Restore(
+        var bag = Row(
         [
             Stack(Seed, null, 5, 1), Stack(Turnip, Common, 15, 2), null, Stack(Turnip, Common, 8, 3), Stack(Iron, Fine, 4, 4),
-        ], Items);
+        ]);
 
         bag.Tidy(BagSortKey.Recent, 0, BagFilter.All);
         var once = Layout(bag);
@@ -131,10 +134,10 @@ public class BagArrangementTests
 
         Assert.Equal(once, Layout(bag));
 
-        var tidy = Bag.Restore(
+        var tidy = Row(
         [
             Stack(Turnip, Common, 7, 3), Stack(Iron, Fine, 4, 2), Stack(Seed, null, 5, 1), null,
-        ], Items);
+        ]);
         var untouched = Layout(tidy);
 
         tidy.Tidy(BagSortKey.Category, 0, BagFilter.All);
@@ -145,11 +148,11 @@ public class BagArrangementTests
     [Fact]
     public void 开头那几格排序与整理一格都不碰_后面的散堆也不并进开头那一堆()
     {
-        var bag = Bag.Restore(
+        var bag = Row(
         [
             Stack(Seed, null, 5, 1), Stack(Turnip, Common, 3, 2), null,
             Stack(Iron, Fine, 2, 3), Stack(Turnip, Common, 4, 4), null, Stack(Seed, null, 6, 5),
-        ], Items);
+        ]);
         string[] head = [.. Layout(bag).Split(' ').Take(3)];
 
         bag.Tidy(BagSortKey.Recent, keepLeading: 3, BagFilter.All);
@@ -166,11 +169,10 @@ public class BagArrangementTests
         // 这一条把背包与随身栏两边钉在一起：随身栏按格号读背包开头那几格，排序与整理换掉那几格，
         // 玩家手上那一格就换了东西，而他没按任何键。每一格都是零散的一件，种子与铁轮着放：整理有得并，排序有得挪。
         var slots = CarrySlotBar.SlotCount + 4;
-        var scattered = Bag.Restore(
+        var scattered = Row(
             [.. Enumerable.Range(0, slots).Select(i => i < slots - 1
                 ? (ItemStack?)Stack(i % 2 == 0 ? Seed : Iron, i % 2 == 0 ? null : Fine, 1, i + 1)
-                : null)],
-            Items);
+                : null)]);
         var controls = new BagControls(CarrySlotBar.SlotCount);
         var before = Projection(scattered);
 
@@ -180,7 +182,7 @@ public class BagArrangementTests
         Assert.Equal(before, Projection(scattered));
 
         // 反过来：不留开头那几格时同一批东西会挪进去 —— 上面那两条不是碰巧没动。
-        var exposed = Bag.Restore([.. scattered.Slots], Items);
+        var exposed = Row([.. scattered.Slots]);
         new BagControls(keepLeading: 0).Tidy(exposed);
         Assert.NotEqual(before, Projection(exposed));
     }
@@ -191,10 +193,10 @@ public class BagArrangementTests
     [Fact]
     public void 筛选态下排序与整理只在看得见的那几格里重排_被筛掉的那几堆待在原地()
     {
-        var bag = Bag.Restore(
+        var bag = Row(
         [
             Stack(Seed, null, 5, 1), Stack(Turnip, Common, 3, 2), null, Stack(Iron, Fine, 2, 3), Stack(Turnip, Mutated, 4, 4),
-        ], Items);
+        ]);
         var herbs = new BagFilter("herb", null);
 
         bag.Sort(BagSortKey.Quality, 0, herbs);
@@ -240,7 +242,7 @@ public class BagArrangementTests
         Assert.Equal("_ iron:fine:2 turnip:common:3 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
 
         // 同标识的两堆挪到一起也只是互换：合堆是整理的事。
-        var two = Bag.Restore([Stack(Turnip, Common, 3, 1), Stack(Turnip, Common, 4, 2)], Items);
+        var two = Row([Stack(Turnip, Common, 3, 1), Stack(Turnip, Common, 4, 2)]);
         two.Move(0, 1);
         Assert.Equal("turnip:common:4 turnip:common:3", Layout(two));
 
@@ -324,7 +326,7 @@ public class BagArrangementTests
     [Fact]
     public void 开头留的格数比背包还多_当场抛()
     {
-        var bag = new Bag(4, Items);
+        var bag = new Bag(4, 1, Items);
         Assert.Throws<ArgumentOutOfRangeException>(() => bag.Sort(BagSortKey.Category, keepLeading: 5, BagFilter.All));
         Assert.Throws<ArgumentOutOfRangeException>(() => new BagControls(-1));
     }

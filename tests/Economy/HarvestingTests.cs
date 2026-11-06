@@ -43,7 +43,7 @@ public class HarvestingTests
     }
 
     /// <summary>一个装满了的背包：唯一那一格是一满堆种子，芜菁合不进去、也没有空格。</summary>
-    private static Bag FullBag() => Bag.Restore([new ItemStack(TestBags.TurnipSeed, null, 20, 1)], TestBags.Items);
+    private static Bag FullBag() => TestBags.Row([new ItemStack(TestBags.TurnipSeed, null, 20, 1)]);
 
     [Fact]
     public void 收上来的那一份走完管道_产出是这一株_归主角_不付酬_进主角的背包()

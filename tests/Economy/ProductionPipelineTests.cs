@@ -29,7 +29,7 @@ public class ProductionPipelineTests
     public void 放不下就整份拒收_背包一件不变()
     {
         // 只有一格、已经是一满堆种子：芜菁合不进去，也没有空格。
-        var bag = Bag.Restore([new ItemStack(TestBags.TurnipSeed, null, 20, 1)], TestBags.Items);
+        var bag = TestBags.Row([new ItemStack(TestBags.TurnipSeed, null, 20, 1)]);
         var before = bag.Slots.ToList();
 
         var outcome = ProductionPipeline.Deliver(Producer.Protagonist, TenTurnips, bag);
@@ -43,7 +43,7 @@ public class ProductionPipelineTests
     public void 一份只放得下一半也整份拒收()
     {
         // 一格、里面已经有 15 个寻常芜菁：再来 10 个只合得进 5 个，又没有空格放剩下那 5 个。
-        var bag = Bag.Restore([new ItemStack(TestBags.Turnip, TestBags.Common, 15, 1)], TestBags.Items);
+        var bag = TestBags.Row([new ItemStack(TestBags.Turnip, TestBags.Common, 15, 1)]);
 
         var outcome = ProductionPipeline.Deliver(Producer.Protagonist, TenTurnips, bag);
 

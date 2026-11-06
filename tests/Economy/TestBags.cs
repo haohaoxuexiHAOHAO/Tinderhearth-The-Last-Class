@@ -22,8 +22,12 @@ internal static class TestBags
         ],
         name => name.Split(' ')[0]);
 
-    /// <summary>一个空背包。</summary>
-    public static Bag Empty(int slots = 4) => new(slots, Items);
+    /// <summary>一个空背包：一行 <paramref name="slots"/> 格的网格，格号与从前那一串格子一样从左往右数。</summary>
+    public static Bag Empty(int slots = 4) => new(slots, 1, Items);
+
+    /// <summary>读回一份一行的背包：给的那几格从左往右排。物品表不给就用这一份小表。</summary>
+    public static Bag Row(IReadOnlyList<ItemStack?> slots, ItemCatalog? items = null) =>
+        Bag.Restore(slots.Count, 1, slots, items ?? Items);
 
     private static ItemDefinition Item(string id, bool hasQuality) => new()
     {

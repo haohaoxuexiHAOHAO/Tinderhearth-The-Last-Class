@@ -79,7 +79,7 @@ public class WorldShardsTests
         p[8].Plant(Berry);
         GrowDays(p[8], Berry, Berry.DaysToFirstRipe, mutate: false);
 
-        var bag = Bag.Restore(
+        var bag = TestBags.Row(
             [
                 new ItemStack(TestBags.Turnip, TestBags.Mutated, 3, 2),
                 null,
@@ -87,8 +87,7 @@ public class WorldShardsTests
                 new ItemStack(TestBags.Turnip, TestBags.Common, 20, 3),
                 null,
                 null,
-            ],
-            TestBags.Items);
+            ]);
 
         return new WorldState(new GameDate(2, Season.Summer, 17), PlotGrid.FromRows(new GridCell(-1, 2), 3, 3, p), bag);
     }

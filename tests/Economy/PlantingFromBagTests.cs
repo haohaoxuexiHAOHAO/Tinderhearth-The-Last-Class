@@ -38,7 +38,7 @@ public class PlantingFromBagTests
         slots[0] = new ItemStack(TestBags.TurnipSeed, null, 2, 1);
         slots[2] = new ItemStack(TestBags.Turnip, TestBags.Common, 7, 2);
         slots[^1] = new ItemStack(TestBags.TurnipSeed, null, 3, 3);
-        return Bag.Restore(slots, TestBags.Items);
+        return TestBags.Row(slots);
     }
 
     [Fact]

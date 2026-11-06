@@ -10,6 +10,11 @@
   "//buildableHeightCells": "基地可建造区的行数。理由同上。一格 16px，所以 60 格 = 960px，而俯视视野只有 360px 高 —— 纵横两个方向都真的需要滚动。",
   "buildableHeightCells": 60,
 
-  "//backpackSlotsByLevel": "主角背包每一级几格，第一项是第一级。值照设计仓 design/numeric-model-params.json 的 capacity.backpack_slots_by_level 抄过来，那是按种类数校的起步值，按堆数重算归设计仓台账 GP-7；两边对不对得上现在没有守卫，归设计仓台账 DOC-6。开新档时背包在第一级，升级跟内容与经济那一侧走。",
-  "backpackSlotsByLevel": [16, 20, 24, 28]
+  "//backpackGridByLevel": "主角背包每一级的网格几格宽、几格高，第一项是第一级，一格 16 像素。这几个数是占位值：宽 6 格与随身栏那一排一样宽，第一级连随身栏 18 格，让设计仓 design/数值模型.md 的 C7 落在 70%–100% 里；值照设计仓 design/numeric-model-params.json 的 capacity.backpack_grid_by_level 抄过来，正式的值与 C7 重算归设计仓台账 GP-7，两边对不对得上现在没有守卫，归设计仓台账 DOC-6。开新档时背包在第一级，升级跟内容与经济那一侧走。",
+  "backpackGridByLevel": [
+    { "width": 6, "height": 2 },
+    { "width": 6, "height": 3 },
+    { "width": 6, "height": 4 },
+    { "width": 6, "height": 5 }
+  ]
 }

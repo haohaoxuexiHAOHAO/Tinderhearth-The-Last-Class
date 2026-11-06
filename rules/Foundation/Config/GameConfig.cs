@@ -24,40 +24,40 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 延伸地图，不是改代码。
 /// </param>
 /// <param name="BuildableHeightCells">基地可建造区的行数。理由同上。</param>
-/// <param name="BackpackSlotsByLevel">
-/// 主角背包每一级几格，第一项是第一级，往后一级一项，每一项都要为正。值归设计仓 design/数值模型.md，
-/// 由 <see cref="BackpackSlotsAt"/> 按级取。
+/// <param name="BackpackGridByLevel">
+/// 主角背包每一级的网格几格宽、几格高，第一项是第一级，往后一级一项，宽与高都要为正。值归设计仓 design/数值模型.md，
+/// 由 <see cref="BackpackGridAt"/> 按级取。
 /// </param>
 public sealed record GameConfig(
     int RosterCapacity,
     int BuildableWidthCells,
     int BuildableHeightCells,
-    IReadOnlyList<int> BackpackSlotsByLevel)
+    IReadOnlyList<GridSize> BackpackGridByLevel)
 {
     public const string ContentPath = "config/game.json";
 
-    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{int})"/>
+    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{GridSize})"/>
     public int RosterCapacity { get; } = Positive(RosterCapacity, nameof(RosterCapacity));
 
-    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{int})"/>
+    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{GridSize})"/>
     public int BuildableWidthCells { get; } =
         Positive(BuildableWidthCells, nameof(BuildableWidthCells));
 
-    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{int})"/>
+    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{GridSize})"/>
     public int BuildableHeightCells { get; } =
         Positive(BuildableHeightCells, nameof(BuildableHeightCells));
 
-    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{int})"/>
-    public IReadOnlyList<int> BackpackSlotsByLevel { get; } =
-        PositiveList(BackpackSlotsByLevel, nameof(BackpackSlotsByLevel));
+    /// <inheritdoc cref="GameConfig(int, int, int, IReadOnlyList{GridSize})"/>
+    public IReadOnlyList<GridSize> BackpackGridByLevel { get; } =
+        PositiveGrids(BackpackGridByLevel, nameof(BackpackGridByLevel));
 
-    /// <summary>主角背包第几级有几格，从第一级数起。没有那一级就抛，说清配置里有几级。</summary>
-    public int BackpackSlotsAt(int level) =>
-        level >= 1 && level <= BackpackSlotsByLevel.Count
-            ? BackpackSlotsByLevel[level - 1]
+    /// <summary>主角背包第几级的网格多大，从第一级数起。没有那一级就抛，说清配置里有几级。</summary>
+    public GridSize BackpackGridAt(int level) =>
+        level >= 1 && level <= BackpackGridByLevel.Count
+            ? BackpackGridByLevel[level - 1]
             : throw new ArgumentOutOfRangeException(
                 nameof(level),
-                $"背包没有第 {level} 级：{ContentPath} 的 {nameof(BackpackSlotsByLevel)} 只配了 {BackpackSlotsByLevel.Count} 级");
+                $"背包没有第 {level} 级：{ContentPath} 的 {nameof(BackpackGridByLevel)} 只配了 {BackpackGridByLevel.Count} 级");
 
     public static GameConfig Parse(string json) =>
         ContentJson.Parse<GameConfig>(json, ContentPath);
@@ -67,7 +67,7 @@ public sealed record GameConfig(
         : throw new ArgumentOutOfRangeException(
             field, $"{ContentPath} 的 {field} 必须为正，实际 {value}（字段缺失也会得到 0）");
 
-    private static IReadOnlyList<int> PositiveList(IReadOnlyList<int>? values, string field)
+    private static IReadOnlyList<GridSize> PositiveGrids(IReadOnlyList<GridSize>? values, string field)
     {
         if (values is null || values.Count == 0)
         {
@@ -75,10 +75,11 @@ public sealed record GameConfig(
                 $"{ContentPath} 的 {field} 至少要有一项（字段缺失会得到空），实际 {(values is null ? "缺失" : "空列表")}", field);
         }
 
-        var bad = Enumerable.Range(0, values.Count).FirstOrDefault(i => values[i] <= 0, -1);
+        var bad = Enumerable.Range(0, values.Count).FirstOrDefault(i => values[i].Width <= 0 || values[i].Height <= 0, -1);
         return bad < 0
             ? values
             : throw new ArgumentOutOfRangeException(
-                field, $"{ContentPath} 的 {field} 每一项都必须为正，第 {bad + 1} 级是 {values[bad]}");
+                field,
+                $"{ContentPath} 的 {field} 每一级的宽与高都必须为正（字段缺失也会得到 0），第 {bad + 1} 级是 {values[bad]}");
     }
 }

@@ -109,7 +109,7 @@ public class SeedBatchesTests
     public void 整批放不下时一件不放()
     {
         var (crops, items) = Seeds(PerBatch);
-        var bag = Bag.Restore([new ItemStack(TestBags.Turnip, TestBags.Common, 5, 1), null, null], items);
+        var bag = TestBags.Row([new ItemStack(TestBags.Turnip, TestBags.Common, 5, 1), null, null], items);
         var before = bag.Slots.ToList();
 
         Assert.False(bag.TryAddAll(SeedBatches.Batch(crops, 0, PerBatch, items)));
@@ -121,7 +121,7 @@ public class SeedBatchesTests
     public void 放得下时整批进背包_一样一格()
     {
         var (crops, items) = Seeds(PerBatch);
-        var bag = new Bag(PerBatch + 1, items);
+        var bag = new Bag(PerBatch + 1, 1, items);
 
         Assert.True(bag.TryAddAll(SeedBatches.Batch(crops, 0, PerBatch, items)));
 

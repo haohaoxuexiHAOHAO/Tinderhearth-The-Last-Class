@@ -8,8 +8,8 @@ namespace Tinderhearth.Rules.Economy;
 /// <param name="QualityId">哪一档品质；那种物品声明了无品质时是 <c>null</c>，只按种类分堆。</param>
 /// <param name="Count">几件，至少 1：一件都没有的格是空格，不是一堆零件。</param>
 /// <param name="AcquiredSequence">
-/// 这一堆最近一次进东西的先后序号，从 1 数起，越大越近；只拿来比先后，不是一个计数。一次放进去的那一份分进了几格，
-/// 那几格是同一个序号。按「最近获得」排序读它（设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节）。
+/// 这一堆最近一次进东西的先后序号，从 1 数起，越大越近；只拿来比先后，不是一个计数。一次放进去的那一份分成了几堆，
+/// 那几堆是同一个序号。按「最近获得」排序读它（设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节）。
 /// </param>
 public readonly record struct ItemStack(string ItemId, string? QualityId, int Count, int AcquiredSequence)
 {
@@ -18,17 +18,24 @@ public readonly record struct ItemStack(string ItemId, string? QualityId, int Co
         string.Equals(ItemId, itemId, StringComparison.Ordinal) && string.Equals(QualityId, qualityId, StringComparison.Ordinal);
 }
 
-/// <summary>主角的背包：一格一堆，堆的标识是「种类 ＋ 品质」，满了只拒不丢。</summary>
+/// <summary>一份东西放不进背包的原因。两种说法分得开，玩家才知道该腾东西还是挪一挪。</summary>
+public enum BagRefusal
+{
+    /// <summary>一格空的都没有：背包满了，得先腾出东西。</summary>
+    Full,
+
+    /// <summary>有空格，却凑不出一块放得下它整块占地的空地：挪一挪就放得下。</summary>
+    NoRoomForSize,
+}
+
+/// <summary>主角的背包：一张网格，一堆按物品的占地占一块，堆的标识是「种类 ＋ 品质」，满了只拒不丢。</summary>
 /// <remarks>
-/// 规则在设计仓 design/背包系统.md 的「一格一堆，堆的标识是「种类 ＋ 品质」」与「满了怎么办：不自动丢弃」两节，本类不复述理由：
-/// 同种同品质先合进没满的那一堆、合满了再占空格；同种不同品质各占一格；声明了无品质的只按种类分。
-/// **满载是两个条件都不成立**：没有可合的同标识堆，也没有空格 —— 格子用尽但有半满的同标识堆时照样放得进去。
+/// 规则在设计仓 design/背包系统.md 的「一堆占一块，堆的标识是「种类 ＋ 品质」」与「一堆放在哪：先合堆，再找第一块够大的空地，
+/// 不能旋转」两节：先合进没满的同标识堆，再从上到下、从左到右找第一块放得下它整块占地的空地；一次放进来的那一份
+/// 放不下就整份拒收、背包一件不变。东西不能旋转，所以这里没有任何转向的入口。
 ///
-/// **一次放进来的那一份放不下就整份拒收，背包一件不变。** 先算出每一格各放几件，全放得下才动手；放不下的那一份
-/// 留在它原来那里（地里那一株、世界里那一件），由调用方处理，背包不替谁丢东西。
-///
-/// 格数由调用方给（开新档时按背包等级从配置读，<see cref="NewGame"/>），堆上限按种类读物品定义。
-/// 物品不在册、品质那一位与物品的声明对不上，是调用方的错，当场抛 —— 不当成「放不下」。
+/// 格号从左上角那一格数起、一行一行往下，一堆记在它左上角那一格（<see cref="Slots"/>）。网格多大由调用方给（开新档时按背包
+/// 等级从配置读，<see cref="NewGame"/>），堆上限与占地读物品定义。物品不在册、品质与物品的声明对不上，是调用方的错，当场抛。
 ///
 /// 它是世界状态的一部分，跟着结算的那份副本走，所以 <see cref="Clone"/> 出来的与原件不共用任何会变的东西。
 /// </remarks>
@@ -37,7 +44,14 @@ public sealed class Bag
     /// <summary>开新档时背包是第几级。升级跟内容与经济那一侧走（设计仓台账 GP-23）。</summary>
     public const int StartingLevel = 1;
 
-    private readonly ItemStack?[] _slots;
+    /// <summary>没被任何一堆盖着的格，在 <see cref="_coveredBy"/> 里记这个数。</summary>
+    private const int Free = -1;
+
+    /// <summary>每一格记的那一堆：一堆记在它左上角那一格，别的格是 <c>null</c>。</summary>
+    private readonly ItemStack?[] _anchors;
+
+    /// <summary>每一格被哪一堆盖着：那一堆左上角那一格的格号；空着是 <see cref="Free"/>。</summary>
+    private readonly int[] _coveredBy;
 
     /// <summary>最近一次进东西用掉的那个序号；一次都没进过是 0。</summary>
     /// <remarks>
@@ -46,42 +60,55 @@ public sealed class Bag
     /// </remarks>
     private int _lastSequence;
 
-    /// <param name="slotCount">几格，至少 1。</param>
-    /// <param name="items">在册物品：堆上限与有无品质读这里。</param>
-    public Bag(int slotCount, ItemCatalog items)
+    /// <param name="width">网格几格宽，至少 1。</param>
+    /// <param name="height">网格几格高，至少 1。</param>
+    /// <param name="items">在册物品：堆上限、占地与有无品质读这里。</param>
+    public Bag(int width, int height, ItemCatalog items)
     {
         ArgumentNullException.ThrowIfNull(items);
-        if (slotCount < 1)
+        if (width < 1 || height < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(slotCount), $"背包至少要有 1 格，实际 {slotCount}");
+            throw new ArgumentOutOfRangeException(nameof(width), $"背包的网格至少 1×1，实际 {width}×{height}");
         }
 
-        _slots = new ItemStack?[slotCount];
+        GridWidth = width;
+        GridHeight = height;
         Items = items;
+        _anchors = new ItemStack?[width * height];
+        _coveredBy = new int[width * height];
+        Array.Fill(_coveredBy, Free);
     }
 
-    /// <summary>开新档时的背包：第一级的格数，一件东西都没有。</summary>
+    /// <summary>开新档时的背包：第一级那么大，一件东西都没有。</summary>
     public static Bag NewGame(GameConfig config, ItemCatalog items)
     {
         ArgumentNullException.ThrowIfNull(config);
-        return new Bag(config.BackpackSlotsAt(StartingLevel), items);
+        var grid = config.BackpackGridAt(StartingLevel);
+        return new Bag(grid.Width, grid.Height, items);
     }
 
     /// <summary>
-    /// 从存档里读回来的那几格建一份背包。哪一格对不上 —— 物品不在册、品质那一位与物品的声明不符、件数不在 1 到堆上限之间、
-    /// 序号不为正 —— 一次全报，一行一处，格号从 1 数起。之后新进的东西排在各堆里最大的那个序号后面。
+    /// 从存档里读回来的那几堆建一份背包，每一堆记在它左上角那一格。哪一堆对不上 —— 物品不在册、品质与物品的声明不符、
+    /// 件数不在 1 到堆上限之间、序号不为正、那一块出了网格、与别的堆压在一起 —— 一次全报，一行一处，格号从 1 数起。
+    /// 之后新进的东西排在各堆里最大的那个序号后面。
     /// </summary>
-    /// <param name="slots">每一格，按格号排；<c>null</c> 是空格。项数就是格数。</param>
+    /// <param name="width">网格几格宽。</param>
+    /// <param name="height">网格几格高。</param>
+    /// <param name="anchors">每一格记的那一堆，按格号排；<c>null</c> 是这一格不是哪一堆的左上角。项数必须是宽乘高。</param>
     /// <param name="items">在册物品。</param>
-    public static Bag Restore(IReadOnlyList<ItemStack?> slots, ItemCatalog items)
+    public static Bag Restore(int width, int height, IReadOnlyList<ItemStack?> anchors, ItemCatalog items)
     {
-        ArgumentNullException.ThrowIfNull(slots);
-        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(anchors);
+        var bag = new Bag(width, height, items);
+        if (anchors.Count != bag.SlotCount)
+        {
+            throw new ArgumentException($"{width}×{height} 的网格有 {bag.SlotCount} 格，给的却是 {anchors.Count} 格", nameof(anchors));
+        }
 
         var problems = new List<string>();
-        for (var i = 0; i < slots.Count; i++)
+        for (var i = 0; i < anchors.Count; i++)
         {
-            if (slots[i] is not { } stack)
+            if (anchors[i] is not { } stack)
             {
                 continue;
             }
@@ -89,73 +116,104 @@ public sealed class Bag
             if (ProblemOf(stack.ItemId, stack.QualityId, stack.Count, items) is string problem)
             {
                 problems.Add($"第 {i + 1} 格：{problem}");
+                continue;
             }
-            else if (stack.Count > items.Items[stack.ItemId].StackLimit)
+
+            var item = items.Items[stack.ItemId];
+            if (stack.Count > item.StackLimit)
             {
-                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」有 {stack.Count} 件，超过它的堆上限 {items.Items[stack.ItemId].StackLimit}");
+                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」有 {stack.Count} 件，超过它的堆上限 {item.StackLimit}");
             }
 
             if (stack.AcquiredSequence < 1)
             {
                 problems.Add($"第 {i + 1} 格：序号 {stack.AcquiredSequence} 不为正");
             }
+
+            if (!bag.InGrid(i, item.Footprint))
+            {
+                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」占 {item.Footprint} 格，从这一格往右下摆出了 {width}×{height} 的网格");
+                continue;
+            }
+
+            var clash = bag.CellsOf(i, item.Footprint).FirstOrDefault(c => bag._coveredBy[c] != Free, Free);
+            if (clash != Free)
+            {
+                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」与第 {bag._coveredBy[clash] + 1} 格那一堆压在一起");
+                continue;
+            }
+
+            bag.Put(i, stack);
+            bag._lastSequence = Math.Max(bag._lastSequence, stack.AcquiredSequence);
         }
 
-        if (problems.Count > 0)
-        {
-            throw new InvalidDataException($"背包有 {problems.Count} 处对不上：\n  " + string.Join("\n  ", problems));
-        }
-
-        var bag = new Bag(slots.Count, items);
-        for (var i = 0; i < slots.Count; i++)
-        {
-            bag._slots[i] = slots[i];
-            bag._lastSequence = Math.Max(bag._lastSequence, slots[i]?.AcquiredSequence ?? 0);
-        }
-
-        return bag;
+        return problems.Count == 0
+            ? bag
+            : throw new InvalidDataException($"背包有 {problems.Count} 处对不上：\n  " + string.Join("\n  ", problems));
     }
 
-    /// <summary>在册物品：堆上限与有无品质读这里。</summary>
+    /// <summary>在册物品：堆上限、占地与有无品质读这里。</summary>
     public ItemCatalog Items { get; }
 
-    /// <summary>几格。</summary>
-    public int SlotCount => _slots.Length;
+    /// <summary>网格几格宽。</summary>
+    public int GridWidth { get; }
 
-    /// <summary>每一格装的那一堆，按格号排；<c>null</c> 是空格。</summary>
-    public IReadOnlyList<ItemStack?> Slots => _slots;
+    /// <summary>网格几格高。</summary>
+    public int GridHeight { get; }
 
-    /// <summary>还剩几个空格。</summary>
-    public int EmptySlotCount => _slots.Count(s => s is null);
+    /// <summary>网格一共几格。</summary>
+    public int SlotCount => _anchors.Length;
+
+    /// <summary>每一格记的那一堆，按格号排：一堆记在它左上角那一格，空格与被别的堆盖着的格是 <c>null</c>。</summary>
+    public IReadOnlyList<ItemStack?> Slots => _anchors;
+
+    /// <summary>还剩几格空着：没被任何一堆盖着的格。</summary>
+    public int EmptySlotCount => _coveredBy.Count(c => c == Free);
 
     /// <summary>整份复制：副本与原件不共用任何会变的东西。</summary>
     public Bag Clone()
     {
-        var copy = new Bag(SlotCount, Items) { _lastSequence = _lastSequence };
-        _slots.CopyTo(copy._slots, 0);
+        var copy = new Bag(GridWidth, GridHeight, Items) { _lastSequence = _lastSequence };
+        _anchors.CopyTo(copy._anchors, 0);
+        _coveredBy.CopyTo(copy._coveredBy, 0);
         return copy;
     }
 
-    /// <summary>这一份放不放得下：先合进没满的同标识堆，再占空格，全放得下才算。不改背包。</summary>
-    public bool CanAdd(string itemId, string? qualityId, int count) => Plan(itemId, qualityId, count) is not null;
+    /// <summary>这一份放不放得下：先合进没满的同标识堆，再找空地，全放得下才算。不改背包。</summary>
+    public bool CanAdd(string itemId, string? qualityId, int count) => RefusalFor(itemId, qualityId, count) is null;
 
-    /// <summary>这一种这一品质是不是满载：没有可合的同标识堆，也没有空格。</summary>
+    /// <summary>这一份为什么放不下；放得下是 <c>null</c>。不改背包。</summary>
+    /// <remarks>
+    /// 一格空的都没有是满了；还有空格、却凑不出一块够它整块占地的空地，是放不下这么大的。一份要分成几块时，按放到哪一块
+    /// 卡住的那一刻算：前几块占掉了最后几格空地，就是满了。
+    /// </remarks>
+    public BagRefusal? RefusalFor(string itemId, string? qualityId, int count) => Plan(itemId, qualityId, count).Refusal;
+
+    /// <summary>这一种这一品质是不是满载：没有可合的同标识堆，也没有放得下一件的空地。</summary>
     public bool IsFullFor(string itemId, string? qualityId) => !CanAdd(itemId, qualityId, 1);
 
     /// <summary>放进一份。放得下就全放进去、返回 <c>true</c>；放不下就一件都不放、返回 <c>false</c>，背包一件不变。</summary>
+    /// <remarks>为什么放不下问 <see cref="RefusalFor"/>：放不下时背包没变，问出来的就是这一次的原因。</remarks>
     public bool TryAdd(string itemId, string? qualityId, int count)
     {
-        var plan = Plan(itemId, qualityId, count);
+        var (plan, _) = Plan(itemId, qualityId, count);
         if (plan is null)
         {
             return false;
         }
 
         var stamp = ++_lastSequence;
-        foreach (var (slot, take) in plan)
+        foreach (var (anchor, take) in plan)
         {
-            var before = _slots[slot]?.Count ?? 0;
-            _slots[slot] = new ItemStack(itemId, qualityId, before + take, stamp);
+            var stack = new ItemStack(itemId, qualityId, (_anchors[anchor]?.Count ?? 0) + take, stamp);
+            if (_anchors[anchor] is null)
+            {
+                Put(anchor, stack);
+            }
+            else
+            {
+                _anchors[anchor] = stack;
+            }
         }
 
         return true;
@@ -179,42 +237,65 @@ public sealed class Bag
             }
         }
 
-        trial._slots.CopyTo(_slots, 0);
+        trial._anchors.CopyTo(_anchors, 0);
+        trial._coveredBy.CopyTo(_coveredBy, 0);
         _lastSequence = trial._lastSequence;
         return true;
     }
 
-    /// <summary>从第 <paramref name="slot"/> 格（从 0 数）拿走几件。拿完那一格变成空格。</summary>
-    /// <returns>那一格是空的、或者件数不够，就一件都不拿、返回 <c>false</c>。</returns>
+    /// <summary>从左上角在第 <paramref name="slot"/> 格（从 0 数）的那一堆拿走几件。拿完那一块空出来。</summary>
+    /// <returns>那一格不是哪一堆的左上角、或者件数不够，就一件都不拿、返回 <c>false</c>。</returns>
     /// <remarks>格号越界、件数不为正是调用方的错，当场抛。拿走不改那一堆的先后序号：「最近获得」问的是什么时候进来的。</remarks>
     public bool TryRemoveAt(int slot, int count)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(slot);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(slot, _slots.Length);
+        RequireSlot(slot, nameof(slot));
         ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
 
-        if (_slots[slot] is not { } stack || stack.Count < count)
+        if (_anchors[slot] is not { } stack || stack.Count < count)
         {
             return false;
         }
 
-        _slots[slot] = stack.Count == count ? null : stack with { Count = stack.Count - count };
+        if (stack.Count == count)
+        {
+            Clear(slot);
+        }
+        else
+        {
+            _anchors[slot] = stack with { Count = stack.Count - count };
+        }
+
         return true;
     }
 
     /// <summary>挪格：第 <paramref name="from"/> 格与第 <paramref name="to"/> 格（都从 0 数）互换，目标格空着时就是搬过去。</summary>
     /// <remarks>
-    /// 同标识的两堆挪到一起也只是互换，不合堆：合堆是一键整理的事，挪格只动摆法。格号越界是调用方的错，当场抛。
-    /// 挪格不改哪一堆的先后序号：「最近获得」问的是什么时候进来的，不是什么时候挪过。
+    /// 同标识的两堆挪到一起也只是互换，不合堆；挪格不改哪一堆的先后序号。格号越界是调用方的错，当场抛。
+    /// 现在只挪得动占 1 格的东西：照块挪、合堆与压到别的就不动还没有，归设计仓台账 GP-170。
     /// </remarks>
     public void Move(int from, int to)
     {
         RequireSlot(from, nameof(from));
         RequireSlot(to, nameof(to));
-        (_slots[from], _slots[to]) = (_slots[to], _slots[from]);
+        RequireOneCellOrFree(from);
+        RequireOneCellOrFree(to);
+
+        var moving = _anchors[from];
+        var other = _anchors[to];
+        Clear(from);
+        Clear(to);
+        if (other is { } o)
+        {
+            Put(from, o);
+        }
+
+        if (moving is { } m)
+        {
+            Put(to, m);
+        }
     }
 
-    /// <summary>丢弃第 <paramref name="slot"/> 格（从 0 数）那一整堆。</summary>
+    /// <summary>丢弃左上角在第 <paramref name="slot"/> 格（从 0 数）的那一整堆。</summary>
     /// <remarks>
     /// 那一样声明了不可丢弃时一件都不丢，说得出是这一种（物品定义那一格，设计仓 design/物品系统.md）。丢之前那一道确认
     /// 在界面那一侧，这里只管确认之后那一下。格号越界是调用方的错，当场抛。
@@ -223,7 +304,7 @@ public sealed class Bag
     {
         RequireSlot(slot, nameof(slot));
 
-        if (_slots[slot] is not { } stack)
+        if (_anchors[slot] is not { } stack)
         {
             return BagDiscardResult.NothingThere;
         }
@@ -233,7 +314,7 @@ public sealed class Bag
             return BagDiscardResult.NotDiscardable;
         }
 
-        _slots[slot] = null;
+        Clear(slot);
         return BagDiscardResult.Discarded;
     }
 
@@ -245,8 +326,8 @@ public sealed class Bag
     /// <param name="keepLeading">开头几格一格都不动：随身栏就是背包开头那几格，玩家手上那一格不许被排序换掉。</param>
     /// <param name="filter">筛选条件。被筛掉的那几堆留在原来那几格，排序越过它们。</param>
     /// <remarks>
-    /// 开头那几格为什么不动：随身栏按格号读背包开头那几格，排一次就换掉玩家手上那一格，而他没按任何键（设计仓
-    /// design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节）。不筛的时候它把东西都挪到前面、空格留在最后。
+    /// 开头那几格为什么不动在设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节。
+    /// 现在只排得动占 1 格的东西：照「第一块够大的空地」摆、摆不下就不动还没有，归设计仓台账 GP-171。
     /// </remarks>
     public void Sort(BagSortKey key, int keepLeading, BagFilter filter) => Arrange(key, keepLeading, filter, merge: false);
 
@@ -264,21 +345,31 @@ public sealed class Bag
     {
         ArgumentNullException.ThrowIfNull(filter);
         ArgumentOutOfRangeException.ThrowIfNegative(keepLeading);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(keepLeading, _slots.Length);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(keepLeading, _anchors.Length);
 
-        var places = Enumerable.Range(keepLeading, _slots.Length - keepLeading)
-            .Where(i => _slots[i] is not { } stack || filter.Shows(stack, Items))
+        var places = Enumerable.Range(keepLeading, _anchors.Length - keepLeading)
+            .Where(i => _coveredBy[i] == Free || (_anchors[i] is { } stack && filter.Shows(stack, Items)))
             .ToList();
-        var stacks = places.Where(i => _slots[i] is not null).Select(i => _slots[i]!.Value).ToList();
+        foreach (var place in places)
+        {
+            RequireOneCellOrFree(place);
+        }
+
+        var stacks = places.Where(i => _anchors[i] is not null).Select(i => _anchors[i]!.Value).ToList();
         if (merge)
         {
             stacks = Merge(stacks);
         }
 
         stacks.Sort(BagOrder.For(key, Items));
-        for (var n = 0; n < places.Count; n++)
+        foreach (var place in places)
         {
-            _slots[places[n]] = n < stacks.Count ? stacks[n] : null;
+            Clear(place);
+        }
+
+        for (var n = 0; n < stacks.Count; n++)
+        {
+            Put(places[n], stacks[n]);
         }
     }
 
@@ -307,47 +398,136 @@ public sealed class Bag
         return merged;
     }
 
-    private void RequireSlot(int slot, string name)
-    {
-        if (slot < 0 || slot >= _slots.Length)
-        {
-            throw new ArgumentOutOfRangeException(name, $"背包只有 {_slots.Length} 格（从 0 数），没有第 {slot} 格");
-        }
-    }
-
-    /// <summary>算出每一格各放几件：先按格号合进没满的同标识堆，再按格号占空格。放不下就是 <c>null</c>。</summary>
-    private List<(int Slot, int Take)>? Plan(string itemId, string? qualityId, int count)
+    /// <summary>
+    /// 算出这一份怎么放：每一处是一块的左上角那一格与放几件。先按格号合进没满的同标识堆，再一块一块找空地。
+    /// 放不下时那一份计划是 <c>null</c>，并说出原因。
+    /// </summary>
+    private (List<(int Anchor, int Take)>? Plan, BagRefusal? Refusal) Plan(string itemId, string? qualityId, int count)
     {
         if (ProblemOf(itemId, qualityId, count, Items) is string problem)
         {
             throw count < 1 ? new ArgumentOutOfRangeException(nameof(count), problem) : new ArgumentException(problem);
         }
 
-        var limit = Items.Items[itemId].StackLimit;
-        var plan = new List<(int Slot, int Take)>();
+        var item = Items.Items[itemId];
+        var plan = new List<(int Anchor, int Take)>();
         var remaining = count;
 
-        for (var i = 0; i < _slots.Length && remaining > 0; i++)
+        for (var i = 0; i < _anchors.Length && remaining > 0; i++)
         {
-            if (_slots[i] is { } stack && stack.Holds(itemId, qualityId) && stack.Count < limit)
+            if (_anchors[i] is { } stack && stack.Holds(itemId, qualityId) && stack.Count < item.StackLimit)
             {
-                var take = Math.Min(limit - stack.Count, remaining);
+                var take = Math.Min(item.StackLimit - stack.Count, remaining);
                 plan.Add((i, take));
                 remaining -= take;
             }
         }
 
-        for (var i = 0; i < _slots.Length && remaining > 0; i++)
+        var covered = (int[])_coveredBy.Clone();
+        while (remaining > 0)
         {
-            if (_slots[i] is null)
+            var anchor = FirstFit(covered, item.Footprint);
+            if (anchor == Free)
             {
-                var take = Math.Min(limit, remaining);
-                plan.Add((i, take));
-                remaining -= take;
+                return (null, covered.Contains(Free) ? BagRefusal.NoRoomForSize : BagRefusal.Full);
+            }
+
+            foreach (var cell in CellsOf(anchor, item.Footprint))
+            {
+                covered[cell] = anchor;
+            }
+
+            var take = Math.Min(item.StackLimit, remaining);
+            plan.Add((anchor, take));
+            remaining -= take;
+        }
+
+        return (plan, null);
+    }
+
+    /// <summary>从上到下、从左到右第一个放得下这一块的左上角；没有是 <see cref="Free"/>。</summary>
+    private int FirstFit(int[] covered, ItemFootprint footprint)
+    {
+        for (var row = 0; row + footprint.Height <= GridHeight; row++)
+        {
+            for (var column = 0; column + footprint.Width <= GridWidth; column++)
+            {
+                var anchor = (row * GridWidth) + column;
+                if (CellsOf(anchor, footprint).All(c => covered[c] == Free))
+                {
+                    return anchor;
+                }
             }
         }
 
-        return remaining == 0 ? plan : null;
+        return Free;
+    }
+
+    /// <summary>左上角在这一格的这一块整个落在网格里吗。</summary>
+    private bool InGrid(int anchor, ItemFootprint footprint) =>
+        (anchor % GridWidth) + footprint.Width <= GridWidth && (anchor / GridWidth) + footprint.Height <= GridHeight;
+
+    /// <summary>左上角在这一格的这一块盖着哪几格，按格号排。调用方先保证它整个落在网格里。</summary>
+    private IEnumerable<int> CellsOf(int anchor, ItemFootprint footprint)
+    {
+        for (var row = 0; row < footprint.Height; row++)
+        {
+            for (var column = 0; column < footprint.Width; column++)
+            {
+                yield return anchor + (row * GridWidth) + column;
+            }
+        }
+    }
+
+    /// <summary>把一堆摆在左上角那一格，盖上它那一块。调用方先保证那一块全空着、整个落在网格里。</summary>
+    private void Put(int anchor, ItemStack stack)
+    {
+        _anchors[anchor] = stack;
+        foreach (var cell in CellsOf(anchor, Items.Items[stack.ItemId].Footprint))
+        {
+            _coveredBy[cell] = anchor;
+        }
+    }
+
+    /// <summary>拿走左上角在这一格的那一堆，空出它那一块。这一格不是哪一堆的左上角时什么都不做。</summary>
+    private void Clear(int anchor)
+    {
+        if (_anchors[anchor] is not { } stack)
+        {
+            return;
+        }
+
+        foreach (var cell in CellsOf(anchor, Items.Items[stack.ItemId].Footprint))
+        {
+            _coveredBy[cell] = Free;
+        }
+
+        _anchors[anchor] = null;
+    }
+
+    private void RequireSlot(int slot, string name)
+    {
+        if (slot < 0 || slot >= _anchors.Length)
+        {
+            throw new ArgumentOutOfRangeException(name, $"背包只有 {_anchors.Length} 格（从 0 数），没有第 {slot} 格");
+        }
+    }
+
+    /// <summary>这一格要么空着，要么是一堆占 1 格的东西：挪格与排序现在只动得了这样的格。</summary>
+    private void RequireOneCellOrFree(int slot)
+    {
+        var owner = _coveredBy[slot];
+        if (owner == Free)
+        {
+            return;
+        }
+
+        var footprint = Items.Items[_anchors[owner]!.Value.ItemId].Footprint;
+        if (footprint.Width != 1 || footprint.Height != 1)
+        {
+            throw new InvalidOperationException(
+                $"背包第 {slot} 格（从 0 数）被一块占 {footprint} 格的东西盖着，现在只挪得动、排得动占 1 格的东西");
+        }
     }
 
     /// <summary>这一份对不对：件数为正、物品在册、品质那一位与物品的声明对得上。对就是 <c>null</c>。</summary>

@@ -33,7 +33,7 @@ public class CropSheetE2ETests
     {
         var crops = ShippedCrops();
         var items = ShippedItems.Load();
-        var bag = new Bag(CarrySlotBar.SlotCount, items);
+        var bag = new Bag(CarrySlotBar.SlotCount, 1, items);
         Assert.True(bag.TryAddAll(SeedBatches.Batch(crops.Values, 0, CarrySlotBar.SlotCount, items)));
         var bar = CarrySlotBar.Empty();
         bar.Fill(CarrySlotBar.ProjectionOf(

@@ -17,13 +17,13 @@ public sealed record BagPageSource(
     Func<Bag> Bag, ItemIconResolver Icons, Palette Palette, Action<string> Notify, Action Changed);
 
 /// <summary>
-/// 手环里的背包那一页：深色厚框里一行四格，右边一列是排序、筛选、一键整理、丢弃与还剩几个空格，下面一行写指着的那一格是什么。
+/// 手环里的背包那一页：深色厚框里一格对着背包网格的一格，右边一列是排序、筛选、一键整理、丢弃与还剩几个空格，下面一行写指着的那一格是什么。
 /// </summary>
 /// <remarks>
 /// 画什么判在规则层（<see cref="BagPage"/>），按下去对背包做什么判在 <see cref="BagControls"/>，怎么排在 <see cref="BagPageLayout"/>；
 /// 本类只把它们翻成节点，不设一个颜色、不定一个尺寸：格子各态、焦点框、选中框、稀有度框与品质点都是作者画的件，
-/// 稀有度框与品质点按那一档声明的显示色染。格子由代码拼、不由作者摆，与随身栏同一个理由：一行几格与格距归规则层、
-/// 有测试管着，背包多了格只多几行。
+/// 稀有度框与品质点按那一档声明的显示色染。格子由代码拼、不由作者摆，与随身栏同一个理由：一行几格就是背包网格的宽、
+/// 格距归规则层、有测试管着，背包多了格只多几行。
 ///
 /// 每一格是一个按钮，键盘与手柄靠焦点在格子与右边那一列之间走，鼠标指上去与焦点停上去是同一个样子（格子里那一圈亮边）。
 /// 挪格是点一格、再点目标格：第一下拿起那一堆（外面套一圈选中框），第二下与目标格互换，点回原来那一格是放回去。
@@ -102,7 +102,8 @@ public sealed partial class BagPageView : VBoxContainer
         };
         top.AddChild(frame);
 
-        _grid = new GridContainer { Name = "Grid", Columns = BagPageLayout.SlotsPerRow };
+        // 一行几格跟着背包网格的宽走，搭格子时照那一份背包设（Rebuild）。
+        _grid = new GridContainer { Name = "Grid" };
         _grid.AddThemeConstantOverride("h_separation", BagPageLayout.CellGap);
         _grid.AddThemeConstantOverride("v_separation", BagPageLayout.CellGap);
         frame.AddChild(_grid);
@@ -163,8 +164,9 @@ public sealed partial class BagPageView : VBoxContainer
     {
         var bag = _source.Bag();
         _shown = BagPage.CellsOf(bag);
-        if (_cells.Count != _shown.Count)
+        if (_cells.Count != _shown.Count || _grid.Columns != bag.GridWidth)
         {
+            _grid.Columns = bag.GridWidth;
             Rebuild(_shown.Count);
         }
 
