@@ -150,7 +150,7 @@ def hue_spread(ramps: dict[str, list[tuple[int, int, int]]]) -> None:
 def warmth(cols: list[tuple[int, int, int]]) -> str:
     """把一条色带的冷暖走向压成一行，并点出它在哪一档翻了。
 
-    这一列要有，是因为翻冷暖只看色块看不出来：`ash` 中段从冷翻暖，照它画的钢铁亮部
+    这一列要有，是因为翻冷暖只看色块看不出来：一条中途从冷翻暖的灰，照它画的钢铁亮部
     会发米灰，而色板上那一排格子看着毫无异样。
     """
     signs = ["暖" if c[0] > c[2] else ("冷" if c[2] > c[0] else "中") for c in cols]
