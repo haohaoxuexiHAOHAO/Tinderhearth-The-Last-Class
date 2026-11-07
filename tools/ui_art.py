@@ -338,6 +338,9 @@ class Piece:
     text: bool = False                             # 里面放字：清单里多打一格「放一行字至少高多少」
     hotspot: Pt | None = None                      # 鼠标指针的热点；不是指针的件是 None
     glyphs: str | None = None                      # 字形表从左到右是哪几个字；不是字形表的件是 None
+    # 中段按 Tile 平铺的方向：h 横着、v 竖着；空是两个方向都 Stretch。check_art.py 照它放过那个方向的
+    # 「沿拉伸方向同一色」；引擎那一侧用到这件的地方照同一个方向设 Tile（src/UI/GaugeBar.cs、src/UI/BaseHud.cs）。
+    tile: str = ""
 
 
 PIECES: list[Piece] = []
@@ -345,7 +348,8 @@ PIECES: list[Piece] = []
 
 def add(group: str, name: str, image: Image.Image, use: str, source: str,
         nine: tuple[int, int, int, int] | None = None, size: Pt | None = None,
-        text: bool = False, hotspot: Pt | None = None, glyphs: str | None = None) -> Image.Image:
+        text: bool = False, hotspot: Pt | None = None, glyphs: str | None = None,
+        tile: str = "") -> Image.Image:
     if size is not None and image.size != size:
         raise SystemExit(f"[FAIL] {group}/{name} 尺寸 {image.size}，清单要求 {size}")
     if any(p.group == group and p.name == name for p in PIECES):
@@ -356,7 +360,12 @@ def add(group: str, name: str, image: Image.Image, use: str, source: str,
         raise SystemExit(f"[FAIL] {group}/{name} 的热点 {hotspot} 落在 {image.size} 的画布外面")
     if glyphs is not None and image.width % len(glyphs):
         raise SystemExit(f"[FAIL] {group}/{name} 宽 {image.width} 分不成 {len(glyphs)} 个等宽的字形")
-    PIECES.append(Piece(group, name, image, use, source, nine, text, hotspot, glyphs))
+    if tile and (nine is None or set(tile) - {"h", "v"}):
+        raise SystemExit(f"[FAIL] {group}/{name} 的平铺方向写成 {tile!r}：只许 h、v，而且只有九宫格件才平铺")
+    if tile and nine is not None and (("h" in tile and not nine[0] + nine[2])
+                                      or ("v" in tile and not nine[1] + nine[3])):
+        raise SystemExit(f"[FAIL] {group}/{name} 标了往一个方向平铺，可那个方向没有边距，根本不拉")
+    PIECES.append(Piece(group, name, image, use, source, nine, text, hotspot, glyphs, tile))
     return image
 
 
@@ -821,7 +830,7 @@ def build_hud() -> None:
     }
     for key, (image, use, source) in fills.items():
         add("hud", f"bar_fill_{key}", image, f"{use}；中段用 Tile 铺、不拉伸，右端三列是斜切的头",
-            source, nine=(4, 0, 3, 0))
+            source, nine=(4, 0, 3, 0), tile="h")
 
     tubes = tpl("bar2.png")
     empty, full = crop(tubes, 50, 18, 13, 28), crop(tubes, 1, 18, 13, 28)
@@ -833,10 +842,10 @@ def build_hud() -> None:
                 liquid.putpixel((x, y), full.getpixel((x, y)))
     # 两张都竖着拉长：空管中间那一段每一行都一样；液面中间那一段（两个气泡一轮）首尾接得上，代码按行平铺。
     add("hud", "vigor_tube_track", empty, "经营侧那条竖着的精力条：空管；中段按行平铺拉长", "切",
-        nine=(0, 5, 0, 5), size=(13, 28))
+        nine=(0, 5, 0, 5), size=(13, 28), tile="v")
     add("hud", "vigor_tube_fill", recolor(liquid, TUBE_GREEN),
         "精力条的液面：叠在空管上，代码从下往上按比例露出（色改走绿）；中段按行平铺拉长", "派生",
-        nine=(0, 8, 0, 8), size=(13, 28))
+        nine=(0, 8, 0, 8), size=(13, 28), tile="v")
 
     for key, rows in sp.GAUGE_ICON.items():
         add("hud", f"gauge_icon_{key}", from_grid(rows), "资源条前面的标签", "手画", size=(8, 8))
@@ -1268,6 +1277,8 @@ def listing() -> None:
     line = ui_metric("LineHeight")
     for p in PIECES:
         nine = "" if p.nine is None else f"  九宫格 左{p.nine[0]} 上{p.nine[1]} 右{p.nine[2]} 下{p.nine[3]}"
+        if p.tile:
+            nine += "  中段" + "、".join({"h": "横着", "v": "竖着"}[a] for a in p.tile) + "平铺"
         if p.text:
             nine += f"  放一行字至少高 {p.nine[1] + line + p.nine[3]}"
         print(f"{p.group}/{p.name}.png  {p.image.width}×{p.image.height}  [{p.source}]{nine}  {p.use}")

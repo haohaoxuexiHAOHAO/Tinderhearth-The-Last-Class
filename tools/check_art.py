@@ -10,7 +10,7 @@
           tiles/fill/ 下的地面纹理宽高都是基础单位的整数倍，而且整张不透明 —— 它按世界坐标铺满一片地。
           别处没有尺寸规矩，不核。
   几态    同一件的几种状态（_normal、_focus、_pressed、_disabled……）画布一样大。
-  九宫格  清单里标了边距的件，沿拉伸方向那几行、几列每一格都一样；中段按 Tile 铺的不核横向。
+  九宫格  清单里标了边距的件，沿拉伸方向那几行、几列每一格都一样；清单里声明了中段平铺的那个方向不核。
   文件名  与 check_names.py 同一条规矩。
 最后列出清单里有、磁盘上还没有的 —— 只列代码仓自己知道的那些，内容图标等内容数据引用它们再说。
 
@@ -140,17 +140,22 @@ def family(path: Path) -> tuple[Path, str]:
     return path.parent, stem
 
 
-def nine_problems(im: Image.Image, nine: tuple[int, int, int, int], tiled: bool) -> list[str]:
-    """沿拉伸方向必须一样：横着拉的那几列每一行一色，竖着拉的那几行每一列一色。"""
+def nine_problems(im: Image.Image, nine: tuple[int, int, int, int], tile: str) -> list[str]:
+    """沿拉伸方向必须一样：横着拉的那几列每一行一色，竖着拉的那几行每一列一色。
+
+    清单里声明了中段平铺（`ui_art.Piece.tile`，h 横、v 竖）的那个方向不核：平铺的是一段花纹（资源条的
+    亮点、精力条的气泡），本来就不是同一色。平铺方向只认清单里那一格，不从用途说明里猜 —— 说明是写给人
+    看的，换个说法就会认错。
+    """
     l, t, r, b = nine
     w, h = im.size
     px = im.load()
     out = []
-    if l + r and not tiled:
+    if l + r and "h" not in tile:
         rows = [y for y in range(h) if len({px[x, y] for x in range(l, w - r)}) > 1]
         if rows:
             out.append(f"九宫格横着拉的那几列（x {l}–{w - r - 1}）在第 {short(rows)} 行不是同一色")
-    if t + b:
+    if t + b and "v" not in tile:
         cols = [x for x in range(w) if len({px[x, y] for y in range(t, h - b)}) > 1]
         if cols:
             out.append(f"九宫格竖着拉的那几行（y {t}–{h - b - 1}）在第 {short(cols)} 列不是同一色")
@@ -209,7 +214,7 @@ def check_one(path: Path, sizes, pieces, palette) -> list[str]:
                             "一张一个或整张表都按格算）")
     piece = pieces.get(rel)
     if piece and piece.nine and im.size == piece.image.size:
-        problems += nine_problems(im, piece.nine, tiled="Tile" in piece.use)
+        problems += nine_problems(im, piece.nine, piece.tile)
     folder, stem = family(path)
     others = {}
     for sib in folder.glob("*.png"):
