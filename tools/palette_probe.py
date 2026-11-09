@@ -106,7 +106,7 @@ def cmd_ramps() -> int:
 def ramp_hue(cols: list[tuple[int, int, int]]) -> float | None:
     """一条色带的代表色相，低彩度的档不参与平均；整条都发灰时返回 None。
 
-    发灰的色算出来的色相是噪声（`winter` 各档会报出一串互不相干的角度），拿它排进
+    发灰的色算出来的色相是噪声（`snow` 各档会报出一串互不相干的角度），拿它排进
     色环会凭空多出几条「占了位」的色带。所以中性那几条宁可不给色相。
     """
     hues = [hue_deg(c) for c in cols if chroma(c) >= 0.12]
