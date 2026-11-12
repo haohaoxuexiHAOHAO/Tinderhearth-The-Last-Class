@@ -178,5 +178,6 @@
   "ui.bag.discard_yes": "丢掉",
   "ui.bag.discard_no": "不丢",
   "ui.bag.discard_rejected": "{0}不能丢",
-  "ui.bag.too_big_for_carry": "占不止一格的东西放不进随身栏"
+  "ui.bag.too_big_for_carry": "占不止一格的东西放不进随身栏",
+  "ui.bag.no_room_to_arrange": "这样排摆不下，一样都没挪"
 }

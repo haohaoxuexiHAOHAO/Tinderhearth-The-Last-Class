@@ -15,6 +15,16 @@ public enum BagSortKey
     Recent,
 }
 
+/// <summary>排一次或整理一次的结果。</summary>
+public enum BagArrangeResult
+{
+    /// <summary>照新的先后摆好了。</summary>
+    Arranged,
+
+    /// <summary>照新的先后摆不下全部，一格都没动：网格有碎片，新摆法比原来的更费地方。</summary>
+    NoRoom,
+}
+
 /// <summary>丢一堆的结果。</summary>
 public enum BagDiscardResult
 {

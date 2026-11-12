@@ -68,6 +68,9 @@ public static class BagPage
     /// <summary>占不止一格的东西要挪进随身栏时屏上那一行（即时提示）。</summary>
     public const string TooBigForCarryKey = "ui.bag.too_big_for_carry";
 
+    /// <summary>排序或一键整理照新的先后摆不下全部、一格没动时屏上那一行（即时提示）。</summary>
+    public const string NoRoomToArrangeKey = "ui.bag.no_room_to_arrange";
+
     /// <summary>三个排序键各自那个按钮上的字。</summary>
     public static IReadOnlyDictionary<BagSortKey, string> SortKeyKeys { get; } = new Dictionary<BagSortKey, string>
     {
@@ -81,7 +84,7 @@ public static class BagPage
     [
         FreeSlotsKey, InfoKey, InfoNoQualityKey, FilterKey, AnyCategoryKey, AnyQualityKey, TidyKey, DiscardKey,
         DiscardAskKey, DiscardAskNoQualityKey, DiscardYesKey, DiscardNoKey, DiscardRejectedKey, TooBigForCarryKey,
-        .. SortKeyKeys.Values,
+        NoRoomToArrangeKey, .. SortKeyKeys.Values,
     ];
 
     /// <summary>按类别筛那个按钮上写什么：现在筛的那一类的名字，不筛时写「全部类别」。</summary>

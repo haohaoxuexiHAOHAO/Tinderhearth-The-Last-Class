@@ -437,55 +437,80 @@ public sealed class Bag
     }
 
     /// <summary>
-    /// 按一个键把网格排一遍：筛选看得见的那些格（空格也算看得见）里，看得见的那几堆从最前面的一格起挨个摆，剩下的变空。
-    /// 随身栏那一排不在网格里，排序不碰它。
+    /// 按一个键把网格排一遍：看得见的那几堆按这个键排好先后，再一堆一堆找第一块够大的空地，从左上往右下摆。
+    /// 照新的先后摆不下全部时一格不动。随身栏那一排不在网格里，排序不碰它。
     /// </summary>
     /// <param name="key">按什么排。</param>
-    /// <param name="filter">筛选条件。被筛掉的那几堆留在原来那几格，排序越过它们。</param>
+    /// <param name="filter">筛选条件。被筛掉的那几堆照旧占着自己那一块，看得见的那几堆摆在剩下的地方。</param>
+    /// <returns>摆好了；或者照新的先后摆不下全部，一格都没动。</returns>
     /// <remarks>
-    /// 随身栏那一排为什么不动在设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节。
-    /// 现在只排得动占 1 格的东西：照「第一块够大的空地」摆、摆不下就不动还没有，归设计仓台账 GP-171。
+    /// 摆不下为什么不动、为什么不先放大的、随身栏那一排为什么不动，在设计仓 design/背包系统.md 的「分堆的代价由排序、
+    /// 筛选与一键整理来付」一节。排出来的样子只由每一堆的内容与被筛掉的那几堆占着哪里定，不读原来的摆法：同键排两次结果相同。
     /// </remarks>
-    public void Sort(BagSortKey key, BagFilter filter) => Arrange(key, filter, merge: false);
+    public BagArrangeResult Sort(BagSortKey key, BagFilter filter) => Arrange(key, filter, merge: false);
 
     /// <summary>
-    /// 一键整理：把网格里同标识的散堆并起来，再按 <paramref name="key"/> 排。动哪几格与 <see cref="Sort"/> 一样。
+    /// 一键整理：把网格里看得见的同标识散堆并起来，再按 <paramref name="key"/> 照 <see cref="Sort"/> 那样摆；摆不下全部时一格不动。
     /// </summary>
     /// <remarks>
     /// 散堆是没装满的那几堆：同一种同一品质的散堆并成满堆加至多一个零头，装满的那几堆不动它们的件数。
     /// 总数一件不变、一件都不丢、不跨容器 —— 它只动摆法。整理两次与整理一次一样。并出来的那几堆记的是参与合并的
     /// 那几堆里最近的那个序号：「最近获得」问的是这一堆里最近进来的那一件。
     /// </remarks>
-    public void Tidy(BagSortKey key, BagFilter filter) => Arrange(key, filter, merge: true);
+    public BagArrangeResult Tidy(BagSortKey key, BagFilter filter) => Arrange(key, filter, merge: true);
 
-    private void Arrange(BagSortKey key, BagFilter filter, bool merge)
+    private BagArrangeResult Arrange(BagSortKey key, BagFilter filter, bool merge)
     {
         ArgumentNullException.ThrowIfNull(filter);
 
-        var places = Enumerable.Range(0, _anchors.Length)
-            .Where(i => _coveredBy[i] == Free || (_anchors[i] is { } stack && filter.Shows(stack, Items)))
+        var shown = Enumerable.Range(0, _anchors.Length)
+            .Where(i => _anchors[i] is { } stack && filter.Shows(stack, Items))
             .ToList();
-        foreach (var place in places)
-        {
-            RequireOneCellOrFree(BagPlace.Grid(place));
-        }
-
-        var stacks = places.Where(i => _anchors[i] is not null).Select(i => _anchors[i]!.Value).ToList();
+        var stacks = shown.Select(i => _anchors[i]!.Value).ToList();
         if (merge)
         {
             stacks = Merge(stacks);
         }
 
         stacks.Sort(BagOrder.For(key, Items));
-        foreach (var place in places)
+
+        // 先在一份占地图上摆一遍：看得见的那几堆拿开，被筛掉的照旧盖着自己那一块；有一堆摆不下就什么都不改。
+        var covered = (int[])_coveredBy.Clone();
+        foreach (var anchor in shown)
         {
-            Clear(place);
+            foreach (var cell in CellsOf(anchor, FootprintOf(_anchors[anchor]!.Value)))
+            {
+                covered[cell] = Free;
+            }
+        }
+
+        var anchors = new int[stacks.Count];
+        for (var n = 0; n < stacks.Count; n++)
+        {
+            var footprint = FootprintOf(stacks[n]);
+            anchors[n] = FirstFit(covered, footprint);
+            if (anchors[n] == Free)
+            {
+                return BagArrangeResult.NoRoom;
+            }
+
+            foreach (var cell in CellsOf(anchors[n], footprint))
+            {
+                covered[cell] = anchors[n];
+            }
+        }
+
+        foreach (var anchor in shown)
+        {
+            Clear(anchor);
         }
 
         for (var n = 0; n < stacks.Count; n++)
         {
-            Put(places[n], stacks[n]);
+            Put(anchors[n], stacks[n]);
         }
+
+        return BagArrangeResult.Arranged;
     }
 
     /// <summary>同一种同一品质的散堆并成满堆加至多一个零头；装满的那几堆原样留着。</summary>
@@ -774,22 +799,6 @@ public sealed class Bag
         {
             throw new ArgumentOutOfRangeException(
                 name, $"背包的{(place.InCarry ? "随身栏" : "网格")}只有 {count} 格（从 0 数），没有第 {place.Index} 格");
-        }
-    }
-
-    /// <summary>网格里这一格要么空着，要么是一堆占 1 格的东西：排序与整理现在只动得了这样的格。随身栏那一排总是。</summary>
-    private void RequireOneCellOrFree(BagPlace place)
-    {
-        if (place.InCarry)
-        {
-            return;
-        }
-
-        var owner = _coveredBy[place.Index];
-        if (owner != Free && FootprintOf(_anchors[owner]!.Value) is var footprint && !IsOneCell(footprint))
-        {
-            throw new InvalidOperationException(
-                $"背包{place}被一块占 {footprint} 格的东西盖着，排序与整理现在只排得动占 1 格的东西");
         }
     }
 

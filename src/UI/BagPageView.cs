@@ -39,8 +39,8 @@ public sealed record BagPageSource(
 /// 界面这一侧让它们碰不到。页上先排随身栏那一排、再排网格；随身栏那几格左上角写着它在随身栏里是第几格：排序与整理
 /// 不碰那一排，不标出来的话，排完了那几格没动看着像没排好。占不止一格的东西挪不进那一排，屏上一行字说清。
 ///
-/// 排序、整理与换筛选都放下手上那一堆：排过之后那一格装的已经不是拿起来的那一堆。合上手环或换到别的页也放下，
-/// 拿起来只是界面上的一个记号，什么都没挪。
+/// 排序、整理与换筛选都放下手上那一堆：排过之后那一格装的已经不是拿起来的那一堆。照新的先后摆不下全部时一格不动，
+/// 屏上一行字说清。合上手环或换到别的页也放下，拿起来只是界面上的一个记号，什么都没挪。
 ///
 /// 这一页每次 <see cref="Refresh"/> 都照背包的当前值重画：手环开着时世界停着，背包只在这一页自己手里变。
 /// </remarks>
@@ -229,19 +229,23 @@ public sealed partial class BagPageView : VBoxContainer
         Refresh();
     }
 
-    private void SortBy(BagSortKey key)
-    {
-        _held = null;
-        _controls.SortBy(_source.Bag(), key);
-        _source.Changed();
-        Refresh();
-    }
+    private void SortBy(BagSortKey key) => Arranged(_controls.SortBy(_source.Bag(), key));
 
-    private void Tidy()
+    private void Tidy() => Arranged(_controls.Tidy(_source.Bag()));
+
+    /// <summary>排过或整理过之后：摆不下全部、一格没动时屏上一行字说清，摆好了叫随身栏重画。两种都放下手上那一堆。</summary>
+    private void Arranged(BagArrangeResult result)
     {
         _held = null;
-        _controls.Tidy(_source.Bag());
-        _source.Changed();
+        if (result == BagArrangeResult.NoRoom)
+        {
+            _source.Notify(_text[BagPage.NoRoomToArrangeKey]);
+        }
+        else
+        {
+            _source.Changed();
+        }
+
         Refresh();
     }
 

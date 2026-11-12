@@ -8,9 +8,9 @@ namespace Tinderhearth.Rules.Tests.Economy;
 /// <summary>背包里的排序、筛选、一键整理、挪格与丢弃，以及随身栏那一排不被排序与整理换掉。</summary>
 /// <remarks>
 /// 这几样失效都不报错：排序读了原来的格号，排两次就是两个样子；整理多并了或少并了一件，总数悄悄变了；
-/// 排序碰了随身栏，玩家手上那一格换了东西而他没按任何键。物品表是测试自己的：芜菁在药材下面、有品质、一堆 20；
-/// 铁在矿石下面、有品质、一堆 10；药材与矿石都在材料下面；种子无品质；信件无品质、一堆 1、不可丢弃。
-/// 堆上限是随手挑的，不是数值。
+/// 排序碰了随身栏，玩家手上那一格换了东西而他没按任何键；摆不下时动了一半，东西就被摆丢了一半。物品表是测试自己的：
+/// 芜菁在药材下面、有品质、一堆 20；铁在矿石下面、有品质、一堆 10；药材与矿石都在材料下面；种子无品质；
+/// 信件无品质、一堆 1、不可丢弃；箱子在矿石下面、无品质、一堆 1、占 2×2。堆上限是随手挑的，不是数值。
 /// </remarks>
 public class BagArrangementTests
 {
@@ -18,6 +18,7 @@ public class BagArrangementTests
     private const string Iron = "iron";
     private const string Seed = "seed";
     private const string Letter = "letter";
+    private const string Crate = "crate";
     private const string Common = "common";
     private const string Fine = "fine";
     private const string Mutated = "mutated";
@@ -28,6 +29,7 @@ public class BagArrangementTests
             Item(Iron, "ore", hasQuality: true, stack: 10),
             Item(Seed, "seed", hasQuality: false, stack: 20),
             Item(Letter, "quest", hasQuality: false, stack: 1, discardable: false),
+            Item(Crate, "ore", hasQuality: false, stack: 1, width: 2, height: 2),
         ],
         [
             Category("material", parent: null),
@@ -219,6 +221,53 @@ public class BagArrangementTests
         Assert.Equal("iron", bag.Slots[3]?.ItemId);
     }
 
+    /// <summary>
+    /// 照新的先后摆不下全部时，排序与整理都一格不动、说得出是摆不下。3×2 的网格里箱子在左上角盖着 2×2，右边那一列
+    /// 一格种子、一格铁，正好摆满；按最近获得排，铁与种子在前、先占了左上那两格，箱子就找不到一块 2×2 了。按类别排箱子在前，
+    /// 摆得下 —— 一堆一堆照先后找第一块够大的空地。
+    /// </summary>
+    [Fact]
+    public void 照新的先后摆不下全部时排序与整理一格不动_原来的摆法放得下()
+    {
+        var bag = Bag.Restore(3, 2, [Stack(Crate, null, 1, 1), null, Stack(Seed, null, 5, 2), null, null, Stack(Iron, Fine, 2, 3)], Items);
+        var before = Layout(bag);
+
+        Assert.Equal(BagArrangeResult.NoRoom, bag.Sort(BagSortKey.Recent, BagFilter.All));
+        Assert.Equal(before, Layout(bag));
+        Assert.Equal(BagArrangeResult.NoRoom, bag.Tidy(BagSortKey.Recent, BagFilter.All));
+        Assert.Equal(before, Layout(bag));
+        var controls = new BagControls();
+        Assert.Equal(BagArrangeResult.NoRoom, controls.SortBy(bag, BagSortKey.Recent));
+        Assert.Equal(BagSortKey.Recent, controls.SortKey);
+        Assert.Equal(before, Layout(bag));
+
+        Assert.Equal(BagArrangeResult.Arranged, bag.Sort(BagSortKey.Category, BagFilter.All));
+        Assert.Equal("crate:-:1 _ iron:fine:2 _ _ seed:-:5", Layout(bag));
+        Assert.Equal(BagArrangeResult.Arranged, bag.Sort(BagSortKey.Category, BagFilter.All));
+        Assert.Equal("crate:-:1 _ iron:fine:2 _ _ seed:-:5", Layout(bag));
+    }
+
+    /// <summary>
+    /// 筛选态下被筛掉的大东西照旧占着它那一块，看得见的那几堆摆在剩下的地方；剩下的地方摆不下，同样一格不动。
+    /// </summary>
+    [Fact]
+    public void 筛选态下被筛掉的大东西照旧占着它那一块_看得见的摆在剩下的地方()
+    {
+        // 3×2 的网格：箱子左上角在 (1, 0)、盖着右边两列，左边那一列下面一格是种子。只看种子：种子挪到左上角，箱子不动。
+        var bag = Bag.Restore(3, 2, [null, Stack(Crate, null, 1, 1), null, Stack(Seed, null, 5, 2), null, null], Items);
+
+        Assert.Equal(BagArrangeResult.Arranged, bag.Sort(BagSortKey.Recent, new BagFilter("seed", null)));
+        Assert.Equal("seed:-:5 crate:-:1 _ _ _ _", Layout(bag));
+
+        // 再放一堆铁进左下角，只看矿石：种子被筛掉、占着左上角；铁最近，先占了 (1, 0)，箱子就没有地方了 —— 一格不动。
+        Assert.True(bag.TryAdd(Iron, Fine, 2));
+        var before = Layout(bag);
+        Assert.Equal("seed:-:5 crate:-:1 _ iron:fine:2 _ _", before);
+
+        Assert.Equal(BagArrangeResult.NoRoom, bag.Sort(BagSortKey.Recent, new BagFilter("ore", null)));
+        Assert.Equal(before, Layout(bag));
+    }
+
     [Fact]
     public void 按大类筛连它下面的小类一起看得见_按品质筛时没有品质的看不见()
     {
@@ -374,13 +423,14 @@ public class BagArrangementTests
     private static ItemCategory Category(string id, string? parent) =>
         new() { Id = id, NameKey = $"item_category.{id}.name", ParentId = parent };
 
-    private static ItemDefinition Item(string id, string category, bool hasQuality, int stack, bool discardable = true) => new()
+    private static ItemDefinition Item(
+        string id, string category, bool hasQuality, int stack, bool discardable = true, int width = 1, int height = 1) => new()
     {
         Id = id,
         NameKey = $"item.{id}.name",
         DescriptionKey = $"item.{id}.description",
         CategoryId = category,
-        Footprint = new() { Width = 1, Height = 1 },
+        Footprint = new() { Width = width, Height = height },
         RarityId = "low",
         HasQuality = hasQuality,
         StackLimit = stack,

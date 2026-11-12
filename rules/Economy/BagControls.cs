@@ -33,19 +33,19 @@ public sealed class BagControls
         return index < bag.CarryCount ? BagPlace.Carry(index) : BagPlace.Grid(index - bag.CarryCount);
     }
 
-    /// <summary>按一个键排网格，并把它记成当前排序键。</summary>
-    public void SortBy(Bag bag, BagSortKey key)
+    /// <summary>按一个键排网格，并把它记成当前排序键：摆不下全部、一格没动时也记，再按一键整理照它排。</summary>
+    public BagArrangeResult SortBy(Bag bag, BagSortKey key)
     {
         ArgumentNullException.ThrowIfNull(bag);
         SortKey = key;
-        bag.Sort(key, Filter);
+        return bag.Sort(key, Filter);
     }
 
     /// <summary>一键整理网格，按当前排序键排。</summary>
-    public void Tidy(Bag bag)
+    public BagArrangeResult Tidy(Bag bag)
     {
         ArgumentNullException.ThrowIfNull(bag);
-        bag.Tidy(SortKey, Filter);
+        return bag.Tidy(SortKey, Filter);
     }
 
     /// <summary>页上第 <paramref name="index"/> 格在当前筛选下看不看得见。空格永远看得见；被一堆盖着的格跟着那一堆。</summary>
