@@ -452,7 +452,7 @@ def cmd_split(wanted: list[str], out: str, coarse: bool) -> int:
         "# 它是临时件，画完即删 —— 色值的唯一来源始终是那张主表。",
         f"# 这一份含 {len(keep)} 条色带、{len(rows)} 色：{'、'.join(keep)}",
         ("# 只有整数档（切的时候加了 --coarse），画一个基础单位的小件用。" if coarse else
-         "# 整数档与半档（档号带 .5）都在、按明暗排；画一个基础单位的小件只用整数档。"),
+         "# 整数档与半档（档号带 .5）都在、按明暗排；画一个基础单位的小件一般只用整数档。"),
         "#",
     ]
     for name, rgb in rows:
