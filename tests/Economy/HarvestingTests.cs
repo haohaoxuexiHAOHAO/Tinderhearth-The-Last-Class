@@ -106,6 +106,38 @@ public class HarvestingTests
         Assert.False(attempt.Delivery?.Stored);
     }
 
+    /// <summary>
+    /// 背包里有空格，却凑不出一块放得下收上来那样东西的空地：被拒的原因是放不下这么大的，不是满了；那一格照旧待收。
+    /// 收上来的是一样占 2×2 的东西，背包是一行三格。
+    /// </summary>
+    [Fact]
+    public void 有空格却凑不出放得下它的一块时被拒的原因是放不下这么大的()
+    {
+        const string pumpkin = "item_pumpkin";
+        var items = ItemCatalog.Build(
+            [.. TestBags.Items.Items.Values, TestBags.Items.Items[TestBags.Turnip] with { Id = pumpkin, Footprint = new() { Width = 2, Height = 2 } }],
+            TestBags.Items.Categories.Values,
+            TestBags.Items.Rarities,
+            TestBags.Items.Qualities,
+            name => name.Split(' ')[0]);
+        var crop = Turnip with { Id = "pumpkin", YieldItemId = pumpkin };
+        var plot = new Plot(PlotState.Tilled);
+        Assert.True(plot.Plant(crop));
+        for (var day = 0; day < crop.DaysToFirstRipe; day++)
+        {
+            plot.AdvanceDay(crop, FallowDays, () => false);
+        }
+
+        var before = PlotSnapshot.Describe(plot);
+        var bag = new Bag(3, 1, items);
+
+        var attempt = Harvesting.ByProtagonist(plot, crop, Yield, bag);
+
+        Assert.Equal(HarvestStatus.NoRoomForSize, attempt.Status);
+        Assert.Equal(before, PlotSnapshot.Describe(plot));
+        Assert.True(bag.IsEmpty);
+    }
+
     /// <summary>放不下的那一下什么都没动，所以丢掉一堆腾出位置再收，收到的正是第一次本该收到的那一份。</summary>
     [Fact]
     public void 腾出位置再收_收到的与第一次本该收到的一样()

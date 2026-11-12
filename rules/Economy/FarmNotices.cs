@@ -19,15 +19,21 @@ public static class FarmNotices
     /// <remarks>动作按格子状态派发，已锄的格才派到播种，所以游戏里到不了这一条（见 <see cref="Planting.TryPlant"/>）；规则层答得出它，这里也给它一句。</remarks>
     public const string SowCellNotReadyKey = "ui.notice.sow_cell_not_ready";
 
-    /// <summary>收上来的东西背包放不下，那一株留在地里。</summary>
+    /// <summary>收上来的东西背包放不下：一格空的都没有，那一株留在地里。</summary>
     public const string HarvestBagFullKey = "ui.notice.harvest_bag_full";
+
+    /// <summary>收上来的东西背包放不下：有空格却凑不出放得下它的一块，那一株留在地里，挪一挪就放得下。</summary>
+    public const string HarvestNoRoomForSizeKey = "ui.notice.harvest_no_room_for_size";
 
     /// <summary>开发期调试键那一批种子背包放不下，整批没放进去。</summary>
     public const string SeedBatchBagFullKey = "ui.notice.seed_batch_bag_full";
 
     /// <summary>上面那几条键，给核文本表用。</summary>
     public static readonly IReadOnlyList<string> TextKeys =
-        [SowNothingSelectedKey, SowNotASeedKey, SowCellNotReadyKey, HarvestBagFullKey, SeedBatchBagFullKey];
+    [
+        SowNothingSelectedKey, SowNotASeedKey, SowCellNotReadyKey, HarvestBagFullKey, HarvestNoRoomForSizeKey,
+        SeedBatchBagFullKey,
+    ];
 
     /// <summary>播种被拒那一行；播下去了是 <c>null</c>，不出提示。</summary>
     public static string? ForSowing(PlantResult result, TextCatalog text)
@@ -54,6 +60,7 @@ public static class FarmNotices
         {
             HarvestStatus.Stored or HarvestStatus.NotHarvestable => null,
             HarvestStatus.BagFull => text[HarvestBagFullKey],
+            HarvestStatus.NoRoomForSize => text[HarvestNoRoomForSizeKey],
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "收获多了一种结果，这里没有给它一句"),
         };
     }

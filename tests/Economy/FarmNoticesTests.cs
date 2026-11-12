@@ -55,6 +55,10 @@ public class FarmNoticesTests
         // 不是待收的那一格到不了收获，那一下不是被拒，不出提示。
         Assert.Null(FarmNotices.ForHarvest(HarvestStatus.Stored, Fake));
         Assert.Null(FarmNotices.ForHarvest(HarvestStatus.NotHarvestable, Fake));
+
+        // 放不下的两种各是一句：满了要先腾东西，放不下这么大的挪一挪就行。
         Assert.Equal($"<{FarmNotices.HarvestBagFullKey}>", FarmNotices.ForHarvest(HarvestStatus.BagFull, Fake));
+        Assert.Equal(
+            $"<{FarmNotices.HarvestNoRoomForSizeKey}>", FarmNotices.ForHarvest(HarvestStatus.NoRoomForSize, Fake));
     }
 }

@@ -3,20 +3,24 @@ using Tinderhearth.Rules.Progression;
 namespace Tinderhearth.Rules.Economy;
 
 /// <summary>主角在地里收一株的结果。</summary>
+/// <remarks>放不下分两种，与 <see cref="BagRefusal"/> 一一对应：玩家要知道该腾东西还是挪一挪。</remarks>
 public enum HarvestStatus
 {
     /// <summary>收上来了，进了背包。</summary>
     Stored,
 
-    /// <summary>背包放不下，整份拒收：那一格照旧待收，一样不变。</summary>
+    /// <summary>背包满了，一格空的都没有，整份拒收：那一格照旧待收，一样不变。</summary>
     BagFull,
+
+    /// <summary>背包里有空格，却凑不出一块放得下它整块占地的空地，整份拒收：那一格照旧待收，一样不变。挪一挪就放得下。</summary>
+    NoRoomForSize,
 
     /// <summary>这一格现在不是待收，什么都没发生。</summary>
     NotHarvestable,
 }
 
 /// <summary>收一株的结果，加上那一份走生产那条管道走成了什么样。</summary>
-/// <param name="Status">收成了、放不下，还是不是待收。</param>
+/// <param name="Status">收成了、为什么放不下，还是不是待收。</param>
 /// <param name="Delivery">那一份走完管道的结果；放不下时 <c>Stored</c> 是 <c>false</c>、里面是本该收上来的那一份。不是待收时是 <c>null</c>。</param>
 public readonly record struct HarvestAttempt(HarvestStatus Status, ProductionOutcome? Delivery);
 
@@ -75,11 +79,18 @@ public static class Harvesting
         var goods = new ProducedGoods(
             crop.YieldItemId, harvest.Mutated ? MutatedQualityId : UnmutatedQualityId, harvest.Count);
 
-        // 归属、付酬与入库在管道里走。放不下的话背包一件不变，这一格也还没动过。
+        // 归属、付酬与入库在管道里走。放不下的话背包一件不变，这一格也还没动过；背包没变，问出来的就是这一次放不下的原因。
         var delivery = ProductionPipeline.Deliver(Producer.Protagonist, goods, protagonistBag);
         if (!delivery.Stored)
         {
-            return new HarvestAttempt(HarvestStatus.BagFull, delivery);
+            var status = protagonistBag.RefusalFor(goods.ItemId, goods.QualityId, goods.Count) switch
+            {
+                BagRefusal.Full => HarvestStatus.BagFull,
+                BagRefusal.NoRoomForSize => HarvestStatus.NoRoomForSize,
+                var other => throw new InvalidOperationException(
+                    $"入库被拒，背包却答放不下的原因是 {other?.ToString() ?? "放得下"} —— 两处判的不是同一件事"),
+            };
+            return new HarvestAttempt(status, delivery);
         }
 
         // 进了背包才改这一格。算的那一半与上面是同一处，收出来的必定是同一份；对不上是代码的错，不是放不下。
