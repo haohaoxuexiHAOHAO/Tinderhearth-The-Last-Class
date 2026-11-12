@@ -125,8 +125,8 @@ public class ItemsInBagE2ETests
         Assert.True(world.State.Bag.TryAddAll(SeedBatches.Batch(farm.Crops.Values, 0, CarrySlotBar.SlotCount, farm.Items)));
         var root = JsonNode.Parse(farm.Write(world.State))!.AsObject();
 
-        // 背包那一片里物品标识那一串的第一格，换成一个不在册的标识。
-        var itemIds = root[SaveFile.ShardsKey]![WorldShards.BagId]![WorldShards.BagSlotKeys[0]]!.AsArray();
+        // 背包那一片里随身栏物品标识那一串的第一格（那一批的第一堆落在那里），换成一个不在册的标识。
+        var itemIds = root[SaveFile.ShardsKey]![WorldShards.BagId]![WorldShards.BagCarryKeys[0]]!.AsArray();
         itemIds[0] = "item_never_heard_of";
 
         var e = Assert.Throws<InvalidDataException>(() => farm.Load(root.ToJsonString()));

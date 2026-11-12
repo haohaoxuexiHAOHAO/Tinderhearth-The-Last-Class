@@ -241,19 +241,18 @@ public class BagTests
         Assert.Equal(BagRefusal.Full, bag.RefusalFor(Turnip, Common, 81));
     }
 
-    /// <summary>读回来的那几堆：出了网格、或者两堆压在一起，载入被拒并说清是哪一格。</summary>
+    /// <summary>读回来的那几堆：出了网格、或者两堆压在一起，载入被拒并说清是哪一堆，写成它左上角那一格的 (列, 行)。</summary>
     [Fact]
     public void 读回来的那几堆出了网格或压在一起就被拒()
     {
         var outside = Assert.Throws<InvalidDataException>(
             () => Bag.Restore(3, 2, [null, null, Stack(Shield, null, 1, 1), null, null, null], Items));
-        Assert.Contains("第 3 格", outside.Message);
+        Assert.Contains($"网格 (2, 0)：「{Shield}」", outside.Message);
         Assert.Contains("出了 3×2 的网格", outside.Message);
 
         var overlap = Assert.Throws<InvalidDataException>(
             () => Bag.Restore(3, 2, [Stack(Shield, null, 1, 1), Stack(Shield, null, 1, 2), null, null, null, null], Items));
-        Assert.Contains("第 2 格", overlap.Message);
-        Assert.Contains("与第 1 格那一堆压在一起", overlap.Message);
+        Assert.Contains($"网格 (1, 0)：「{Shield}」与左上角在 (0, 0) 的「{Shield}」压在一起", overlap.Message);
     }
 
     /// <summary>开新档时的网格按背包等级从配置读，等级是第一级；配置里没有的那一级当场抛。随身栏那一排几格由调用方给。</summary>

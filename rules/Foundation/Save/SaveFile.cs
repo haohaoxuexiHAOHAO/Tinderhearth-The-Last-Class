@@ -15,8 +15,11 @@ namespace Tinderhearth.Rules.Foundation.Save;
 public static class SaveFile
 {
     /// <summary>当前的存档版本号。只增不减：任何一个分片的形状变了、或者多了一个分片，就加一。</summary>
-    /// <remarks>旧版本的存档缺的那几片与那几格，按各分片的存档默认值补（<see cref="ReadFormalSave(SaveShardRegistry, string)"/>）。</remarks>
-    public const int CurrentVersion = 2;
+    /// <remarks>
+    /// 旧版本的存档里形状改过的分片先照它声明的升级变成现在的形状，缺的那几片与那几格再按各分片的存档默认值补
+    /// （<see cref="ReadFormalSave(SaveShardRegistry, string)"/>）。
+    /// </remarks>
+    public const int CurrentVersion = 3;
 
     /// <summary>最低兼容存档版本：低于它的存档被拒并指向更新公告。只增不减，是规则常量，mod 改不了。</summary>
     /// <remarks>
@@ -100,6 +103,9 @@ public static class SaveFile
     /// <summary>读一份正式存档：先判兼容，再按版本补或拒缺字段，丢掉多出来的字段，拒认不出的分片。</summary>
     /// <returns>每个进正式存档的分片各一份，按标识给；缺的字段已按存档默认值补上，多出来的已丢掉。</returns>
     /// <exception cref="SaveRejectedException">打不开的时候，带着是哪一种。这时没有任何一个分片交出去。</exception>
+    /// <exception cref="InvalidDataException">
+    /// 某个分片的升级读不出它那一份旧形状时抛的，原样交出去，与持有者读现在形状时报的同一种（<see cref="SaveShardDeclaration.Upgrade"/>）。
+    /// </exception>
     public static IReadOnlyDictionary<string, JsonObject> ReadFormalSave(SaveShardRegistry registry, string text) =>
         ReadFormalSave(registry, text, CurrentVersion, MinimumCompatibleVersion);
 
@@ -107,6 +113,7 @@ public static class SaveFile
     /// <remarks>
     /// 游戏里一律用上面那个；这一个给测试演练「当前是第 N 版、最低兼容是第 M 版」那几种组合，不必等那两个常量真的走到那一步。
     ///
+    /// 比当前旧的存档里，声明了升级的分片先升到现在的形状（<see cref="SaveShardDeclaration.Upgrade"/>）。
     /// 补与丢都只在分片的第一层：分片里的一格是什么形状由它的持有者定，持有者读的时候自己判。
     /// </remarks>
     public static IReadOnlyDictionary<string, JsonObject> ReadFormalSave(
@@ -165,6 +172,14 @@ public static class SaveFile
 
             var body = node as JsonObject
                 ?? throw new SaveRejectedException(SaveRejection.Unreadable, $"分片「{shard.Id}」不是一个对象");
+
+            // 升级排在补缺之前：补与丢只认现在的形状，旧形状那几格不先升上来，就会被当成多出来的字段丢掉。
+            if (older && shard.Upgrade is { } upgrade)
+            {
+                JsonObject? upgraded = upgrade(version, body);
+                body = upgraded ?? throw new InvalidOperationException($"分片「{shard.Id}」（{shard.Owner}）的升级交回了 null");
+            }
+
             var normalized = new JsonObject();
             foreach (var (key, fallback) in defaults)
             {

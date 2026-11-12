@@ -4,10 +4,11 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Foundation;
 
-/// <summary>读回一份存档：先判兼容，再按版本补或拒缺字段，丢多出来的字段，拒认不出的分片。</summary>
+/// <summary>读回一份存档：先判兼容，旧版本里形状改过的分片先升上来，再按版本补或拒缺字段，丢多出来的字段，拒认不出的分片。</summary>
 /// <remarks>
 /// 规则出自设计仓 decisions/ADR-0015-存档的版本与缺字段口径.md 与 decisions/ADR-0017-版本更新对旧存档的两种后果.md。
-/// 现在当前版本与最低兼容版本相等，演练不出中间那一段，所以那几条用带版本界限的那个读法、按「当前第 3 版、最低兼容第 2 版」演。
+/// 比当前旧、又不低于最低兼容的那一段，用带版本界限的那个读法、按「当前第 3 版、最低兼容第 2 版」演：
+/// 那两个常量以后怎么走，这几条都不跟着变。
 /// </remarks>
 public class SaveVersionTests
 {
@@ -37,6 +38,69 @@ public class SaveVersionTests
 
     private static SaveRejectedException Rejected(string text) =>
         Assert.Throws<SaveRejectedException>(() => SaveFile.ReadFormalSave(Registry(), text));
+
+    /// <summary>
+    /// 一个形状改过的分片：旧形状只有「old」一格，现在是「total」与「label」两格。升级把 old 搬进 total，
+    /// label 留给存档默认值补；每升一次，记下它拿到的版本号。
+    /// </summary>
+    private static SaveShardRegistry UpgradingRegistry(List<int> upgradedFrom)
+    {
+        var registry = new SaveShardRegistry();
+        registry.Register(new(Id: "gamma", Owner: "测试用的系统丙", Side: SaveSide.FormalSave,
+            Default: () => new JsonObject { ["total"] = 0, ["label"] = "默认" },
+            Upgrade: (version, saved) =>
+            {
+                upgradedFrom.Add(version);
+                return new JsonObject { ["total"] = saved["old"]!.GetValue<int>() };
+            }));
+        return registry;
+    }
+
+    /// <summary>
+    /// 升级排在补缺之前：先补缺再升，旧形状那一格已经被当成多出来的字段丢掉，升级拿不到它。
+    /// </summary>
+    [Fact]
+    public void 比当前旧的存档先照分片声明的升级变成现在的形状_再按存档默认值补()
+    {
+        var upgradedFrom = new List<int>();
+        var shards = new JsonObject { ["gamma"] = new JsonObject { ["old"] = 7 } };
+
+        var back = SaveFile.ReadFormalSave(
+            UpgradingRegistry(upgradedFrom), SaveText(DrillMinimum, shards), DrillCurrent, DrillMinimum);
+
+        Assert.Equal([DrillMinimum], upgradedFrom);
+        Assert.Equal(7, back["gamma"]["total"]!.GetValue<int>());
+        Assert.Equal("默认", back["gamma"]["label"]!.GetValue<string>());
+        Assert.False(back["gamma"].ContainsKey("old"));
+    }
+
+    [Fact]
+    public void 与当前同版本的存档不经过升级()
+    {
+        var upgradedFrom = new List<int>();
+        var shards = new JsonObject { ["gamma"] = new JsonObject { ["total"] = 7, ["label"] = "存下来的" } };
+
+        var back = SaveFile.ReadFormalSave(
+            UpgradingRegistry(upgradedFrom), SaveText(DrillCurrent, shards), DrillCurrent, DrillMinimum);
+
+        Assert.Empty(upgradedFrom);
+        Assert.Equal(7, back["gamma"]["total"]!.GetValue<int>());
+        Assert.Equal("存下来的", back["gamma"]["label"]!.GetValue<string>());
+    }
+
+    /// <summary>旧存档里整个没有那个分片：取存档默认值，升级不经手 —— 它只认得存下来的旧形状。</summary>
+    [Fact]
+    public void 旧存档里没有那个分片就取存档默认值_不经过升级()
+    {
+        var upgradedFrom = new List<int>();
+
+        var back = SaveFile.ReadFormalSave(
+            UpgradingRegistry(upgradedFrom), SaveText(DrillMinimum, new JsonObject()), DrillCurrent, DrillMinimum);
+
+        Assert.Empty(upgradedFrom);
+        Assert.Equal(0, back["gamma"]["total"]!.GetValue<int>());
+        Assert.Equal("默认", back["gamma"]["label"]!.GetValue<string>());
+    }
 
     [Fact]
     public void 写出去再读回来完全一样()

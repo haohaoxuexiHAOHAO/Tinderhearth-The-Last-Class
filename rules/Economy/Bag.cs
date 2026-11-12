@@ -137,7 +137,8 @@ public sealed class Bag
     /// <summary>
     /// 从存档里读回来的那几堆建一份背包：随身栏那一排按格排，网格里每一堆记在它左上角那一格。哪一堆对不上 —— 物品不在册、
     /// 品质与物品的声明不符、件数不在 1 到堆上限之间、序号不为正、随身栏里放着占不止一格的东西、那一块出了网格、与别的堆压在一起
-    /// —— 一次全报，一行一处，格号从 1 数起。之后新进的东西排在各堆里最大的那个序号后面。
+    /// —— 一次全报，一行一处：随身栏的格从 1 数，网格里的一堆写成它左上角那一格的 (列, 行)，从 0 数，与存档里记的一样。
+    /// 之后新进的东西排在各堆里最大的那个序号后面。
     /// </summary>
     /// <param name="carry">随身栏那一排，按格排；<c>null</c> 是空格。项数就是随身栏几格。</param>
     /// <param name="width">网格几格宽。</param>
@@ -178,21 +179,24 @@ public sealed class Bag
 
         for (var i = 0; i < anchors.Count; i++)
         {
-            if (anchors[i] is not { } stack || bag.StackProblems(stack, $"第 {i + 1} 格", problems) is not { } item)
+            var at = $"网格 {bag.CellName(i)}";
+            if (anchors[i] is not { } stack || bag.StackProblems(stack, at, problems) is not { } item)
             {
                 continue;
             }
 
             if (!bag.InGrid(i, item.Footprint))
             {
-                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」占 {item.Footprint} 格，从这一格往右下摆出了 {width}×{height} 的网格");
+                problems.Add($"{at}：「{stack.ItemId}」占 {item.Footprint} 格，从这里往右下摆出了 {width}×{height} 的网格");
                 continue;
             }
 
             var clash = bag.CellsOf(i, item.Footprint).FirstOrDefault(c => bag._coveredBy[c] != Free, Free);
             if (clash != Free)
             {
-                problems.Add($"第 {i + 1} 格：「{stack.ItemId}」与第 {bag._coveredBy[clash] + 1} 格那一堆压在一起");
+                var other = bag._coveredBy[clash];
+                problems.Add(
+                    $"{at}：「{stack.ItemId}」与左上角在 {bag.CellName(other)} 的「{bag._anchors[other]!.Value.ItemId}」压在一起");
                 continue;
             }
 
@@ -643,6 +647,9 @@ public sealed class Bag
     }
 
     private ItemFootprint FootprintOf(ItemStack stack) => Items.Items[stack.ItemId].Footprint;
+
+    /// <summary>网格里这一格写成 (列, 行)，从 0 数。</summary>
+    private string CellName(int cell) => $"({cell % GridWidth}, {cell / GridWidth})";
 
     private static bool IsOneCell(ItemFootprint footprint) => footprint is { Width: 1, Height: 1 };
 
