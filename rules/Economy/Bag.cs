@@ -46,8 +46,14 @@ public readonly record struct BagPlace(bool InCarry, int Index)
 /// <summary>挪一堆的结果。</summary>
 public enum BagMoveResult
 {
-    /// <summary>挪过去了；目标格有东西就两格互换。</summary>
+    /// <summary>挪过去了：要放的那一块全空着（这一堆自己原来占的格算空）。件数、品质、序号都不变。</summary>
     Moved,
+
+    /// <summary>指着的是另一堆同标识的东西：合进去了，到堆上限为止，剩下的留在原处。</summary>
+    Merged,
+
+    /// <summary>放不下，什么都没动：要放的那一块压到别的堆或出了网格，或者指着的同标识那一堆已经满了。不互换。</summary>
+    Blocked,
 
     /// <summary>占不止一格的东西放不进随身栏那一排，什么都没动。</summary>
     TooBigForCarry,
@@ -243,6 +249,22 @@ public sealed class Bag
         return place.InCarry ? _carry[place.Index] : _anchors[place.Index];
     }
 
+    /// <summary>
+    /// 占着这一处的那一堆记在哪：随身栏那一格有东西就是它自己，网格里是盖着这一格的那一堆左上角那一格；空着是 <c>null</c>。
+    /// </summary>
+    /// <remarks>点到一堆占地里的任何一格都是那一堆：拿起、丢弃都先经这里找到它。</remarks>
+    public BagPlace? AnchorOf(BagPlace place)
+    {
+        RequirePlace(place, nameof(place));
+        if (place.InCarry)
+        {
+            return _carry[place.Index] is null ? null : place;
+        }
+
+        var owner = _coveredBy[place.Index];
+        return owner == Free ? null : BagPlace.Grid(owner);
+    }
+
     /// <summary>整份复制：副本与原件不共用任何会变的东西。</summary>
     public Bag Clone()
     {
@@ -340,75 +362,77 @@ public sealed class Bag
         {
             Remove(place);
         }
-        else if (place.InCarry)
-        {
-            _carry[place.Index] = stack with { Count = stack.Count - count };
-        }
         else
         {
-            _anchors[place.Index] = stack with { Count = stack.Count - count };
+            Replace(place, stack with { Count = stack.Count - count });
         }
 
         return true;
     }
 
-    /// <summary>挪网格里的两格，见另一个重载。</summary>
-    public BagMoveResult Move(int from, int to) => Move(BagPlace.Grid(from), BagPlace.Grid(to));
+    /// <summary>挪网格里的一堆，见另一个重载。格号从 0 数。</summary>
+    public BagMoveResult Move(int grabbed, int pointed) => Move(BagPlace.Grid(grabbed), BagPlace.Grid(pointed));
 
-    /// <summary>挪格：这两处互换，目标空着时就是搬过去。占不止一格的东西进不了随身栏那一排，那一下什么都不动。</summary>
+    /// <summary>
+    /// 挪一堆：拿起占着 <paramref name="grabbed"/> 的那一堆，放到指着的 <paramref name="pointed"/>，拿起时点的那一格对准指着的那一格。
+    /// </summary>
     /// <remarks>
-    /// 同标识的两堆挪到一起也只是互换，不合堆；挪格不改哪一堆的先后序号。位置越界是调用方的错，当场抛。
-    /// 网格里现在只挪得动占 1 格的东西：照块挪、合堆与压到别的就不动还没有，归设计仓台账 GP-170。
+    /// 规则在设计仓 design/背包系统.md 的「一堆放在哪：先合堆，再找第一块够大的空地，不能旋转」一节：指着的那一格是另一堆
+    /// 同标识的，合进去、到堆上限为止，剩下的留在原处；不然要放的那一块全空着（这一堆自己原来占的格算空）就挪过去；
+    /// 压到别的堆或者出了网格就什么都不动，不互换。随身栏那一排与网格之间照同一套，占不止一格的东西进不了那一排。
+    ///
+    /// 挪过去的那一堆件数、品质、序号都不变；合堆时被合进去的那一堆记两堆里较近的那个序号，与一键整理并堆同一个口径。
+    /// 拿起的那一处空着、位置越界是调用方的错，当场抛：空格拿不起来。
     /// </remarks>
-    public BagMoveResult Move(BagPlace from, BagPlace to)
+    public BagMoveResult Move(BagPlace grabbed, BagPlace pointed)
     {
-        var moving = StackAt(from);
-        var other = StackAt(to);
-        if ((to.InCarry && moving is { } m0 && !IsOneCell(FootprintOf(m0)))
-            || (from.InCarry && other is { } o0 && !IsOneCell(FootprintOf(o0))))
+        RequirePlace(pointed, nameof(pointed));
+        var from = AnchorOf(grabbed)
+            ?? throw new ArgumentException($"背包{grabbed}空着，没有东西拿得起来", nameof(grabbed));
+        var moving = StackAt(from)!.Value;
+
+        if (AnchorOf(pointed) is { } at && at != from && StackAt(at) is { } other && other.Holds(moving.ItemId, moving.QualityId))
+        {
+            return MergeInto(from, moving, at, other);
+        }
+
+        var footprint = FootprintOf(moving);
+        if (pointed.InCarry && !IsOneCell(footprint))
         {
             return BagMoveResult.TooBigForCarry;
         }
 
-        RequireOneCellOrFree(from);
-        RequireOneCellOrFree(to);
+        if (DropPlace(grabbed, from, pointed, footprint) is not { } to)
+        {
+            return BagMoveResult.Blocked;
+        }
 
         Remove(from);
-        Remove(to);
-        if (other is { } o)
-        {
-            Place(from, o);
-        }
-
-        if (moving is { } m)
-        {
-            Place(to, m);
-        }
-
+        Place(to, moving);
         return BagMoveResult.Moved;
     }
 
-    /// <summary>丢弃网格里左上角在第 <paramref name="cell"/> 格（从 0 数）的那一整堆，见另一个重载。</summary>
+    /// <summary>丢弃网格里第 <paramref name="cell"/> 格（从 0 数）上的那一整堆，见另一个重载。</summary>
     public BagDiscardResult TryDiscardAt(int cell) => TryDiscardAt(BagPlace.Grid(cell));
 
-    /// <summary>丢弃这一处记的那一整堆。</summary>
+    /// <summary>丢弃占着这一处的那一整堆：点到它占地里的任何一格都是它。</summary>
     /// <remarks>
     /// 那一样声明了不可丢弃时一件都不丢，说得出是这一种（物品定义那一格，设计仓 design/物品系统.md）。丢之前那一道确认
     /// 在界面那一侧，这里只管确认之后那一下。位置越界是调用方的错，当场抛。
     /// </remarks>
     public BagDiscardResult TryDiscardAt(BagPlace place)
     {
-        if (StackAt(place) is not { } stack)
+        if (AnchorOf(place) is not { } at)
         {
             return BagDiscardResult.NothingThere;
         }
 
-        if (!Items.Items[stack.ItemId].Discardable)
+        if (!Items.Items[StackAt(at)!.Value.ItemId].Discardable)
         {
             return BagDiscardResult.NotDiscardable;
         }
 
-        Remove(place);
+        Remove(at);
         return BagDiscardResult.Discarded;
     }
 
@@ -594,6 +618,73 @@ public sealed class Bag
         }
     }
 
+    /// <summary>
+    /// 拿起时点的是 <paramref name="grabbed"/>、记在 <paramref name="from"/> 的那一堆，指着 <paramref name="pointed"/> 放下时记在哪一处；
+    /// 那一块压到别的堆或者出了网格是 <c>null</c>。这一堆自己原来占的格算空。
+    /// </summary>
+    private BagPlace? DropPlace(BagPlace grabbed, BagPlace from, BagPlace pointed, ItemFootprint footprint)
+    {
+        if (pointed.InCarry)
+        {
+            // 进得了随身栏那一排的都只占 1 格：指着的那一格就是它要放的那一处。
+            return _carry[pointed.Index] is null || pointed == from ? pointed : null;
+        }
+
+        // 拿起时点的那一格离左上角差几列几行；随身栏那一排里的只占 1 格，差的是零。
+        var (dx, dy) = grabbed.InCarry
+            ? (0, 0)
+            : ((grabbed.Index % GridWidth) - (from.Index % GridWidth), (grabbed.Index / GridWidth) - (from.Index / GridWidth));
+        var x = (pointed.Index % GridWidth) - dx;
+        var y = (pointed.Index / GridWidth) - dy;
+        if (x < 0 || y < 0 || x + footprint.Width > GridWidth || y + footprint.Height > GridHeight)
+        {
+            return null;
+        }
+
+        var anchor = (y * GridWidth) + x;
+        var self = from.InCarry ? Free : from.Index;
+        return CellsOf(anchor, footprint).All(c => _coveredBy[c] == Free || _coveredBy[c] == self) ? BagPlace.Grid(anchor) : null;
+    }
+
+    /// <summary>把记在 <paramref name="from"/> 的那一堆合进记在 <paramref name="into"/> 的同标识那一堆，到堆上限为止，剩下的留在原处。</summary>
+    private BagMoveResult MergeInto(BagPlace from, ItemStack moving, BagPlace into, ItemStack target)
+    {
+        var take = Math.Min(Items.Items[moving.ItemId].StackLimit - target.Count, moving.Count);
+        if (take < 1)
+        {
+            return BagMoveResult.Blocked;
+        }
+
+        Replace(into, target with
+        {
+            Count = target.Count + take,
+            AcquiredSequence = Math.Max(target.AcquiredSequence, moving.AcquiredSequence),
+        });
+        if (take == moving.Count)
+        {
+            Remove(from);
+        }
+        else
+        {
+            Replace(from, moving with { Count = moving.Count - take });
+        }
+
+        return BagMoveResult.Merged;
+    }
+
+    /// <summary>换掉这一处记的那一堆的件数或序号；种类与品质不变，所以占地也不变。</summary>
+    private void Replace(BagPlace place, ItemStack stack)
+    {
+        if (place.InCarry)
+        {
+            _carry[place.Index] = stack;
+        }
+        else
+        {
+            _anchors[place.Index] = stack;
+        }
+    }
+
     /// <summary>把一堆摆进这一处。网格里先保证那一块全空着、整个落在网格里；随身栏里先保证它只占 1 格。</summary>
     private void Place(BagPlace place, ItemStack stack)
     {
@@ -686,7 +777,7 @@ public sealed class Bag
         }
     }
 
-    /// <summary>网格里这一格要么空着，要么是一堆占 1 格的东西：网格里的挪格与排序现在只动得了这样的格。随身栏那一排总是。</summary>
+    /// <summary>网格里这一格要么空着，要么是一堆占 1 格的东西：排序与整理现在只动得了这样的格。随身栏那一排总是。</summary>
     private void RequireOneCellOrFree(BagPlace place)
     {
         if (place.InCarry)
@@ -698,7 +789,7 @@ public sealed class Bag
         if (owner != Free && FootprintOf(_anchors[owner]!.Value) is var footprint && !IsOneCell(footprint))
         {
             throw new InvalidOperationException(
-                $"背包{place}被一块占 {footprint} 格的东西盖着，现在只挪得动、排得动占 1 格的东西");
+                $"背包{place}被一块占 {footprint} 格的东西盖着，排序与整理现在只排得动占 1 格的东西");
         }
     }
 

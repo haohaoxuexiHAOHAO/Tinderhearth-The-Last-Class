@@ -26,8 +26,10 @@ public sealed record BagPageSource(
 /// 格距归规则层、有测试管着，背包多了格只多几行。
 ///
 /// 每一格是一个按钮，键盘与手柄靠焦点在格子与右边那一列之间走，鼠标指上去与焦点停上去是同一个样子（格子里那一圈亮边）。
-/// 挪格是点一格、再点目标格：第一下拿起那一堆（外面套一圈选中框），第二下与目标格互换，点回原来那一格是放回去。
-/// 不做拖拽，两种操作方式因此走同一套（设计仓 spec/prd-items-in-bag.md 的「非目标」一节）。空格拿不起来。
+/// 挪格是点一格、再点目标格：第一下拿起那一堆（外面套一圈选中框），第二下放过去 —— 空着就挪过去，是同标识的就合进去，
+/// 压到别的东西就什么都不动、手上照旧拿着，可以再点别处；点回原来那一格是放回去。不互换（设计仓 design/背包系统.md 的
+/// 「一堆放在哪：先合堆，再找第一块够大的空地，不能旋转」一节）。不做拖拽，两种操作方式因此走同一套（设计仓
+/// spec/prd-items-in-bag.md 的「非目标」一节）。空格拿不起来。
 /// 丢弃丢的是拿起来的那一堆，手上没东西时那个按钮是灰的；丢之前一律弹一道确认，丢不掉的那一样不弹、屏上一行字说清。
 ///
 /// 下面那一行写鼠标指着的那一格，没指着就写焦点停着的那一格，都没有就写拿起来的那一堆：玩家读的是自己正对着的东西，
@@ -188,7 +190,9 @@ public sealed partial class BagPageView : VBoxContainer
 
     // ── 按下去 ────────────────────────────────────────────────────────
 
-    /// <summary>点一格：手上没东西就拿起它，拿着的就与它互换；点回拿起的那一格是放回去。</summary>
+    /// <summary>
+    /// 点一格：手上没东西就拿起它，拿着的就放过去；点回拿起的那一格是放回去。放不下时什么都不动，手上照旧拿着。
+    /// </summary>
     private void Press(int slot)
     {
         if (_held is not { } held)
@@ -202,17 +206,24 @@ public sealed partial class BagPageView : VBoxContainer
             return;
         }
 
-        _held = null;
-        if (held != slot)
+        if (held == slot)
         {
-            if (_controls.Move(_source.Bag(), held, slot) == BagMoveResult.TooBigForCarry)
-            {
-                _source.Notify(_text[BagPage.TooBigForCarryKey]);
-            }
-            else
-            {
+            _held = null;
+            Refresh();
+            return;
+        }
+
+        switch (_controls.Move(_source.Bag(), held, slot))
+        {
+            case BagMoveResult.Moved or BagMoveResult.Merged:
+                _held = null;
                 _source.Changed();
-            }
+                break;
+            case BagMoveResult.TooBigForCarry:
+                _source.Notify(_text[BagPage.TooBigForCarryKey]);
+                break;
+            case BagMoveResult.Blocked:
+                break;
         }
 
         Refresh();

@@ -11,7 +11,7 @@ namespace Tinderhearth.Rules.Economy;
 /// spec/prd-items-in-bag.md 的「非目标」一节）：它们是看东西的方式，跨过一次退出不丢任何东西。
 ///
 /// 页上的格按「先随身栏那一排、再网格从左上角数起」排一个号（<see cref="PlaceOf"/>）。挪格与丢弃碰到被筛掉的那一格当场抛：
-/// 界面上被筛掉的格点不到，走到这里就是界面那一侧接错了。照网格画、按位置点的那一页归设计仓台账 UI-67。
+/// 界面上被筛掉的格点不到，走到这里就是界面那一侧接错了；被一堆盖着的格算那一堆的。照网格画的那一页归设计仓台账 UI-67。
 /// </remarks>
 public sealed class BagControls
 {
@@ -48,17 +48,26 @@ public sealed class BagControls
         bag.Tidy(SortKey, Filter);
     }
 
-    /// <summary>页上第 <paramref name="index"/> 格在当前筛选下看不看得见。空格永远看得见。</summary>
-    public bool Shows(Bag bag, int index) =>
-        bag.StackAt(PlaceOf(bag, index)) is not { } stack || Filter.Shows(stack, bag.Items);
-
-    /// <summary>挪格：两格互换，目标格空着时就是搬过去。随身栏那一排也挪得进挪得出 —— 玩家就是这样往手上放东西的。</summary>
-    /// <returns>占不止一格的东西要进随身栏时是 <see cref="BagMoveResult.TooBigForCarry"/>，什么都没动。</returns>
-    public BagMoveResult Move(Bag bag, int from, int to)
+    /// <summary>页上第 <paramref name="index"/> 格在当前筛选下看不看得见。空格永远看得见；被一堆盖着的格跟着那一堆。</summary>
+    public bool Shows(Bag bag, int index)
     {
-        RequireShown(bag, from);
-        RequireShown(bag, to);
-        return bag.Move(PlaceOf(bag, from), PlaceOf(bag, to));
+        ArgumentNullException.ThrowIfNull(bag);
+        return bag.AnchorOf(PlaceOf(bag, index)) is not { } at || Filter.Shows(bag.StackAt(at)!.Value, bag.Items);
+    }
+
+    /// <summary>
+    /// 挪一堆：拿起页上第 <paramref name="grabbed"/> 格上的那一堆，放到第 <paramref name="pointed"/> 格，拿起时点的那一格对准它。
+    /// 随身栏那一排也挪得进挪得出 —— 玩家就是这样往手上放东西的。
+    /// </summary>
+    /// <returns>
+    /// 挪过去了、合进同标识那一堆了、放不下（压到别的堆、出了网格或那一堆满了，不互换），或者占不止一格的东西要进随身栏；
+    /// 后两种什么都没动。规则见 <see cref="Bag.Move(BagPlace, BagPlace)"/>。
+    /// </returns>
+    public BagMoveResult Move(Bag bag, int grabbed, int pointed)
+    {
+        RequireShown(bag, grabbed);
+        RequireShown(bag, pointed);
+        return bag.Move(PlaceOf(bag, grabbed), PlaceOf(bag, pointed));
     }
 
     /// <summary>丢弃那一整堆。确认在界面那一侧，这里只管确认之后那一下。</summary>

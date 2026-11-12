@@ -334,7 +334,10 @@ public class BagTests
         Assert.Equal(BagRefusal.Full, bag.RefusalFor(Stone, null, 1));
     }
 
-    /// <summary>占不止一格的东西挪不进随身栏那一排，说得出是太大；那一堆留在原处，随身栏那一格也不动。</summary>
+    /// <summary>
+    /// 占不止一格的东西挪不进随身栏那一排，说得出是太大，从它占地里的哪一格拿起都一样；那一堆留在原处，随身栏那一格也不动。
+    /// 随身栏里的石头指到盾上是压到别的东西：放不下，不互换 —— 互换的话盾就被换进了随身栏。
+    /// </summary>
     [Fact]
     public void 大东西挪进随身栏被拒_那一堆留在原处()
     {
@@ -343,15 +346,16 @@ public class BagTests
         var grid = bag.Slots.ToList();
 
         Assert.Equal(BagMoveResult.TooBigForCarry, bag.Move(BagPlace.Grid(0), BagPlace.Carry(1)));
-        Assert.Equal(BagMoveResult.TooBigForCarry, bag.Move(BagPlace.Carry(0), BagPlace.Grid(0)));
+        Assert.Equal(BagMoveResult.TooBigForCarry, bag.Move(BagPlace.Grid(3), BagPlace.Carry(1)));
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Carry(0), BagPlace.Grid(0)));
 
         Assert.Equal(carry, bag.Carry);
         Assert.Equal(grid, bag.Slots);
     }
 
-    /// <summary>占 1 格的东西在随身栏那一排与网格之间挪得来挪得去，目标有东西就两边互换。</summary>
+    /// <summary>占 1 格的东西在随身栏那一排与网格之间照同一套挪：空着就挪过去，同标识的合进去，别的东西挡着就不动。</summary>
     [Fact]
-    public void 占一格的东西在随身栏与网格之间挪_有东西就互换()
+    public void 占一格的东西在随身栏与网格之间挪_同一套规则_不互换()
     {
         var bag = Bag.Restore([Stack(Stone, null, 2, 1), null], 2, 1, [Stack(Seed, null, 3, 2), null], Items);
 
@@ -362,9 +366,71 @@ public class BagTests
         Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Grid(0), BagPlace.Carry(1)));
         Assert.Equal([null, Seed], bag.Carry.Select(s => s?.ItemId));
 
-        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Carry(1), BagPlace.Grid(1)));
-        Assert.Equal([null, Stone], bag.Carry.Select(s => s?.ItemId));
-        Assert.Equal([null, Seed], bag.Slots.Select(s => s?.ItemId));
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Carry(1), BagPlace.Grid(1)));
+        Assert.Equal([null, Seed], bag.Carry.Select(s => s?.ItemId));
+        Assert.Equal([null, Stone], bag.Slots.Select(s => s?.ItemId));
+
+        // 石头一堆 5：网格里那 3 块合进随身栏那 4 块，合满为止，剩下的留在网格里；再合一次就满了，不动。
+        var stones = Bag.Restore([Stack(Stone, null, 4, 1), null], 2, 1, [Stack(Stone, null, 3, 2), null], Items);
+        Assert.Equal(BagMoveResult.Merged, stones.Move(BagPlace.Grid(0), BagPlace.Carry(0)));
+        Assert.Equal(Stack(Stone, null, 5, 2), stones.Carry[0]);
+        Assert.Equal(Stack(Stone, null, 2, 2), stones.Slots[0]);
+        Assert.Equal(BagMoveResult.Blocked, stones.Move(BagPlace.Grid(0), BagPlace.Carry(0)));
+        Assert.Equal(Stack(Stone, null, 2, 2), stones.Slots[0]);
+    }
+
+    /// <summary>
+    /// 点到一堆占地里的任何一格都是那一堆；放下时拿起时点的那一格对准指着的那一格，这一堆自己原来占的格算空：
+    /// 4×3 的网格里，从盾的右下那一格拿起、指着 (2, 2) 放下，盾的左上角就落在 (1, 1)，件数、品质、序号都不变。
+    /// </summary>
+    [Fact]
+    public void 点到一堆占地里的任何一格都是拿起那一堆_拿起时点的那一格对准指着的那一格()
+    {
+        var shield = Stack(Shield, null, 1, 7);
+        var bag = Bag.Restore(4, 3, [shield, null, null, null, null, null, null, null, null, null, null, null], Items);
+
+        Assert.Equal(BagPlace.Grid(0), bag.AnchorOf(BagPlace.Grid(5)));
+        Assert.Null(bag.AnchorOf(BagPlace.Grid(2)));
+
+        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Grid(5), BagPlace.Grid(10)));
+
+        Assert.Equal(shield, bag.Slots[5]);
+        Assert.Single(Stacks(bag));
+        Assert.All([5, 6, 9, 10], cell => Assert.Equal(BagPlace.Grid(5), bag.AnchorOf(BagPlace.Grid(cell))));
+        Assert.All([0, 1, 4], cell => Assert.Null(bag.AnchorOf(BagPlace.Grid(cell))));
+    }
+
+    /// <summary>要放的那一块压到别的东西、或者有一格出了网格，就放不下、什么都不变；被压的那一堆也不动，不互换。</summary>
+    [Fact]
+    public void 要放的那一块压到别的东西或出了网格就不动_被压的那一堆也不动()
+    {
+        // 4×3 的网格：盾在 (0, 0)，石头在 (3, 0)。
+        var bag = Bag.Restore(
+            4, 3, [Stack(Shield, null, 1, 1), null, null, Stack(Stone, null, 2, 2), null, null, null, null, null, null, null, null], Items);
+        var before = bag.Slots.ToList();
+
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Grid(0), BagPlace.Grid(2)));   // 右上角压着石头
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Grid(0), BagPlace.Grid(7)));   // 往右出了网格
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Grid(0), BagPlace.Grid(9)));   // 往下出了网格
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Grid(5), BagPlace.Grid(0)));   // 往左上出了网格
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(BagPlace.Grid(3), BagPlace.Grid(5)));   // 石头指到盾上
+
+        Assert.Equal(before, bag.Slots);
+        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Grid(0), BagPlace.Grid(6)));
+        Assert.Equal(Shield, bag.Slots[6]?.ItemId);
+    }
+
+    /// <summary>丢弃丢整堆：点到它占地里的任何一格都是丢那一整堆，它那一块全空出来。</summary>
+    [Fact]
+    public void 丢弃点到大东西占地里的任何一格都是丢那一整堆()
+    {
+        var bag = Bag.Restore(2, 2, [Stack(Shield, null, 1, 1), null, null, null], Items);
+
+        Assert.Equal(BagDiscardResult.Discarded, bag.TryDiscardAt(BagPlace.Grid(3)));
+
+        Assert.True(bag.IsEmpty);
+        Assert.Equal(4, bag.EmptySlotCount);
+        Assert.Equal(BagDiscardResult.NothingThere, bag.TryDiscardAt(BagPlace.Grid(0)));
     }
 
     /// <summary>读回来的随身栏那一排里放着占不止一格的东西，载入被拒并说清是哪一格。</summary>

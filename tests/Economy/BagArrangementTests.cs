@@ -100,9 +100,9 @@ public class BagArrangementTests
         sorted.Sort(BagSortKey.Quality, BagFilter.All);
 
         var shuffled = FiveKinds();
-        shuffled.Move(0, 7);
-        shuffled.Move(2, 5);
-        shuffled.Move(1, 3);
+        Assert.Equal(BagMoveResult.Moved, shuffled.Move(0, 7));
+        Assert.Equal(BagMoveResult.Moved, shuffled.Move(2, 5));
+        Assert.Equal(BagMoveResult.Moved, shuffled.Move(1, 6));
         shuffled.Sort(BagSortKey.Quality, BagFilter.All);
 
         Assert.Equal(Layout(sorted), Layout(shuffled));
@@ -238,26 +238,40 @@ public class BagArrangementTests
     }
 
     [Fact]
-    public void 挪格_目标格空着就搬过去_有东西就两格互换()
+    public void 挪格_目标格空着就搬过去_有别的东西就不动_不互换()
     {
         var bag = FiveKinds();
 
-        bag.Move(0, 6);
+        Assert.Equal(BagMoveResult.Moved, bag.Move(0, 6));
         Assert.Equal("_ turnip:common:3 iron:fine:2 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
 
-        bag.Move(1, 2);
-        Assert.Equal("_ iron:fine:2 turnip:common:3 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
+        // 寻常芜菁指到精铁上、指到变异芜菁上：都是别的东西，两边都不动。
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(1, 2));
+        Assert.Equal(BagMoveResult.Blocked, bag.Move(1, 3));
+        Assert.Equal("_ turnip:common:3 iron:fine:2 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
 
-        bag.Move(3, 3);
-        Assert.Equal("_ iron:fine:2 turnip:common:3 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
+        Assert.Equal(BagMoveResult.Moved, bag.Move(3, 3));
+        Assert.Equal("_ turnip:common:3 iron:fine:2 turnip:mutated:4 letter:-:1 _ seed:-:5 _", Layout(bag));
 
-        // 同标识的两堆挪到一起也只是互换：合堆是整理的事。
-        var two = Row([Stack(Turnip, Common, 3, 1), Stack(Turnip, Common, 4, 2)]);
-        two.Move(0, 1);
-        Assert.Equal("turnip:common:4 turnip:common:3", Layout(two));
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => bag.Move(0, 8));
+        Assert.Throws<ArgumentOutOfRangeException>(() => bag.Move(1, 8));
         Assert.Throws<ArgumentOutOfRangeException>(() => bag.Move(-1, 0));
+        Assert.Throws<ArgumentException>(() => bag.Move(0, 5));
+    }
+
+    /// <summary>指到同标识的一堆上：合进去到堆上限为止，剩下的留在原处；那一堆满了就什么都不动。</summary>
+    [Fact]
+    public void 挪格_指到同标识的一堆上就合进去_到堆上限为止_剩下的留在原处()
+    {
+        var two = Row([Stack(Turnip, Common, 3, 2), Stack(Turnip, Common, 4, 1)]);
+        Assert.Equal(BagMoveResult.Merged, two.Move(0, 1));
+        Assert.Equal([null, Stack(Turnip, Common, 7, 2)], two.Slots);
+
+        var near = Row([Stack(Turnip, Common, 15, 1), Stack(Turnip, Common, 10, 2)]);
+        Assert.Equal(BagMoveResult.Merged, near.Move(0, 1));
+        Assert.Equal([Stack(Turnip, Common, 5, 1), Stack(Turnip, Common, 20, 2)], near.Slots);
+
+        Assert.Equal(BagMoveResult.Blocked, near.Move(0, 1));
+        Assert.Equal([Stack(Turnip, Common, 5, 1), Stack(Turnip, Common, 20, 2)], near.Slots);
     }
 
     [Fact]
