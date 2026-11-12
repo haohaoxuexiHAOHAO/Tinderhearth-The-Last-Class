@@ -92,6 +92,30 @@ public class WorldShardsTests
         return new WorldState(new GameDate(2, Season.Summer, 17), PlotGrid.FromRows(new GridCell(-1, 2), 3, 3, p), bag);
     }
 
+    /// <summary>
+    /// 随身栏那一排写在那几串的开头、网格接在后面，与「随身栏是背包开头那几格」时同一个次序：那时存下来的一串读进来，
+    /// 开头那几格进随身栏那一排，其余照格号进网格，一件不少；写出去再读回来也一样。
+    /// </summary>
+    [Fact]
+    public void 随身栏那一排排在那一串开头_随身栏是开头那几格时存下的一串照样读得进来()
+    {
+        var slots = new ItemStack?[16];
+        slots[0] = new ItemStack(TestBags.TurnipSeed, null, 12, 1);
+        slots[5] = new ItemStack(TestBags.Turnip, TestBags.Common, 3, 2);
+        slots[6] = new ItemStack(TestBags.Turnip, TestBags.Mutated, 4, 3);
+        slots[15] = new ItemStack(TestBags.TurnipSeed, null, 2, 4);
+        var saved = WorldShards.WriteBag(TestBags.Row(slots));
+
+        var bag = WorldShards.ReadBag(saved, new Bag(6, 2, 6, TestBags.Items));
+
+        Assert.Equal(slots[..6], bag.Carry);
+        Assert.Equal([.. slots[6..], null, null], bag.Slots);
+
+        var back = WorldShards.ReadBag(WorldShards.WriteBag(bag), new Bag(6, 2, 6, TestBags.Items));
+        Assert.Equal(bag.Carry, back.Carry);
+        Assert.Equal(bag.Slots, back.Slots);
+    }
+
     private static void GrowDays(Plot plot, CropDefinition crop, int days, bool mutate)
     {
         for (var i = 0; i < days; i++)

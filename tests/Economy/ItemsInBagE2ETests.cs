@@ -30,17 +30,17 @@ public class ItemsInBagE2ETests
     {
         var farm = new Farm(rolls: [true, false]);
         var world = farm.NewGame();
-        Assert.Equal(world.State.Bag.SlotCount, world.State.Bag.EmptySlotCount);
+        Assert.True(world.State.Bag.IsEmpty);
 
-        // 调试键放下第一批：随身栏是背包开头那几格，第一格是第一样种子的一满堆。
+        // 调试键放下第一批：先落进随身栏那一排，第一格是第一样种子的一满堆。
         Assert.True(world.State.Bag.TryAddAll(SeedBatches.Batch(farm.Crops.Values, 0, CarrySlotBar.SlotCount, farm.Items)));
-        var seed = world.State.Bag.Slots[0]!.Value;
+        var seed = world.State.Bag.Carry[0]!.Value;
         var crop = CropDefinition.BySeed(farm.Crops)[seed.ItemId];
 
-        // 从背包第一格播两格：每播一颗那一格少一颗。
+        // 从随身栏第一格播两格：每播一颗那一格少一颗。
         Assert.Equal(PlantResult.Planted, farm.PlantFromFirstSlot(world, First));
         Assert.Equal(PlantResult.Planted, farm.PlantFromFirstSlot(world, Second));
-        Assert.Equal(seed.Count - 2, world.State.Bag.Slots[0]?.Count);
+        Assert.Equal(seed.Count - 2, world.State.Bag.Carry[0]?.Count);
 
         for (var night = 0; night < crop.DaysToFirstRipe; night++)
         {
@@ -58,7 +58,8 @@ public class ItemsInBagE2ETests
             Assert.Equal(PlotState.Tilled, plot.State);
         }
 
-        var harvested = world.State.Bag.Slots.OfType<ItemStack>().Where(s => s.ItemId == crop.YieldItemId).ToList();
+        var harvested = world.State.Bag.Carry.Concat(world.State.Bag.Slots)
+            .OfType<ItemStack>().Where(s => s.ItemId == crop.YieldItemId).ToList();
         string?[] qualities = [Harvesting.MutatedQualityId, Harvesting.UnmutatedQualityId];
         Assert.Equal(qualities.Order(StringComparer.Ordinal), harvested.Select(s => s.QualityId).Order(StringComparer.Ordinal));
 
@@ -67,6 +68,7 @@ public class ItemsInBagE2ETests
         var back = farm.Load(saved);
         Assert.Equal(world.State.Date, back.Date);
         Assert.Equal(PlotSnapshot.Of(world.State), PlotSnapshot.Of(back));
+        Assert.Equal(world.State.Bag.Carry, back.Bag.Carry);
         Assert.Equal(world.State.Bag.Slots, back.Bag.Slots);
     }
 
@@ -82,24 +84,24 @@ public class ItemsInBagE2ETests
             Assert.True(farm.Sleep(world).Advanced);
         }
 
-        // 每一格都是一满堆种子：没有可合的同标识堆，也没有空格。
+        // 随身栏那一排与网格的每一格都是一满堆种子：没有可合的同标识堆，也没有空格。
         var bag = world.State.Bag;
         var seeds = farm.Items.Items.Values.Where(i => !i.HasQuality).OrderBy(i => i.Id, StringComparer.Ordinal).ToList();
-        for (var slot = 0; slot < bag.SlotCount; slot++)
+        for (var slot = 0; slot < bag.CarryCount + bag.SlotCount; slot++)
         {
             var kind = seeds[slot % seeds.Count];
             Assert.True(bag.TryAdd(kind.Id, null, kind.StackLimit));
         }
 
         Assert.Equal(0, bag.EmptySlotCount);
-        var before = bag.Slots.ToList();
+        var before = bag.Carry.Concat(bag.Slots).ToList();
         var plot = PlotAt(world.State, First);
 
         var attempt = Harvesting.ByProtagonist(plot, crop, Yield, bag);
 
         Assert.Equal(HarvestStatus.BagFull, attempt.Status);
         Assert.Equal(PlotState.Harvestable, plot.State);
-        Assert.Equal(before, bag.Slots);
+        Assert.Equal(before, bag.Carry.Concat(bag.Slots));
     }
 
     [Fact]
@@ -139,11 +141,12 @@ public class ItemsInBagE2ETests
         var world = farm.NewGame();
         var crop = farm.Crops.Values.OrderBy(c => c.Id, StringComparer.Ordinal).First();
         Assert.True(world.State.Bag.TryAdd(crop.YieldItemId, Harvesting.UnmutatedQualityId, 3));
-        var before = world.State.Bag.Slots.ToList();
+        Assert.Equal(crop.YieldItemId, world.State.Bag.Carry[0]?.ItemId);
+        var before = world.State.Bag.Carry.ToList();
 
         Assert.Equal(PlantResult.NotASeed, farm.PlantFromFirstSlot(world, First));
 
-        Assert.Equal(before, world.State.Bag.Slots);
+        Assert.Equal(before, world.State.Bag.Carry);
         Assert.Equal(PlotState.Tilled, PlotAt(world.State, First).State);
     }
 
@@ -158,7 +161,7 @@ public class ItemsInBagE2ETests
             Items = ShippedItems.Load();
             Crops = CropSheetE2ETests.ShippedCrops();
             var config = GameConfig.Parse(File.ReadAllText(Path.Combine(RepoFiles.Root(), "data", "config", "game.json")));
-            NewGameBag = Bag.NewGame(config, Items);
+            NewGameBag = Bag.NewGame(config, Items, CarrySlotBar.SlotCount);
             Settlement = StandardSettlement.Create(Crops, FallowDays, () => _rolls.Dequeue(), _ => { }, _ => { });
         }
 
@@ -169,7 +172,7 @@ public class ItemsInBagE2ETests
 
         public IReadOnlyDictionary<string, CropDefinition> Crops { get; }
 
-        /// <summary>开新档时的背包：第一级的格数，空的。</summary>
+        /// <summary>开新档时的背包：网格第一级那么大，随身栏那一排与技能位同数，空的。</summary>
         public Bag NewGameBag { get; }
 
         public DailySettlement Settlement { get; }
@@ -180,7 +183,7 @@ public class ItemsInBagE2ETests
         /// <summary>睡一觉：走结算那唯一的入口。</summary>
         public SettlementOutcome Sleep(CurrentWorld world) => Settlement.EndDay(world, DayEndSource.Sleep);
 
-        /// <summary>手上是背包第一格（随身栏选中第一格），播到给定那一格。</summary>
+        /// <summary>手上是随身栏第一格，播到给定那一格。</summary>
         public PlantResult PlantFromFirstSlot(CurrentWorld world, GridCell cell) =>
             Planting.TryPlantFromBag(PlotAt(world.State, cell), world.State.Bag, 0, CropDefinition.BySeed(Crops).GetValueOrDefault);
 

@@ -12,7 +12,7 @@ namespace Tinderhearth.UI;
 /// <param name="Icons">按物品标识与品质取图标。</param>
 /// <param name="Palette">色板：稀有度框与品质点按档位声明的显示色染。</param>
 /// <param name="Notify">被拒的那一下屏上出一行字（即时提示）。</param>
-/// <param name="Changed">这一页挪了、排了、整理了或丢了背包里的东西之后叫一声：随身栏是背包开头那几格，要跟着重画。</param>
+/// <param name="Changed">这一页挪了、排了、整理了或丢了背包里的东西之后叫一声：屏幕上的随身栏画的是背包上那一排，要跟着重画。</param>
 public sealed record BagPageSource(
     Func<Bag> Bag, ItemIconResolver Icons, Palette Palette, Action<string> Notify, Action Changed);
 
@@ -34,8 +34,8 @@ public sealed record BagPageSource(
 /// 拿起一堆再走到右边那一列去按丢弃时，那一行照旧写着手上是什么。
 ///
 /// 被筛掉的那几格画成用不了的格子、不画里面的东西，点不到、焦点也停不上去：被筛掉的那几堆什么都不碰，
-/// 界面这一侧让它们碰不到。开头那几格是随身栏，左上角写着它在随身栏里是第几格：排序与整理不碰这几格，
-/// 不标出来的话，排完了开头几格没动看着像没排好。
+/// 界面这一侧让它们碰不到。页上先排随身栏那一排、再排网格；随身栏那几格左上角写着它在随身栏里是第几格：排序与整理
+/// 不碰那一排，不标出来的话，排完了那几格没动看着像没排好。占不止一格的东西挪不进那一排，屏上一行字说清。
 ///
 /// 排序、整理与换筛选都放下手上那一堆：排过之后那一格装的已经不是拿起来的那一堆。合上手环或换到别的页也放下，
 /// 拿起来只是界面上的一个记号，什么都没挪。
@@ -52,7 +52,7 @@ public sealed partial class BagPageView : VBoxContainer
     private readonly BagPageSource _source;
     private readonly UIRoot _ui;
     private readonly Theme _theme;
-    private readonly BagControls _controls = new(CarrySlotBar.SlotCount);
+    private readonly BagControls _controls = new();
     private readonly List<Cell> _cells = [];
     private readonly Dictionary<BagSortKey, Button> _sortButtons = [];
     private readonly GridContainer _grid;
@@ -167,7 +167,7 @@ public sealed partial class BagPageView : VBoxContainer
         if (_cells.Count != _shown.Count || _grid.Columns != bag.GridWidth)
         {
             _grid.Columns = bag.GridWidth;
-            Rebuild(_shown.Count);
+            Rebuild(_shown.Count, bag.CarryCount);
         }
 
         for (var i = 0; i < _cells.Count; i++)
@@ -205,8 +205,14 @@ public sealed partial class BagPageView : VBoxContainer
         _held = null;
         if (held != slot)
         {
-            _controls.Move(_source.Bag(), held, slot);
-            _source.Changed();
+            if (_controls.Move(_source.Bag(), held, slot) == BagMoveResult.TooBigForCarry)
+            {
+                _source.Notify(_text[BagPage.TooBigForCarryKey]);
+            }
+            else
+            {
+                _source.Changed();
+            }
         }
 
         Refresh();
@@ -336,8 +342,8 @@ public sealed partial class BagPageView : VBoxContainer
 
     // ── 搭格子 ────────────────────────────────────────────────────────
 
-    /// <summary>格数变了：清掉旧的，按新的格数搭。拿着的、指着的与停着的都不再算数。</summary>
-    private void Rebuild(int slotCount)
+    /// <summary>格数变了：清掉旧的，按新的格数搭，开头 <paramref name="carryCount"/> 格是随身栏那一排。拿着的、指着的与停着的都不再算数。</summary>
+    private void Rebuild(int slotCount, int carryCount)
     {
         // 先摘下来再释放：释放要等这一帧末尾，留在格子那一片里的话，这一帧新旧两批格子会挤在一起排。
         foreach (var cell in _cells)
@@ -353,7 +359,7 @@ public sealed partial class BagPageView : VBoxContainer
 
         for (var i = 0; i < slotCount; i++)
         {
-            _cells.Add(Build(i));
+            _cells.Add(Build(i, inCarry: i < carryCount));
         }
     }
 
@@ -365,7 +371,7 @@ public sealed partial class BagPageView : VBoxContainer
     /// 稀有度框紧贴图标那一圈、焦点框在格子里面紧贴描边那一圈、选中框在格子外面一圈，三样同时在也都看得出来
     /// （设计仓 production/界面绘制约定.md）。格号在左上、件数在右下、品质点在左下，三个角各放一样。
     /// </remarks>
-    private Cell Build(int index)
+    private Cell Build(int index, bool inCarry)
     {
         var button = new Button
         {
@@ -408,7 +414,7 @@ public sealed partial class BagPageView : VBoxContainer
         button.AddChild(count);
         count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
 
-        if (index < CarrySlotBar.SlotCount)
+        if (inCarry)
         {
             var key = new MiniText(_art, MiniText.Corner.TopLeft)
             {

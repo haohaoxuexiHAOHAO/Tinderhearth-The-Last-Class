@@ -238,16 +238,20 @@ public static class WorldShards
             : throw new InvalidDataException($"{where}有 {problems.Count} 处读不出来：\n  " + string.Join("\n  ", problems));
     }
 
-    /// <summary>主角背包那一块：每一格的每一项各一串，按格号排。空格那一格的种类与品质写 null，件数与序号写 0。</summary>
+    /// <summary>
+    /// 主角背包那一块：每一格的每一项各一串，先随身栏那一排、再网格按格号排（一堆记在它左上角那一格）。
+    /// 空格那一格的种类与品质写 null，件数与序号写 0。
+    /// </summary>
     /// <remarks>
+    /// 先随身栏、再网格，与上一版「随身栏是背包开头那几格」那一串是同一个次序，所以上一版的存档照样读得进来。
     /// 格数就是每一串的项数，之后新进的东西排在哪个序号后面取各堆里最大的那个：两样都由这几串算得出来，所以不另存
-    /// （设计仓 design/存档系统.md 的「派生量不单独存」一节）。
+    /// （设计仓 design/存档系统.md 的「派生量不单独存」一节）。按位置记、存档版本升一级还没有，归设计仓台账 GP-169。
     /// </remarks>
     public static JsonObject WriteBag(Bag bag)
     {
         ArgumentNullException.ThrowIfNull(bag);
 
-        var slots = bag.Slots;
+        List<ItemStack?> slots = [.. bag.Carry, .. bag.Slots];
         return new JsonObject
         {
             [ItemIdKey] = new JsonArray([.. slots.Select(s => JsonValue.Create(s?.ItemId))]),
@@ -258,11 +262,12 @@ public static class WorldShards
     }
 
     /// <summary>
-    /// 读主角背包那一块。格数取种类那一串的项数，别的几串不一样长时被拒。存档里的格数比现在配置的多时被拒，说清两边各是几格；
-    /// 比现在的少就在后面补空格。物品认不出、品质对不上、件数或序号不对，全部问题一次列出来，点名哪一格。
+    /// 读主角背包那一块。格数取种类那一串的项数，别的几串不一样长时被拒；开头那几格是随身栏那一排，其余的按格号进网格。
+    /// 存档里的格数比现在配置的多时被拒，说清两边各是几格；比现在的少就在后面补空格。物品认不出、品质对不上、件数或序号不对、
+    /// 随身栏里放着占不止一格的东西、出了网格或压在一起，全部问题一次列出来，点名哪一格。
     /// </summary>
     /// <param name="shard">背包那一块。</param>
-    /// <param name="newGameBag">开新档时的背包：现在配置的格数与在册物品都从它读。</param>
+    /// <param name="newGameBag">开新档时的背包：现在配置的网格多大、随身栏几格与在册物品都从它读。</param>
     public static Bag ReadBag(JsonObject shard, Bag newGameBag)
     {
         ArgumentNullException.ThrowIfNull(shard);
@@ -276,10 +281,12 @@ public static class WorldShards
             throw new InvalidDataException($"{where}记的背包一格都没有，至少要有 1 格");
         }
 
-        if (savedSlots > newGameBag.SlotCount)
+        var cells = newGameBag.CarryCount + newGameBag.SlotCount;
+        if (savedSlots > cells)
         {
             throw new InvalidDataException(
-                $"{where}记的背包有 {savedSlots} 格，而现在配置的背包只有 {newGameBag.SlotCount} 格 —— 多出来的那几格没有地方放");
+                $"{where}记的背包有 {savedSlots} 格，而现在配置的背包只有 {cells} 格（随身栏 {newGameBag.CarryCount} 格、"
+                    + $"网格 {newGameBag.GridWidth}×{newGameBag.GridHeight}）—— 多出来的那几格没有地方放");
         }
 
         JsonArray Column(string key) =>
@@ -289,7 +296,7 @@ public static class WorldShards
         var counts = Column(CountKey);
         var acquired = Column(AcquiredKey);
 
-        var slots = new ItemStack?[newGameBag.SlotCount];
+        var slots = new ItemStack?[cells];
         var problems = new List<string>();
         for (var i = 0; i < savedSlots; i++)
         {
@@ -325,7 +332,8 @@ public static class WorldShards
 
         try
         {
-            return Bag.Restore(newGameBag.GridWidth, newGameBag.GridHeight, slots, newGameBag.Items);
+            return Bag.Restore(
+                slots[..newGameBag.CarryCount], newGameBag.GridWidth, newGameBag.GridHeight, slots[newGameBag.CarryCount..], newGameBag.Items);
         }
         catch (InvalidDataException e)
         {

@@ -1,18 +1,20 @@
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Progression;
+using Tinderhearth.Rules.UI;
 using Xunit;
 using Xunit.Sdk;
 
 namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>
-/// 主角的背包是一张网格：同种同品质合堆、堆满再放下一块、同种不同品质分块、无品质只按种类分；新的一块从上到下、从左到右
-/// 找第一块放得下它整块占地的空地；满载的两个条件，放不下整份拒收，被拒分「满了」与「放不下这么大的」；网格多大从配置读。
+/// 主角的背包是一张网格加随身栏那一排：同种同品质合堆、堆满再放下一块、同种不同品质分块、无品质只按种类分；新的一块从上到下、
+/// 从左到右找第一块放得下它整块占地的空地，占 1 格的先找随身栏那一排；满载的两个条件，放不下整份拒收，被拒分「满了」与
+/// 「放不下这么大的」；大东西进不了随身栏那一排；网格多大从配置读。
 /// </summary>
 /// <remarks>
-/// 规则在设计仓 design/背包系统.md 的「一堆占一块，堆的标识是「种类 ＋ 品质」」与「一堆放在哪：先合堆，再找第一块够大的空地，
-/// 不能旋转」两节。物品用一份测试自己的小表，堆上限与网格大小是随手挑的、不是数值。
+/// 规则在设计仓 design/背包系统.md 的「一堆占一块，堆的标识是「种类 ＋ 品质」」「一堆放在哪：先合堆，再找第一块够大的空地，
+/// 不能旋转」与「随身栏是背包上单独一排，只放占 1 格的东西」三节。物品用一份测试自己的小表，堆上限与网格大小是随手挑的、不是数值。
 /// </remarks>
 public class BagTests
 {
@@ -254,19 +256,127 @@ public class BagTests
         Assert.Contains("与第 1 格那一堆压在一起", overlap.Message);
     }
 
-    /// <summary>开新档时的网格按背包等级从配置读，等级是第一级；配置里没有的那一级当场抛。</summary>
+    /// <summary>开新档时的网格按背包等级从配置读，等级是第一级；配置里没有的那一级当场抛。随身栏那一排几格由调用方给。</summary>
     [Fact]
     public void 网格多大按背包等级从配置读()
     {
         var config = Config("""[{ "width": 6, "height": 2 }, { "width": 5, "height": 4 }]""");
 
-        var bag = Bag.NewGame(config, Items);
+        var bag = Bag.NewGame(config, Items, carryCells: 3);
         Assert.Equal(6, bag.GridWidth);
         Assert.Equal(2, bag.GridHeight);
         Assert.Equal(12, bag.SlotCount);
+        Assert.Equal(3, bag.CarryCount);
+        Assert.Equal(15, bag.EmptySlotCount);
+        Assert.True(bag.IsEmpty);
         Assert.Equal(new GridSize(5, 4), config.BackpackGridAt(2));
         Assert.Throws<ArgumentOutOfRangeException>(() => config.BackpackGridAt(3));
         Assert.Empty(Stacks(bag));
+    }
+
+    // ── 随身栏那一排 ──────────────────────────────────────────────────
+
+    /// <summary>主角的背包上随身栏那一排与技能位同数：农场照这一格建背包，屏幕上的随身栏照它画。</summary>
+    [Fact]
+    public void 主角背包上随身栏那一排与技能位同数()
+    {
+        var bag = Bag.NewGame(Config("""[{ "width": 6, "height": 2 }]"""), Items, CarrySlotBar.SlotCount);
+
+        Assert.Equal(InputActions.Skills.Count, bag.CarryCount);
+        Assert.Equal(bag.CarryCount, bag.Carry.Count);
+        Assert.All(bag.Carry, s => Assert.Null(s));
+    }
+
+    /// <summary>占 1 格的新东西先找随身栏那一排的空格，那一排满了才进网格；先进的在前。</summary>
+    [Fact]
+    public void 占一格的新东西先进随身栏那一排_满了才进网格()
+    {
+        var bag = new Bag(3, 1, carryCells: 2, Items);
+
+        Assert.True(bag.TryAdd(Stone, null, 12));
+
+        Assert.Equal([5, 5], bag.Carry.Select(s => s?.Count));
+        Assert.Equal([2, null, null], bag.Slots.Select(s => s?.Count));
+    }
+
+    /// <summary>合堆先找随身栏那一排、再找网格；合满了还剩的才放新的一块。</summary>
+    [Fact]
+    public void 合堆先找随身栏那一排再找网格()
+    {
+        var bag = Bag.Restore(
+            [Stack(Seed, null, 15, 1), null], 3, 1, [Stack(Seed, null, 10, 2), null, null], Items);
+
+        Assert.True(bag.TryAdd(Seed, null, 8));
+        Assert.Equal(20, bag.Carry[0]?.Count);
+        Assert.Equal(13, bag.Slots[0]?.Count);
+
+        Assert.True(bag.TryAdd(Seed, null, 10));
+        Assert.Equal(20, bag.Slots[0]?.Count);
+        Assert.Equal(3, bag.Carry[1]?.Count);
+    }
+
+    /// <summary>大东西不进随身栏那一排：那一排空着也直接找网格；网格放不下就被拒，原因是放不下这么大的。</summary>
+    [Fact]
+    public void 大东西直接找网格_随身栏那一排空着也不进去()
+    {
+        var bag = new Bag(2, 2, carryCells: 2, Items);
+
+        Assert.True(bag.TryAdd(Shield, null, 1));
+        Assert.All(bag.Carry, s => Assert.Null(s));
+        Assert.Equal(Shield, bag.Slots[0]?.ItemId);
+
+        Assert.False(bag.TryAdd(Shield, null, 1));
+        Assert.Equal(BagRefusal.NoRoomForSize, bag.RefusalFor(Shield, null, 1));
+        Assert.All(bag.Carry, s => Assert.Null(s));
+
+        // 随身栏那一排也装满之后，一格空的都没有了：被拒的原因是满了。
+        Assert.True(bag.TryAdd(Stone, null, 10));
+        Assert.Equal(BagRefusal.Full, bag.RefusalFor(Shield, null, 1));
+        Assert.Equal(BagRefusal.Full, bag.RefusalFor(Stone, null, 1));
+    }
+
+    /// <summary>占不止一格的东西挪不进随身栏那一排，说得出是太大；那一堆留在原处，随身栏那一格也不动。</summary>
+    [Fact]
+    public void 大东西挪进随身栏被拒_那一堆留在原处()
+    {
+        var bag = Bag.Restore([Stack(Stone, null, 2, 1), null], 2, 2, [Stack(Shield, null, 1, 2), null, null, null], Items);
+        var carry = bag.Carry.ToList();
+        var grid = bag.Slots.ToList();
+
+        Assert.Equal(BagMoveResult.TooBigForCarry, bag.Move(BagPlace.Grid(0), BagPlace.Carry(1)));
+        Assert.Equal(BagMoveResult.TooBigForCarry, bag.Move(BagPlace.Carry(0), BagPlace.Grid(0)));
+
+        Assert.Equal(carry, bag.Carry);
+        Assert.Equal(grid, bag.Slots);
+    }
+
+    /// <summary>占 1 格的东西在随身栏那一排与网格之间挪得来挪得去，目标有东西就两边互换。</summary>
+    [Fact]
+    public void 占一格的东西在随身栏与网格之间挪_有东西就互换()
+    {
+        var bag = Bag.Restore([Stack(Stone, null, 2, 1), null], 2, 1, [Stack(Seed, null, 3, 2), null], Items);
+
+        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Carry(0), BagPlace.Grid(1)));
+        Assert.Equal([null, null], bag.Carry.Select(s => s?.ItemId));
+        Assert.Equal([Seed, Stone], bag.Slots.Select(s => s?.ItemId));
+
+        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Grid(0), BagPlace.Carry(1)));
+        Assert.Equal([null, Seed], bag.Carry.Select(s => s?.ItemId));
+
+        Assert.Equal(BagMoveResult.Moved, bag.Move(BagPlace.Carry(1), BagPlace.Grid(1)));
+        Assert.Equal([null, Stone], bag.Carry.Select(s => s?.ItemId));
+        Assert.Equal([null, Seed], bag.Slots.Select(s => s?.ItemId));
+    }
+
+    /// <summary>读回来的随身栏那一排里放着占不止一格的东西，载入被拒并说清是哪一格。</summary>
+    [Fact]
+    public void 读回来的随身栏那一排里有大东西就被拒()
+    {
+        var e = Assert.Throws<InvalidDataException>(
+            () => Bag.Restore([null, Stack(Shield, null, 1, 1)], 2, 2, [null, null, null, null], Items));
+
+        Assert.Contains("随身栏第 2 格", e.Message);
+        Assert.Contains("只放占 1 格的东西", e.Message);
     }
 
     /// <summary>配置里没写背包网格、写了空表、某一级的宽或高不为正或干脆没写，读配置时当场报错 —— 没有能用的默认值。</summary>

@@ -177,5 +177,6 @@
   "ui.bag.discard_ask_no_quality": "丢掉{0} {1} 件？丢了就找不回来。",
   "ui.bag.discard_yes": "丢掉",
   "ui.bag.discard_no": "不丢",
-  "ui.bag.discard_rejected": "{0}不能丢"
+  "ui.bag.discard_rejected": "{0}不能丢",
+  "ui.bag.too_big_for_carry": "占不止一格的东西放不进随身栏"
 }

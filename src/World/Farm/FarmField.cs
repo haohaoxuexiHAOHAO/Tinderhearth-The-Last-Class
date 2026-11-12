@@ -23,7 +23,7 @@ namespace Tinderhearth.World.Farm;
 /// 可耕→锄、已锄→播种、已播种→浇水、待收→收获、待清→清枯株。代价是实机试不到「对着可耕地
 /// 按播种被拒」那条路，那条由 tests/Economy/PlotTests.cs 守着。
 ///
-/// 播哪一种作物取随身栏选中那一格，随身栏是背包前几格的投影；判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>。
+/// 播哪一种作物取随身栏选中那一格，屏幕上的随身栏画的是背包上随身栏那一排；判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>。
 /// 还没有商店，种子由开发期调试键往背包里放（<see cref="GiveSeedBatch"/>）。
 /// </remarks>
 public partial class FarmField : Node
@@ -248,7 +248,7 @@ public partial class FarmField : Node
         _text = ContentBootstrap.LoadText(catalog);
         _items = ContentBootstrap.LoadItems(catalog, _text);
         Harvesting.RequireQualitiesIn(_items);
-        _newGameBag = Bag.NewGame(ContentBootstrap.LoadConfig(catalog), _items);
+        _newGameBag = Bag.NewGame(ContentBootstrap.LoadConfig(catalog), _items, CarrySlotBar.SlotCount);
         LoadCropDefinitions(catalog);
         _cropsBySeed = CropDefinition.BySeed(_cropDefs);
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
@@ -259,7 +259,7 @@ public partial class FarmField : Node
         LoadWorld();
 
         // 背包每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。丢不掉那一下出在同一条即时提示上；
-        // 背包页挪了开头那几格，随身栏跟着重画。
+        // 背包页挪了随身栏那一排里的东西，屏幕上的随身栏跟着重画。
         _wristband.Bag = new BagPageSource(
             () => _world.State.Bag, IconFor, ContentBootstrap.LoadPalette(), _notice.Show, RefreshCarryBar);
         RefreshAll();
@@ -359,7 +359,7 @@ public partial class FarmField : Node
     /// <remarks>
     /// 还没有商店，种子由它给；一批几种取随身栏几格。它与推进一天那个键一样直接读按键、不进输入映射，理由同上。
     /// 整批放不下就一件不放，屏上那一行说清，这一批也不往后挪 —— 腾出位置再按，给的还是这一批。
-    /// 放进去的种子落在背包里第一个放得下的地方；随身栏只看得到背包前几格，后面那几格要挪到前面来才拿得到。
+    /// 放进去的种子先落进随身栏那一排的空格，那一排满了才进网格；网格里的要在背包页里挪进随身栏那一排才拿得到手上。
     /// </remarks>
     private void GiveSeedBatch()
     {
@@ -489,7 +489,7 @@ public partial class FarmField : Node
     /// <summary>播一次：手上那一格是背包里的哪一格，就从那一格拿一颗种子去播。</summary>
     /// <remarks>
     /// 判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>，被拒时写哪一句在 <see cref="FarmNotices"/>；本方法把那一句交给
-    /// 即时提示，输出面板也打同一句，带上是哪一格。随身栏是背包前几格的投影，所以选中第几格就是背包第几格。
+    /// 即时提示，输出面板也打同一句，带上是哪一格。屏幕上的随身栏画的是背包上随身栏那一排，所以选中第几格就是那一排第几格。
     ///
     /// 三种原因要分得开（手上是空格、手上不是种子、这一格不许播）。合并成一句「不能播」之后，
     /// 玩家按下去没反应，而他不知道该换格子、换东西还是先锄地。
@@ -590,14 +590,12 @@ public partial class FarmField : Node
     /// <summary>一样东西画哪一张图标。背包里的每一样都在册，在册的每一样都核过有图标，所以按标识直接取。</summary>
     private Texture2D IconFor(string itemId, string? qualityId) => _itemIcons[itemId].TextureFor(qualityId);
 
-    /// <summary>随身栏照背包前几格重画：随身栏自己不存东西，背包变了它就跟着变。</summary>
+    /// <summary>随身栏照背包上随身栏那一排重画：屏幕上的随身栏自己不存东西，背包变了它就跟着变。</summary>
     /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。品质跟着那一堆走，画哪一张图标看它。</remarks>
     private void RefreshCarryBar()
     {
-        var bagSlots = _world.State.Bag.Slots
-            .Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count, stack.QualityId) : CarrySlot.Empty)
-            .ToList();
-        _carry.Bar.Fill(CarrySlotBar.ProjectionOf(bagSlots));
+        _carry.Bar.Fill([.. _world.State.Bag.Carry
+            .Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count, stack.QualityId) : CarrySlot.Empty)]);
         _carry.OnContentChanged();
     }
 

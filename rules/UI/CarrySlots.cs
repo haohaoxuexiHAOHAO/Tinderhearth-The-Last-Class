@@ -13,7 +13,7 @@ namespace Tinderhearth.Rules.UI;
 /// 播」都要调用方拿标识去查。<c>rules/Economy/Plot.cs</c> 只存作物标识、存档里只存标识，是同一条。品质是那一堆
 /// 自己的，不在定义上，所以它跟着这一格走。
 ///
-/// 这不是一个容器。随身栏显示的是背包前几格的投影，所以本记录不提供任何增减件数的方法 ——
+/// 这不是一个容器。随身栏显示的是背包上随身栏那一排的投影，所以本记录不提供任何增减件数的方法 ——
 /// 少一件是背包那一侧的事。给它加一个 <c>Take()</c> 会立刻造出第二份存储，而两份存储一旦对不上，
 /// 没有任何东西发现得了。
 /// </remarks>
@@ -72,22 +72,6 @@ public sealed class CarrySlotBar
     /// <summary>全空的一条随身栏。接上背包之前它就该是这个样子，不是一个错误状态。</summary>
     public static CarrySlotBar Empty() =>
         new([.. Enumerable.Repeat(CarrySlot.Empty, SlotCount)]);
-
-    /// <summary>随身栏是背包的前几格：从背包那几格里取前 <see cref="SlotCount"/> 格，交给 <see cref="Fill"/>。</summary>
-    /// <param name="bagSlots">背包每一格，按格号排、已经换成随身栏的格子（空格是 <see cref="CarrySlot.Empty"/>）。</param>
-    /// <remarks>
-    /// 背包那一侧的东西由调用方换过来：规则层的界面这一侧不依赖经营那一侧。背包比随身栏少格时当场抛 ——
-    /// 那是配置对不上（背包的格数少于随身栏），后面那几格对着的背包格根本不存在，补成空格只会让它看起来像「那几格空着」。
-    /// </remarks>
-    public static IReadOnlyList<CarrySlot> ProjectionOf(IReadOnlyList<CarrySlot> bagSlots)
-    {
-        ArgumentNullException.ThrowIfNull(bagSlots);
-
-        return bagSlots.Count >= SlotCount
-            ? [.. bagSlots.Take(SlotCount)]
-            : throw new ArgumentException(
-                $"背包只有 {bagSlots.Count} 格，比随身栏的 {SlotCount} 格少 —— 随身栏是背包的前 {SlotCount} 格", nameof(bagSlots));
-    }
 
     /// <summary>
     /// 格数。与技能位同一个数，理由在类注释。

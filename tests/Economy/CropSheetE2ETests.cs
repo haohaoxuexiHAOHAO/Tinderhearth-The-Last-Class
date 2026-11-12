@@ -33,11 +33,10 @@ public class CropSheetE2ETests
     {
         var crops = ShippedCrops();
         var items = ShippedItems.Load();
-        var bag = new Bag(CarrySlotBar.SlotCount, 1, items);
+        var bag = new Bag(1, 1, CarrySlotBar.SlotCount, items);
         Assert.True(bag.TryAddAll(SeedBatches.Batch(crops.Values, 0, CarrySlotBar.SlotCount, items)));
         var bar = CarrySlotBar.Empty();
-        bar.Fill(CarrySlotBar.ProjectionOf(
-            [.. bag.Slots.Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)]));
+        bar.Fill([.. bag.Carry.Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)]);
         var plot = new Plot(PlotState.Tilled);
 
         Assert.Equal(

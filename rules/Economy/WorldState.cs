@@ -35,7 +35,7 @@ public sealed class WorldState
     public static WorldState NewGame(PlotGrid plots, Bag bag)
     {
         ArgumentNullException.ThrowIfNull(bag);
-        return bag.EmptySlotCount == bag.SlotCount
+        return bag.IsEmpty
             ? new(Calendar.StartDate, plots, bag)
             : throw new ArgumentException("开新档时背包是空的，交进来的那一份装着东西", nameof(bag));
     }

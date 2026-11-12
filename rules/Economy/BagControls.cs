@@ -4,30 +4,19 @@ namespace Tinderhearth.Rules.Economy;
 
 /// <summary>背包页上那几个控件此刻的状态（当前排序键、当前筛选条件），以及按下去对背包做什么。</summary>
 /// <remarks>
-/// 排序、筛选、一键整理、挪格与丢弃都经这一处，于是那几条硬约束只判一次：开头那几格（随身栏）排序与整理不碰，
+/// 排序、筛选、一键整理、挪格与丢弃都经这一处，于是那几条硬约束只判一次：排序与整理只动网格、不碰随身栏那一排，
 /// 被筛掉的那几堆什么都不碰。规则在设计仓 design/背包系统.md 的「分堆的代价由排序、筛选与一键整理来付」一节。
 ///
 /// 状态只在这一趟游戏里，不进存档：进来时排序键是按类别、筛选是全部都看。与随身栏选中位不存同一个理由（设计仓
-/// spec/prd-items-in-bag.md 的「非目标」一节）：它们是看东西的方式，跨过一次退出不丢任何东西。按类别当起点，
-/// 是因为没挑过键就点整理时，玩家多半要的是同一类的东西摆在一起。
+/// spec/prd-items-in-bag.md 的「非目标」一节）：它们是看东西的方式，跨过一次退出不丢任何东西。
 ///
-/// 挪格与丢弃碰到被筛掉的那一格当场抛：界面上被筛掉的格点不到，走到这里就是界面那一侧接错了，
-/// 悄悄照做的话「被筛掉的不动」就破了而没有人知道。
+/// 页上的格按「先随身栏那一排、再网格从左上角数起」排一个号（<see cref="PlaceOf"/>）。挪格与丢弃碰到被筛掉的那一格当场抛：
+/// 界面上被筛掉的格点不到，走到这里就是界面那一侧接错了。照网格画、按位置点的那一页归设计仓台账 UI-67。
 /// </remarks>
 public sealed class BagControls
 {
     /// <summary>进来时的排序键。</summary>
     public const BagSortKey DefaultSortKey = BagSortKey.Category;
-
-    /// <param name="keepLeading">开头几格排序与整理不碰：随身栏的格数（随身栏就是背包开头那几格）。</param>
-    public BagControls(int keepLeading)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(keepLeading);
-        KeepLeading = keepLeading;
-    }
-
-    /// <summary>开头几格排序与整理不碰。</summary>
-    public int KeepLeading { get; }
 
     /// <summary>当前排序键：上一次按的那个键，一键整理也按它排。</summary>
     public BagSortKey SortKey { get; private set; } = DefaultSortKey;
@@ -35,43 +24,48 @@ public sealed class BagControls
     /// <summary>当前筛选条件。</summary>
     public BagFilter Filter { get; private set; } = BagFilter.All;
 
-    /// <summary>按一个键排，并把它记成当前排序键。</summary>
+    /// <summary>页上第 <paramref name="index"/> 格（从 0 数）是背包里哪一处：先随身栏那一排，再网格。</summary>
+    public static BagPlace PlaceOf(Bag bag, int index)
+    {
+        ArgumentNullException.ThrowIfNull(bag);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, bag.CarryCount + bag.SlotCount);
+        return index < bag.CarryCount ? BagPlace.Carry(index) : BagPlace.Grid(index - bag.CarryCount);
+    }
+
+    /// <summary>按一个键排网格，并把它记成当前排序键。</summary>
     public void SortBy(Bag bag, BagSortKey key)
     {
         ArgumentNullException.ThrowIfNull(bag);
         SortKey = key;
-        bag.Sort(key, KeepLeading, Filter);
+        bag.Sort(key, Filter);
     }
 
-    /// <summary>一键整理，按当前排序键排。</summary>
+    /// <summary>一键整理网格，按当前排序键排。</summary>
     public void Tidy(Bag bag)
     {
         ArgumentNullException.ThrowIfNull(bag);
-        bag.Tidy(SortKey, KeepLeading, Filter);
+        bag.Tidy(SortKey, Filter);
     }
 
-    /// <summary>第 <paramref name="slot"/> 格在当前筛选下看不看得见。空格永远看得见。</summary>
-    public bool Shows(Bag bag, int slot)
-    {
-        ArgumentNullException.ThrowIfNull(bag);
-        ArgumentOutOfRangeException.ThrowIfNegative(slot);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(slot, bag.SlotCount);
-        return bag.Slots[slot] is not { } stack || Filter.Shows(stack, bag.Items);
-    }
+    /// <summary>页上第 <paramref name="index"/> 格在当前筛选下看不看得见。空格永远看得见。</summary>
+    public bool Shows(Bag bag, int index) =>
+        bag.StackAt(PlaceOf(bag, index)) is not { } stack || Filter.Shows(stack, bag.Items);
 
-    /// <summary>挪格：两格互换，目标格空着时就是搬过去。开头那几格也挪得进挪得出 —— 玩家就是这样往手上放东西的。</summary>
-    public void Move(Bag bag, int from, int to)
+    /// <summary>挪格：两格互换，目标格空着时就是搬过去。随身栏那一排也挪得进挪得出 —— 玩家就是这样往手上放东西的。</summary>
+    /// <returns>占不止一格的东西要进随身栏时是 <see cref="BagMoveResult.TooBigForCarry"/>，什么都没动。</returns>
+    public BagMoveResult Move(Bag bag, int from, int to)
     {
         RequireShown(bag, from);
         RequireShown(bag, to);
-        bag.Move(from, to);
+        return bag.Move(PlaceOf(bag, from), PlaceOf(bag, to));
     }
 
     /// <summary>丢弃那一整堆。确认在界面那一侧，这里只管确认之后那一下。</summary>
-    public BagDiscardResult Discard(Bag bag, int slot)
+    public BagDiscardResult Discard(Bag bag, int index)
     {
-        RequireShown(bag, slot);
-        return bag.TryDiscardAt(slot);
+        RequireShown(bag, index);
+        return bag.TryDiscardAt(PlaceOf(bag, index));
     }
 
     /// <summary>按类别筛换到下一档：全部 → 在册的每一类（大类在前、小类紧跟）→ 回到全部。品质那一半不动。</summary>
@@ -99,12 +93,12 @@ public sealed class BagControls
         return at < 0 ? null : choices[(at + 1) % choices.Count];
     }
 
-    private void RequireShown(Bag bag, int slot)
+    private void RequireShown(Bag bag, int index)
     {
-        if (!Shows(bag, slot))
+        if (!Shows(bag, index))
         {
             throw new InvalidOperationException(
-                $"背包第 {slot} 格（从 0 数）被当前筛选筛掉了 —— 界面上它点不到，被筛掉的那几堆什么都不碰");
+                $"背包{PlaceOf(bag, index)}被当前筛选筛掉了 —— 界面上它点不到，被筛掉的那几堆什么都不碰");
         }
     }
 }
