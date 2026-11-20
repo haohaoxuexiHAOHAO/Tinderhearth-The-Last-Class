@@ -105,7 +105,7 @@ public class CombatFeelTests
         {
             Assert.True(width > 0);
             Assert.True(height > 0);
-            // 角色本体不超过 32px 高，见设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。
+            // 角色本体不超过 32px 高，见设计仓 production/像素绘制原则.md 的「像素基准」一节。
             // 框心要在脚底之上，也不许高过头顶。
             Assert.InRange(centerY, 1, 32);
         }

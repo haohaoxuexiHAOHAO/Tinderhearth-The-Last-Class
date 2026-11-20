@@ -81,7 +81,7 @@ public class UISkeletonTests
     {
         // 口径是：任何弹出界面并接管输入的东西一律暂停世界。进了导航栈的按定义就是这样的东西，
         // 所以不再按面板逐个声明要不要暂停 —— 那个恒为真的开关已经删掉了。
-        // 见设计仓 canon/gameplay/玩法定位.md 的「弹界面接管输入就暂停世界，世界里的动作不暂停」一节。
+        // 见工作区根 desc/经营规则.md 的「打开界面时世界暂停」一节。
         var nav = new NavigationStack();
         Assert.False(nav.WorldShouldPause);   // 空栈：世界在跑
 

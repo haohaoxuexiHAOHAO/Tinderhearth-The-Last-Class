@@ -11,7 +11,7 @@ namespace Tinderhearth.Rules.UI;
 /// 它们是排版单位、不是玩法数值，所以不外置成配置文件。外置意味着 mod 能改排版，
 /// 而那会让所有界面在未知边距下重排。
 ///
-/// 基础单位与精灵格尺寸出自设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。
+/// 基础单位与精灵格尺寸出自设计仓 production/像素绘制原则.md 的「像素基准」一节。
 /// </remarks>
 public static class UIMetrics
 {
@@ -54,7 +54,7 @@ public static class UIMetrics
     /// </summary>
     /// <remarks>
     /// 16 是一个基础单位（图块、占 1 格的物品图标），32 是两个（俯视本体与界面图标的大档都是两单位，见设计仓
-    /// canon/gameplay/玩法定位.md 的「像素基准」）。中间档不设：中间任何尺寸在世界里都没有对应物。
+    /// production/像素绘制原则.md 的「像素基准」）。中间档不设：中间任何尺寸在世界里都没有对应物。
     /// 格子与详情框那一格落在两档之间，但它们是装一个小图标的框，不是一档图标（见下面的格子）。
     ///
     /// 改这两个数要回去重算设计仓 production/界面绘制约定.md「尺寸阶梯」那张表：那里的尺寸引的是这里，
@@ -101,7 +101,7 @@ public static class UIMetrics
 
     /// <summary>侧视关卡的相机缩放倍数。有效世界视野因此是逻辑分辨率的一半。</summary>
     /// <remarks>
-    /// 设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节已经改成两种视角的相机都不缩放，
+    /// 设计仓 production/像素绘制原则.md 的「像素基准」一节已经改成两种视角的相机都不缩放，
     /// 这个常量和下面两个派生量是那次改动之前留下的，还没清掉。改相机那边之前先对一下这里。
     /// </remarks>
     public const int SideViewZoom = 2;

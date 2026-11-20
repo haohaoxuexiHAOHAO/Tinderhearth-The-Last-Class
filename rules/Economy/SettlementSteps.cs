@@ -1,9 +1,9 @@
 namespace Tinderhearth.Rules.Economy;
 
-/// <summary>每日结算那串步序的步名，顺序与设计仓正典一致。</summary>
+/// <summary>每日结算那串步序的步名，顺序与规则一致。</summary>
 /// <remarks>
-/// 步序的家在设计仓 canon/gameplay/时间与经营.md 的「结算顺序（固定，不得改动）」一节，这里一步不增、一步不减。
-/// 每个名字就是正典那一条的步名：以加粗开头的取那一段加粗，否则取到第一个中文标点为止。设计仓 tools/check_docs.py
+/// 步序的家在工作区根 desc/经营规则.md 的「结算顺序」一节，这里一步不增、一步不减。
+/// 每个名字就是那张表里的步名，取到第一个中文标点为止。设计仓 tools/check_docs.py
 /// 逐项比对，任何一边改了而另一边没跟上就判失败。引用某一步一律按名，不按它排第几：插一步会让全部序号静默平移。
 /// </remarks>
 public static class SettlementSteps
@@ -16,7 +16,7 @@ public static class SettlementSteps
     public const string ConstructionProgress = "建造进度推进";
     public const string ReadingProgress = "书籍阅读进度推进";
 
-    /// <summary>这一步还包括全部按天状态推进与知识吸收效率回升；名字只取到正典那一条的第一个顿号。</summary>
+    /// <summary>这一步还包括全部按天状态推进与知识吸收效率回升；名字只取到那一条的第一个顿号。</summary>
     public const string StudentRecovery = "学生康复";
 
     public const string ExamSettlement = "考试结算";
@@ -35,7 +35,7 @@ public static class SettlementSteps
     /// </remarks>
     public const int Count = 17;
 
-    /// <summary>正典那串的顺序。</summary>
+    /// <summary>那张表的顺序。</summary>
     public static readonly IReadOnlyList<string> Order =
     [
         DateAdvance,

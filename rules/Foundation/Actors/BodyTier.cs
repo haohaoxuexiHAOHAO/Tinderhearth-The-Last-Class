@@ -1,7 +1,7 @@
 namespace Tinderhearth.Rules.Foundation.Actors;
 
 /// <summary>
-/// 侧视本体的体型档：小、人、大。每一档多高在设计仓 canon/gameplay/玩法定位.md 的「像素基准」。
+/// 侧视本体的体型档：小、人、大。每一档多高在设计仓 production/像素绘制原则.md 的「像素基准」。
 /// </summary>
 /// <remarks>
 /// 它放在角色这一层，因为读它的不只界面：世界那一层的血条按它给宽，侧视影子也按体型分套。

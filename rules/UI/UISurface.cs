@@ -11,7 +11,7 @@ namespace Tinderhearth.Rules.UI;
 /// 所以暂停由 <see cref="NavigationStack.WorldShouldPause"/> 按栈里有没有层来判，不让各面板
 /// 自己声明 —— 一个恒为真的开关只是多给人一个设错的机会。
 ///
-/// 暂停与关卡内可用性这两条规则在设计仓 canon/gameplay/玩法定位.md 的「跨系统约定」一节。
+/// 暂停与关卡内可用性这两条规则在工作区根 desc/经营规则.md 的「打开界面时世界暂停」与「关卡里能做什么」。
 /// </remarks>
 public sealed record UISurface(string Id, UILayer Layer, SurfaceKind Kind)
 {

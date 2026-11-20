@@ -92,9 +92,9 @@ public static class HudLayout
 
     /// <summary>关卡里留给背景与 HUD 的顶上那一段有多高，界面像素。关卡那一套每一块的底边都不许越过它。</summary>
     /// <remarks>
-    /// 出处是设计仓 canon/gameplay/战斗与关卡.md 的「可行走纵深是怎么算出来的」那笔纵向账：下面 24 的
-    /// 落脚余量、240 的角色带、上面这一段，加起来正好是逻辑分辨率的高度。那张表一换，这个数要回去
-    /// 重抄；纵深带改宽改窄时的复核记在设计仓台账 <c>ENG-24</c> 那一条里。
+    /// 出处是已经撤掉的横版即时战斗那笔纵向账（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）：下面 24 的
+    /// 落脚余量、240 的角色带、上面这一段，加起来正好是逻辑分辨率的高度。纵深带改宽改窄时的复核记在设计仓台账
+    /// <c>ENG-24</c> 那一条里。
     /// </remarks>
     public const int LevelTopBandHeight = 96;
 
@@ -357,7 +357,7 @@ public static class HudLayout
     /// <remarks>
     /// 它算的不是「角色现在在哪」，而是「相机死区允许他跑到哪」：相机把角色留在死区内不动镜头，所以
     /// 角色相对屏幕中心的偏移上限就是死区的半宽半高，再各向外扩半个本体。死区那两个数本来就是屏幕
-    /// 像素（见 <see cref="CameraFeel"/>）；两种视角的相机都不缩放（设计仓 canon/gameplay/玩法定位.md 的
+    /// 像素（见 <see cref="CameraFeel"/>）；两种视角的相机都不缩放（设计仓 production/像素绘制原则.md 的
     /// 「像素基准」），俯视本体两个基础单位就是屏上两个基础单位，所以这里不乘缩放。
     /// </remarks>
     public static HudRect ActorBand(int viewportWidth, int viewportHeight)

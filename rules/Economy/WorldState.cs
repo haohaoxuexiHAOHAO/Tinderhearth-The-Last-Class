@@ -29,7 +29,7 @@ public sealed class WorldState
 
     /// <summary>开新档：日期是开局那一天，地是场景里那片地的起始状态，背包是空的。</summary>
     /// <remarks>
-    /// 开局时背包里什么都没有：起始资金只够买第一批种子（设计仓 canon/gameplay/玩法定位.md 的「开局」一节）。
+    /// 开局时背包里什么都没有：起始资金只够买第一批种子（工作区根 desc/经营规则.md 的「开局」一节）。
     /// 交进来的背包装着东西就抛。
     /// </remarks>
     public static WorldState NewGame(PlotGrid plots, Bag bag)

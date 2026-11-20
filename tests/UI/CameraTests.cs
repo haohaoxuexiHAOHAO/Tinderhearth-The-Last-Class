@@ -29,7 +29,7 @@ public class CameraTests
     public void 只有两种视角且缩放取自正典而不是相机自己定的常量()
     {
         // 战斗与出征一律侧视、基地与城区一律俯视，没有例外，所以多出第三种视角这条就不成立了。
-        // 见设计仓 canon/gameplay/玩法定位.md 的「视角规则」一节。
+        // 见设计仓 production/像素绘制原则.md 的「像素基准」一节。
         Assert.Equal(2, Enum.GetValues<CameraView>().Length);
 
         Assert.Equal(1, Rig(CameraView.TopDown).Zoom);

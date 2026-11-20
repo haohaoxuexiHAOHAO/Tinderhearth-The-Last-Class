@@ -69,8 +69,8 @@ public sealed record HudSkillSlot(string Action, string Label, bool Unlocked,
 /// <param name="DoneMessage">达成后显示的那句话。</param>
 /// <remarks>
 /// 进度为 0 或者已达成时照样显示，不隐藏：进度看不见等于没有目标。达成后显示的是「返回入口点
-/// 撤离」而不是「已完成」，因为达成目标不会自动结束关卡，玩家还得走回去。详见设计仓
-/// canon/gameplay/战斗与关卡.md。
+/// 撤离」而不是「已完成」，因为达成目标不会自动结束关卡，玩家还得走回去。详见工作区根
+/// desc/战斗规则.md 的「完成标准」。
 /// </remarks>
 public sealed record HudObjective(string Label, int Done, int Total, string DoneMessage)
 {

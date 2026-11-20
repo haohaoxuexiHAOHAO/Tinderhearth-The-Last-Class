@@ -38,8 +38,8 @@ public enum UILayer
 
     /// <summary>遮罩层：淡入淡出与场景切换时盖住一切。</summary>
     /// <remarks>
-    /// 刻意不叫「过场」。那个词在设计仓 design/剧情演出系统.md 里指的是剧情演出，而本层只是
-    /// 一块盖住画面的色块。两个东西同名，照界面文档找过来的人会把这一层读成演出层。
+    /// 刻意不叫「过场」。那个词在游戏里指剧情演出，而本层只是一块盖住画面的色块。两个东西同名，
+    /// 照界面文档找过来的人会把这一层读成演出层。
     /// </remarks>
     Curtain = 50,
 }
@@ -63,7 +63,7 @@ public static class UILayerExtensions
     ///
     /// 即时提示那一层不接管输入，却照跑：面板开着时世界停着，跟着停的话面板里被拒的那一行就一直挂着、收不起来。
     ///
-    /// 暂停的判据在设计仓 canon/gameplay/玩法定位.md 的「弹界面接管输入就暂停世界，世界里的动作不暂停」。
+    /// 暂停的判据在工作区根 desc/经营规则.md 的「打开界面时世界暂停」。
     /// </remarks>
     public static bool RunsWhilePaused(this UILayer layer) => layer switch
     {

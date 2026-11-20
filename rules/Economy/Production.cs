@@ -19,8 +19,8 @@ public enum Producer
 
 /// <summary>产出归谁。</summary>
 /// <remarks>
-/// 现在只有主角这一种：基地产出归主角（设计仓 canon/gameplay/角色与成长.md 的「战利品归属」一节）。
-/// 钓到的鱼归钓的人那一种，跟钓鱼落地。
+/// 只有主角这一种：基地的产出全归主角，派学生去钓的鱼也归主角，派学生去干的照付报酬（工作区根
+/// desc/经营规则.md 的「战利品归属」一节）。
 /// </remarks>
 public enum GoodsOwner
 {

@@ -20,7 +20,8 @@ public class InputMappingTests
     [Fact]
     public void 正典点名的每个动作都在动作清单里()
     {
-        // 清单来自战斗与关卡 · 按键与连击：六个战斗动作加 6 个技能位。普攻只有轻攻击一种。
+        // 清单来自已经撤掉的横版即时战斗（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）：
+        // 六个战斗动作加 6 个技能位。普攻只有轻攻击一种。
         foreach (var action in new[]
         {
             InputActions.AttackLight, InputActions.Guard,
@@ -285,7 +286,7 @@ public class InputMappingTests
     [Fact]
     public void 普攻只有一个键_K不绑任何动作()
     {
-        // 普攻只有轻攻击一种（设计仓 canon/gameplay/战斗与关卡.md 的「按键与连击」）。K 刻意空着、
+        // 普攻只有轻攻击一种（已经撤掉的横版即时战斗，设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）。K 刻意空着、
         // 先不派别的动作；它要是又被谁绑上，按下去就会多出一个玩家不知道的动作，而那不报错。
         // 按自报名比对而不按符号：K 连符号都没有，绑上它得先加回符号，这条照样拦得住。
         Assert.DoesNotContain("attack_heavy", InputActions.All);

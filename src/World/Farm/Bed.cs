@@ -37,8 +37,8 @@ public partial class Bed : Node2D
 
     /// <summary>角色这一刻在不在床的范围里。</summary>
     /// <remarks>
-    /// 读的是引擎上一次物理同步攒下的重叠，按键这种慢事够用
-    /// （设计仓 reference/godot/交互点与站位点.md 的「自己查（按键或点一下那一类）」一节）。
+    /// 读的是引擎上一次物理同步攒下的重叠，也就是上一帧的。按键这种慢事在按下那一刻问一次就够用，
+    /// 不用等进出范围的信号；命中判定那种要当帧准的才得自己做形状查询。
     /// </remarks>
     public bool SleeperInReach => _reach.OverlapsBody(_sleeper);
 

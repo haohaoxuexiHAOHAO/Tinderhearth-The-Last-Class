@@ -12,7 +12,7 @@ namespace Tinderhearth.Rules.Tests.Economy;
 /// </remarks>
 public class ItemIconCheckTests
 {
-    /// <summary>一格 16 像素：设计仓 canon/gameplay/玩法定位.md 的「像素基准」。引擎层传的是界面那一侧的基础单位。</summary>
+    /// <summary>一格 16 像素：设计仓 production/像素绘制原则.md 的「像素基准」。引擎层传的是界面那一侧的基础单位。</summary>
     private const int CellPixels = 16;
 
     private const string Gem = "item_gem";

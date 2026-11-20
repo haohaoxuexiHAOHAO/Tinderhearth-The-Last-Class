@@ -1,7 +1,8 @@
 namespace Tinderhearth.Rules.UI;
 
 /// <summary>
-/// 敌人等级。血条只给精英与 BOSS，杂兵没有，见设计仓 canon/gameplay/战斗与关卡.md。
+/// 敌人等级。血条只给精英与 BOSS、杂兵没有，是已经撤掉的横版即时战斗的规则（设计仓
+/// decisions/ADR-0035-战斗改成俯视的格子回合制.md）。
 /// </summary>
 public enum EnemyRank
 {

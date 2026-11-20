@@ -19,7 +19,7 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 未来联机的共同地基：mod 加角色、联机加玩家，都会撞这个数。
 /// </param>
 /// <param name="BuildableWidthCells">
-/// 基地可建造区的列数。格数本身写在设计仓 canon/gameplay/时间与经营.md 的「建造」一节，这里
+/// 基地可建造区的列数。格数本身写在工作区根 desc/经营规则.md 的「建造」一节，这里
 /// 不复述那个数、也不许写死：相机的滚动范围与边缘推镜都按它算，改画布应该是改这个配置值加
 /// 延伸地图，不是改代码。
 /// </param>

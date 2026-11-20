@@ -34,7 +34,7 @@ public sealed class DailySettlement
         if (problems.Count > 0)
         {
             throw new ArgumentException(
-                "每日结算的步序对不上（设计仓 canon/gameplay/时间与经营.md 的「结算顺序（固定，不得改动）」一节）：" + string.Join("；", problems),
+                "每日结算的步序对不上（工作区根 desc/经营规则.md 的「结算顺序」一节）：" + string.Join("；", problems),
                 nameof(steps));
         }
 

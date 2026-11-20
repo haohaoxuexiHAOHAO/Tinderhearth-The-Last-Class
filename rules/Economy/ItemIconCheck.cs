@@ -39,7 +39,7 @@ public static class ItemIconCheck
 
     /// <summary>一件东西的图标应当多大：占地的宽高各乘一格的像素数。</summary>
     /// <param name="footprint">它的占地。</param>
-    /// <param name="cellPixels">背包网格一格多少像素，至少 1。基础单位出自设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。</param>
+    /// <param name="cellPixels">背包网格一格多少像素，至少 1。基础单位出自设计仓 production/像素绘制原则.md 的「像素基准」一节。</param>
     public static IconSize IconSizeFor(ItemFootprint footprint, int cellPixels)
     {
         ArgumentNullException.ThrowIfNull(footprint);

@@ -66,7 +66,7 @@ public partial class InputRouter : Node
     ///
     /// 面板打开时这里不用遮任何东西。弹出界面接管输入时世界是暂停的，玩法节点不在跑（本类的
     /// <c>ProcessMode</c> 是 <c>Always</c>，玩法节点不是），所以手柄上「下面键既是跳跃又是界面
-    /// 确认」那个歧义不会发生。暂停这条规则见设计仓 canon/gameplay/玩法定位.md。
+    /// 确认」那个歧义不会发生。暂停这条规则见工作区根 desc/经营规则.md 的「打开界面时世界暂停」。
     /// </remarks>
     public bool IsPressed(string action) =>
         Gate.IsOpen

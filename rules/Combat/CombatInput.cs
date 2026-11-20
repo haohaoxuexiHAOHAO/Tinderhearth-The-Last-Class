@@ -16,8 +16,8 @@ namespace Tinderhearth.Rules.Combat;
 /// <param name="DepthSign">纵深输入，正为向前、靠近镜头，负为向后，与 <see cref="DepthBand"/> 同向。</param>
 /// <param name="JumpPressed">本帧刚按下跳跃。</param>
 /// <param name="LightPressed">
-/// 本帧刚按下轻攻击。普攻只有这一种（设计仓 canon/gameplay/战斗与关卡.md 的「按键与连击」），
-/// 所以攻击键只有这一格。
+/// 本帧刚按下轻攻击。已经撤掉的横版即时战斗里普攻只有这一种（设计仓
+/// decisions/ADR-0035-战斗改成俯视的格子回合制.md），所以攻击键只有这一格。
 /// </param>
 /// <param name="DodgePressed">本帧刚按下闪避。</param>
 /// <param name="RunHeld">奔跑键是否按住。设计文档里的「冲刺」指同一件事，见 <c>InputActions.Run</c>。</param>

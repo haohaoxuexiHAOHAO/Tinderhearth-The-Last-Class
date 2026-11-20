@@ -2,8 +2,8 @@ namespace Tinderhearth.Rules.Economy;
 
 /// <summary>日历：一年里季节的先后、一季几天，以及开新档那一天。</summary>
 /// <remarks>
-/// 这几个量都是规则常量，不是要调的数，所以不进参数表也不进检查器。季长与四季在设计仓
-/// canon/gameplay/时间与经营.md 的「时间」一节，开局那一天在 canon/gameplay/玩法定位.md 的「开局」一节。
+/// 这几个量都是规则常量，不是要调的数，所以不进参数表也不进检查器。季长与四季在工作区根
+/// desc/经营规则.md 的「时间」一节，开局那一天在同一份的「开局」一节。
 /// 时间单位只有天、季、年三级，没有「月」，所以这里也没有。
 /// </remarks>
 public static class Calendar
@@ -21,7 +21,7 @@ public static class Calendar
 
     /// <summary>开新档那一天：第一年春季第一天。</summary>
     /// <remarks>
-    /// 为什么从春季开局写在设计仓 canon/gameplay/玩法定位.md 的「开局」一节。写成属性而不是静态字段，
+    /// 从春季开局见工作区根 desc/经营规则.md 的「开局」一节。写成属性而不是静态字段，
     /// 是为了不依赖本类里静态字段的初始化先后：构造一个日期要先读 <see cref="SeasonOrder"/>。
     /// </remarks>
     public static GameDate StartDate => new(1, Season.Spring, 1);

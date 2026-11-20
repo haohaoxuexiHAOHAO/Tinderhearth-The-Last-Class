@@ -9,8 +9,7 @@ namespace Tinderhearth.World;
 /// <remarks>
 /// 绘制排序与命中判定必须读同一份纵深值 —— 排错了，玩家看到的前后关系会与打得着打不着相反。
 /// 这个接口就是那句「同一份」在类型上的落点：排序与命中容差都经它取值。
-/// 为什么战斗关卡有这么一条纵深轴，见设计仓 canon/gameplay/战斗与关卡.md 的
-/// 「战斗关卡的空间模型：带纵深的横版」一节。
+/// 这条纵深轴是已经撤掉的横版即时战斗的空间模型（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）。
 /// </remarks>
 public interface IDepthActor
 {

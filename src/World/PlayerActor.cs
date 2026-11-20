@@ -53,7 +53,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable, I
 
     /// <summary>脚下用哪一套影子图（见 <see cref="DepthVisual.LoadShadowSteps"/>）。</summary>
     /// <remarks>
-    /// 主角是人形，走体型表里「人」那一档；体型表在设计仓 canon/gameplay/玩法定位.md 的「像素基准」一节。
+    /// 主角是人形，走体型表里「人」那一档；体型表在设计仓 production/像素绘制原则.md 的「像素基准」一节。
     /// 帧框改成按角色各自声明时（设计仓台账 ENG-24），这一项跟着进那份声明。
     /// </remarks>
     private const string ShadowSet = "human";

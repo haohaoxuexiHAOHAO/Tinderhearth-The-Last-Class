@@ -26,7 +26,7 @@ public class DepthBandTests
     /// <summary>带宽必须被排间距整除，而且排数不少于三排。</summary>
     /// <remarks>
     /// 整除这条不能松：除不尽的话最里侧那一排站不满，同屏能摆下多少人的那笔账就对不上了。
-    /// 账怎么算的见设计仓 canon/gameplay/战斗与关卡.md 的「可行走纵深是怎么算出来的」一节。
+    /// 那笔账属于已经撤掉的横版即时战斗（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）。
     /// </remarks>
     [Fact]
     public void 带宽装得下正典要求的排数()

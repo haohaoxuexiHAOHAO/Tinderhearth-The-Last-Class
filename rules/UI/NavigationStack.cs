@@ -33,7 +33,7 @@ public sealed class NavigationStack
     /// 分界线在「界面接管了输入」，不在「玩家操作不了」。硬直、失衡、被击倒同样让玩家操作不了，
     /// 它们绝不暂停，那是战斗本身。喝药、用道具、采集、技能同理：走各自的读条与后摇，不是界面。
     ///
-    /// 这条规则在设计仓 canon/gameplay/玩法定位.md 的「跨系统约定」一节。
+    /// 这条规则在工作区根 desc/经营规则.md 的「打开界面时世界暂停」一节。
     /// </remarks>
     public bool WorldShouldPause => _stack.Count > 0;
 
