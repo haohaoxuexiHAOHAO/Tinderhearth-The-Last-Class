@@ -15,8 +15,8 @@ namespace Tinderhearth.Rules.Foundation.Config;
 /// 填进来（有测试实测这条）—— 整数是 0、列表是 <c>null</c>，而 0 名册容量表现为谁都招不进来，游戏不报错。
 /// </remarks>
 /// <param name="RosterCapacity">
-/// 名册容量。玩法正典说第一版的学生陆续到齐，但容量必须从配置读而不是写死 —— 它是 mod 与
-/// 未来联机的共同地基：mod 加角色、联机加玩家，都会撞这个数。
+/// 名册容量。学生名单与加入时间在工作区根 desc/人物.md 的「主角与学生：总表」，但容量必须从配置读
+/// 而不是写死 —— 它是 mod 与未来联机的共同地基：mod 加角色、联机加玩家，都会撞这个数。
 /// </param>
 /// <param name="BuildableWidthCells">
 /// 基地可建造区的列数。格数本身写在工作区根 desc/经营规则.md 的「建造」一节，这里

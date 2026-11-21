@@ -5,7 +5,8 @@ namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>日历：日期按天、季、年往前走，开新档从开局那一天开始。</summary>
 /// <remarks>
-/// 季节的先后（春、夏、秋、冬）在这里写死，是在钉日历与正典对得上；一季几天读常量，改它不该让这里失败。
+/// 季节的先后（春、夏、秋、冬）在这里写死，是在钉日历与 desc 对得上（工作区根 desc/经营规则.md 的「时间」）；
+/// 一季几天读常量，改它不该让这里失败。
 /// </remarks>
 public class CalendarTests
 {

@@ -5,7 +5,7 @@ namespace Tinderhearth.Rules.Economy;
 /// 构造时就校验，所以存档里写着第 0 年或这一季第 31 天时当场被拒，而不是带着一个不存在的日期往下走。
 /// <c>default</c> 不是合法的一天（第 0 年第 0 天），日期只从构造或 <see cref="Calendar.StartDate"/> 来。
 ///
-/// 年份没有上限：正典写明没有全局日期上限。
+/// 年份没有上限：desc 写明没有日期上限（工作区根 desc/经营规则.md 的「时间」）。
 /// </remarks>
 public readonly record struct GameDate
 {

@@ -154,7 +154,7 @@ public static class InputBindings
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<InputBinding>> Table =
         new Dictionary<string, IReadOnlyList<InputBinding>>
         {
-            // ── 移动。手柄只绑左摇杆：D-pad 要留给正典的队友三指令（集火／撤退／待命）──
+            // ── 移动。手柄只绑左摇杆：D-pad 要留给队友指令（指令在工作区根 desc/战斗规则.md 的「指令」）──
             [InputActions.MoveLeft] =
             [
                 new(InputSymbol.KeyA, "A - Physical"),
@@ -196,8 +196,8 @@ public static class InputBindings
                 new(InputSymbol.PadFaceLeft,
                     "Joypad Button 2 (Left Action, Sony Square, Xbox X, Nintendo Y)"),
             ],
-            // 防御给数字肩键而不是扳机：正典的精准防御要求帧级准确，扳机有行程，
-            // 触发点不一致。这正是修饰键让给扳机的原因。
+            // 防御给数字肩键而不是扳机：侧视战斗那一套的精准防御要求帧级准确，扳机有行程，
+            // 触发点不一致。这正是修饰键让给扳机的原因。desc 里已经没有精准防御，跟着设计仓台账 DOC-160 改。
             [InputActions.Guard] =
             [
                 new(InputSymbol.KeyQ, "Q - Physical"),

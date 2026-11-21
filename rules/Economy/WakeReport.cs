@@ -5,9 +5,9 @@ namespace Tinderhearth.Rules.Economy;
 
 /// <summary>醒来那一刻弹的那一个窗写什么：最上面一行，下面一行一项。</summary>
 /// <remarks>
-/// 推进了就是简版摘要：最上面一行写结算的是哪一天，下面每个有变化的项一行，项名照正典那份清单的写法；一项变化
-/// 都没有时只有一行「没有要紧的变化」。没推进就是「这一天没有推进」那一个：第一句就说没有推进，后面跟原因、存档
-/// 路径与「处理好之后再睡一次」。字全在文本表里，这里只挑哪几句、填进哪几个数。
+/// 推进了就是简版摘要：最上面一行写结算的是哪一天，下面每个有变化的项一行，项名照 desc 那份清单的写法（工作区根
+/// desc/经营规则.md 的「每日结算」）；一项变化都没有时只有一行「没有要紧的变化」。没推进就是「这一天没有推进」那一个：
+/// 第一句就说没有推进，后面跟原因、存档路径与「处理好之后再睡一次」。字全在文本表里，这里只挑哪几句、填进哪几个数。
 ///
 /// 弹窗只把那句话说出来，不自己判断：推进了没有、停在哪一步、为什么，全是结算交出来的
 /// （设计仓 design/界面系统.md 的「主菜单那一侧：读档位列表、更新公告、设置」一节里「存档写入失败」那一段）。
@@ -139,7 +139,7 @@ public sealed record WakeReport(bool Advanced, string Title, IReadOnlyList<strin
 
     private static WakeReport Summary(SettlementSummary summary, TextCatalog text)
     {
-        // 先后照正典那份清单：作物枯死在作物变异前面。
+        // 先后照 desc 那份清单（工作区根 desc/经营规则.md 的「每日结算」）：作物枯死在作物变异前面。
         List<string> lines = [];
         if (summary.WitheredCount > 0)
         {

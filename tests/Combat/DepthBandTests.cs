@@ -29,7 +29,7 @@ public class DepthBandTests
     /// 那笔账属于已经撤掉的横版即时战斗（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）。
     /// </remarks>
     [Fact]
-    public void 带宽装得下正典要求的排数()
+    public void 带宽装得下规则要求的排数()
     {
         Assert.True(DepthBand.RowSpacingWorldPx > 0);
         Assert.Equal(0, DepthBand.WidthWorldPx % DepthBand.RowSpacingWorldPx);

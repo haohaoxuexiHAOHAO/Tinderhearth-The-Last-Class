@@ -18,7 +18,7 @@ namespace Tinderhearth.Rules.Tests.UI;
 public class InputMappingTests
 {
     [Fact]
-    public void 正典点名的每个动作都在动作清单里()
+    public void 规则点名的每个动作都在动作清单里()
     {
         // 清单来自已经撤掉的横版即时战斗（设计仓 decisions/ADR-0035-战斗改成俯视的格子回合制.md）：
         // 六个战斗动作加 6 个技能位。普攻只有轻攻击一种。
@@ -351,8 +351,8 @@ public class InputMappingTests
     [Fact]
     public void 闪避不在被遮之列()
     {
-        // 正典把闪避定为唯一带无敌帧的脱身手段，还专门为被击倒后起身设了逃生窗口 ——
-        // 它是最不能在任何窗口里失效的动作，所以占第四个面键。
+        // 侧视战斗那一套把闪避定为唯一带无敌帧的脱身手段，还专门为被击倒后起身设了逃生窗口 ——
+        // 它是最不能在任何窗口里失效的动作，所以占第四个面键。desc 里已经没有闪避键，跟着设计仓台账 DOC-160 改。
         Assert.DoesNotContain(InputActions.Dodge, InputActions.ShadowedByModifier);
         Assert.False(new SkillModifierState().ShouldSuppress(InputActions.Dodge));
     }
@@ -385,7 +385,8 @@ public class InputMappingTests
     [Fact]
     public void 两个修饰键绑的是扳机而不是肩键()
     {
-        // 肩键留给防御与交互：正典的精准防御要求帧级准确，而扳机有行程。
+        // 肩键留给防御与交互：侧视战斗那一套的精准防御要求帧级准确，而扳机有行程。
+        // desc 里已经没有精准防御，跟着设计仓台账 DOC-160 改。
         Assert.Equal(InputSymbol.PadTriggerLeft,
             InputBindings.For(InputActions.SkillGroupLeft, InputDeviceKind.Gamepad)[0].Symbol);
         Assert.Equal(InputSymbol.PadTriggerRight,
@@ -650,8 +651,8 @@ public class InputMappingTests
     [Fact]
     public void 内置补丁用的面键与玩法动作的重叠是已知的()
     {
-        // 下面键同时是跳跃、右面键同时是闪避。这条重叠是有意接受的：面板打开时世界暂停（正典
-        // 「弹界面接管输入就暂停世界」），玩法节点不在跑，所以「按下去到底是哪个」不构成歧义。
+        // 下面键同时是跳跃、右面键同时是闪避。这条重叠是有意接受的：面板打开时世界暂停（工作区根
+        // desc/经营规则.md 的「打开界面时世界暂停」），玩法节点不在跑，所以「按下去到底是哪个」不构成歧义。
         // 这条测试的作用是：有人改了面键分配时，这里会失败并把人领到这段说明。
         Assert.Equal(InputSymbol.PadFaceBottom,
             InputBindings.For(InputActions.Jump, InputDeviceKind.Gamepad)[0].Symbol);
@@ -687,7 +688,7 @@ public class InputMappingTests
     [Fact]
     public void 网格光标钳制在边界内而不环绕()
     {
-        // 环绕会让镜头突然横跨整张地图，而正典要求相机行为可预期。
+        // 环绕会让镜头突然横跨整张地图，相机行为就没法预期（desc 里没有写这一条）。
         var cursor = new GridCursor(40, 30);
 
         Assert.Equal(0, cursor.Column);

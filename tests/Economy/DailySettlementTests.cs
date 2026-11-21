@@ -3,7 +3,10 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;
 
-/// <summary>每日结算：一个入口按步名把正典那串逐步调到；日期、换季与作物那三步各做对了自己那一件。</summary>
+/// <summary>
+/// 每日结算：一个入口按步名把 desc 那串步序（工作区根 desc/经营规则.md 的「结算顺序」）逐步调到；
+/// 日期、换季与作物那三步各做对了自己那一件。
+/// </summary>
 /// <remarks>
 /// 驱动那几条用每一步只记下自己名字的假步，比的是名字、不是序号。作物的阶段天数与荒置天数都是测试用值，
 /// 改它们不该让任何一条失败。整串是一次事务那几条在 <see cref="SettlementTransactionTests"/>。

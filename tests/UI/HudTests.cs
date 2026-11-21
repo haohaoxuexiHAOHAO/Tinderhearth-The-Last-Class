@@ -151,14 +151,16 @@ public class HudTests
                        + ((HudLayout.MaxTeammates - 1) * UIMetrics.ItemGap);
         Assert.Equal(expected, content.Width);
         Assert.Equal(HudLayout.PortraitSize + HudLayout.GaugeBarHeight, content.Height);
-        Assert.Equal(4, HudLayout.MaxTeammates);        // 正典：主角 + 1 至 4 名学生
+        // 主角 + 1 至 4 名学生是侧视战斗那一套的编队人数；desc 里的人数已经不同（工作区根
+        // desc/战斗规则.md 的「人数」），跟着设计仓台账 DOC-160 改。
+        Assert.Equal(4, HudLayout.MaxTeammates);
     }
 
     [Fact]
     public void 目标块按最长那句定宽而不是按常态()
     {
-        // 「已达成，返回入口点撤离」11 个全宽汉字。按短的定宽会让达成态被截断，
-        // 而正典要求进度始终可见 —— 达成那句正是最需要看清的时刻。
+        // 「已达成，返回入口点撤离」11 个全宽汉字。按短的定宽会让达成态被截断，而 desc 要求目标
+        // 进度一直看得见（工作区根 desc/战斗规则.md 的「完成标准」）—— 达成那句正是最需要看清的时刻。
         var content = HudLayout.ContentSizeOf(HudBlock.Objective, UIContext.Level);
         Assert.True(content.Width >= "已达成，返回入口点撤离".Length * UIMetrics.FontSize);
         Assert.Equal(UIMetrics.LineHeight, content.Height);

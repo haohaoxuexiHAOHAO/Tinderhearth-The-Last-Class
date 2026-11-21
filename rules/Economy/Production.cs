@@ -52,7 +52,7 @@ public static class ProductionPipeline
     {
         ArgumentNullException.ThrowIfNull(protagonistBag);
 
-        // 归属：读正典那条，不在这里另定。
+        // 归属：读 desc 那条（工作区根 desc/经营规则.md 的「战利品归属」），不在这里另定。
         var owner = producer switch
         {
             Producer.Protagonist => GoodsOwner.Protagonist,

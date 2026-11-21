@@ -3,7 +3,10 @@ namespace Tinderhearth.Rules.Economy;
 /// <summary>结算那串步序里的一步：在这一天上改世界副本、记结果。</summary>
 public delegate void SettlementStep(SettlementDay day);
 
-/// <summary>每日结算的驱动：推进一天的唯一入口，按步名把正典那串逐步调一次，整串是一次事务。</summary>
+/// <summary>
+/// 每日结算的驱动：推进一天的唯一入口，按步名把 desc 那串步序（工作区根 desc/经营规则.md 的「结算顺序」）
+/// 逐步调一次，整串是一次事务。
+/// </summary>
 /// <remarks>
 /// 它只驱动、不持有任何一步的规则：每一步由构造时按名交进来，名字与顺序以 <see cref="SettlementSteps.Order"/> 为准。
 /// 少一步、多一个表里没有的名字、同一步给两次，构造当场被拒，所以一份驱动要么跑全串、要么建不出来。
@@ -16,7 +19,7 @@ public sealed class DailySettlement
     private readonly IReadOnlyList<(string Name, SettlementStep Run)> _ordered;
     private readonly SettlementStep _askEvents;
 
-    /// <param name="steps">每一步的名字与做法，正典那串里每个名字恰好一次，先后不限。</param>
+    /// <param name="steps">每一步的名字与做法，desc 那串步序里每个名字恰好一次，先后不限。</param>
     /// <param name="askEvents">整串跑完之后询问一次事件。它不占步序里的任何一步。</param>
     public DailySettlement(IEnumerable<(string Name, SettlementStep Run)> steps, SettlementStep askEvents)
     {

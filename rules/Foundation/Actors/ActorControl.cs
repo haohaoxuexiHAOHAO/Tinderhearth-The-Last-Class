@@ -2,8 +2,8 @@ namespace Tinderhearth.Rules.Foundation.Actors;
 
 /// <summary>谁在驱动这个角色。</summary>
 /// <remarks>
-/// <c>Remote</c> 现在没有实现，枚举值先占位：联机还没立项，而玩法正典写明届时玩家使用自定义
-/// 角色、不扮演主角也不扮演学生。现在留这个值只要一行，事后补要翻遍调用点。
+/// <c>Remote</c> 现在没有实现，枚举值先占位：联机还没立项，而设计仓 README.md 的「发行与平台」写明
+/// 届时玩家使用自定义角色、不扮演主角也不扮演学生。现在留这个值只要一行，事后补要翻遍调用点。
 /// </remarks>
 public enum ActorControllerKind
 {
@@ -30,8 +30,8 @@ public readonly record struct ActorIntent(string Action, string? TargetActorId =
 /// </summary>
 /// <remarks>
 /// 这条预留真正要防的是「把玩家写死成主角」。主角只是恰好通常由 <c>LocalPlayer</c> 驱动的一个
-/// 角色，不是「玩家」的同义词 —— 玩法正典已经写明联机时玩家用自定义角色。所以任何「这个角色
-/// 是不是主角」的判断都不得用来决定它由谁驱动，反之亦然。
+/// 角色，不是「玩家」的同义词 —— 设计仓 README.md 的「发行与平台」写明联机时玩家用自定义角色。
+/// 所以任何「这个角色是不是主角」的判断都不得用来决定它由谁驱动，反之亦然。
 /// </remarks>
 public interface IActorController
 {

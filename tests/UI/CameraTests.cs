@@ -26,7 +26,7 @@ public class CameraTests
     // ── 缩放与视野 ──────────────────────────────────────────────────────
 
     [Fact]
-    public void 只有两种视角且缩放取自正典而不是相机自己定的常量()
+    public void 只有两种视角且缩放取自规则而不是相机自己定的常量()
     {
         // 战斗与出征一律侧视、基地与城区一律俯视，没有例外，所以多出第三种视角这条就不成立了。
         // 见设计仓 production/像素绘制原则.md 的「像素基准」一节。
@@ -461,7 +461,8 @@ public class CameraTests
             UIMetrics.SideViewZoom, CameraFeel.DeadzoneHalfHeightScreenPx);
 
         // 时长：短于一个震动周期只会看到一次跳动；长过四分之一秒会盖住下一次输入的反馈
-        // （正典对顿帧那条约束的邻居：不能长到打断连段输入节奏）。
+        // （侧视战斗那一套里顿帧那条约束的邻居：不能长到打断连段输入节奏）。
+        // desc 里已经没有顿帧与连段，跟着设计仓台账 DOC-160 改。
         Assert.InRange(CameraFeel.ShakeSeconds, 0.05, 0.25);
         Assert.True(CameraFeel.ShakeSeconds * CameraFeel.ShakeHertz >= 2,
             "时长内装不下一个完整震动周期，玩家看到的是一次跳动而不是震动");

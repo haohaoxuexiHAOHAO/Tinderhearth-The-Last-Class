@@ -194,7 +194,9 @@ public class WorldSpaceTests
     [Fact]
     public void 伤害数字默认关闭而可开()
     {
-        Assert.False(WorldUIOptions.Default.ShowDamageNumbers, "正典：伤害数字默认关闭，设置里可开");
+        // 默认关闭是侧视战斗那一套的规则，desc 里的默认已经不同（工作区根 desc/战斗规则.md 的
+        // 「画面上一直显示的」），跟着设计仓台账 DOC-160 改。
+        Assert.False(WorldUIOptions.Default.ShowDamageNumbers, "伤害数字默认关闭，设置里可开");
         Assert.True(new WorldUIOptions(ShowDamageNumbers: true).ShowDamageNumbers);
     }
 }
