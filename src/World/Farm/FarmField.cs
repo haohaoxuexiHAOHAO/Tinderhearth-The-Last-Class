@@ -74,8 +74,8 @@ public partial class FarmField : Node
     /// 本来就是作者刷地图时决定的。
     ///
     /// <see cref="Plot"/> 只接受三个起步状态（未清理、可耕、已锄），带作物的状态必须经过播种。
-    /// 开局那一小块已开垦的种植区填 <see cref="PlotState.Tilled"/>，基地其余地方填
-    /// <see cref="PlotState.Uncleared"/>。
+    /// 开局没有锄好的地（工作区根 desc/经营规则.md 的「开局」），所以游戏里填 <see cref="PlotState.Uncleared"/>；
+    /// <see cref="PlotState.Tilled"/> 只留给调试时跳过开荒与锄地。
     /// </remarks>
     [Export]
     public PlotState InitialState { get; set; } = PlotState.Uncleared;

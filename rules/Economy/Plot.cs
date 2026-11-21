@@ -16,8 +16,8 @@ public sealed class Plot
 {
     /// <summary>造一格地。只许从没有作物的那几个状态起步，有作物的状态必须经过播种。</summary>
     /// <remarks>
-    /// 开局那一小块种植区是已锄的，所以这个构造要容得下 <see cref="PlotState.Tilled"/>；否则
-    /// 开局那几格只能靠代码替玩家锄一遍，而那会让「谁把它锄的」在存档里说不清。
+    /// 开局没有锄好的地，第一天由玩家自己挑地方锄（工作区根 desc/经营规则.md 的「开局」）。
+    /// 构造照样容得下 <see cref="PlotState.Tilled"/>：起步填哪一种由场景回答，调试与测试要从已锄起步。
     /// </remarks>
     public Plot(PlotState initial = PlotState.Uncleared)
     {

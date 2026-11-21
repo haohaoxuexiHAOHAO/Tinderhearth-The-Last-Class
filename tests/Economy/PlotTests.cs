@@ -74,7 +74,7 @@ public class PlotTests
     /// <summary>带作物的状态不许当起点。</summary>
     /// <remarks>
     /// 那样造出来的地块作物标识与阶段都是空的，看起来却像种着东西。
-    /// 开局那一小块地是已锄的，所以三个无作物的状态都要容得下。
+    /// 三个无作物的状态都要容得下：起步填哪一种由场景回答，调试与测试要从已锄起步。
     /// </remarks>
     [Theory]
     [InlineData(PlotState.Planted)]
