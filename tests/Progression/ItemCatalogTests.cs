@@ -142,7 +142,7 @@ public class ItemCatalogTests
     [Theory]
     [InlineData("item.crop_01_seed.name", true)]
     [InlineData("boot.contentReady", true)]
-    [InlineData("ui.wristband.page.codex_crop", true)]
+    [InlineData("ui.game_menu.page.codex_crop", true)]
     [InlineData("name", false)]
     [InlineData("item..name", false)]
     [InlineData("1item.name", false)]

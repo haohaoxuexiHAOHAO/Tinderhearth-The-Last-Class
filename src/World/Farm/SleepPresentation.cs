@@ -92,7 +92,7 @@ public partial class SleepPresentation : Node
             }
         }
 
-        // 两个窗的字体、字色与按钮的样子从这一份主题来，窗自己不载字体（与主场景给手环挂主题同一个做法）。
+        // 两个窗的字体、字色与按钮的样子从这一份主题来，窗自己不载字体（与主场景给游戏菜单挂主题同一个做法）。
         // 农场不经过主场景，这里不装的话，窗上的字退回引擎默认字体，而那不报错。
         var theme = PixelTheme.Install(UIArtGuard.Require(Art, $"{nameof(SleepPresentation)}（节点 {Name}）"), out var checks);
         _summary.Theme = theme;

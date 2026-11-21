@@ -127,7 +127,7 @@ public static class InputMapInstaller
         InputSymbol.Digit5 => Key(Godot.Key.Key5),
         InputSymbol.Digit6 => Key(Godot.Key.Key6),
 
-        // 打开手环与直达三个页签。
+        // 打开游戏菜单与直达三个页签。
         InputSymbol.KeyTab => Key(Godot.Key.Tab),
         InputSymbol.KeyB => Key(Godot.Key.B),
         InputSymbol.KeyM => Key(Godot.Key.M),

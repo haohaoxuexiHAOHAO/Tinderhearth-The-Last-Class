@@ -7,7 +7,7 @@ using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
-/// <summary>背包页从哪读、被拒时找谁说、改了背包之后告诉谁。农场在就绪时交给手环。</summary>
+/// <summary>背包页从哪读、被拒时找谁说、改了背包之后告诉谁。农场在就绪时交给游戏菜单。</summary>
 /// <param name="Bag">现在那一份背包。每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。</param>
 /// <param name="Icons">按物品标识与品质取图标。</param>
 /// <param name="Palette">色板：稀有度框与品质点按档位声明的显示色染。</param>
@@ -17,7 +17,7 @@ public sealed record BagPageSource(
     Func<Bag> Bag, ItemIconResolver Icons, Palette Palette, Action<string> Notify, Action Changed);
 
 /// <summary>
-/// 手环里的背包那一页：深色厚框里一格对着背包网格的一格，右边一列是排序、筛选、一键整理、丢弃与还剩几个空格，下面一行写指着的那一格是什么。
+/// 游戏菜单里的背包那一页：深色厚框里一格对着背包网格的一格，右边一列是排序、筛选、一键整理、丢弃与还剩几个空格，下面一行写指着的那一格是什么。
 /// </summary>
 /// <remarks>
 /// 画什么判在规则层（<see cref="BagPage"/>），按下去对背包做什么判在 <see cref="BagControls"/>，怎么排在 <see cref="BagPageLayout"/>；
@@ -40,9 +40,9 @@ public sealed record BagPageSource(
 /// 不碰那一排，不标出来的话，排完了那几格没动看着像没排好。占不止一格的东西挪不进那一排，屏上一行字说清。
 ///
 /// 排序、整理与换筛选都放下手上那一堆：排过之后那一格装的已经不是拿起来的那一堆。照新的先后摆不下全部时一格不动，
-/// 屏上一行字说清。合上手环或换到别的页也放下，拿起来只是界面上的一个记号，什么都没挪。
+/// 屏上一行字说清。合上游戏菜单或换到别的页也放下，拿起来只是界面上的一个记号，什么都没挪。
 ///
-/// 这一页每次 <see cref="Refresh"/> 都照背包的当前值重画：手环开着时世界停着，背包只在这一页自己手里变。
+/// 这一页每次 <see cref="Refresh"/> 都照背包的当前值重画：游戏菜单开着时世界停着，背包只在这一页自己手里变。
 /// </remarks>
 public sealed partial class BagPageView : VBoxContainer
 {
@@ -73,12 +73,12 @@ public sealed partial class BagPageView : VBoxContainer
     private int? _focused;
     private int? _asked;
 
-    /// <summary>搭一页。素材资源、文本表、界面根与主题由手环给，背包从哪读由农场给。</summary>
+    /// <summary>搭一页。素材资源、文本表、界面根与主题由游戏菜单给，背包从哪读由农场给。</summary>
     /// <param name="art">素材资源：格子各态与几样框从这里取。</param>
     /// <param name="text">文本表：按钮上的字与下面那一行从这里取。</param>
     /// <param name="source">背包从哪读、被拒时找谁说、改了之后告诉谁。</param>
     /// <param name="ui">界面根：丢之前那一问登记在它上面、经它的导航栈开关。</param>
-    /// <param name="theme">像素主题：那一问不在手环下面，接不到手环那一份，由这里转交。</param>
+    /// <param name="theme">像素主题：那一问不在游戏菜单下面，接不到游戏菜单那一份，由这里转交。</param>
     public BagPageView(UIArt art, TextCatalog text, BagPageSource source, UIRoot ui, Theme theme)
     {
         _art = art ?? throw new ArgumentNullException(nameof(art));
@@ -298,7 +298,7 @@ public sealed partial class BagPageView : VBoxContainer
 
     /// <summary>丢之前那一问：第一次要丢时才搭、才登记。</summary>
     /// <remarks>
-    /// 不在搭这一页时登记：这一页可能在界面根就绪之前就搭好了（手环的 <c>_Ready</c> 早于界面根的），那时弹窗那一层还没建。
+    /// 不在搭这一页时登记：这一页可能在界面根就绪之前就搭好了（游戏菜单的 <c>_Ready</c> 早于界面根的），那时弹窗那一层还没建。
     /// </remarks>
     private ConfirmDialog Confirm()
     {
@@ -338,7 +338,7 @@ public sealed partial class BagPageView : VBoxContainer
         }).CallDeferred();
     }
 
-    /// <summary>放下手上那一堆，忘掉指着与停着的那一格。手环合上或换到别的页时走这里。</summary>
+    /// <summary>放下手上那一堆，忘掉指着与停着的那一格。游戏菜单合上或换到别的页时走这里。</summary>
     private void Forget()
     {
         _held = null;

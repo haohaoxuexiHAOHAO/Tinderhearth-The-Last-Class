@@ -49,7 +49,7 @@ public partial class Main : Node2D
         Base,
     }
 
-    /// <summary>预览哪一套 HUD，在检查器里选。手环按同一个场合判哪些页可用。</summary>
+    /// <summary>预览哪一套 HUD，在检查器里选。游戏菜单按同一个场合判哪些页可用。</summary>
     [Export]
     public HudPreview Preview { get; set; }
 
@@ -132,7 +132,7 @@ public partial class Main : Node2D
         };
         GD.Print("[界面] 预览场合 ", _context);
 
-        // 门面先建：手环就绪时就要它（打开手环的键经它问）。
+        // 门面先建：游戏菜单就绪时就要它（打开游戏菜单的键经它问）。
         BuildInputRouter();
         BuildUI();
         BuildHud();
@@ -199,9 +199,9 @@ public partial class Main : Node2D
         }
     }
 
-    /// <summary>建界面根节点、手环面板与鼠标指针。</summary>
+    /// <summary>建界面根节点、游戏菜单面板与鼠标指针。</summary>
     /// <remarks>
-    /// 这里只建真正构成游戏的那几样：界面根、手环、HUD、鼠标指针。画面上的事不用脚本去证明，
+    /// 这里只建真正构成游戏的那几样：界面根、游戏菜单、HUD、鼠标指针。画面上的事不用脚本去证明，
     /// 由作者在 Godot 里实机看。
     /// </remarks>
     private void BuildUI()
@@ -212,19 +212,19 @@ public partial class Main : Node2D
         AddChild(ui);
         _ui = ui;
 
-        // 手环与 HUD 挂同一份主题，在手环挂上之前给：手环就绪时没人给就自己装一份（摆进场景的那一种要这样），
+        // 游戏菜单与 HUD 挂同一份主题，在游戏菜单挂上之前给：游戏菜单就绪时没人给就自己装一份（摆进场景的那一种要这样），
         // 晚给的话那一份白装。
         _theme = PixelTheme.Install(_art, out var fontChecks);
         _fontChecks = fontChecks;
         GD.Print("[界面] 像素字体 ", PixelFont.ResourcePath, " ｜ 导入属性核对 ",
                  fontChecks.Count(c => c.Ok), "/", fontChecks.Count, " 一致");
 
-        var wristband = new WristbandPanel { Art = _art, Catalog = _text, Theme = _theme, Router = _router };
-        ui.Register(Wristband.Surface, wristband);
-        ui.Open(Wristband.Surface);
+        var gameMenu = new GameMenuPanel { Art = _art, Catalog = _text, Theme = _theme, Router = _router };
+        ui.Register(GameMenu.Surface, gameMenu);
+        ui.Open(GameMenu.Surface);
 
         ui.Context = _context;
-        wristband.Context = _context;
+        gameMenu.Context = _context;
     }
 
     /// <summary>建输入门面。引擎层查输入一律经它，不直接轮询 <c>Input</c>。</summary>

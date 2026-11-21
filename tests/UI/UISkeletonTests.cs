@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
-/// <summary>界面骨架：层级顺序、导航栈、手环在不同场合的可用性，以及排版单位。</summary>
+/// <summary>界面骨架：层级顺序、导航栈、游戏菜单在不同场合的可用性，以及排版单位。</summary>
 /// <remarks>
 /// 这几件事的失效都不报错：返回键被吞掉表现为「按了没反应」；关卡内忘了禁用派工要打到
 /// 一半才发现；排版栅格被人从一个数改成另一个，只表现为某些界面对不齐。
@@ -114,7 +114,7 @@ public class UISkeletonTests
         nav.Close(Backpack);
         Assert.False(nav.HudShouldHide);      // 面板关了、弹窗还在：回来
 
-        nav.Push(Wristband.Surface);
+        nav.Push(GameMenu.Surface);
         nav.Push(Confirm);
         Assert.True(nav.HudShouldHide);       // 面板上压着弹窗：照旧藏
 
@@ -155,8 +155,8 @@ public class UISkeletonTests
         // 打开它就暂停世界，它自己又跟着世界停：一打开就冻住、关不掉。这里在声明那一刻就拒绝。
         Assert.Throws<ArgumentException>(() => new UISurface("frozen", UILayer.Hud, SurfaceKind.View));
         Assert.Throws<ArgumentException>(() => new UISurface("frozen", UILayer.WorldSpace, SurfaceKind.View));
-        Assert.Equal(UILayer.Panel, Wristband.Surface.Layer);
-        Assert.True(Wristband.Surface.Layer.RunsWhilePaused());
+        Assert.Equal(UILayer.Panel, GameMenu.Surface.Layer);
+        Assert.True(GameMenu.Surface.Layer.RunsWhilePaused());
     }
 
     [Fact]
@@ -169,89 +169,89 @@ public class UISkeletonTests
     [Fact]
     public void 关卡里操作类的子页灰着而查看类与随身物照常可用()
     {
-        static WristbandPageState InLevel(string pageId) => Wristband.PageById(pageId).StateIn(UIContext.Level);
+        static GameMenuPageState InLevel(string pageId) => GameMenu.PageById(pageId).StateIn(UIContext.Level);
 
-        Assert.Equal(WristbandPageState.Disabled, InLevel("assign"));       // 派工
-        Assert.Equal(WristbandPageState.Disabled, InLevel("board"));        // 委托板
-        Assert.Equal(WristbandPageState.Disabled, InLevel("order"));        // 订货与收购
-        Assert.Equal(WristbandPageState.Disabled, InLevel("build"));        // 建造下单
-        Assert.Equal(WristbandPageState.Available, InLevel("codex_enemy")); // 图鉴：只是查看
-        Assert.Equal(WristbandPageState.Available, InLevel("roster"));      // 名册，即队伍状态：同上
-        Assert.Equal(WristbandPageState.Available, InLevel("bag"));         // 背包：随身物
-        Assert.Equal(WristbandPageState.Available, InLevel("treasures"));   // 角色面板那一套也是随身物
+        Assert.Equal(GameMenuPageState.Disabled, InLevel("assign"));       // 派工
+        Assert.Equal(GameMenuPageState.Disabled, InLevel("board"));        // 委托板
+        Assert.Equal(GameMenuPageState.Disabled, InLevel("order"));        // 订货与收购
+        Assert.Equal(GameMenuPageState.Disabled, InLevel("build"));        // 建造下单
+        Assert.Equal(GameMenuPageState.Available, InLevel("codex_enemy")); // 图鉴：只是查看
+        Assert.Equal(GameMenuPageState.Available, InLevel("roster"));      // 名册，即队伍状态：同上
+        Assert.Equal(GameMenuPageState.Available, InLevel("bag"));         // 背包：随身物
+        Assert.Equal(GameMenuPageState.Available, InLevel("treasures"));   // 角色面板那一套也是随身物
     }
 
     [Fact]
     public void 关卡里没有的那一页不显示而不是灰着()
     {
         // 灰着说的是「它在，回基地就能用」；关卡里根本没有仓库，灰着摆在那就是一个永远点不开的东西。
-        Assert.Equal(WristbandPageState.Hidden, Wristband.PageById("storage").StateIn(UIContext.Level));
-        Assert.Equal(WristbandPageState.Available, Wristband.PageById("storage").StateIn(UIContext.Base));
+        Assert.Equal(GameMenuPageState.Hidden, GameMenu.PageById("storage").StateIn(UIContext.Level));
+        Assert.Equal(GameMenuPageState.Available, GameMenu.PageById("storage").StateIn(UIContext.Base));
     }
 
     [Fact]
-    public void 基地里手环每一页都可用()
+    public void 基地里游戏菜单每一页都可用()
     {
-        Assert.All(Wristband.Pages, p => Assert.Equal(WristbandPageState.Available, p.StateIn(UIContext.Base)));
+        Assert.All(GameMenu.Pages, p => Assert.Equal(GameMenuPageState.Available, p.StateIn(UIContext.Base)));
     }
 
     [Fact]
     public void 顶层页签的状态取它下面最好的那一页()
     {
-        var view = new WristbandPage("v", SurfaceKind.View, ExistsInLevel: true);
-        var manage = new WristbandPage("m", SurfaceKind.Manage, ExistsInLevel: true);
-        var absent = new WristbandPage("a", SurfaceKind.Manage, ExistsInLevel: false);
+        var view = new GameMenuPage("v", SurfaceKind.View, ExistsInLevel: true);
+        var manage = new GameMenuPage("m", SurfaceKind.Manage, ExistsInLevel: true);
+        var absent = new GameMenuPage("a", SurfaceKind.Manage, ExistsInLevel: false);
 
-        Assert.Equal(WristbandPageState.Available, new WristbandTab("t", [manage, view]).StateIn(UIContext.Level));
-        Assert.Equal(WristbandPageState.Disabled, new WristbandTab("t", [absent, manage]).StateIn(UIContext.Level));
-        Assert.Equal(WristbandPageState.Hidden, new WristbandTab("t", [absent]).StateIn(UIContext.Level));
+        Assert.Equal(GameMenuPageState.Available, new GameMenuTab("t", [manage, view]).StateIn(UIContext.Level));
+        Assert.Equal(GameMenuPageState.Disabled, new GameMenuTab("t", [absent, manage]).StateIn(UIContext.Level));
+        Assert.Equal(GameMenuPageState.Hidden, new GameMenuTab("t", [absent]).StateIn(UIContext.Level));
     }
 
     [Fact]
     public void 打开顶层页签落在第一个可用的子页()
     {
-        var view = new WristbandPage("v", SurfaceKind.View, ExistsInLevel: true);
-        var manage = new WristbandPage("m", SurfaceKind.Manage, ExistsInLevel: true);
-        var tab = new WristbandTab("t", [manage, view]);
+        var view = new GameMenuPage("v", SurfaceKind.View, ExistsInLevel: true);
+        var manage = new GameMenuPage("m", SurfaceKind.Manage, ExistsInLevel: true);
+        var tab = new GameMenuTab("t", [manage, view]);
 
         Assert.Same(manage, tab.LandingIn(UIContext.Base));                       // 基地里就是第一个子页
         Assert.Same(view, tab.LandingIn(UIContext.Level));                        // 关卡里第一个灰着，往后找
-        Assert.Null(new WristbandTab("t", [manage]).LandingIn(UIContext.Level));  // 一页都用不了就点不开
+        Assert.Null(new GameMenuTab("t", [manage]).LandingIn(UIContext.Level));  // 一页都用不了就点不开
     }
 
     [Fact]
-    public void 手环的页签与子页标识都不重复且每个页签至少一页()
+    public void 游戏菜单的页签与子页标识都不重复且每个页签至少一页()
     {
         // 子页标识是文本键的后缀，也是导航范式那张表认页的依据；重了就有两页共用一个名字，而那不报错。
-        var tabIds = Wristband.Tabs.Select(t => t.Id).ToList();
-        var pageIds = Wristband.Pages.Select(p => p.Id).ToList();
+        var tabIds = GameMenu.Tabs.Select(t => t.Id).ToList();
+        var pageIds = GameMenu.Pages.Select(p => p.Id).ToList();
 
         Assert.Equal(tabIds.Count, tabIds.Distinct().Count());
         Assert.Equal(pageIds.Count, pageIds.Distinct().Count());
-        Assert.All(Wristband.Tabs, t => Assert.NotEmpty(t.Pages));
+        Assert.All(GameMenu.Tabs, t => Assert.NotEmpty(t.Pages));
     }
 
     [Fact]
     public void 顶层页签一排放得进外壳而且页签底与画好的那张一样大()
     {
-        var count = Wristband.Tabs.Count;
-        var rowWidth = WristbandLayout.TabRowInsetX + (count * WristbandLayout.TabSize)
-            + ((count - 1) * WristbandLayout.TabGap);
+        var count = GameMenu.Tabs.Count;
+        var rowWidth = GameMenuLayout.TabRowInsetX + (count * GameMenuLayout.TabSize)
+            + ((count - 1) * GameMenuLayout.TabGap);
 
         // 两头对称地留出外框那一角：页签不许伸到外框右上那个角上去。
-        Assert.True(rowWidth + WristbandLayout.TabRowInsetX <= WristbandLayout.ShellWidth,
-            $"{count} 个页签一排要 {rowWidth} 宽，外壳只有 {WristbandLayout.ShellWidth}");
+        Assert.True(rowWidth + GameMenuLayout.TabRowInsetX <= GameMenuLayout.ShellWidth,
+            $"{count} 个页签一排要 {rowWidth} 宽，外壳只有 {GameMenuLayout.ShellWidth}");
         Assert.All(UIArtManifest.Pieces.Where(p => p.Group == "kit" && p.Name.StartsWith("tab_", StringComparison.Ordinal)),
-            p => Assert.Equal(new PixelSize(WristbandLayout.TabSize, WristbandLayout.TabSize), p.Size));
+            p => Assert.Equal(new PixelSize(GameMenuLayout.TabSize, GameMenuLayout.TabSize), p.Size));
     }
 
     [Fact]
-    public void 手环每个页签与每一页在文本表里都有名字()
+    public void 游戏菜单每个页签与每一页在文本表里都有名字()
     {
         // 缺了在画面上显成缺文本的占位，看得见；这条让「加了一页、忘了给它起名」在测试里就红。
         var text = File.ReadAllText(Path.Combine(RepoFiles.Root(), "data", "text", "zh-CN.json"));
-        var keys = Wristband.Tabs.Select(t => $"\"ui.wristband.tab.{t.Id}\"")
-            .Concat(Wristband.Pages.Select(p => $"\"ui.wristband.page.{p.Id}\""));
+        var keys = GameMenu.Tabs.Select(t => $"\"ui.game_menu.tab.{t.Id}\"")
+            .Concat(GameMenu.Pages.Select(p => $"\"ui.game_menu.page.{p.Id}\""));
 
         var missing = keys.Where(k => !text.Contains(k, StringComparison.Ordinal)).ToList();
 
@@ -259,10 +259,10 @@ public class UISkeletonTests
     }
 
     [Fact]
-    public void 手环子页拼错时抛而不是静默判成不可用()
+    public void 游戏菜单子页拼错时抛而不是静默判成不可用()
     {
         // 静默判成不可用会让「拼错 id」和「这里确实不可用」长得一模一样。
-        Assert.Throws<KeyNotFoundException>(() => Wristband.PageById("assgin"));
+        Assert.Throws<KeyNotFoundException>(() => GameMenu.PageById("assgin"));
     }
 
     [Fact]

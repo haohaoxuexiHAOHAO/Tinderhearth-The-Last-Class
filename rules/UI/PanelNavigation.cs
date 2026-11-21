@@ -26,15 +26,15 @@ public enum PanelNavigationMode
 public static class PanelNavigation
 {
     /// <summary>
-    /// 走光标移动的手环子页（<see cref="WristbandPage"/> 的标识）。其余一律走焦点移动。
+    /// 走光标移动的游戏菜单子页（<see cref="GameMenuPage"/> 的标识）。其余一律走焦点移动。
     /// </summary>
     /// <remarks>
     /// id 拼错不会报错，只会静默退回焦点移动，而那在实机上看起来只是「这一页有点难用」。
-    /// 所以有测试盯着这里每个 id 都真的是手环的子页。
+    /// 所以有测试盯着这里每个 id 都真的是游戏菜单的子页。
     /// </remarks>
     public static readonly IReadOnlyList<string> CursorNavigatedPages = ["build"];
 
-    /// <summary>手环的某一个子页该用哪种导航。</summary>
+    /// <summary>游戏菜单的某一个子页该用哪种导航。</summary>
     public static PanelNavigationMode ModeFor(string pageId) =>
         CursorNavigatedPages.Contains(pageId) ? PanelNavigationMode.Cursor : PanelNavigationMode.Focus;
 }

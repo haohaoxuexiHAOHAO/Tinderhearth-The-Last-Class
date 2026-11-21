@@ -12,7 +12,7 @@ namespace Tinderhearth.UI;
 /// 确认键按下去是不丢，误按一下什么都不损失。
 ///
 /// 按下确认才交出去：先关窗、再调确认那一下。返回键关窗由界面根收，与按「不」一样什么都不做。它不在面板下面，
-/// 主题接不到手环那一份，所以由搭它的那一方给。
+/// 主题接不到游戏菜单那一份，所以由搭它的那一方给。
 /// </remarks>
 public sealed partial class ConfirmDialog : Control
 {

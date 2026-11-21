@@ -1,7 +1,7 @@
 namespace Tinderhearth.Rules.UI;
 
 /// <summary>
-/// 手环：经营侧界面的统一容器，形态是一个面板、两级页签。本类只管有哪些页、各自在什么场合怎么显示。
+/// 游戏菜单：经营侧界面的统一容器，形态是一个面板、两级页签。本类只管有哪些页、各自在什么场合怎么显示。
 /// </summary>
 /// <remarks>
 /// 顶层页签各是一组页，子页才是「一页答一个问题」的那个页；只有一页的顶层页签就是不分子页。
@@ -18,23 +18,23 @@ namespace Tinderhearth.Rules.UI;
 /// 判据在工作区根 desc/经营规则.md 的「关卡里能做什么」；图鉴分哪几类在同一份的「图鉴」。
 /// 有哪几个页签、各挂哪几页、什么顺序，家在这里。
 /// </remarks>
-public static class Wristband
+public static class GameMenu
 {
-    /// <summary>手环容器本身。它是一个面板，所以打开时世界暂停。</summary>
+    /// <summary>游戏菜单容器本身。它是一个面板，所以打开时世界暂停。</summary>
     public static readonly UISurface Surface =
-        new("wristband", UILayer.Panel, SurfaceKind.View);
+        new("game_menu", UILayer.Panel, SurfaceKind.View);
 
     /// <summary>背包那一页的标识。这一页画背包里的东西（代码仓 <c>src/UI/BagPageView.cs</c>），其余各页还只写页名。</summary>
     public const string BagPageId = "bag";
 
     /// <summary>顶层页签，顺序即从左到右；每个页签下的子页同样从左到右。</summary>
     /// <remarks>
-    /// 顶层页签的标识也是它那张图标的文件名（设计仓 production/界面绘制约定.md 的「个人界面那一套」），
+    /// 顶层页签的标识也是它那张图标的文件名（设计仓 production/界面绘制约定.md 的「游戏菜单那一套」），
     /// 改名要连图一起改。
     /// </remarks>
-    public static readonly IReadOnlyList<WristbandTab> Tabs =
+    public static readonly IReadOnlyList<GameMenuTab> Tabs =
     [
-        new("character",                                // 个人界面，即角色面板
+        new("character",                                // 角色面板
         [
             Page("attributes", SurfaceKind.Carried),    // 属性
             Page("status", SurfaceKind.Carried),        // 状态
@@ -56,13 +56,13 @@ public static class Wristband
         ]),
         new("quests",                                   // 任务列表
         [
-            Page("notice", SurfaceKind.View),           // 通知：手环是唯一的事件通知渠道
+            Page("notice", SurfaceKind.View),           // 通知：游戏菜单是唯一的事件通知渠道
             Page("board", SurfaceKind.Manage),          // 委托板
             Page("mainline", SurfaceKind.View),         // 主线
         ]),
         new("map", [Page("map", SurfaceKind.View)]),               // 地图，不分子页
         new("relations", [Page("relations", SurfaceKind.View)]),   // 关系列表，不分子页
-        new("codex",                                    // 百科全书
+        new("codex",                                    // 图鉴
         [
             Page("codex_treasure", SurfaceKind.View),   // 图鉴：宝物
             Page("codex_gem", SurfaceKind.View),        // 图鉴：宝石
@@ -81,29 +81,29 @@ public static class Wristband
     ];
 
     /// <summary>全部子页，按页签从左到右、页签里从左到右。</summary>
-    public static IEnumerable<WristbandPage> Pages => Tabs.SelectMany(t => t.Pages);
+    public static IEnumerable<GameMenuPage> Pages => Tabs.SelectMany(t => t.Pages);
 
     /// <summary>按标识取一个顶层页签。找不到就抛 —— 拼错不该静默变成「打不开」。</summary>
-    public static WristbandTab TabById(string tabId) =>
+    public static GameMenuTab TabById(string tabId) =>
         Tabs.FirstOrDefault(t => t.Id == tabId)
-            ?? throw new KeyNotFoundException($"手环没有这个页签：{tabId}");
+            ?? throw new KeyNotFoundException($"游戏菜单没有这个页签：{tabId}");
 
     /// <summary>按标识取一个子页。找不到就抛 —— 拼错不该静默变成「不可用」。</summary>
-    public static WristbandPage PageById(string pageId) =>
+    public static GameMenuPage PageById(string pageId) =>
         Pages.FirstOrDefault(p => p.Id == pageId)
-            ?? throw new KeyNotFoundException($"手环没有这一页：{pageId}");
+            ?? throw new KeyNotFoundException($"游戏菜单没有这一页：{pageId}");
 
     // 关卡里也在的页：能不能用按用途分类判。
-    private static WristbandPage Page(string id, SurfaceKind kind) => new(id, kind, ExistsInLevel: true);
+    private static GameMenuPage Page(string id, SurfaceKind kind) => new(id, kind, ExistsInLevel: true);
 
     // 关卡里根本没有的页：在关卡里不显示。
-    private static WristbandPage NotInLevel(string id, SurfaceKind kind) => new(id, kind, ExistsInLevel: false);
+    private static GameMenuPage NotInLevel(string id, SurfaceKind kind) => new(id, kind, ExistsInLevel: false);
 }
 
-/// <summary>手环的一个顶层页签：一组子页。</summary>
+/// <summary>游戏菜单的一个顶层页签：一组子页。</summary>
 /// <param name="Id">稳定标识，也是文本键的后缀与页签图标的文件名。</param>
 /// <param name="Pages">它下面的子页，顺序即从左到右。只有一页就是不分子页，没有子页签那一排。</param>
-public sealed record WristbandTab(string Id, IReadOnlyList<WristbandPage> Pages)
+public sealed record GameMenuTab(string Id, IReadOnlyList<GameMenuPage> Pages)
 {
     /// <summary>这个页签有没有子页签那一排。</summary>
     public bool HasSubTabs => Pages.Count > 1;
@@ -113,12 +113,12 @@ public sealed record WristbandTab(string Id, IReadOnlyList<WristbandPage> Pages)
     /// 有一页可用它就可用；在的页都灰着它就灰着；一页都不在它就不显示。它是一组页的入口，入口的
     /// 状态只能由里面那几页推出来 —— 另给一格，就有两处在说「这个页签能不能点」。
     /// </remarks>
-    public WristbandPageState StateIn(UIContext context)
+    public GameMenuPageState StateIn(UIContext context)
     {
         var states = Pages.Select(p => p.StateIn(context)).ToList();
-        return states.Contains(WristbandPageState.Available) ? WristbandPageState.Available
-            : states.Contains(WristbandPageState.Disabled) ? WristbandPageState.Disabled
-            : WristbandPageState.Hidden;
+        return states.Contains(GameMenuPageState.Available) ? GameMenuPageState.Available
+            : states.Contains(GameMenuPageState.Disabled) ? GameMenuPageState.Disabled
+            : GameMenuPageState.Hidden;
     }
 
     /// <summary>打开这个页签落在哪一页：第一个可用的子页。一页都用不了时是 <c>null</c>，页签本身点不开。</summary>
@@ -126,26 +126,26 @@ public sealed record WristbandTab(string Id, IReadOnlyList<WristbandPage> Pages)
     /// 基地里就是第一个子页。关卡里第一个子页可能正灰着，落在它上面等于打开一页用不了的东西，
     /// 所以往后找第一个可用的。
     /// </remarks>
-    public WristbandPage? LandingIn(UIContext context) =>
-        Pages.FirstOrDefault(p => p.StateIn(context) == WristbandPageState.Available);
+    public GameMenuPage? LandingIn(UIContext context) =>
+        Pages.FirstOrDefault(p => p.StateIn(context) == GameMenuPageState.Available);
 }
 
-/// <summary>手环的一个子页：「一页答一个问题」的那个页。</summary>
-/// <param name="Id">稳定标识，也是文本键的后缀。整个手环里不重复。</param>
+/// <summary>游戏菜单的一个子页：「一页答一个问题」的那个页。</summary>
+/// <param name="Id">稳定标识，也是文本键的后缀。整个游戏菜单里不重复。</param>
 /// <param name="Kind">用途分类，决定它在关卡里可用还是灰着。</param>
 /// <param name="ExistsInLevel">关卡里有没有这一页。没有的在关卡里不显示，例如仓库。</param>
-public sealed record WristbandPage(string Id, SurfaceKind Kind, bool ExistsInLevel)
+public sealed record GameMenuPage(string Id, SurfaceKind Kind, bool ExistsInLevel)
 {
     /// <summary>这一页在给定场合下怎么显示。基地与城区里每一页都可用。</summary>
-    public WristbandPageState StateIn(UIContext context) =>
-        context != UIContext.Level ? WristbandPageState.Available
-        : !ExistsInLevel ? WristbandPageState.Hidden
-        : Kind.AvailableInLevel() ? WristbandPageState.Available
-        : WristbandPageState.Disabled;
+    public GameMenuPageState StateIn(UIContext context) =>
+        context != UIContext.Level ? GameMenuPageState.Available
+        : !ExistsInLevel ? GameMenuPageState.Hidden
+        : Kind.AvailableInLevel() ? GameMenuPageState.Available
+        : GameMenuPageState.Disabled;
 }
 
 /// <summary>一页（或一个顶层页签）在某个场合下怎么显示。</summary>
-public enum WristbandPageState
+public enum GameMenuPageState
 {
     /// <summary>可用：点得进去。</summary>
     Available,
@@ -163,6 +163,6 @@ public enum UIContext
     /// <summary>俯视的基地与城区。经营侧操作在这里进行。</summary>
     Base,
 
-    /// <summary>侧视关卡。手环的管理功能在这里不可用。</summary>
+    /// <summary>侧视关卡。游戏菜单的管理功能在这里不可用。</summary>
     Level,
 }

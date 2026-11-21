@@ -48,7 +48,7 @@ public enum InputSymbol
     // 按住 WASD 的时候按；换随身的那一格是低频动作，抬一次手付得起。
     Digit1, Digit2, Digit3, Digit4, Digit5, Digit6,
 
-    // 打开手环与直达它三个页签的键，键位照设计仓 design/proposals/键鼠技能位挪到右手.md 那张表。
+    // 打开游戏菜单与直达它三个页签的键。这张表就是这几个键的家。
     // 它们接管输入、按下去世界就停，所以放得远一点也付得起：按完不用赶着把手放回去。
     KeyTab, KeyB, KeyM, KeyC,
 
@@ -75,7 +75,7 @@ public enum InputSymbol
     PadShoulderLeft, PadShoulderRight,
     PadStickLeftClick,
 
-    // Start：打开手环。手柄上开手环只有这一个新绑定，三个直达页签的键在手柄上没有对应，见豁免登记。
+    // Start：打开游戏菜单。手柄上开游戏菜单只有这一个新绑定，三个直达页签的键在手柄上没有对应，见豁免登记。
     PadStart,
 
     // D-pad 左右：挪随身栏的选中位。
@@ -188,8 +188,8 @@ public static class InputBindings
             // ── 战斗那几个动作 ──
             // 轻攻击给 J，不用鼠标左键。两条理由：侧视战斗没有瞄准，鼠标的长处用不上却占着右手；
             // 而 J 是右手食指的静止位，连段要的就是快。普攻只有这一种（已经撤掉的横版即时战斗，设计仓
-            // decisions/ADR-0035-战斗改成俯视的格子回合制.md），所以 K 空着、不派别的动作 —— 技能键的
-            // 布局还等作者实机按一遍（设计仓台账 UI-14），先挪东西过去会让那一遍白按。
+            // decisions/ADR-0035-战斗改成俯视的格子回合制.md），所以 K 空着、不派别的动作。技能格不绑按键
+            // （工作区根 desc/战斗规则.md 的「技能栏与操作」），这几个战斗键跟侧视战斗代码一起删，归设计仓台账 DOC-160。
             [InputActions.AttackLight] =
             [
                 new(InputSymbol.KeyJ, "J - Physical"),
@@ -277,9 +277,9 @@ public static class InputBindings
                 new(InputSymbol.PadDpadRight, "Joypad Button 14 (D-pad Right)"),
             ],
 
-            // ── 打开手环与直达三个页签。手柄上只有 Start 开手环，三个直达键见豁免登记 ──
+            // ── 打开游戏菜单与直达三个页签。手柄上只有 Start 开游戏菜单，三个直达键见豁免登记 ──
             // Tab 的自报名同样没有 - Physical 后缀，引擎就是这么打的（与 Shift 一样，实测）。
-            [InputActions.OpenWristband] =
+            [InputActions.OpenGameMenu] =
             [
                 new(InputSymbol.KeyTab, "Tab"),
                 new(InputSymbol.PadStart, "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"),
@@ -377,16 +377,16 @@ public static class InputBindings
             [(InputActions.CarryPrev, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
             [(InputActions.CarryNext, InputDeviceKind.KeyboardMouse)] = CarryKeyWhy,
 
-            // 直达三个页签只在键鼠上有。手柄上进了手环再换页签：现在靠焦点走过去，
+            // 直达三个页签只在键鼠上有。手柄上进了游戏菜单再换页签：现在靠焦点走过去，
             // 用肩键换页与手柄的按键提示一起后置（设计仓台账 UI-54）。
-            [(InputActions.OpenBag, InputDeviceKind.Gamepad)] = WristbandPadWhy,
-            [(InputActions.OpenMap, InputDeviceKind.Gamepad)] = WristbandPadWhy,
-            [(InputActions.OpenCharacter, InputDeviceKind.Gamepad)] = WristbandPadWhy,
+            [(InputActions.OpenBag, InputDeviceKind.Gamepad)] = GameMenuPadWhy,
+            [(InputActions.OpenMap, InputDeviceKind.Gamepad)] = GameMenuPadWhy,
+            [(InputActions.OpenCharacter, InputDeviceKind.Gamepad)] = GameMenuPadWhy,
         };
 
     /// <summary>手柄上为什么没有直达三个页签的键。</summary>
-    private const string WristbandPadWhy =
-        "手柄的键位紧，开手环只给 Start 一个新绑定，三个页签进了手环再换";
+    private const string GameMenuPadWhy =
+        "手柄的键位紧，开游戏菜单只给 Start 一个新绑定，三个页签进了游戏菜单再换";
 
     /// <summary>手柄上随身栏各格为什么没有直选键。</summary>
     private const string CarryPadWhy =

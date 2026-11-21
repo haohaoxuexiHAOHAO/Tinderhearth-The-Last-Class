@@ -10,7 +10,7 @@ namespace Tinderhearth.Rules.UI;
 /// 侧视关卡只用左右。拆成四个动作而不是一个二维量，因为引擎输入映射的单位就是动作。
 ///
 /// 面板里头的界面动作不在这里。返回、确认与焦点移动用引擎内置的 <c>ui_*</c>，再定义一套只会多一份要维护
-/// 的东西。打开手环那几个在这里：引擎内置的那一套里没有「打开某个面板」。
+/// 的东西。打开游戏菜单那几个在这里：引擎内置的那一套里没有「打开某个面板」。
 /// </remarks>
 public static class InputActions
 {
@@ -99,13 +99,13 @@ public static class InputActions
     public const string CarryPrev = "carry_prev";
     public const string CarryNext = "carry_next";
 
-    /// <summary>打开手环。开着时再按一下关上。</summary>
-    /// <remarks>按下去手环怎么变判在 <see cref="WristbandKeys"/>，与下面三个直达键是同一处。</remarks>
-    public const string OpenWristband = "open_wristband";
+    /// <summary>打开游戏菜单。开着时再按一下关上。</summary>
+    /// <remarks>按下去游戏菜单怎么变判在 <see cref="GameMenuKeys"/>，与下面三个直达键是同一处。</remarks>
+    public const string OpenGameMenu = "open_game_menu";
 
-    /// <summary>直达手环的背包、地图与角色面板那三个页签。停在那个页签上时再按一下关上。</summary>
+    /// <summary>直达游戏菜单的背包、地图与角色面板那三个页签。停在那个页签上时再按一下关上。</summary>
     /// <remarks>
-    /// 它们打开的是手环里的那个页签，不是第二个面板（设计仓 design/proposals/键鼠技能位挪到右手.md）。
+    /// 它们打开的是游戏菜单里的那个页签，不是第二个面板。
     /// 手柄上它们没有绑定，那是登记过的豁免（见 <see cref="InputBindings.Exemptions"/>）。
     /// </remarks>
     public const string OpenBag = "open_bag";
@@ -139,7 +139,7 @@ public static class InputActions
         .. Skills,
         .. CarrySlots,
         CarryPrev, CarryNext,
-        OpenWristband, OpenBag, OpenMap, OpenCharacter,
+        OpenGameMenu, OpenBag, OpenMap, OpenCharacter,
     ];
 
     /// <summary>某个动作是不是技能位。</summary>

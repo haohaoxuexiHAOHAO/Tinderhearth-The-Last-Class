@@ -456,7 +456,7 @@ def slot_shape(dx: int = 0, dy: int = 0) -> set[Pt]:
 def build_kit_frames() -> None:
     check_frame_against_template()
     add("kit", "frame_thick_dark", panel_frame(40, 44, "ember 2", "ember 1", "ember 1"),
-        "面板外壳（个人界面那一套顶层页签就搭在它顶边上）、背包、弹窗", "切（按模板轮廓重画）",
+        "面板外壳（游戏菜单那一套顶层页签就搭在它顶边上）、背包、弹窗", "切（按模板轮廓重画）",
         nine=(18, 18, 18, 22), size=(40, 44))
     add("kit", "frame_thick_light", panel_frame(40, 44, "soil 7", "soil 4", "ember 1"),
         "浅色那一族的厚框：压在面板上的弹窗、对话框", "派生", nine=(18, 18, 18, 22), size=(40, 44),
@@ -652,7 +652,7 @@ def build_kit_tabs() -> None:
     }
     for state, look in looks.items():
         add("kit", f"tab_{state}", tab_base(fills[state], round_bottom=state != "selected"),
-            f"顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，{look}；图标放 (2,2)",
+            f"顶层页签的底（角色面板、学生列表……那一排）；最下面一行压在面板顶边上，{look}；图标放 (2,2)",
             "切（按模板重画）", size=(20, 20))
 
     # 没选中的那几个比模板深一档：模板那档 soil 4 配浅字只到 3.7:1，换 soil 3 之后是 5.5:1
@@ -939,9 +939,9 @@ ATTR_ICONS = {
 }
 ATTR_USE = {"level": "等级", "str": "力量", "int": "智力", "agi": "敏捷", "con": "体质", "point": "属性点"}
 # 顶层页签的图标，按模板里页签那一排从左到右的槽位取。名字就是页签的标识，有哪几个页签的家在
-# rules/UI/Wristband.cs，两边要对得上。
+# rules/UI/GameMenu.cs，两边要对得上。
 TAB_IDS = ["character", "students", "backpack", "quests", "map", "relations", "codex", "business"]
-TAB_USE = dict(zip(TAB_IDS, ["个人界面", "学生列表", "背包", "任务列表", "地图", "关系列表", "百科全书", "经营"]))
+TAB_USE = dict(zip(TAB_IDS, ["角色面板", "学生列表", "背包", "任务列表", "地图", "关系列表", "图鉴", "经营"]))
 
 
 def outline_color(im: Image.Image) -> tuple[int, int, int, int] | None:
@@ -992,7 +992,7 @@ def cut_icon(sheet: Image.Image, x: int, y: int, bg: set[str], label: str, size:
 def build_panel() -> None:
     person = tpl("interface-person1.png")
     add("panel", "profile_frame", flood_clear(crop(person, 26, 58, 76, 76), {"ember 2"}),
-        "个人界面左上的立绘框：64×64 立绘放在 (6,6)", "切", size=(76, 76))
+        "角色面板左上的立绘框：64×64 立绘放在 (6,6)", "切", size=(76, 76))
     stats = tpl("interface-person2.png")
     for key, (x, y) in ATTR_ICONS.items():
         add("panel", f"attr_{key}", cut_icon(stats, x, y, {"ember 3"}, f"panel/attr_{key}"),

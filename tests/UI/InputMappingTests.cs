@@ -676,12 +676,12 @@ public class InputMappingTests
     }
 
     [Fact]
-    public void 走光标的子页每个都真的是手环的子页()
+    public void 走光标的子页每个都真的是游戏菜单的子页()
     {
         // 拼错 id 会静默退回焦点导航，实机上只表现为「有点难用」。
         foreach (var pageId in PanelNavigation.CursorNavigatedPages)
         {
-            Assert.Contains(pageId, Wristband.Pages.Select(p => p.Id));
+            Assert.Contains(pageId, GameMenu.Pages.Select(p => p.Id));
         }
     }
 

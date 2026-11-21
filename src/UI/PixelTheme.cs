@@ -30,14 +30,14 @@ public static class PixelTheme
         public bool Ok => Expected == Actual;
     }
 
-    /// <summary>手环顶层页签那一种按钮（只有图标）。</summary>
-    public const string WristbandTab = "WristbandTab";
+    /// <summary>游戏菜单顶层页签那一种按钮（只有图标）。</summary>
+    public const string GameMenuTab = "GameMenuTab";
 
-    /// <summary>手环子页签那一种按钮（只有字）。</summary>
-    public const string WristbandSubTab = "WristbandSubTab";
+    /// <summary>游戏菜单子页签那一种按钮（只有字）。</summary>
+    public const string GameMenuSubTab = "GameMenuSubTab";
 
-    /// <summary>手环外壳那一圈厚框。</summary>
-    public const string WristbandFrame = "WristbandFrame";
+    /// <summary>游戏菜单外壳那一圈厚框。</summary>
+    public const string GameMenuFrame = "GameMenuFrame";
 
     /// <summary>面板里的内容区：子页签下面那一大块浅底。</summary>
     public const string ContentInset = "ContentInset";
@@ -51,8 +51,8 @@ public static class PixelTheme
     /// <summary>浅底上的字。</summary>
     public const string PaperLabel = "PaperLabel";
 
-    /// <summary>手环顶层页签名字的那个小窗。</summary>
-    public const string WristbandTabName = "WristbandTabName";
+    /// <summary>游戏菜单顶层页签名字的那个小窗。</summary>
+    public const string GameMenuTabName = "GameMenuTabName";
 
     /// <summary>
     /// 装好主题：把像素字体设成全局回退字体，并用素材资源里的图组装按钮、页签与面板的样子。
@@ -96,50 +96,50 @@ public static class PixelTheme
         // 顶层页签：只有图标，图标放在页签底的 (2,2)。选中那一态用按下（页签是切换按钮）。
         // 焦点那一态作者画成一整张换了底色的页签，不是一圈框。Godot 的焦点那一格是叠在当前那一态上面画的
         // （Button 的 focus 主题项），一整张叠上去会盖掉选中那一张，所以它放进悬停那一格 —— 悬停是换掉没选中那一张、
-        // 不叠。键盘与手柄的焦点由 WristbandPanel 在焦点进出时照样换，焦点那一格留空。
-        theme.SetTypeVariation(WristbandTab, "Button");
-        var inset = WristbandLayout.TabIconInset;
-        SetButton(theme, WristbandTab, normal: Plain(art.KitTabNormal, inset), hover: Plain(art.KitTabFocus, inset),
+        // 不叠。键盘与手柄的焦点由 GameMenuPanel 在焦点进出时照样换，焦点那一格留空。
+        theme.SetTypeVariation(GameMenuTab, "Button");
+        var inset = GameMenuLayout.TabIconInset;
+        SetButton(theme, GameMenuTab, normal: Plain(art.KitTabNormal, inset), hover: Plain(art.KitTabFocus, inset),
             focus: new StyleBoxEmpty(), pressed: Plain(art.KitTabSelected, inset),
             disabled: Plain(art.KitTabDisabled, inset));
         // 不可用那一态换的是置灰版图标，不靠引擎默认那层半透明 —— 乘出来的颜色不在色板里，还带半透明。
-        theme.SetColor("icon_disabled_color", WristbandTab, Colors.White);
+        theme.SetColor("icon_disabled_color", GameMenuTab, Colors.White);
 
         // 子页签：只有字。没选中的底是 soil 3、字取 soil 8；选中的底是 soil 8、字取 rust 1。焦点与悬停那一张照顶层
         // 页签焦点那一态换了底色，那一档底上浅字读不清，所以那一态的字跟选中的一样取深字。焦点照顶层页签那样换、不叠。
-        // 上下的内容边距是 0，所以子页签那一行就是一行字高：WristbandLayout.SubTabRowHeight 照这个算。
-        theme.SetTypeVariation(WristbandSubTab, "Button");
-        var subPad = WristbandLayout.SubTabPaddingX;
-        SetButton(theme, WristbandSubTab, normal: Box(art.KitTabtextNormal, subPad, 0),
+        // 上下的内容边距是 0，所以子页签那一行就是一行字高：GameMenuLayout.SubTabRowHeight 照这个算。
+        theme.SetTypeVariation(GameMenuSubTab, "Button");
+        var subPad = GameMenuLayout.SubTabPaddingX;
+        SetButton(theme, GameMenuSubTab, normal: Box(art.KitTabtextNormal, subPad, 0),
             hover: Box(art.KitTabtextFocus, subPad, 0), focus: new StyleBoxEmpty(),
             pressed: Box(art.KitTabtextSelected, subPad, 0), disabled: Box(art.KitTabtextDisabled, subPad, 0));
-        SetFontColors(theme, WristbandSubTab, ToColor(HudPalette.SubTabInk), ToColor(HudPalette.PaperInk));
-        theme.SetColor("font_hover_color", WristbandSubTab, ToColor(HudPalette.PaperInk));
-        theme.SetColor("font_focus_color", WristbandSubTab, ToColor(HudPalette.PaperInk));
+        SetFontColors(theme, GameMenuSubTab, ToColor(HudPalette.SubTabInk), ToColor(HudPalette.PaperInk));
+        theme.SetColor("font_hover_color", GameMenuSubTab, ToColor(HudPalette.PaperInk));
+        theme.SetColor("font_focus_color", GameMenuSubTab, ToColor(HudPalette.PaperInk));
 
-        // 手环外壳那一圈厚框，与里面的浅底内容区。
-        theme.SetTypeVariation(WristbandFrame, "PanelContainer");
-        theme.SetStylebox("panel", WristbandFrame, Box(art.KitFrameThickDark, WristbandLayout.FramePadding,
-            WristbandLayout.FramePadding));
+        // 游戏菜单外壳那一圈厚框，与里面的浅底内容区。
+        theme.SetTypeVariation(GameMenuFrame, "PanelContainer");
+        theme.SetStylebox("panel", GameMenuFrame, Box(art.KitFrameThickDark, GameMenuLayout.FramePadding,
+            GameMenuLayout.FramePadding));
         theme.SetTypeVariation(ContentInset, "PanelContainer");
-        theme.SetStylebox("panel", ContentInset, Box(art.KitInset, WristbandLayout.InsetPadding, WristbandLayout.InsetPadding));
+        theme.SetStylebox("panel", ContentInset, Box(art.KitInset, GameMenuLayout.InsetPadding, GameMenuLayout.InsetPadding));
 
-        // 背包那一页的格子装在一圈深色厚框里，与手环外框同一件；框到格子多远照背包页的排法。
+        // 背包那一页的格子装在一圈深色厚框里，与游戏菜单外框同一件；框到格子多远照背包页的排法。
         theme.SetTypeVariation(BagFrame, "PanelContainer");
         theme.SetStylebox("panel", BagFrame, Box(art.KitFrameThickDark, BagPageLayout.FramePadding, BagPageLayout.FramePadding));
 
-        // 压在面板上的弹窗用浅色那一族的厚框（素材资源里那一件就是给它的），与手环外框同一档内边距。
+        // 压在面板上的弹窗用浅色那一族的厚框（素材资源里那一件就是给它的），与游戏菜单外框同一档内边距。
         theme.SetTypeVariation(DialogFrame, "PanelContainer");
-        theme.SetStylebox("panel", DialogFrame, Box(art.KitFrameThickLight, WristbandLayout.FramePadding,
-            WristbandLayout.FramePadding));
+        theme.SetStylebox("panel", DialogFrame, Box(art.KitFrameThickLight, GameMenuLayout.FramePadding,
+            GameMenuLayout.FramePadding));
 
         theme.SetTypeVariation(PaperLabel, "Label");
         theme.SetColor("font_color", PaperLabel, ToColor(HudPalette.PaperInk));
 
         // 页签名字的小窗：顶层页签只画了图标，名字在停留之后弹出来。底取深色细框（素材资源里给小弹层的那一件），
         // 里面的字不另设颜色，用上面 Label 那一项的正文色 —— 深底浅字，界面绘制约定的对比度表里有这一对。
-        theme.SetTypeVariation(WristbandTabName, "PanelContainer");
-        theme.SetStylebox("panel", WristbandTabName, Box(art.KitFrameThinDark, pad, pad));
+        theme.SetTypeVariation(GameMenuTabName, "PanelContainer");
+        theme.SetStylebox("panel", GameMenuTabName, Box(art.KitFrameThinDark, pad, pad));
         return theme;
     }
 

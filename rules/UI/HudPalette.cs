@@ -49,7 +49,7 @@ public readonly record struct PaletteEntry(string Name, PixelColor Color)
 /// 迷你字都是作者画的、不染色，所以这里没有它们的颜色。
 ///
 /// 正文、次要与强调取的是离判 12px 中文可读性那组配色（设计仓 tools/font-preview/main.gd）最近的一档；换色之后实机看过，
-/// HUD 与手环的字在暖炭底上读得清。改这几档要再实机看一遍：读不读得清只有眼睛判得了。
+/// HUD 与游戏菜单的字在暖炭底上读得清。改这几档要再实机看一遍：读不读得清只有眼睛判得了。
 /// </remarks>
 public static class HudPalette
 {

@@ -155,10 +155,10 @@ public partial class FarmField : Node
     [Export]
     public InstantNoticeView? Notice { get; set; }
 
-    /// <summary>手环。背包那一页从这里读背包。</summary>
-    /// <remarks>缺了当场报错：没有手环，农场里看不见背包，打开手环的键按下去也没反应，而那不报错。</remarks>
+    /// <summary>游戏菜单。背包那一页从这里读背包。</summary>
+    /// <remarks>缺了当场报错：没有游戏菜单，农场里看不见背包，打开游戏菜单的键按下去也没反应，而那不报错。</remarks>
     [Export]
-    public WristbandPanel? Wristband { get; set; }
+    public GameMenuPanel? GameMenu { get; set; }
 
     private TileMapLayer _tilled = null!;
     private Node2D _crops = null!;
@@ -166,7 +166,7 @@ public partial class FarmField : Node
     private InputRouter _router = null!;
     private CarrySlotBarView _carry = null!;
     private InstantNoticeView _notice = null!;
-    private WristbandPanel _wristband = null!;
+    private GameMenuPanel _gameMenu = null!;
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
@@ -204,7 +204,7 @@ public partial class FarmField : Node
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
         _carry = CarryBar ?? throw Missing(nameof(CarryBar), $"随身栏（挂了 {nameof(CarrySlotBarView)} 的节点）");
         _notice = Notice ?? throw Missing(nameof(Notice), $"即时提示那一行（挂了 {nameof(InstantNoticeView)} 的节点）");
-        _wristband = Wristband ?? throw Missing(nameof(Wristband), $"手环（挂了 {nameof(WristbandPanel)} 的节点）");
+        _gameMenu = GameMenu ?? throw Missing(nameof(GameMenu), $"游戏菜单（挂了 {nameof(GameMenuPanel)} 的节点）");
 
         if (_tilled.TileSet is null)
         {
@@ -260,7 +260,7 @@ public partial class FarmField : Node
 
         // 背包每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。丢不掉那一下出在同一条即时提示上；
         // 背包页挪了随身栏那一排里的东西，屏幕上的随身栏跟着重画。
-        _wristband.Bag = new BagPageSource(
+        _gameMenu.Bag = new BagPageSource(
             () => _world.State.Bag, IconFor, ContentBootstrap.LoadPalette(), _notice.Show, RefreshCarryBar);
         RefreshAll();
 
@@ -434,7 +434,7 @@ public partial class FarmField : Node
 
     /// <summary>醒来那一步交出来的摘要：完整明细逐格打在输出面板上，一格一行。</summary>
     /// <remarks>
-    /// 完整明细的家是手环上那一页，那一页还没有，归设计仓台账 UI-20。简版弹窗读的也是这一份摘要，由醒来那一套弹。
+    /// 完整明细的家是游戏菜单上那一页，那一页还没有，归设计仓台账 UI-20。简版弹窗读的也是这一份摘要，由醒来那一套弹。
     /// </remarks>
     private void PrintSummary(SettlementSummary summary)
     {

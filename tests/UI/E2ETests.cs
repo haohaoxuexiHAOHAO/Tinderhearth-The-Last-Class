@@ -31,28 +31,28 @@ public class E2ETests
     private static readonly UISurface Backpack =
         new("backpack", UILayer.Panel, SurfaceKind.Carried);
 
-    private static readonly UISurface Wristband_ = Wristband.Surface;
+    private static readonly UISurface GameMenu_ = GameMenu.Surface;
 
     private static readonly UISurface Confirm =
         new("confirm", UILayer.Dialog, SurfaceKind.View);
 
     // ── 主路径：完整链路 ────────────────────────────────────────────
     [Fact]
-    public void 主路径_背包打开后手环可叠加导航栈并逐层返回()
+    public void 主路径_背包打开后游戏菜单可叠加导航栈并逐层返回()
     {
-        // 进入侧视场景，HUD 就绪，打开背包（世界暂停），再开手环
+        // 进入侧视场景，HUD 就绪，打开背包（世界暂停），再开游戏菜单
         var nav = new NavigationStack();
         var hud = MakeHud();
 
         nav.Push(Backpack);
         Assert.True(nav.WorldShouldPause);     // 弹界面接管输入就暂停世界，这是设计定的
 
-        nav.Push(Wristband_);
+        nav.Push(GameMenu_);
         Assert.Equal(2, nav.Depth);
         Assert.True(nav.WorldShouldPause);     // 叠一层仍然暂停
 
         // 逐层返回
-        Assert.True(nav.HandleBack());         // 关手环
+        Assert.True(nav.HandleBack());         // 关游戏菜单
         Assert.Equal(Backpack, nav.Top);
 
         Assert.True(nav.HandleBack());         // 关背包
@@ -84,26 +84,26 @@ public class E2ETests
     }
 
     [Fact]
-    public void 主路径_关卡里手环灰着的只有操作类而不显示的只有关卡里没有的页()
+    public void 主路径_关卡里游戏菜单灰着的只有操作类而不显示的只有关卡里没有的页()
     {
-        // 侧视关卡里打开手环：每一页按用途分类各判各的，三种显示各对一条判据，互不串
-        var pages = Wristband.Pages.ToList();
-        List<WristbandPage> In(WristbandPageState state) =>
+        // 侧视关卡里打开游戏菜单：每一页按用途分类各判各的，三种显示各对一条判据，互不串
+        var pages = GameMenu.Pages.ToList();
+        List<GameMenuPage> In(GameMenuPageState state) =>
             [.. pages.Where(p => p.StateIn(UIContext.Level) == state)];
 
-        Assert.NotEmpty(In(WristbandPageState.Disabled));
-        Assert.All(In(WristbandPageState.Disabled), p => Assert.Equal(SurfaceKind.Manage, p.Kind));
-        Assert.All(In(WristbandPageState.Available), p => Assert.NotEqual(SurfaceKind.Manage, p.Kind));
-        Assert.All(In(WristbandPageState.Hidden), p => Assert.False(p.ExistsInLevel));
-        Assert.Contains(In(WristbandPageState.Hidden), p => p.Id == "storage");
+        Assert.NotEmpty(In(GameMenuPageState.Disabled));
+        Assert.All(In(GameMenuPageState.Disabled), p => Assert.Equal(SurfaceKind.Manage, p.Kind));
+        Assert.All(In(GameMenuPageState.Available), p => Assert.NotEqual(SurfaceKind.Manage, p.Kind));
+        Assert.All(In(GameMenuPageState.Hidden), p => Assert.False(p.ExistsInLevel));
+        Assert.Contains(In(GameMenuPageState.Hidden), p => p.Id == "storage");
 
         // 能打开的顶层页签落得到一页，而且那一页就在它自己下面
-        foreach (var tab in Wristband.Tabs.Where(t => t.StateIn(UIContext.Level) == WristbandPageState.Available))
+        foreach (var tab in GameMenu.Tabs.Where(t => t.StateIn(UIContext.Level) == GameMenuPageState.Available))
         {
             var landing = tab.LandingIn(UIContext.Level);
             Assert.NotNull(landing);
             Assert.Contains(landing, tab.Pages);
-            Assert.Equal(WristbandPageState.Available, landing.StateIn(UIContext.Level));
+            Assert.Equal(GameMenuPageState.Available, landing.StateIn(UIContext.Level));
         }
     }
 
@@ -295,11 +295,11 @@ public class E2ETests
     }
 
     [Fact]
-    public void 独立性_Wristband标签页列表是只读的()
+    public void 独立性_GameMenu标签页列表是只读的()
     {
         // 确保不同测试读到的是同一份定义：两级清单都改不动，没有哪条测试能把它改了留给下一条
-        Assert.False(Wristband.Tabs is IList<WristbandTab> { IsReadOnly: false });
-        Assert.All(Wristband.Tabs, t => Assert.False(t.Pages is IList<WristbandPage> { IsReadOnly: false }));
+        Assert.False(GameMenu.Tabs is IList<GameMenuTab> { IsReadOnly: false });
+        Assert.All(GameMenu.Tabs, t => Assert.False(t.Pages is IList<GameMenuPage> { IsReadOnly: false }));
     }
 
     // ── 综合约束 ─────────────────────────────────────────────────────

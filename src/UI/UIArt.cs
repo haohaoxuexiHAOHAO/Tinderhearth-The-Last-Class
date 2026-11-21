@@ -16,7 +16,7 @@ namespace Tinderhearth.UI;
 [GlobalClass]
 public partial class UIArt : Resource
 {
-    /// <summary>面板外壳（个人界面那一套顶层页签就搭在它顶边上）、背包、弹窗</summary>
+    /// <summary>面板外壳（游戏菜单那一套顶层页签就搭在它顶边上）、背包、弹窗</summary>
     /// <remarks>40×44；九宫格 左 18 上 18 右 18 下 22；来源：切（按模板轮廓重画）。</remarks>
     [ExportGroup("kit", "Kit")]
     [Export]
@@ -382,22 +382,22 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? KitPipEnhanceFull { get; set; }
 
-    /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
+    /// <summary>顶层页签的底（角色面板、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
     /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabNormal { get; set; }
 
-    /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底边方的，接进面板顶边；图标放 (2,2)</summary>
+    /// <summary>顶层页签的底（角色面板、学生列表……那一排）；最下面一行压在面板顶边上，底边方的，接进面板顶边；图标放 (2,2)</summary>
     /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabSelected { get; set; }
 
-    /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
+    /// <summary>顶层页签的底（角色面板、学生列表……那一排）；最下面一行压在面板顶边上，底下两角也切掉，像放在面板上的牌子；图标放 (2,2)</summary>
     /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabDisabled { get; set; }
 
-    /// <summary>顶层页签的底（个人界面、学生列表……那一排）；最下面一行压在面板顶边上，焦点与鼠标悬停同一张，只换没选中的那几个；底下两角也切掉；图标放 (2,2)</summary>
+    /// <summary>顶层页签的底（角色面板、学生列表……那一排）；最下面一行压在面板顶边上，焦点与鼠标悬停同一张，只换没选中的那几个；底下两角也切掉；图标放 (2,2)</summary>
     /// <remarks>20×20；同一件的几态：normal、selected、disabled、focus；来源：切（按模板重画）。</remarks>
     [Export]
     public Texture2D? KitTabFocus { get; set; }
@@ -734,7 +734,7 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? WorldDropBase { get; set; }
 
-    /// <summary>个人界面左上的立绘框：64×64 立绘放在 (6,6)</summary>
+    /// <summary>角色面板左上的立绘框：64×64 立绘放在 (6,6)</summary>
     /// <remarks>76×76；来源：切。</remarks>
     [ExportGroup("panel", "Panel")]
     [Export]
@@ -815,13 +815,13 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? PanelCoin { get; set; }
 
-    /// <summary>顶层页签图标：个人界面</summary>
+    /// <summary>顶层页签图标：角色面板</summary>
     /// <remarks>16×16；同一件的几态：character、disabled；来源：切。</remarks>
     [ExportGroup("tab", "Tab")]
     [Export]
     public Texture2D? TabCharacter { get; set; }
 
-    /// <summary>顶层页签图标：个人界面（不可用）</summary>
+    /// <summary>顶层页签图标：角色面板（不可用）</summary>
     /// <remarks>16×16；同一件的几态：character、disabled；来源：派生。</remarks>
     [Export]
     public Texture2D? TabCharacterDisabled { get; set; }
@@ -876,12 +876,12 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? TabRelationsDisabled { get; set; }
 
-    /// <summary>顶层页签图标：百科全书</summary>
+    /// <summary>顶层页签图标：图鉴</summary>
     /// <remarks>16×16；同一件的几态：codex、disabled；来源：切。</remarks>
     [Export]
     public Texture2D? TabCodex { get; set; }
 
-    /// <summary>顶层页签图标：百科全书（不可用）</summary>
+    /// <summary>顶层页签图标：图鉴（不可用）</summary>
     /// <remarks>16×16；同一件的几态：codex、disabled；来源：派生。</remarks>
     [Export]
     public Texture2D? TabCodexDisabled { get; set; }

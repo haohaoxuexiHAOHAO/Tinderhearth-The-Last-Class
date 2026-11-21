@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.UI;
 
-/// <summary>手环里背包那一页怎么排：几行几列跟着背包网格、格距、整页放不放得进手环的内容区。</summary>
+/// <summary>游戏菜单里背包那一页怎么排：几行几列跟着背包网格、格距、整页放不放得进游戏菜单的内容区。</summary>
 /// <remarks>
 /// 放不下不报错：格子那一片会顶出内容区、压到外框上，或者最后一行被截掉，而那只在背包升到那一级之后才看得到。
 /// 所以按配置里每一级的网格各判一次，不等玩家升级。
@@ -35,17 +35,17 @@ public class BagPageLayoutTests
     }
 
     [Fact]
-    public void 配置里每一级的背包整页都放得进手环的内容区()
+    public void 配置里每一级的背包整页都放得进游戏菜单的内容区()
     {
         var levels = ShippedConfig().BackpackGridByLevel;
         Assert.NotEmpty(levels);
 
         foreach (var grid in levels)
         {
-            Assert.True(BagPageLayout.PageHeight(grid.Height) <= WristbandLayout.ContentHeight,
-                $"背包 {grid} 的那一页要 {BagPageLayout.PageHeight(grid.Height)} 高，手环的内容区只有 {WristbandLayout.ContentHeight}");
-            Assert.True(BagPageLayout.FrameWidth(grid.Width) <= WristbandLayout.ContentWidth,
-                $"背包 {grid} 那一圈厚框要 {BagPageLayout.FrameWidth(grid.Width)} 宽，手环的内容区只有 {WristbandLayout.ContentWidth}");
+            Assert.True(BagPageLayout.PageHeight(grid.Height) <= GameMenuLayout.ContentHeight,
+                $"背包 {grid} 的那一页要 {BagPageLayout.PageHeight(grid.Height)} 高，游戏菜单的内容区只有 {GameMenuLayout.ContentHeight}");
+            Assert.True(BagPageLayout.FrameWidth(grid.Width) <= GameMenuLayout.ContentWidth,
+                $"背包 {grid} 那一圈厚框要 {BagPageLayout.FrameWidth(grid.Width)} 宽，游戏菜单的内容区只有 {GameMenuLayout.ContentWidth}");
         }
     }
 }

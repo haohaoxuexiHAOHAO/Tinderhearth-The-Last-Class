@@ -118,9 +118,9 @@ public class UIArtTests
     [Fact]
     public void 每个顶层页签都有一张图标和它的置灰版()
     {
-        // 页签图标的文件名就是页签的标识；手环加了页签而模板里没画，这条点名。
+        // 页签图标的文件名就是页签的标识；游戏菜单加了页签而模板里没画，这条点名。
         var names = UIArtManifest.Pieces.Where(p => p.Group == "tab").Select(p => p.Name).ToHashSet();
-        var missing = Wristband.Tabs
+        var missing = GameMenu.Tabs
             .SelectMany(t => new[] { t.Id, $"{t.Id}_disabled" })
             .Where(n => !names.Contains(n))
             .ToList();

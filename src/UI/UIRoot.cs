@@ -29,7 +29,7 @@ public partial class UIRoot : Node
     private readonly Dictionary<string, Control> _surfaces = [];
     private readonly NavigationStack _nav = new();
 
-    /// <summary>当前场合（基地还是关卡里）。切场景时由场景设置，决定手环哪些页可用。</summary>
+    /// <summary>当前场合（基地还是关卡里）。切场景时由场景设置，决定游戏菜单哪些页可用。</summary>
     public UIContext Context { get; set; } = UIContext.Base;
 
     /// <summary>导航栈。只给需要查询的地方读，压栈与弹栈一律走本类的方法。</summary>
@@ -38,7 +38,7 @@ public partial class UIRoot : Node
     public override void _Ready()
     {
         // 本节点自己在暂停时照跑：返回键是它收的，而面板一打开世界就暂停，它停了就再也关不掉面板。
-        // 实测踩过：继承「可暂停」时手环一开，按返回前后都是暂停中，手环自己也报不能处理。
+        // 实测踩过：继承「可暂停」时游戏菜单一开，按返回前后都是暂停中，游戏菜单自己也报不能处理。
         ProcessMode = ProcessModeEnum.Always;
 
         // 先记下作者摆在下面的那几个，再建层 —— 层也是本节点的子节点，建完再数就分不清谁是谁。
@@ -85,8 +85,8 @@ public partial class UIRoot : Node
     /// 不会再跑，所以这里只挪、不碰它的内容：它在自己的 <c>_Ready</c> 里已经把自己搭好了。
     ///
     /// 要走导航栈的那种先藏再挪，与 <see cref="Register"/> 先藏再挂是同一个顺序。反过来的话，它进新那一层时
-    /// 自己先进树、子节点后进树，可见的话就在这个夹缝里发显示变化的信号：手环在信号里给页签拿焦点，页签还不在树里，
-    /// 引擎报错。实测：只摆了界面根与手环的一次性场景无头跑一次。
+    /// 自己先进树、子节点后进树，可见的话就在这个夹缝里发显示变化的信号：游戏菜单在信号里给页签拿焦点，页签还不在树里，
+    /// 引擎报错。实测：只摆了界面根与游戏菜单的一次性场景无头跑一次。
     /// </remarks>
     private void Adopt(Node child)
     {

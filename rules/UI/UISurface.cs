@@ -36,7 +36,7 @@ public static class SurfaceKindExtensions
     /// 这一类界面在关卡内能不能用：操作类不能，查看类与随身物能。
     /// </summary>
     /// <remarks>
-    /// 导航栈管的界面（<see cref="UISurface"/>）与手环的子页（<see cref="WristbandPage"/>）都按这一条判，
+    /// 导航栈管的界面（<see cref="UISurface"/>）与游戏菜单的子页（<see cref="GameMenuPage"/>）都按这一条判，
     /// 所以它只写在这里 —— 两处各写一遍，改了一处另一处不报错。
     /// </remarks>
     public static bool AvailableInLevel(this SurfaceKind kind) => kind != SurfaceKind.Manage;
