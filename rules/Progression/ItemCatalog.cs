@@ -98,7 +98,7 @@ public sealed class ItemCatalog
     }
 
     private static List<ItemTier> LoadTiers(ContentCatalog catalog, ItemTierAxis axis) =>
-        [.. catalog.ResolveById(ItemTier.ContentDirectoryOf(axis), e => ItemTier.Parse(e.Text, e.RelativePath, axis), t => t.Id).Values];
+        [.. catalog.ResolveById(ItemTier.ContentDirectoryOf(axis), e => ItemTier.Parse(e.Text, e.RelativePath), t => t.Id).Values];
 
     private static List<ItemTier> Ordered(IEnumerable<ItemTier> tiers) =>
         [.. tiers.OrderBy(t => t.SortOrder).ThenBy(t => t.Id, StringComparer.Ordinal)];

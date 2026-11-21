@@ -15,7 +15,7 @@ internal static class TestBags
     public static readonly ItemCatalog Items = ItemCatalog.Build(
         [Item(Turnip, hasQuality: true), Item(TurnipSeed, hasQuality: false)],
         [new ItemCategory { Id = "herb", NameKey = "item_category.herb.name", ParentId = null }],
-        [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, PositiveAffixCount = 0, DisplayColor = "copper 3" }],
+        [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, DisplayColor = "copper 3" }],
         [
             new ItemTier { Id = Common, NameKey = "item_quality.common.name", SortOrder = 2, BasePriceFactor = null, DisplayColor = "ash 6" },
             new ItemTier { Id = Mutated, NameKey = "item_quality.mutated.name", SortOrder = 5, BasePriceFactor = null, DisplayColor = "spirit 3" },

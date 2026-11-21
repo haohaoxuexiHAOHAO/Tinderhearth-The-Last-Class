@@ -16,8 +16,8 @@ public enum ItemTierAxis
 /// 读档位的代码一律遍历 <see cref="ItemCatalog"/> 里在册的那几档，不按序号取某一档：排第几只由
 /// <see cref="SortOrder"/> 定，而那一格允许重复（品质顶上那一级有两个值，传奇与变异）。
 ///
-/// 两格是哪一条轴才有的，所以两条轴共用这一个类型、按轴核：<see cref="PositiveAffixCount"/> 只有稀有度那一轴填，
-/// 品质那一轴不填而那不是漏填（设计仓 decisions/ADR-0018-内容定义按声明扩展.md 的按声明必填）。核在 <see cref="Parse"/>。
+/// 两条轴声明的是同一组格子，所以共用这一个类型。档位不管宝物带几条词条：词条全部随机
+/// （工作区根 desc/经营规则.md 的「词条」），条数不跟着稀有度定死。
 /// </remarks>
 public sealed record ItemTier
 {
@@ -55,9 +55,6 @@ public sealed record ItemTier
                 nameof(BasePriceFactor), $"档位的 {nameof(BasePriceFactor)} 要么是 null（还没给值），要么为正，实际 {value}");
     }
 
-    /// <summary>这一档给几条正面副词条。只有稀有度那一轴有，装备那一侧读它。</summary>
-    public int? PositiveAffixCount { get; init; }
-
     /// <summary>显示色：色板里一档的名字（例如 <c>ember 5</c>）。在不在色板里、品质那几档的色带撞不撞，由 <see cref="ItemCatalog"/> 核。</summary>
     public required string DisplayColor
     {
@@ -75,23 +72,7 @@ public sealed record ItemTier
         _ => throw new ArgumentOutOfRangeException(nameof(axis), axis, "物品没有第三条轴"),
     };
 
-    /// <summary>解析一档，并按它所在的那条轴核只有那一轴才有的那一格。</summary>
-    public static ItemTier Parse(string json, string whatForDiagnostics, ItemTierAxis axis)
-    {
-        var tier = ContentJson.Parse<ItemTier>(json, whatForDiagnostics);
-        switch (axis)
-        {
-            case ItemTierAxis.Rarity when tier.PositiveAffixCount is null:
-                throw new InvalidDataException(
-                    $"稀有度「{tier.Id}」缺 positiveAffixCount（它给几条正面副词条）—— 稀有度那一轴每一档都要声明这一格");
-            case ItemTierAxis.Rarity when tier.PositiveAffixCount < 0:
-                throw new InvalidDataException(
-                    $"稀有度「{tier.Id}」的 positiveAffixCount 不能为负，实际 {tier.PositiveAffixCount}");
-            case ItemTierAxis.Quality when tier.PositiveAffixCount is not null:
-                throw new InvalidDataException(
-                    $"品质「{tier.Id}」填了 positiveAffixCount —— 副词条几条由稀有度给，品质那一轴不填这一格");
-            default:
-                return tier;
-        }
-    }
+    /// <summary>解析一档。缺哪一格由解析当场报错（那几格都是 <c>required</c>）。</summary>
+    public static ItemTier Parse(string json, string whatForDiagnostics) =>
+        ContentJson.Parse<ItemTier>(json, whatForDiagnostics);
 }

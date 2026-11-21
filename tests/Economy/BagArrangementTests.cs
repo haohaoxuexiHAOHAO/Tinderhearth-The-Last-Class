@@ -38,7 +38,7 @@ public class BagArrangementTests
             Category("seed", parent: null),
             Category("quest", parent: null),
         ],
-        [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, PositiveAffixCount = 0, DisplayColor = "copper 3" }],
+        [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, DisplayColor = "copper 3" }],
         [
             new ItemTier { Id = Common, NameKey = "item_quality.common.name", SortOrder = 2, BasePriceFactor = null, DisplayColor = "ash 6" },
             new ItemTier { Id = Fine, NameKey = "item_quality.fine.name", SortOrder = 3, BasePriceFactor = null, DisplayColor = "ash 7" },

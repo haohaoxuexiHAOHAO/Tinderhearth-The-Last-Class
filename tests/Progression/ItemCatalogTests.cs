@@ -45,7 +45,6 @@ public class ItemCatalogTests
           "nameKey": "item_rarity.low.name",
           "sortOrder": 1,
           "basePriceFactor": null,
-          "positiveAffixCount": 0,
           "displayColor": "copper 3"
         }
         """;
@@ -292,22 +291,9 @@ public class ItemCatalogTests
         var axis = Enum.Parse<ItemTierAxis>(axisName);
         var full = axis == ItemTierAxis.Rarity ? FullRarityJson : FullQualityJson;
 
-        var error = Assert.Throws<JsonException>(() => ItemTier.Parse(WithoutKey(full, keyToDrop), "broken.json", axis));
+        var error = Assert.Throws<JsonException>(() => ItemTier.Parse(WithoutKey(full, keyToDrop), "broken.json"));
 
         Assert.Contains(keyToDrop, error.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>正面副词条几条只有稀有度那一轴声明：稀有度缺它被拒，品质填了它也被拒。</summary>
-    [Fact]
-    public void 正面副词条那一格按轴核()
-    {
-        var rarityMissing = Assert.Throws<InvalidDataException>(
-            () => ItemTier.Parse(WithoutKey(FullRarityJson, "positiveAffixCount"), "low.json", ItemTierAxis.Rarity));
-        var qualityFilled = Assert.Throws<InvalidDataException>(
-            () => ItemTier.Parse(WithValue(FullQualityJson, "positiveAffixCount", "1"), "common.json", ItemTierAxis.Quality));
-
-        Assert.Contains("positiveAffixCount", rarityMissing.Message);
-        Assert.Contains("品质那一轴不填", qualityFilled.Message);
     }
 
     /// <summary>显示色不是色板里的一档，载入被拒，点名是哪一轴的哪一档。</summary>
@@ -480,7 +466,7 @@ public class ItemCatalogTests
     private static string RarityJson(string id, int sortOrder, string color) =>
         $$"""
         { "id": "{{id}}", "nameKey": "item_rarity.{{id}}.name", "sortOrder": {{sortOrder}},
-          "basePriceFactor": null, "positiveAffixCount": {{sortOrder - 1}}, "displayColor": "{{color}}" }
+          "basePriceFactor": null, "displayColor": "{{color}}" }
         """;
 
     private static string QualityJson(string id, int sortOrder, string color) =>

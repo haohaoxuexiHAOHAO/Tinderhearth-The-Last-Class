@@ -370,7 +370,7 @@ public class CropDefinitionTests
                 ConfirmBeforeUse = false,
             }),
             [new ItemCategory { Id = "seed", NameKey = "item_category.seed.name", ParentId = null }],
-            [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, PositiveAffixCount = 0, DisplayColor = "copper 3" }],
+            [new ItemTier { Id = "low", NameKey = "item_rarity.low.name", SortOrder = 1, BasePriceFactor = null, DisplayColor = "copper 3" }],
             [new ItemTier { Id = "common", NameKey = "item_quality.common.name", SortOrder = 2, BasePriceFactor = null, DisplayColor = "ash 6" }],
             name => name.Split(' ')[0]);
 
