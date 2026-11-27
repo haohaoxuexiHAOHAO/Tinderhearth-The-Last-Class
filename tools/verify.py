@@ -837,16 +837,35 @@ def clean_export_dir() -> list[str]:
     return removed
 
 
+# Godot 把导出时转成二进制的场景与资源缓存在 .godot/exported/，按那一份文件自己改没改来判要不要重转，不看它依赖的脚本。
+# 实测：缓存里留着一份 10 月转出来的 main.scn；素材资源里几格从图改成九宫格之后，导出的游戏启动时报
+# InvalidCastException（图塞进了九宫格那一格），编辑器里却一切正常；清掉这个缓存再导就好了。所以每次导出前都清掉它，
+# 让包里的每一份都由当前的源文件转出来。转换只要几秒。
+EXPORT_CACHE = ROOT / ".godot" / "exported"
+
+
+def clear_export_cache() -> bool:
+    """清掉 Godot 的导出转换缓存（理由见 EXPORT_CACHE 那条注释）；原来就没有时返回 False。"""
+    if EXPORT_CACHE.resolve().parent != (ROOT / ".godot").resolve() or EXPORT_CACHE.name != "exported":
+        raise RuntimeError(f"拒绝清理 {EXPORT_CACHE}：它不是代码仓 .godot/ 下的 exported/")
+    if not EXPORT_CACHE.is_dir():
+        return False
+    shutil.rmtree(EXPORT_CACHE)
+    return True
+
+
 def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
     started = time.perf_counter()
     removed = clean_export_dir()
+    cache_cleared = clear_export_cache()
     code, out, enc = run(
         [str(godot), "--headless", "--path", str(ROOT),
          "--export-release", EXPORT_PRESET, str(EXPORT_EXE)],
         ROOT, timeout=900,
     )
     rep.write_log("3-export.log",
-                  f"# 编码 {enc}\n# 退出码 {code}\n# 导出前清掉 {len(removed)} 项：{removed}\n\n{out}")
+                  f"# 编码 {enc}\n# 退出码 {code}\n# 导出前清掉 {len(removed)} 项：{removed}\n"
+                  f"# 导出转换缓存 {'清掉了' if cache_cleared else '原来就没有'}\n\n{out}")
     cost = time.perf_counter() - started
 
     produced = [p.name for p in sorted(EXPORT_DIR.iterdir())] if EXPORT_DIR.is_dir() else []
