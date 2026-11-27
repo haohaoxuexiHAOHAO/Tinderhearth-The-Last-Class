@@ -412,6 +412,10 @@ public sealed class Bag
         return BagMoveResult.Moved;
     }
 
+    /// <summary>挪一堆会是什么结果，不改背包：背包页在按下去之前照它画放得下与放不下。</summary>
+    /// <remarks>在一份副本上挪一次，所以与 <see cref="Move"/> 永远是同一套判法，不另写一份会分叉的规则。</remarks>
+    public BagMoveResult PreviewMove(BagPlace grabbed, BagPlace pointed) => Clone().Move(grabbed, pointed);
+
     /// <summary>丢弃网格里第 <paramref name="cell"/> 格（从 0 数）上的那一整堆，见另一个重载。</summary>
     public BagDiscardResult TryDiscardAt(int cell) => TryDiscardAt(BagPlace.Grid(cell));
 

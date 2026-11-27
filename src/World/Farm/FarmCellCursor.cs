@@ -92,8 +92,8 @@ public partial class FarmCellCursor : Node2D
         }
 
         var art = UIArtGuard.Require(Art, $"{nameof(FarmCellCursor)}（节点 {Name}）");
-        _usable = HudPlace.Piece(art.WorldCellUsable, "world/cell_usable");
-        _blocked = HudPlace.Piece(art.WorldCellBlocked, "world/cell_blocked");
+        _usable = HudPlace.Piece(art.WorldCellUsable?.Texture, "world/cell_usable");
+        _blocked = HudPlace.Piece(art.WorldCellBlocked?.Texture, "world/cell_blocked");
 
         // 那两张照一格地往外大一圈画；接的那一层格子不是那么大，框就会套歪，而那不报错。
         var tile = _grid.TileSet.TileSize;

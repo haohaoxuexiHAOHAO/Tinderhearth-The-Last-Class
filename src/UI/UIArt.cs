@@ -287,15 +287,20 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? KitCheckOn { get; set; }
 
-    /// <summary>技能栏、随身栏、背包、仓库、宝物栏共用的格子；图标放在 (3,3)</summary>
-    /// <remarks>22×22；同一件的几态：normal、disabled、locked、focus；来源：切。</remarks>
+    /// <summary>技能栏、随身栏、背包、仓库、宝物栏共用的格子；图标放在 (3,3)；背包里大东西那几格按九宫格拉成一个大框</summary>
+    /// <remarks>22×22；九宫格 左 4 上 4 右 4 下 4；同一件的几态：normal、disabled、locked、focus；来源：切。</remarks>
     [Export]
-    public Texture2D? KitSlotNormal { get; set; }
+    public NinePiece? KitSlotNormal { get; set; }
 
     /// <summary>格子：暂时用不了</summary>
     /// <remarks>22×22；同一件的几态：normal、disabled、locked、focus；来源：派生。</remarks>
     [Export]
     public Texture2D? KitSlotDisabled { get; set; }
+
+    /// <summary>背包页：拿起来的那一堆，格子底色亮一档；与格子同一个九宫格边距</summary>
+    /// <remarks>22×22；九宫格 左 4 上 4 右 4 下 4；来源：派生。</remarks>
+    [Export]
+    public NinePiece? KitSlotHeld { get; set; }
 
     /// <summary>格子：还没开的格（背包下一级才开的那几格）</summary>
     /// <remarks>22×22；同一件的几态：normal、disabled、locked、focus；来源：派生。</remarks>
@@ -308,14 +313,14 @@ public partial class UIArt : Resource
     public Texture2D? KitSlotSelect { get; set; }
 
     /// <summary>焦点／悬停：格子里面一圈亮边，与选中框同时在也看得出</summary>
-    /// <remarks>22×22；同一件的几态：normal、disabled、locked、focus；来源：手画。</remarks>
+    /// <remarks>22×22；九宫格 左 4 上 4 右 4 下 4；同一件的几态：normal、disabled、locked、focus；来源：手画。</remarks>
     [Export]
-    public Texture2D? KitSlotFocus { get; set; }
+    public NinePiece? KitSlotFocus { get; set; }
 
     /// <summary>稀有度：紧贴图标那一圈，纯白、代码按档染</summary>
-    /// <remarks>22×22；来源：手画。</remarks>
+    /// <remarks>22×22；九宫格 左 4 上 4 右 4 下 4；来源：手画。</remarks>
     [Export]
-    public Texture2D? KitRarityEdge { get; set; }
+    public NinePiece? KitRarityEdge { get; set; }
 
     /// <summary>详情框左上那一格：物品、技能、天赋、状态共用；16×16 图标原样放在 (2,2)；不染色，物品的稀有度写在名字下面那一行</summary>
     /// <remarks>20×20；来源：手画。</remarks>
@@ -659,15 +664,15 @@ public partial class UIArt : Resource
     [Export]
     public Texture2D? WorldRingTransferFill { get; set; }
 
-    /// <summary>当前操作格：够得到；比一格地大一圈，左上角对齐格子往外 1 像素</summary>
-    /// <remarks>18×18；来源：切。</remarks>
+    /// <summary>当前操作格：够得到；比一格地大一圈，左上角对齐格子往外 1 像素；背包页上也画放得下的那一块</summary>
+    /// <remarks>18×18；九宫格 左 4 上 4 右 4 下 4；来源：切。</remarks>
     [Export]
-    public Texture2D? WorldCellUsable { get; set; }
+    public NinePiece? WorldCellUsable { get; set; }
 
-    /// <summary>当前操作格：够不到</summary>
-    /// <remarks>18×18；来源：手画。</remarks>
+    /// <summary>当前操作格：够不到；背包页上也画放不下的那一块</summary>
+    /// <remarks>18×18；九宫格 左 4 上 4 右 4 下 4；来源：手画。</remarks>
     [Export]
-    public Texture2D? WorldCellBlocked { get; set; }
+    public NinePiece? WorldCellBlocked { get; set; }
 
     /// <summary>气泡框（深底浅字）</summary>
     /// <remarks>14×14；九宫格 左 5 上 5 右 5 下 5；放一行字至少高 26；来源：切。</remarks>
@@ -1050,12 +1055,13 @@ public partial class UIArt : Resource
         yield return ("kit", "button_icon_skip", KitButtonIconSkip, null);
         yield return ("kit", "check_off", KitCheckOff, null);
         yield return ("kit", "check_on", KitCheckOn, null);
-        yield return ("kit", "slot_normal", KitSlotNormal, null);
+        yield return ("kit", "slot_normal", KitSlotNormal?.Texture, KitSlotNormal);
         yield return ("kit", "slot_disabled", KitSlotDisabled, null);
+        yield return ("kit", "slot_held", KitSlotHeld?.Texture, KitSlotHeld);
         yield return ("kit", "slot_locked", KitSlotLocked, null);
         yield return ("kit", "slot_select", KitSlotSelect, null);
-        yield return ("kit", "slot_focus", KitSlotFocus, null);
-        yield return ("kit", "rarity_edge", KitRarityEdge, null);
+        yield return ("kit", "slot_focus", KitSlotFocus?.Texture, KitSlotFocus);
+        yield return ("kit", "rarity_edge", KitRarityEdge?.Texture, KitRarityEdge);
         yield return ("kit", "icon_frame", KitIconFrame, null);
         yield return ("kit", "socket_open", KitSocketOpen, null);
         yield return ("kit", "socket_locked", KitSocketLocked, null);
@@ -1124,8 +1130,8 @@ public partial class UIArt : Resource
         yield return ("world", "ring_cast_fill", WorldRingCastFill, null);
         yield return ("world", "ring_transfer", WorldRingTransfer, null);
         yield return ("world", "ring_transfer_fill", WorldRingTransferFill, null);
-        yield return ("world", "cell_usable", WorldCellUsable, null);
-        yield return ("world", "cell_blocked", WorldCellBlocked, null);
+        yield return ("world", "cell_usable", WorldCellUsable?.Texture, WorldCellUsable);
+        yield return ("world", "cell_blocked", WorldCellBlocked?.Texture, WorldCellBlocked);
         yield return ("world", "bubble", WorldBubble?.Texture, WorldBubble);
         yield return ("world", "bubble_tail", WorldBubbleTail, null);
         yield return ("world", "hint_frame", WorldHintFrame?.Texture, WorldHintFrame);

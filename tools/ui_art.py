@@ -545,14 +545,22 @@ def build_kit_buttons() -> None:
 
 # ── kit/：格子、孔、页签、列表行 ─────────────────────────────────────────────
 
+# 格子框按九宫格拉开时四边各留几像素：切角那一块正好 4 像素，四边中间是一条直边加底色，拉开不走样。背包网格里大东西
+# 占的那几格就是这一张拉开的大框，焦点那一圈与稀有度那一圈照同一个边距跟着拉（设计仓 production/界面绘制约定.md 的
+# 「尺寸阶梯」一节）。一格大的用处照旧原尺寸贴，不受这个边距影响。
+SLOT_NINE = (4, 4, 4, 4)
+
+
 def build_kit_slots() -> None:
     bar = tpl("box3.png")
     # 连 ember 3 一起清：裁的时候左边两个角各带进来一点栏底的颜色，不清就是两个孤零零的点
     slot = flood_clear(crop(bar, 7, 37, 22, 22), {"ember 2", "ember 3"})
-    add("kit", "slot_normal", slot, "技能栏、随身栏、背包、仓库、宝物栏共用的格子；图标放在 (3,3)",
-        "切", size=(22, 22))
+    add("kit", "slot_normal", slot, "技能栏、随身栏、背包、仓库、宝物栏共用的格子；图标放在 (3,3)；背包里大东西那几格按九宫格拉成一个大框",
+        "切", nine=SLOT_NINE, size=(22, 22))
     disabled = recolor(slot, {"ember 3": "wood 3"})
     add("kit", "slot_disabled", disabled, "格子：暂时用不了", "派生", size=(22, 22))
+    add("kit", "slot_held", recolor(slot, {"ember 3": "ember 4"}),
+        "背包页：拿起来的那一堆，格子底色亮一档；与格子同一个九宫格边距", "派生", nine=SLOT_NINE, size=(22, 22))
     add("kit", "slot_locked", compose(disabled, from_grid(sp.MINI["lock"]), 7, 7),
         "格子：还没开的格（背包下一级才开的那几格）", "派生", size=(22, 22))
 
@@ -565,10 +573,11 @@ def build_kit_slots() -> None:
     focus = blank(22, 22)
     paint(focus, octagon(20, 20, 3, 1, 1) - octagon(18, 18, 2, 2, 2), "ember 6")
     add("kit", "slot_focus", focus, "焦点／悬停：格子里面一圈亮边，与选中框同时在也看得出", "手画",
-        size=(22, 22))
+        nine=SLOT_NINE, size=(22, 22))
     rarity = blank(22, 22)
     paint(rarity, octagon(18, 18, 2, 2, 2) - octagon(16, 16, 1, 3, 3), "highlight 2")
-    add("kit", "rarity_edge", rarity, "稀有度：紧贴图标那一圈，纯白、代码按档染", "手画", size=(22, 22))
+    add("kit", "rarity_edge", rarity, "稀有度：紧贴图标那一圈，纯白、代码按档染", "手画",
+        nine=SLOT_NINE, size=(22, 22))
 
     # 详情框里那一格，照作者画的参考图：图标四周只空一像素，描边直边各 16、四角各一个点。
     # 背包那种格子留 2 像素是给选中框、焦点框与稀有度框腾地方，这一格不可点、不用腾。
@@ -876,10 +885,13 @@ def build_world() -> None:
     add("world", "ring_transfer", base, "转场读条底环：方的，与圆的那张分得开", "手画", size=(14, 16))
     add("world", "ring_transfer_fill", paint(blank(14, 16), square - edge(square) - hole, "ember 2"),
         "转场读条那一圈", "手画", size=(14, 16))
+    # 四个角的记号都在 4 像素以内、中间透明：背包页上拿着一堆指着别处时，要占的那一块上画的就是这两张，按那一块的大小拉开
+    cursor_nine = (4, 4, 4, 4)
     add("world", "cell_usable", crop(bar, 15, 95, 18, 18),
-        "当前操作格：够得到；比一格地大一圈，左上角对齐格子往外 1 像素", "切", size=(18, 18))
-    add("world", "cell_blocked", from_grid(sp.CELL_BLOCKED), "当前操作格：够不到", "手画",
-        size=(18, 18))
+        "当前操作格：够得到；比一格地大一圈，左上角对齐格子往外 1 像素；背包页上也画放得下的那一块",
+        "切", nine=cursor_nine, size=(18, 18))
+    add("world", "cell_blocked", from_grid(sp.CELL_BLOCKED), "当前操作格：够不到；背包页上也画放不下的那一块",
+        "手画", nine=cursor_nine, size=(18, 18))
 
     bubble = tpl("box1.png")
     add("world", "bubble", shrink9(crop(bubble, 78, 27, 68, 36), 5, 5, 5, 5, sx=42),

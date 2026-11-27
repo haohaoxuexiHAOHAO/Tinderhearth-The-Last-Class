@@ -11,7 +11,7 @@ namespace Tinderhearth.Rules.Economy;
 /// spec/prd-items-in-bag.md 的「非目标」一节）：它们是看东西的方式，跨过一次退出不丢任何东西。
 ///
 /// 页上的格按「先随身栏那一排、再网格从左上角数起」排一个号（<see cref="PlaceOf"/>）。挪格与丢弃碰到被筛掉的那一格当场抛：
-/// 界面上被筛掉的格点不到，走到这里就是界面那一侧接错了；被一堆盖着的格算那一堆的。照网格画的那一页归设计仓台账 UI-67。
+/// 界面上被筛掉的格点不到，走到这里就是界面那一侧接错了；被一堆盖着的格算那一堆的。
 /// </remarks>
 public sealed class BagControls
 {
@@ -68,6 +68,16 @@ public sealed class BagControls
         RequireShown(bag, grabbed);
         RequireShown(bag, pointed);
         return bag.Move(PlaceOf(bag, grabbed), PlaceOf(bag, pointed));
+    }
+
+    /// <summary>
+    /// 拿着页上第 <paramref name="grabbed"/> 格那一堆、指着第 <paramref name="pointed"/> 格时，指着的地方画什么；
+    /// 指着被筛掉的格什么都不画（那一格点不到），指着拿起时点的那一格也不画（点下去是放回去）。不改背包。
+    /// </summary>
+    public BagDropPreview? Preview(Bag bag, int grabbed, int pointed)
+    {
+        RequireShown(bag, grabbed);
+        return Shows(bag, pointed) ? BagPage.DropPreviewOf(bag, grabbed, pointed) : null;
     }
 
     /// <summary>丢弃那一整堆。确认在界面那一侧，这里只管确认之后那一下。</summary>

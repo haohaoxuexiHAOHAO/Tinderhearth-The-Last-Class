@@ -188,7 +188,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             row.AddChild(cell);
 
             // 格子本身铺满这一格。
-            var slot = HudPlace.Picture(_art.KitSlotNormal, "kit/slot_normal");
+            var slot = HudPlace.Picture(_art.KitSlotNormal?.Texture, "kit/slot_normal");
             slot.Name = "Slot";
             slot.SetAnchorsPreset(LayoutPreset.FullRect);
             cell.AddChild(slot);

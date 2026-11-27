@@ -1,6 +1,7 @@
 using System.Globalization;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.Rules.Economy;
 
@@ -15,6 +16,23 @@ public sealed record BagCell(string ItemId, string? QualityId, int Count, string
     /// <summary>角上写不写件数：只有一件不写，一整页的「1」不带任何信息，却占掉图标本来就不多的地方。</summary>
     public bool ShowsCount => Count > 1;
 }
+
+/// <summary>背包页上一堆占的那一块。</summary>
+/// <param name="Index">那一块左上角那一格在页上的号（与 <see cref="BagControls.PlaceOf"/> 同一个号）。</param>
+/// <param name="Column">左上角那一格在页上第几列，从 0 数。</param>
+/// <param name="Row">左上角那一格在页上第几行，从 0 数；随身栏那几行算在里面。</param>
+/// <param name="Width">宽几格：那一样的占地。</param>
+/// <param name="Height">高几格：那一样的占地。</param>
+/// <param name="Content">画什么。</param>
+public sealed record BagBlock(int Index, int Column, int Row, int Width, int Height, BagCell Content);
+
+/// <summary>拿着一堆指着别处时，指着的地方画什么：要占的那一块在页上的位置与大小，放不放得下。</summary>
+/// <param name="Column">那一块左上角在页上第几列，从 0 数。</param>
+/// <param name="Row">那一块左上角在页上第几行，从 0 数。</param>
+/// <param name="Width">宽几格。出了网格的那一截不算。</param>
+/// <param name="Height">高几格。出了网格的那一截不算。</param>
+/// <param name="Fits">按下去会挪过去或合进去。</param>
+public sealed record BagDropPreview(int Column, int Row, int Width, int Height, bool Fits);
 
 /// <summary>游戏菜单里的背包那一页：每一格画什么、选中那一格下面那一行写什么、还剩几个空格。</summary>
 /// <remarks>
@@ -138,6 +156,99 @@ public static class BagPage
         return [.. bag.Carry.Concat(bag.Slots).Select(slot => slot is { } stack ? CellOf(stack, bag.Items) : null)];
     }
 
+    /// <summary>页上第 <paramref name="index"/> 格在第几列、第几行：随身栏那几格占开头那几行，网格从下一行开始。</summary>
+    /// <remarks>行数怎么算见 <see cref="BagPageLayout.CarryRows"/>。</remarks>
+    public static (int Column, int Row) PositionOf(Bag bag, int index)
+    {
+        var place = BagControls.PlaceOf(bag, index);
+        var columns = bag.GridWidth;
+        return place.InCarry
+            ? (place.Index % columns, place.Index / columns)
+            : (place.Index % columns, BagPageLayout.CarryRows(bag.CarryCount, columns) + (place.Index / columns));
+    }
+
+    /// <summary>页上第 <paramref name="index"/> 格被哪一堆盖着：那一堆左上角那一格在页上的号；空着是 <c>null</c>。</summary>
+    /// <remarks>点到一块里的任何一格都是那一堆，所以拿起、下面那一行与丢弃都先经这里找到它。</remarks>
+    public static int? AnchorIndexOf(Bag bag, int index) =>
+        bag.AnchorOf(BagControls.PlaceOf(bag, index)) is not { } at ? null : IndexOf(bag, at);
+
+    /// <summary>每一堆占的那一块：随身栏那一排里的各占一格，网格里的照占地占一块。先随身栏、再网格按格号排。</summary>
+    /// <remarks>看不看得见（当前筛选）不在这里判，在 <see cref="BagControls.Shows"/>。</remarks>
+    public static IReadOnlyList<BagBlock> BlocksOf(Bag bag)
+    {
+        ArgumentNullException.ThrowIfNull(bag);
+
+        var blocks = new List<BagBlock>();
+        for (var i = 0; i < bag.CarryCount + bag.SlotCount; i++)
+        {
+            var place = BagControls.PlaceOf(bag, i);
+            if (bag.StackAt(place) is not { } stack)
+            {
+                continue;
+            }
+
+            var footprint = bag.Items.Items[stack.ItemId].Footprint;
+            var (column, row) = PositionOf(bag, i);
+            blocks.Add(new BagBlock(i, column, row, footprint.Width, footprint.Height, CellOf(stack, bag.Items)));
+        }
+
+        return blocks;
+    }
+
+    /// <summary>
+    /// 拿着页上第 <paramref name="grabbed"/> 格那一堆、指着第 <paramref name="pointed"/> 格时，指着的地方画什么；
+    /// 指着的就是拿起时点的那一格（点下去是放回去）时是 <c>null</c>，什么都不画。
+    /// </summary>
+    /// <remarks>
+    /// 要占的那一块照挪的规则算：拿起时点的那一格对准指着的那一格（<see cref="Bag.Move"/>）；指着另一堆同标识的东西是合进去，
+    /// 那一块就是那一堆；指着随身栏那一排，那一块就是那一格。出了网格的那一截不画，只画网格里那一部分。
+    /// 放不放得下问 <see cref="Bag.PreviewMove"/>，与按下去时是同一套判法。被筛掉的格画不画不在这里判，在
+    /// <see cref="BagControls.Preview"/>。
+    /// </remarks>
+    public static BagDropPreview? DropPreviewOf(Bag bag, int grabbed, int pointed)
+    {
+        ArgumentNullException.ThrowIfNull(bag);
+        if (grabbed == pointed)
+        {
+            return null;
+        }
+
+        var from = BagControls.PlaceOf(bag, grabbed);
+        var to = BagControls.PlaceOf(bag, pointed);
+        var anchor = bag.AnchorOf(from)
+            ?? throw new ArgumentException($"背包{from}空着，手上不可能拿着东西", nameof(grabbed));
+        var moving = bag.StackAt(anchor)!.Value;
+        var fits = bag.PreviewMove(from, to) is BagMoveResult.Moved or BagMoveResult.Merged;
+
+        if (bag.AnchorOf(to) is { } at && at != anchor && bag.StackAt(at) is { } other
+            && other.Holds(moving.ItemId, moving.QualityId))
+        {
+            var target = BlocksOf(bag).Single(b => b.Index == IndexOf(bag, at));
+            return new BagDropPreview(target.Column, target.Row, target.Width, target.Height, fits);
+        }
+
+        if (to.InCarry)
+        {
+            var (carryColumn, carryRow) = PositionOf(bag, pointed);
+            return new BagDropPreview(carryColumn, carryRow, 1, 1, fits);
+        }
+
+        // 拿起时点的那一格离左上角差几列几行；随身栏那一排里的只占 1 格，差的是零。
+        var width = bag.GridWidth;
+        var (dx, dy) = from.InCarry
+            ? (0, 0)
+            : ((from.Index % width) - (anchor.Index % width), (from.Index / width) - (anchor.Index / width));
+        var footprint = bag.Items.Items[moving.ItemId].Footprint;
+        var left = (to.Index % width) - dx;
+        var top = (to.Index / width) - dy;
+        var x0 = Math.Max(left, 0);
+        var y0 = Math.Max(top, 0);
+        var x1 = Math.Min(left + footprint.Width, width);
+        var y1 = Math.Min(top + footprint.Height, bag.GridHeight);
+        return new BagDropPreview(
+            x0, BagPageLayout.CarryRows(bag.CarryCount, width) + y0, x1 - x0, y1 - y0, fits);
+    }
+
     /// <summary>还剩几个空格那一行。</summary>
     public static string FreeSlotsLine(Bag bag, TextCatalog text)
     {
@@ -157,6 +268,9 @@ public static class BagPage
             ? Format(text, InfoKey, name, text[TierOf(items.Qualities, quality).NameKey], cell.Count)
             : Format(text, InfoNoQualityKey, name, cell.Count);
     }
+
+    /// <summary>背包里的一处在页上是第几格：先随身栏那一排，再网格（与 <see cref="BagControls.PlaceOf"/> 互逆）。</summary>
+    private static int IndexOf(Bag bag, BagPlace place) => place.InCarry ? place.Index : bag.CarryCount + place.Index;
 
     private static BagCell CellOf(ItemStack stack, ItemCatalog items)
     {

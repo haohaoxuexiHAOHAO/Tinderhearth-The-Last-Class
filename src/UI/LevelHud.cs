@@ -284,7 +284,7 @@ public sealed partial class LevelHud : Control
             line.AddChild(cell);
 
             // 格子本身铺满这一格；解锁没有、亮不亮在刷新时换。
-            var slot = HudPlace.Picture(_art.KitSlotNormal, "kit/slot_normal");
+            var slot = HudPlace.Picture(_art.KitSlotNormal?.Texture, "kit/slot_normal");
             slot.Name = "Slot";
             slot.SetAnchorsPreset(LayoutPreset.FullRect);
             cell.AddChild(slot);
@@ -404,7 +404,7 @@ public sealed partial class LevelHud : Control
 
             // 没解锁的位画「还没开」那张格子、不画图标：位置固定才有肌肉记忆，所以照画不藏。
             cell.Slot.Texture = slot.Unlocked
-                ? HudPlace.Piece(_art.KitSlotNormal, "kit/slot_normal")
+                ? HudPlace.Piece(_art.KitSlotNormal?.Texture, "kit/slot_normal")
                 : HudPlace.Piece(_art.KitSlotLocked, "kit/slot_locked");
             cell.Icon.Texture = slot.Unlocked ? _icons(slot) : null;
             cell.Icon.Visible = cell.Icon.Texture is not null;

@@ -123,6 +123,7 @@
 [ext_resource type="Texture2D" uid="uid://cs61upta10806" path="res://assets/self-drawn/ui/kit/slider_track.png" id="kit_slider_track"]
 [ext_resource type="Texture2D" uid="uid://c5j642674ykmi" path="res://assets/self-drawn/ui/kit/slot_disabled.png" id="kit_slot_disabled"]
 [ext_resource type="Texture2D" uid="uid://c0w2bvj6fw1lh" path="res://assets/self-drawn/ui/kit/slot_focus.png" id="kit_slot_focus"]
+[ext_resource type="Texture2D" path="res://assets/self-drawn/ui/kit/slot_held.png" id="kit_slot_held"]
 [ext_resource type="Texture2D" uid="uid://coxp8ny5dfa3c" path="res://assets/self-drawn/ui/kit/slot_locked.png" id="kit_slot_locked"]
 [ext_resource type="Texture2D" uid="uid://ddg076haatiil" path="res://assets/self-drawn/ui/kit/slot_normal.png" id="kit_slot_normal"]
 [ext_resource type="Texture2D" uid="uid://5d1b4xo84cf2" path="res://assets/self-drawn/ui/kit/slot_select.png" id="kit_slot_select"]
@@ -387,6 +388,14 @@ Texture = ExtResource("kit_row_selected")
 Left = 4
 Right = 4
 
+[sub_resource type="Resource" id="nine_kit_rarity_edge"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("kit_rarity_edge")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
+
 [sub_resource type="Resource" id="nine_kit_scroll_slim_knob"]
 script = ExtResource("nine_piece")
 Texture = ExtResource("kit_scroll_slim_knob")
@@ -410,6 +419,30 @@ script = ExtResource("nine_piece")
 Texture = ExtResource("kit_slider_track")
 Left = 4
 Right = 4
+
+[sub_resource type="Resource" id="nine_kit_slot_focus"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("kit_slot_focus")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
+
+[sub_resource type="Resource" id="nine_kit_slot_held"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("kit_slot_held")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
+
+[sub_resource type="Resource" id="nine_kit_slot_normal"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("kit_slot_normal")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
 
 [sub_resource type="Resource" id="nine_kit_tabtext_disabled"]
 script = ExtResource("nine_piece")
@@ -487,6 +520,22 @@ Top = 5
 Right = 5
 Bottom = 5
 
+[sub_resource type="Resource" id="nine_world_cell_blocked"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("world_cell_blocked")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
+
+[sub_resource type="Resource" id="nine_world_cell_usable"]
+script = ExtResource("nine_piece")
+Texture = ExtResource("world_cell_usable")
+Left = 4
+Top = 4
+Right = 4
+Bottom = 4
+
 [sub_resource type="Resource" id="nine_world_hint_frame"]
 script = ExtResource("nine_piece")
 Texture = ExtResource("world_hint_frame")
@@ -551,12 +600,13 @@ KitButtonIconBattery = ExtResource("kit_button_icon_battery")
 KitButtonIconSkip = ExtResource("kit_button_icon_skip")
 KitCheckOff = ExtResource("kit_check_off")
 KitCheckOn = ExtResource("kit_check_on")
-KitSlotNormal = ExtResource("kit_slot_normal")
+KitSlotNormal = SubResource("nine_kit_slot_normal")
 KitSlotDisabled = ExtResource("kit_slot_disabled")
+KitSlotHeld = SubResource("nine_kit_slot_held")
 KitSlotLocked = ExtResource("kit_slot_locked")
 KitSlotSelect = ExtResource("kit_slot_select")
-KitSlotFocus = ExtResource("kit_slot_focus")
-KitRarityEdge = ExtResource("kit_rarity_edge")
+KitSlotFocus = SubResource("nine_kit_slot_focus")
+KitRarityEdge = SubResource("nine_kit_rarity_edge")
 KitIconFrame = ExtResource("kit_icon_frame")
 KitSocketOpen = ExtResource("kit_socket_open")
 KitSocketLocked = ExtResource("kit_socket_locked")
@@ -625,8 +675,8 @@ WorldRingCast = ExtResource("world_ring_cast")
 WorldRingCastFill = ExtResource("world_ring_cast_fill")
 WorldRingTransfer = ExtResource("world_ring_transfer")
 WorldRingTransferFill = ExtResource("world_ring_transfer_fill")
-WorldCellUsable = ExtResource("world_cell_usable")
-WorldCellBlocked = ExtResource("world_cell_blocked")
+WorldCellUsable = SubResource("nine_world_cell_usable")
+WorldCellBlocked = SubResource("nine_world_cell_blocked")
 WorldBubble = SubResource("nine_world_bubble")
 WorldBubbleTail = ExtResource("world_bubble_tail")
 WorldHintFrame = SubResource("nine_world_hint_frame")

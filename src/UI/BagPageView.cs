@@ -26,7 +26,9 @@ public sealed record BagPageSource(
 /// 格距归规则层、有测试管着，背包多了格只多几行。
 ///
 /// 每一格是一个按钮，键盘与手柄靠焦点在格子与右边那一列之间走，鼠标指上去与焦点停上去是同一个样子（格子里那一圈亮边）。
-/// 挪格是点一格、再点目标格：第一下拿起那一堆（外面套一圈选中框），第二下放过去 —— 空着就挪过去，是同标识的就合进去，
+/// 一堆画成一块：格子框挨着格子框，大东西那几格并成一个大框、图放正中，点到一块里的哪一格都是那一堆。
+/// 挪格是点一格、再点目标格：第一下拿起那一堆（那一块的格子底色亮一档），之后指着哪里，那里就画出它要占的那一块，
+/// 放得下与放不下用两张形状不同的件；第二下放过去 —— 空着就挪过去，是同标识的就合进去，
 /// 压到别的东西就什么都不动、手上照旧拿着，可以再点别处；点回原来那一格是放回去。不互换（设计仓 design/背包系统.md 的
 /// 「一堆放在哪：先合堆，再找第一块够大的空地，不能旋转」一节）。不做拖拽，两种操作方式因此走同一套（设计仓
 /// spec/prd-items-in-bag.md 的「非目标」一节）。空格拿不起来。
@@ -56,8 +58,13 @@ public sealed partial class BagPageView : VBoxContainer
     private readonly Theme _theme;
     private readonly BagControls _controls = new();
     private readonly List<Cell> _cells = [];
+    private readonly Dictionary<int, Block> _blocks = [];
     private readonly Dictionary<BagSortKey, Button> _sortButtons = [];
-    private readonly GridContainer _grid;
+    private readonly Control _grid;
+    private readonly Control _cellLayer;
+    private readonly Control _blockLayer;
+    private readonly Control _numberLayer;
+    private readonly NinePatchRect _preview;
     private readonly Button _category;
     private readonly Button _quality;
     private readonly Button _tidy;
@@ -66,8 +73,16 @@ public sealed partial class BagPageView : VBoxContainer
     private readonly Label _info;
     private readonly Texture2D _slotNormal;
     private readonly Texture2D _slotDisabled;
+    private readonly Texture2D _slotFocus;
+    private readonly NinePiece _frame;
+    private readonly NinePiece _heldFrame;
+    private readonly NinePiece _focusRing;
+    private readonly NinePiece _rarityRing;
+    private readonly NinePiece _dropFits;
+    private readonly NinePiece _dropBlocked;
     private ConfirmDialog? _confirm;
-    private IReadOnlyList<BagCell?> _shown = [];
+    private int?[] _anchorOf = [];
+    private int _columns;
     private int? _held;
     private int? _hovered;
     private int? _focused;
@@ -86,7 +101,14 @@ public sealed partial class BagPageView : VBoxContainer
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _ui = ui ?? throw new ArgumentNullException(nameof(ui));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
-        _slotNormal = HudPlace.Piece(art.KitSlotNormal, "kit/slot_normal");
+        _frame = Nine(art.KitSlotNormal, "kit/slot_normal");
+        _heldFrame = Nine(art.KitSlotHeld, "kit/slot_held");
+        _focusRing = Nine(art.KitSlotFocus, "kit/slot_focus");
+        _rarityRing = Nine(art.KitRarityEdge, "kit/rarity_edge");
+        _dropFits = Nine(art.WorldCellUsable, "world/cell_usable");
+        _dropBlocked = Nine(art.WorldCellBlocked, "world/cell_blocked");
+        _slotNormal = _frame.Texture!;
+        _slotFocus = _focusRing.Texture!;
         _slotDisabled = HudPlace.Piece(art.KitSlotDisabled, "kit/slot_disabled");
         Name = "BagPage";
         AddThemeConstantOverride("separation", UIMetrics.ItemGap);
@@ -104,11 +126,15 @@ public sealed partial class BagPageView : VBoxContainer
         };
         top.AddChild(frame);
 
-        // 一行几格跟着背包网格的宽走，搭格子时照那一份背包设（Rebuild）。
-        _grid = new GridContainer { Name = "Grid" };
-        _grid.AddThemeConstantOverride("h_separation", BagPageLayout.CellGap);
-        _grid.AddThemeConstantOverride("v_separation", BagPageLayout.CellGap);
+        // 格子那一片多大跟着背包网格走，搭格子时照那一份背包设（Rebuild）。四层从下往上：一格一个按钮（管点与焦点）、
+        // 每一堆那一块、随身栏的格号、放下之前的预览；后三层不接鼠标，点到哪一格都落在下面那个按钮上。
+        _grid = new Control { Name = "Grid" };
         frame.AddChild(_grid);
+        _cellLayer = Layer("Cells");
+        _blockLayer = Layer("Blocks");
+        _numberLayer = Layer("CarryNumbers");
+        _preview = new NinePatchRect { Name = "Preview", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _grid.AddChild(_preview);
 
         // 这一列多高由 BagPageLayout.ControlsHeight 算：这里加一行，那边的行数跟着改。
         var controls = new VBoxContainer { Name = "Controls" };
@@ -165,16 +191,17 @@ public sealed partial class BagPageView : VBoxContainer
     public void Refresh()
     {
         var bag = _source.Bag();
-        _shown = BagPage.CellsOf(bag);
-        if (_cells.Count != _shown.Count || _grid.Columns != bag.GridWidth)
+        var count = bag.CarryCount + bag.SlotCount;
+        if (_cells.Count != count || _columns != bag.GridWidth)
         {
-            _grid.Columns = bag.GridWidth;
-            Rebuild(_shown.Count, bag.CarryCount);
+            Rebuild(bag);
         }
 
+        _anchorOf = [.. Enumerable.Range(0, count).Select(i => BagPage.AnchorIndexOf(bag, i))];
+        RebuildBlocks([.. BagPage.BlocksOf(bag).Where(b => _controls.Shows(bag, b.Index))]);
         for (var i = 0; i < _cells.Count; i++)
         {
-            Paint(_cells[i], _shown[i], _controls.Shows(bag, i));
+            Paint(_cells[i], _controls.Shows(bag, i), _anchorOf[i] is { } at && _blocks.ContainsKey(at));
         }
 
         foreach (var (key, button) in _sortButtons)
@@ -197,7 +224,8 @@ public sealed partial class BagPageView : VBoxContainer
     {
         if (_held is not { } held)
         {
-            if (_shown[slot] is not null)
+            // 点到一块里的哪一格都拿得起那一堆；拿起时点的那一格记下来，放下时对准指着的那一格。
+            if (_anchorOf[slot] is not null)
             {
                 _held = slot;
             }
@@ -261,7 +289,7 @@ public sealed partial class BagPageView : VBoxContainer
     private void AskDiscard()
     {
         // 手上没东西时这个按钮是灰的，按不到这里。
-        if (_held is not { } held || _shown[held] is not { } content)
+        if (_held is not { } held || ContentAt(held) is not { } content)
         {
             return;
         }
@@ -357,41 +385,157 @@ public sealed partial class BagPageView : VBoxContainer
 
     // ── 搭格子 ────────────────────────────────────────────────────────
 
-    /// <summary>格数变了：清掉旧的，按新的格数搭，开头 <paramref name="carryCount"/> 格是随身栏那一排。拿着的、指着的与停着的都不再算数。</summary>
-    private void Rebuild(int slotCount, int carryCount)
+    /// <summary>格数变了：清掉旧的，照这一份背包的大小重搭格子与随身栏的格号。拿着的、指着的与停着的都不再算数。</summary>
+    private void Rebuild(Bag bag)
     {
-        // 先摘下来再释放：释放要等这一帧末尾，留在格子那一片里的话，这一帧新旧两批格子会挤在一起排。
+        // 先摘下来再释放：释放要等这一帧末尾，留着的话这一帧新旧两批会叠在一起。
         foreach (var cell in _cells)
         {
-            _grid.RemoveChild(cell.Button);
+            _cellLayer.RemoveChild(cell.Button);
             cell.Button.QueueFree();
+        }
+
+        foreach (var number in _numberLayer.GetChildren())
+        {
+            _numberLayer.RemoveChild(number);
+            number.QueueFree();
         }
 
         _cells.Clear();
         _held = null;
         _hovered = null;
         _focused = null;
+        _columns = bag.GridWidth;
 
-        for (var i = 0; i < slotCount; i++)
+        var rows = BagPageLayout.PageRows(bag.GridHeight, bag.CarryCount, _columns);
+        _grid.CustomMinimumSize = new Vector2(BagPageLayout.GridWidth(_columns), BagPageLayout.GridHeight(rows));
+        for (var i = 0; i < bag.CarryCount + bag.SlotCount; i++)
         {
-            _cells.Add(Build(i, inCarry: i < carryCount));
+            var (column, row) = BagPage.PositionOf(bag, i);
+            var origin = BagPageLayout.CellOrigin(column, row);
+            _cells.Add(Build(i, origin));
+            if (i < bag.CarryCount)
+            {
+                AddCarryNumber(i, origin);
+            }
+        }
+    }
+
+    /// <summary>随身栏那一格左上角写它是第几格：写在每一块上面，那一格有东西时也看得见。</summary>
+    private void AddCarryNumber(int index, PixelPoint origin)
+    {
+        var holder = new Control
+        {
+            Name = $"Carry{index}",
+            MouseFilter = MouseFilterEnum.Ignore,
+            Position = At(origin),
+            Size = new Vector2(UIMetrics.Cell, UIMetrics.Cell),
+        };
+        _numberLayer.AddChild(holder);
+        var key = new MiniText(_art, MiniText.Corner.TopLeft)
+        {
+            Name = "CarryNumber",
+            Text = (index + 1).ToString(CultureInfo.InvariantCulture),
+        };
+        holder.AddChild(key);
+        key.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
+    }
+
+    /// <summary>照背包的当前值重搭每一块：看得见的每一堆一块，大东西那一块是格子框拉开的大框，图放在正中。</summary>
+    private void RebuildBlocks(IReadOnlyList<BagBlock> blocks)
+    {
+        foreach (var block in _blocks.Values)
+        {
+            _blockLayer.RemoveChild(block.Root);
+            block.Root.QueueFree();
+        }
+
+        _blocks.Clear();
+        foreach (var block in blocks)
+        {
+            _blocks[block.Index] = BuildBlock(block);
         }
     }
 
     /// <summary>
-    /// 一格：按钮本身不画东西（各态都是空的样式盒），上面一层层叠作者画的件。
+    /// 一块：格子框（拿起来的那一堆换成亮一档的那一张）、稀有度那一圈、图、品质点、件数，最上面是焦点那一圈。
     /// </summary>
     /// <remarks>
-    /// 叠的先后就是画的先后：格子、稀有度框、图标、品质点、件数、随身栏的格号、焦点框，最后是套在外面的选中框。
-    /// 稀有度框紧贴图标那一圈、焦点框在格子里面紧贴描边那一圈、选中框在格子外面一圈，三样同时在也都看得出来
-    /// （设计仓 production/界面绘制约定.md）。格号在左上、件数在右下、品质点在左下，三个角各放一样。
+    /// 稀有度那一圈紧贴图、焦点那一圈在格子框里面紧贴描边，大的那几块把同一张件按九宫格拉开（设计仓
+    /// production/界面绘制约定.md）。件数在右下、品质点在左下，随身栏的格号在左上，三个角各放一样。
     /// </remarks>
-    private Cell Build(int index, bool inCarry)
+    private Block BuildBlock(BagBlock block)
+    {
+        var size = BagPageLayout.BlockSize(block.Width, block.Height);
+        var root = new Control
+        {
+            Name = $"Block{block.Index}",
+            MouseFilter = MouseFilterEnum.Ignore,
+            Position = At(BagPageLayout.CellOrigin(block.Column, block.Row)),
+            Size = new Vector2(size.Width, size.Height),
+        };
+        _blockLayer.AddChild(root);
+
+        var frame = Stretched(_frame, "Frame", Vector2.Zero, root.Size);
+        root.AddChild(frame);
+
+        var picture = BagPageLayout.PictureSize(block.Width, block.Height);
+        var offset = At(BagPageLayout.PictureOffset(block.Width, block.Height));
+        var ring = new Vector2(UIMetrics.CellInset, UIMetrics.CellInset);
+        var rarity = Stretched(
+            _rarityRing, "Rarity", offset - ring, new Vector2(picture.Width, picture.Height) + (2 * ring));
+        rarity.Modulate = ColorOf(block.Content.RarityColor);
+        root.AddChild(rarity);
+
+        root.AddChild(new TextureRect
+        {
+            Name = "Icon",
+            StretchMode = TextureRect.StretchModeEnum.Keep,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Position = offset,
+            Size = new Vector2(picture.Width, picture.Height),
+            Texture = _source.Icons(block.Content.ItemId, block.Content.QualityId),
+        });
+
+        if (block.Content.QualityColor is { } quality)
+        {
+            var pipTexture = HudPlace.Piece(_art.KitPipLarge, "kit/pip_large");
+            var pip = HudPlace.Picture(pipTexture, "kit/pip_large");
+            pip.Name = "Pip";
+            pip.Position = new Vector2(
+                BagPageLayout.PipInset, size.Height - BagPageLayout.PipInset - pipTexture.GetHeight());
+            pip.Modulate = ColorOf(quality);
+            root.AddChild(pip);
+        }
+
+        if (block.Content.ShowsCount)
+        {
+            var count = new MiniText(_art, MiniText.Corner.BottomRight)
+            {
+                Name = "Count",
+                Text = block.Content.Count.ToString(CultureInfo.InvariantCulture),
+            };
+            root.AddChild(count);
+            count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
+        }
+
+        var focus = Stretched(_focusRing, "Focus", Vector2.Zero, root.Size);
+        focus.Visible = false;
+        root.AddChild(focus);
+        return new Block(block, root, frame, focus);
+    }
+
+    /// <summary>
+    /// 一格：按钮本身不画东西（各态都是空的样式盒），管点与焦点；上面叠一张格子框与焦点那一圈，那一格被一块盖着时都收起来，
+    /// 由那一块画。
+    /// </summary>
+    private Cell Build(int index, PixelPoint origin)
     {
         var button = new Button
         {
             Name = $"Slot{index}",
             FocusMode = FocusModeEnum.All,
+            Position = At(origin),
             CustomMinimumSize = new Vector2(UIMetrics.Cell, UIMetrics.Cell),
         };
         foreach (var state in (string[])["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"])
@@ -399,65 +543,24 @@ public sealed partial class BagPageView : VBoxContainer
             button.AddThemeStyleboxOverride(state, new StyleBoxEmpty());
         }
 
-        _grid.AddChild(button);
+        _cellLayer.AddChild(button);
 
         var slot = HudPlace.Picture(_slotNormal, "kit/slot_normal");
         slot.Name = "Slot";
         button.AddChild(slot);
 
-        var rarity = HudPlace.Picture(_art.KitRarityEdge, "kit/rarity_edge");
-        rarity.Name = "Rarity";
-        button.AddChild(rarity);
-
-        var icon = new TextureRect
-        {
-            Name = "Icon",
-            StretchMode = TextureRect.StretchModeEnum.Keep,
-            MouseFilter = MouseFilterEnum.Ignore,
-            Position = new Vector2(UIMetrics.CellInset, UIMetrics.CellInset),
-            Size = new Vector2(UIMetrics.IconSmall, UIMetrics.IconSmall),
-        };
-        button.AddChild(icon);
-
-        var pipTexture = HudPlace.Piece(_art.KitPipLarge, "kit/pip_large");
-        var pip = HudPlace.Picture(pipTexture, "kit/pip_large");
-        pip.Name = "Pip";
-        pip.Position = new Vector2(BagPageLayout.PipInset, UIMetrics.Cell - BagPageLayout.PipInset - pipTexture.GetHeight());
-        button.AddChild(pip);
-
-        var count = new MiniText(_art, MiniText.Corner.BottomRight) { Name = "Count" };
-        button.AddChild(count);
-        count.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
-
-        if (inCarry)
-        {
-            var key = new MiniText(_art, MiniText.Corner.TopLeft)
-            {
-                Name = "CarryNumber",
-                Text = (index + 1).ToString(CultureInfo.InvariantCulture),
-            };
-            button.AddChild(key);
-            key.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, HudLayout.CellCornerInset);
-        }
-
-        var focus = HudPlace.Picture(_art.KitSlotFocus, "kit/slot_focus");
+        var focus = HudPlace.Picture(_slotFocus, "kit/slot_focus");
         focus.Name = "Focus";
         focus.Visible = false;
         button.AddChild(focus);
 
-        var select = HudPlace.Picture(_art.KitSlotSelect, "kit/slot_select");
-        select.Name = "Select";
-        select.Visible = false;
-        select.Position = new Vector2(-UIMetrics.SelectOutset, -UIMetrics.SelectOutset);
-        button.AddChild(select);
+        var cell = new Cell(button, slot, focus);
 
-        var cell = new Cell(button, slot, rarity, icon, pip, count, focus, select);
-
-        // 鼠标指着与焦点停着是同一个样子；两样都离开了才收起。下面那一行跟着换。
+        // 鼠标指着与焦点停着是同一个样子；两样都离开了才收起。下面那一行与放下之前的预览跟着换。
         button.FocusEntered += () =>
         {
             _focused = index;
-            ShowFocus(cell);
+            ShowFocus();
             ShowSelection();
         };
         button.FocusExited += () =>
@@ -467,14 +570,14 @@ public sealed partial class BagPageView : VBoxContainer
                 _focused = null;
             }
 
-            ShowFocus(cell);
+            ShowFocus();
             ShowSelection();
         };
         button.MouseEntered += () =>
         {
             _hovered = index;
             cell.Hovered = true;
-            ShowFocus(cell);
+            ShowFocus();
             ShowSelection();
         };
         button.MouseExited += () =>
@@ -485,7 +588,7 @@ public sealed partial class BagPageView : VBoxContainer
             }
 
             cell.Hovered = false;
-            ShowFocus(cell);
+            ShowFocus();
             ShowSelection();
         };
         button.Pressed += () => Press(index);
@@ -493,57 +596,129 @@ public sealed partial class BagPageView : VBoxContainer
         return cell;
     }
 
-    /// <summary>把一格画成它装的那一堆；空格只画格子，被筛掉的画成用不了的格子、不画里面的东西。</summary>
-    private void Paint(Cell cell, BagCell? content, bool shown)
+    /// <summary>
+    /// 一格自己画什么：被一块盖着就什么都不画（那一块画）；空格只画格子；被筛掉的画成用不了的格子，点不到、焦点也停不上去。
+    /// </summary>
+    private void Paint(Cell cell, bool shown, bool covered)
     {
         cell.Button.Disabled = !shown;
         cell.Button.FocusMode = shown ? FocusModeEnum.All : FocusModeEnum.None;
         CursorSkin.ApplyButtonShape(cell.Button);
         cell.Slot.Texture = shown ? _slotNormal : _slotDisabled;
-        ShowFocus(cell);
-
-        var drawn = shown ? content : null;
-        cell.Rarity.Visible = drawn is not null;
-        cell.Icon.Visible = drawn is not null;
-        cell.Pip.Visible = drawn?.QualityColor is not null;
-        cell.Count.Text = drawn is { ShowsCount: true } many
-            ? many.Count.ToString(CultureInfo.InvariantCulture)
-            : string.Empty;
-
-        if (drawn is null)
-        {
-            cell.Icon.Texture = null;
-            return;
-        }
-
-        cell.Icon.Texture = _source.Icons(drawn.ItemId, drawn.QualityId);
-        cell.Rarity.Modulate = ColorOf(drawn.RarityColor);
-        if (drawn.QualityColor is { } quality)
-        {
-            cell.Pip.Modulate = ColorOf(quality);
-        }
+        cell.Slot.Visible = !covered;
+        cell.Covered = covered;
     }
 
-    /// <summary>选中框套在拿起来的那一格外面，丢弃跟着它灰与不灰；下面那一行写指着、停着或拿着的那一格。</summary>
+    /// <summary>
+    /// 拿起来的那一块换成亮一档的格子框，丢弃跟着它灰与不灰；下面那一行写指着、停着或拿着的那一堆；拿着东西时，
+    /// 指着的地方画出它要占的那一块。
+    /// </summary>
     private void ShowSelection()
     {
-        for (var i = 0; i < _cells.Count; i++)
+        var heldBlock = _held is { } held && held < _anchorOf.Length ? _anchorOf[held] : null;
+        foreach (var (index, block) in _blocks)
         {
-            _cells[i].Select.Visible = i == _held;
+            Dress(block.Frame, index == heldBlock ? _heldFrame : _frame);
         }
 
         _discard.Disabled = _held is null;
         CursorSkin.ApplyButtonShape(_discard);
 
         var slot = _hovered ?? _focused ?? _held;
-        _info.Text = slot is { } at && at < _shown.Count && !_cells[at].Button.Disabled && _shown[at] is { } content
+        _info.Text = slot is { } at && at < _cells.Count && !_cells[at].Button.Disabled && ContentAt(at) is { } content
             ? BagPage.InfoLine(content, _source.Bag().Items, _text)
             : string.Empty;
+
+        ShowPreview();
     }
 
-    /// <summary>格子里那一圈亮边：焦点停着或鼠标指着就亮；用不了的格不亮。</summary>
-    private static void ShowFocus(Cell cell) =>
-        cell.Focus.Visible = !cell.Button.Disabled && (cell.Hovered || cell.Button.HasFocus());
+    /// <summary>
+    /// 拿着一堆指着别处时，要占的那一块上画四个角：放得下是够得到的那一张，放不下是够不到的那一张（形状不同，不只换颜色）。
+    /// 指着拿起时点的那一格、被筛掉的格，或者手上没东西时不画。
+    /// </summary>
+    private void ShowPreview()
+    {
+        var pointed = _hovered ?? _focused;
+        if (_held is not { } held || pointed is not { } at || at >= _cells.Count || _cells[at].Button.Disabled
+            || _controls.Preview(_source.Bag(), held, at) is not { } preview)
+        {
+            _preview.Visible = false;
+            return;
+        }
+
+        var origin = At(BagPageLayout.CellOrigin(preview.Column, preview.Row));
+        var size = BagPageLayout.BlockSize(preview.Width, preview.Height);
+        var inset = new Vector2(BagPageLayout.PreviewInset, BagPageLayout.PreviewInset);
+        Dress(_preview, preview.Fits ? _dropFits : _dropBlocked);
+        _preview.Position = origin + inset;
+        _preview.Size = new Vector2(size.Width, size.Height) - (2 * inset);
+        _preview.Visible = true;
+    }
+
+    /// <summary>
+    /// 焦点那一圈：焦点停着或鼠标指着就亮；指着的那一格被一块盖着时亮的是那一整块；用不了的格不亮。
+    /// </summary>
+    private void ShowFocus()
+    {
+        var pointedBlocks = new HashSet<int>();
+        for (var i = 0; i < _cells.Count; i++)
+        {
+            var cell = _cells[i];
+            var pointed = !cell.Button.Disabled && (cell.Hovered || cell.Button.HasFocus());
+            cell.Focus.Visible = pointed && !cell.Covered;
+            if (pointed && cell.Covered && i < _anchorOf.Length && _anchorOf[i] is { } at)
+            {
+                pointedBlocks.Add(at);
+            }
+        }
+
+        foreach (var (index, block) in _blocks)
+        {
+            block.Focus.Visible = pointedBlocks.Contains(index);
+        }
+    }
+
+    /// <summary>页上第 <paramref name="index"/> 格被哪一堆盖着、画的是什么；空着或那一堆被筛掉了是 <c>null</c>。</summary>
+    private BagCell? ContentAt(int index) =>
+        index < _anchorOf.Length && _anchorOf[index] is { } at && _blocks.TryGetValue(at, out var block)
+            ? block.Shape.Content
+            : null;
+
+    /// <summary>格子那一片里的一层：跟着那一片一样大，自己不接鼠标。</summary>
+    private Control Layer(string name)
+    {
+        var layer = new Control { Name = name, MouseFilter = MouseFilterEnum.Ignore };
+        _grid.AddChild(layer);
+        layer.SetAnchorsPreset(LayoutPreset.FullRect);
+        return layer;
+    }
+
+    /// <summary>取一张拉得开的件；缺图当场报，说清缺哪一张。</summary>
+    private static NinePiece Nine(NinePiece? piece, string name)
+    {
+        _ = HudPlace.Piece(piece?.Texture, name);
+        return piece!;
+    }
+
+    /// <summary>一张按九宫格拉开的件，边距照素材资源里那一格。</summary>
+    private static NinePatchRect Stretched(NinePiece piece, string name, Vector2 position, Vector2 size)
+    {
+        var rect = new NinePatchRect { Name = name, MouseFilter = MouseFilterEnum.Ignore, Position = position, Size = size };
+        Dress(rect, piece);
+        return rect;
+    }
+
+    /// <summary>换一张件：图与九宫格边距一起换。</summary>
+    private static void Dress(NinePatchRect rect, NinePiece piece)
+    {
+        rect.Texture = piece.Texture;
+        rect.PatchMarginLeft = piece.Left;
+        rect.PatchMarginTop = piece.Top;
+        rect.PatchMarginRight = piece.Right;
+        rect.PatchMarginBottom = piece.Bottom;
+    }
+
+    private static Vector2 At(PixelPoint point) => new(point.X, point.Y);
 
     /// <summary>档位声明的显示色是色板里一项的名字；载入物品时核过在色板里，取不到就是读的不是同一份色板。</summary>
     private Color ColorOf(string entry) =>
@@ -567,18 +742,20 @@ public sealed partial class BagPageView : VBoxContainer
         return button;
     }
 
-    private sealed class Cell(
-        Button button, TextureRect slot, TextureRect rarity, TextureRect icon, TextureRect pip, MiniText count,
-        TextureRect focus, TextureRect select)
+    private sealed class Cell(Button button, TextureRect slot, TextureRect focus)
     {
         public Button Button { get; } = button;
         public TextureRect Slot { get; } = slot;
-        public TextureRect Rarity { get; } = rarity;
-        public TextureRect Icon { get; } = icon;
-        public TextureRect Pip { get; } = pip;
-        public MiniText Count { get; } = count;
         public TextureRect Focus { get; } = focus;
-        public TextureRect Select { get; } = select;
         public bool Hovered { get; set; }
+        public bool Covered { get; set; }
+    }
+
+    private sealed class Block(BagBlock shape, Control root, NinePatchRect frame, NinePatchRect focus)
+    {
+        public BagBlock Shape { get; } = shape;
+        public Control Root { get; } = root;
+        public NinePatchRect Frame { get; } = frame;
+        public NinePatchRect Focus { get; } = focus;
     }
 }
