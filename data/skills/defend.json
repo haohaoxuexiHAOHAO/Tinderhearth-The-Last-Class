@@ -1,5 +1,5 @@
 {
-  "//": "防御：冷却 1、占回合，给自己挂「格挡」，到自己下一回合为止受到的伤害降低（工作区根 desc/战斗规则.md 的「防御与命中」）。不打人，伤害那几格写 null；格挡动画大家共用，兵器种类写 null。每一格是什么在代码仓 rules/Progression/SkillDefinition.cs。名字与描述在 data/text/zh-CN.json。",
+  "//": "防御：冷却 1、占回合，给自己挂「格挡」，到自己下一回合为止受到的伤害降低（工作区根 desc/战斗规则.md 的「防御与命中」），降低几成在 data/config/combat.json 的 damage.blockReduction。不打人，伤害那几格写 null；格挡动画大家共用，兵器种类写 null。每一格是什么在代码仓 rules/Progression/SkillDefinition.cs。名字与描述在 data/text/zh-CN.json。",
   "id": "defend",
   "nameKey": "skill.defend.name",
   "descriptionKey": "skill.defend.description",

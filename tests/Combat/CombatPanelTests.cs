@@ -46,6 +46,19 @@ public class CombatPanelTests
         Assert.Equal(1.4, panel.PhysicalCritMultiplier, precision: 10);
     }
 
+    /// <summary>1.15 × 100 在浮点里是 114.99999999999999，直接取整会少 1 点。</summary>
+    [Fact]
+    public void 本该是整数的不因浮点误差少1点()
+    {
+        var config = Config(perPoint: 1.15, baseValue: 0);
+        var attributes = new CharacterAttributes { Strength = 100, Agility = 100, Constitution = 100, Intellect = 100 };
+
+        var panel = CombatPanel.From(attributes, config.Panel);
+
+        Assert.Equal(115, panel.HpMax);
+        Assert.Equal(115, panel.PhysicalAttack);
+    }
+
     /// <summary>配置里每一项都要写：缺了不许悄悄落成 0。</summary>
     [Fact]
     public void 配置里缺任一项载入被拒并点名那一项()
@@ -100,6 +113,8 @@ public class CombatPanelTests
         {
             ["panel"] = panel,
             ["movement"] = new JsonObject { ["stepCost"] = 1, ["extraBesideEnemy"] = 1 },
+            ["hit"] = new JsonObject { ["minChance"] = 0.05, ["maxChance"] = 0.95, ["dodgeByDistance"] = new JsonArray(0.5, 1.0) },
+            ["damage"] = new JsonObject { ["defenseK"] = 60, ["blockReduction"] = 0.5 },
         };
     }
 }

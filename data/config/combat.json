@@ -22,5 +22,16 @@
     "//": "走一格花几点、贴着敌人走那一步多花几点，照工作区根 desc/各类公式计算.md 的「行动力」抄来；斜着走也算一格。",
     "stepCost": 1,
     "extraBesideEnemy": 1
+  },
+  "hit": {
+    "//": "命中几率 = 攻方命中率 − 守方面板闪避率 × 距离倍率，常规情况下限制在 minChance 到 maxChance 之间，照工作区根 desc/各类公式计算.md 的「命中」。5%、95% 与挨着时的 50% 照 desc 抄来。dodgeByDistance 的第一个数是挨着（隔 1 格）时的，每多隔一格取下一个，比这一串还远的都取最后一个，只升不降；隔 2 格及以上的 desc 写待定，这里是占位。",
+    "minChance": 0.05,
+    "maxChance": 0.95,
+    "dodgeByDistance": [0.5, 0.75, 1.0]
+  },
+  "damage": {
+    "//": "伤害 = 攻击 × 技能倍率 × (1 − 防御减免) × 暴击倍率 × 其他增减，算完向下取整、最少 1 点；防御减免 = 有效防御 ÷ (有效防御 + defenseK)，照工作区根 desc/各类公式计算.md 的「伤害」。defenseK 照设计仓 design/numeric-model-params.json 的 derived.def_softening_k 抄来；blockReduction 是挂着「格挡」时受到的伤害降低几成，desc 没写数，这里是占位。",
+    "defenseK": 60,
+    "blockReduction": 0.5
   }
 }

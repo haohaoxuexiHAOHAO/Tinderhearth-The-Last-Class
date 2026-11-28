@@ -85,7 +85,7 @@ public sealed record SkillDefinition
     }
 
     /// <summary>用了给自己挂哪个状态，写状态的标识（工作区根 desc/状态.md 那一列）；不挂的写 <c>null</c>。</summary>
-    /// <remarks>标识认不认得由用到它的那一侧核：打一场仗那份需求里只认「格挡」（设计仓台账 GP-183）。</remarks>
+    /// <remarks>标识认不认得，打仗那一侧在载入时核（<see cref="Combat.CombatContent"/>），认得哪几个在 <see cref="Combat.CombatStatusIds"/>。</remarks>
     public required string? SelfStatusId
     {
         get;

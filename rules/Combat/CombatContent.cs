@@ -3,10 +3,10 @@ using Tinderhearth.Rules.Progression;
 
 namespace Tinderhearth.Rules.Combat;
 
-/// <summary>打仗要读的那几样内容：角色、技能与战斗配置。读完核角色指的招在不在册。</summary>
+/// <summary>打仗要读的那几样内容：角色、技能与战斗配置。读完核角色指的招在不在册、招给自己挂的状态认不认得。</summary>
 /// <remarks>
 /// 启动时那一次核对与战斗场景走同一处，理由同 <see cref="ItemCatalog"/>：两处各读一份的话，坏掉的那一份要进了战斗才报错，
-/// 导出冒烟判不到。指不到的招一次全报，一行一处，免得改完一处重跑才看见下一处。
+/// 导出冒烟判不到。对不上的一次全报，一行一处，免得改完一处重跑才看见下一处。
 /// </remarks>
 public sealed class CombatContent
 {
@@ -47,7 +47,7 @@ public sealed class CombatContent
         return Build(characters, skills, CombatConfig.Load(catalog));
     }
 
-    /// <summary>核每个角色指的普通攻击与防御都在册；不在册的一次全报。</summary>
+    /// <summary>核每个角色指的普通攻击与防御都在册、每一招给自己挂的状态打仗时认得；对不上的一次全报。</summary>
     public static CombatContent Build(
         IReadOnlyDictionary<string, CharacterDefinition> characters,
         IReadOnlyDictionary<string, SkillDefinition> skills,
@@ -57,24 +57,32 @@ public sealed class CombatContent
         ArgumentNullException.ThrowIfNull(skills);
         ArgumentNullException.ThrowIfNull(config);
 
-        var missing = new List<string>();
+        var problems = new List<string>();
         foreach (var character in characters.Values.OrderBy(c => c.Id, StringComparer.Ordinal))
         {
             if (!skills.ContainsKey(character.BasicAttackSkillId))
             {
-                missing.Add($"角色 {character.Id} 的普通攻击「{character.BasicAttackSkillId}」");
+                problems.Add($"角色 {character.Id} 的普通攻击「{character.BasicAttackSkillId}」不在 {SkillDefinition.ContentDirectory}/ 里");
             }
 
             if (!skills.ContainsKey(character.DefendSkillId))
             {
-                missing.Add($"角色 {character.Id} 的防御「{character.DefendSkillId}」");
+                problems.Add($"角色 {character.Id} 的防御「{character.DefendSkillId}」不在 {SkillDefinition.ContentDirectory}/ 里");
             }
         }
 
-        return missing.Count == 0
+        foreach (var skill in skills.Values.OrderBy(s => s.Id, StringComparer.Ordinal))
+        {
+            if (skill.SelfStatusId is { } status && !CombatStatusIds.Known.Contains(status))
+            {
+                problems.Add(
+                    $"技能 {skill.Id} 给自己挂的状态「{status}」打仗时认不得，现在只认 {string.Join("、", CombatStatusIds.Known.Order(StringComparer.Ordinal))}");
+            }
+        }
+
+        return problems.Count == 0
             ? new CombatContent(characters, skills, config)
-            : throw new InvalidDataException(
-                $"角色指的招有 {missing.Count} 处不在 {SkillDefinition.ContentDirectory}/ 里：\n{string.Join("\n", missing)}");
+            : throw new InvalidDataException($"打仗要读的内容有 {problems.Count} 处对不上：\n{string.Join("\n", problems)}");
     }
 
     /// <summary>这个角色的面板，照他的属性与配置算。</summary>

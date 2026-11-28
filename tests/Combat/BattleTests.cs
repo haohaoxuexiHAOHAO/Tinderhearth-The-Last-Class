@@ -108,9 +108,11 @@ public class BattleTests
         var battle = TestBattles.Start(
             6,
             3,
-            (TestBattles.Character("jin"), CombatSide.Ally, JinStart),
-            (TestBattles.Character("xuesheng"), CombatSide.Ally, new GridCell(0, 2)),
-            (TestBattles.Character("diren1"), CombatSide.Enemy, new GridCell(1, 1)));
+            [
+                (TestBattles.Character("jin"), CombatSide.Ally, JinStart),
+                (TestBattles.Character("xuesheng"), CombatSide.Ally, new GridCell(0, 2)),
+                (TestBattles.Character("diren1"), CombatSide.Enemy, new GridCell(1, 1)),
+            ]);
 
         Assert.Equal(2, battle.Reach().CostTo(new GridCell(1, 0)));
 
@@ -231,9 +233,11 @@ public class BattleTests
         var battle = TestBattles.Start(
             6,
             1,
-            (TestBattles.Character("jin"), CombatSide.Ally, new GridCell(2, 0)),
-            (TestBattles.Character("xuesheng"), CombatSide.Ally, new GridCell(0, 0)),
-            (TestBattles.Character("diren1"), CombatSide.Enemy, new GridCell(5, 0)));
+            [
+                (TestBattles.Character("jin"), CombatSide.Ally, new GridCell(2, 0)),
+                (TestBattles.Character("xuesheng"), CombatSide.Ally, new GridCell(0, 0)),
+                (TestBattles.Character("diren1"), CombatSide.Enemy, new GridCell(5, 0)),
+            ]);
 
         battle.EndTurn();
         Assert.Equal("xuesheng", battle.Current.Character.Id);
@@ -260,7 +264,7 @@ public class BattleTests
         var room = BattleRoom.Create(TestBattles.Floor(4, 1), [], positions, characters);
         var content = TestBattles.Content(characters.Where(c => c.Key != "diren1").ToDictionary(c => c.Key, c => c.Value));
 
-        var error = Assert.Throws<ArgumentException>(() => Battle.Start(room, content));
+        var error = Assert.Throws<ArgumentException>(() => Battle.Start(room, content, TestBattles.NoRolls));
 
         Assert.Contains("diren1", error.Message, StringComparison.Ordinal);
     }
@@ -272,11 +276,13 @@ public class BattleTests
     private static Battle Standard() => TestBattles.Start(
         14,
         7,
-        (TestBattles.Character("jin", agility: 1), CombatSide.Ally, JinStart),
-        (TestBattles.Character("xuesheng", agility: 4, actionPoints: 4), CombatSide.Ally, new GridCell(0, 2)),
-        (TestBattles.Character("diren1", agility: 2), CombatSide.Enemy, new GridCell(12, 0)),
-        (TestBattles.Character("xuesheng2", agility: 7), CombatSide.Ally, new GridCell(0, 4)),
-        (TestBattles.Character("diren2", agility: 6), CombatSide.Enemy, new GridCell(12, 4)));
+        [
+            (TestBattles.Character("jin", agility: 1), CombatSide.Ally, JinStart),
+            (TestBattles.Character("xuesheng", agility: 4, actionPoints: 4), CombatSide.Ally, new GridCell(0, 2)),
+            (TestBattles.Character("diren1", agility: 2), CombatSide.Enemy, new GridCell(12, 0)),
+            (TestBattles.Character("xuesheng2", agility: 7), CombatSide.Ally, new GridCell(0, 4)),
+            (TestBattles.Character("diren2", agility: 6), CombatSide.Enemy, new GridCell(12, 4)),
+        ]);
 
     /// <summary><see cref="Standard"/> 开打时谁站在哪一格、是哪一边的。</summary>
     private static Dictionary<GridCell, CombatSide> StandardStanding() => new()

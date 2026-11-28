@@ -25,6 +25,20 @@ public sealed record CombatConfig
         init => field = value ?? throw new ArgumentNullException(nameof(Movement), $"{ContentPath} 的 Movement 不得为 null");
     }
 
+    /// <summary>打不打得中。</summary>
+    public required HitConfig Hit
+    {
+        get;
+        init => field = (value ?? throw new ArgumentNullException(nameof(Hit), $"{ContentPath} 的 Hit 不得为 null")).Checked();
+    }
+
+    /// <summary>打多少。</summary>
+    public required DamageConfig Damage
+    {
+        get;
+        init => field = value ?? throw new ArgumentNullException(nameof(Damage), $"{ContentPath} 的 Damage 不得为 null");
+    }
+
     public static CombatConfig Parse(string json) => ContentJson.Parse<CombatConfig>(json, ContentPath);
 
     /// <summary>从内容目录里读这一份。缺了这一份当场抛。</summary>
@@ -57,6 +71,99 @@ public sealed record MovementConfig
             ? value
             : throw new ArgumentOutOfRangeException(
                 nameof(ExtraBesideEnemy), $"{CombatConfig.ContentPath} 的 Movement.ExtraBesideEnemy 不得为负，实际 {value}");
+    }
+}
+
+/// <summary>打不打得中（工作区根 desc/各类公式计算.md 的「命中」）：命中几率常规情况下的上下限，与闪避的距离倍率。几率写小数，1 就是 100%。</summary>
+public sealed record HitConfig
+{
+    /// <summary>常规情况下命中几率最低多少。</summary>
+    public required double MinChance
+    {
+        get;
+        init => field = Probability(value, nameof(MinChance));
+    }
+
+    /// <summary>常规情况下命中几率最高多少，不得低于 <see cref="MinChance"/>。</summary>
+    public required double MaxChance
+    {
+        get;
+        init => field = Probability(value, nameof(MaxChance));
+    }
+
+    /// <summary>闪避的距离倍率：第一个数是挨着（隔 1 格）时的，每多隔一格取下一个数，比这一串还远的都取最后一个。</summary>
+    /// <remarks>随距离只升不降，desc 那一节写着：降了，退开反而更好打中。</remarks>
+    public required IReadOnlyList<double> DodgeByDistance
+    {
+        get;
+        init => field = Ascending(value);
+    }
+
+    /// <summary>隔这么多格时，守方的面板闪避率乘多少。</summary>
+    /// <param name="distance">隔几格，照走路的数法，至少 1。</param>
+    public double DodgeMultiplierAt(int distance)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(distance, 1);
+        return DodgeByDistance[Math.Min(distance, DodgeByDistance.Count) - 1];
+    }
+
+    /// <summary>上下限对不对得上。读每一格时还看不到另一格，所以整份读完再核。</summary>
+    internal HitConfig Checked() => MinChance <= MaxChance
+        ? this
+        : throw new ArgumentOutOfRangeException(
+            nameof(MaxChance), $"{CombatConfig.ContentPath} 的 Hit.MaxChance（{MaxChance}）比 Hit.MinChance（{MinChance}）还低");
+
+    private static double Probability(double value, string field) => value is >= 0 and <= 1
+        ? value
+        : throw new ArgumentOutOfRangeException(field, $"{CombatConfig.ContentPath} 的 Hit.{field} 要在 0 到 1 之间，实际 {value}");
+
+    private static IReadOnlyList<double> Ascending(IReadOnlyList<double> values)
+    {
+        const string where = $"{CombatConfig.ContentPath} 的 Hit.{nameof(DodgeByDistance)}";
+        if (values is null || values.Count == 0)
+        {
+            throw new ArgumentException($"{where} 至少要写一个数：挨着时的那一个", nameof(DodgeByDistance));
+        }
+
+        if (values.Any(v => !double.IsFinite(v) || v < 0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(DodgeByDistance), $"{where} 每个数都不得小于 0，实际 [{string.Join(", ", values)}]");
+        }
+
+        for (var i = 1; i < values.Count; i++)
+        {
+            if (values[i] < values[i - 1])
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(DodgeByDistance),
+                    $"{where} 随距离只升不降，隔 {i + 1} 格的 {values[i]} 比隔 {i} 格的 {values[i - 1]} 小");
+            }
+        }
+
+        return [.. values];
+    }
+}
+
+/// <summary>打多少（工作区根 desc/各类公式计算.md 的「伤害」）：防御减免里的 K，与挂着「格挡」时受到的伤害降低几成。</summary>
+public sealed record DamageConfig
+{
+    /// <summary>防御减免 = 有效防御 ÷ (有效防御 + K) 里的那个 K，物理、魔法共用，要为正。</summary>
+    public required double DefenseK
+    {
+        get;
+        init => field = double.IsFinite(value) && value > 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(DefenseK), $"{CombatConfig.ContentPath} 的 Damage.DefenseK 必须为正，实际 {value}");
+    }
+
+    /// <summary>挂着「格挡」时受到的伤害降低几成：0.5 就是少一半。在 0 到 1 之间。</summary>
+    public required double BlockReduction
+    {
+        get;
+        init => field = value is >= 0 and <= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(
+                nameof(BlockReduction), $"{CombatConfig.ContentPath} 的 Damage.BlockReduction 要在 0 到 1 之间，实际 {value}");
     }
 }
 

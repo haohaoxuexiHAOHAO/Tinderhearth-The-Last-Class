@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Tinderhearth.Rules.Economy;
 using Tinderhearth.Rules.Foundation.Actors;
+using Tinderhearth.Rules.Progression;
 
 namespace Tinderhearth.Rules.Combat;
 
@@ -19,20 +20,23 @@ public enum BattlePhase
 /// 规矩在工作区根 desc/战斗规则.md 的「轮与回合」：一轮先我方阶段、后敌方阶段，每人轮流过一个自己的回合。出手顺序在每轮开始
 /// 按当时的敏捷排一次，这一轮里不再动；敏捷一样时按站位在场景里的先后，不掷骰。
 ///
-/// 引擎层只把点击翻成这里的命令、把结果画出来。走不通的命令返回 <c>null</c>、什么都不改，不抛，理由同 <see cref="Plot"/>：
-/// 点了一格走不到，是玩家碰得到的正常结果。
+/// 引擎层只把点击翻成这里的命令、把结果画出来。走不通、放不出来的命令什么都不改，不抛，理由同 <see cref="Plot"/>：
+/// 点了一格走不到、点了一个够不着的人，是玩家碰得到的正常结果。命中与暴击从开打时给的随机源掷，同一局面、同一串随机数，
+/// 打出来的每一步都一样。
 /// </remarks>
 public sealed class Battle
 {
     private readonly CombatContent _content;
+    private readonly Func<double> _roll;
     private IReadOnlyList<Combatant> _order;
     private int _turnIndex;
     private Turn _turn;
 
-    private Battle(BattleRoom room, CombatContent content, IReadOnlyList<Combatant> combatants)
+    private Battle(BattleRoom room, CombatContent content, Func<double> roll, IReadOnlyList<Combatant> combatants)
     {
         Room = room;
         _content = content;
+        _roll = roll;
         Combatants = combatants;
         StartRound();
     }
@@ -64,10 +68,12 @@ public sealed class Battle
     /// <summary>照那一间屋的站位开打：第一轮排好顺序，轮到烬。</summary>
     /// <param name="room">那一间屋，要用同一份内容里的角色核过。</param>
     /// <param name="content">打仗要读的角色、技能与配置。</param>
-    public static Battle Start(BattleRoom room, CombatContent content)
+    /// <param name="roll">掷一次骰：给一个 [0, 1) 里的数，小于几率就算中。命中与暴击都从这里掷。</param>
+    public static Battle Start(BattleRoom room, CombatContent content, Func<double> roll)
     {
         ArgumentNullException.ThrowIfNull(room);
         ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(roll);
 
         var missing = room.Positions.Select(p => p.CharacterId).Where(id => !content.Characters.ContainsKey(id)).Distinct().ToList();
         if (missing.Count > 0)
@@ -76,9 +82,8 @@ public sealed class Battle
                 $"这一间屋的站位指着 {string.Join("、", missing)}，打仗那份内容里没有：屋子要用同一份内容里的角色核", nameof(room));
         }
 
-        Combatant[] combatants =
-            [.. room.Positions.Select((p, index) => new Combatant(index, content.Characters[p.CharacterId], p.Side, p.Cell))];
-        return new Battle(room, content, combatants);
+        Combatant[] combatants = [.. room.Positions.Select((p, index) => Enter(index, p, content))];
+        return new Battle(room, content, roll, combatants);
     }
 
     /// <summary>轮到的那个人此刻能走到哪。</summary>
@@ -112,12 +117,66 @@ public sealed class Battle
 
         _turn.Spend(cost);
         Current.Cell = cell;
-        if (_turn.IsOver)
+        EndTurnIfOver();
+        return path;
+    }
+
+    /// <summary>轮到的那个人这时候对这个人放这一招，放不放得出来。</summary>
+    /// <param name="skill">放哪一招，要是他自己会的。</param>
+    /// <param name="target">对谁放：指向对面一个人的招点那个人，对自己放的招点他自己。</param>
+    /// <returns>放得出来是 <c>null</c>，放不出来是为什么。施放距离照走路的数法，不管中间隔着墙还是人，这一份不看视野。</returns>
+    public SkillRefusal? RefusalFor(SkillDefinition skill, Combatant target)
+    {
+        RequireUsable(skill, target);
+        var user = Current;
+        // 占回合的那一件用掉了排在冷却前面：它拦的是这一回合所有占回合的招，比哪一招在冷却更说得清为什么放不了。
+        return skill switch
         {
-            EndTurn();
+            { TakesTurn: true } when _turn.TurnActionUsed => SkillRefusal.TurnActionUsed,
+            _ when user.CooldownLeft(skill) > 0 => SkillRefusal.OnCooldown,
+            { Target: SkillTarget.Self } when target != user => SkillRefusal.WrongTarget,
+            { Target: SkillTarget.Enemy } when target.Side == user.Side => SkillRefusal.WrongTarget,
+            _ when GridDistance.Between(user.Cell, target.Cell) > skill.Range => SkillRefusal.OutOfRange,
+            _ => null,
+        };
+    }
+
+    /// <summary>瞄准时写的数：轮到的那个人用这一招打这个人，打中的几率与打多少。</summary>
+    /// <returns>这一招不打人、或者点的是自己这一边的人时是 <c>null</c>。够不够得着不在这里判，看 <see cref="RefusalFor"/>。</returns>
+    public StrikeOdds? Preview(SkillDefinition skill, Combatant target)
+    {
+        RequireUsable(skill, target);
+        return skill.DamageKind is null || target.Side == Current.Side ? null : OddsAgainst(target, skill);
+    }
+
+    /// <summary>轮到的那个人对这个人放这一招。</summary>
+    /// <remarks>
+    /// 占回合的招用掉这一回合那一件占回合的事，剩下的行动力减半；打人的招先掷命中，打中了再掷暴击；给自己挂的状态挂上。
+    /// 放完行动力用完、那一件也用掉了，这一回合当场结束，轮到下一个。放不出来的什么都不改。
+    /// </remarks>
+    public SkillUse UseSkill(SkillDefinition skill, Combatant target)
+    {
+        if (RefusalFor(skill, target) is { } refusal)
+        {
+            return new SkillUse(refusal, null);
         }
 
-        return path;
+        var user = Current;
+        if (skill.TakesTurn)
+        {
+            // 那一件还没用掉，上面已经判过，所以这一下做得成。
+            _ = _turn.TryTakeTurnAction();
+        }
+
+        user.MarkUsed(skill);
+        Strike? strike = skill.DamageKind is null ? null : Resolve(target, skill);
+        if (skill.SelfStatusId is { } status)
+        {
+            user.AddStatus(status);
+        }
+
+        EndTurnIfOver();
+        return new SkillUse(null, strike);
     }
 
     /// <summary>结束这一回合，剩下的行动力作废；轮到下一个，这一轮的人都过完了就开始下一轮。</summary>
@@ -134,6 +193,76 @@ public sealed class Battle
         }
     }
 
+    /// <summary>照站位上场：面板照属性算一次，会的招从内容里取。内容核过角色指的招都在册。</summary>
+    private static Combatant Enter(int index, StartingPosition position, CombatContent content)
+    {
+        var character = content.Characters[position.CharacterId];
+        return new Combatant(
+            index: index,
+            character: character,
+            side: position.Side,
+            cell: position.Cell,
+            panel: content.PanelOf(character),
+            basicAttack: content.Skills[character.BasicAttackSkillId],
+            defend: content.Skills[character.DefendSkillId]);
+    }
+
+    /// <summary>放的是轮到的那个人会的招、对的是这一场里的人；不是就是调用方的错，当场抛。</summary>
+    private void RequireUsable(SkillDefinition skill, Combatant target)
+    {
+        ArgumentNullException.ThrowIfNull(skill);
+        ArgumentNullException.ThrowIfNull(target);
+        if (!Current.Skills.Contains(skill))
+        {
+            throw new ArgumentException($"{Current} 不会「{skill.Id}」：只能放他自己会的招", nameof(skill));
+        }
+
+        if (!Combatants.Contains(target))
+        {
+            throw new ArgumentException($"{target} 不在这一场里", nameof(target));
+        }
+    }
+
+    private StrikeOdds OddsAgainst(Combatant target, SkillDefinition skill) => StrikeOdds.Compute(
+        attacker: Current.Panel,
+        defender: target.Panel,
+        defenderBlocking: target.Statuses.Contains(CombatStatusIds.Block),
+        skill: skill,
+        distance: GridDistance.Between(Current.Cell, target.Cell),
+        config: _content.Config);
+
+    /// <summary>真打一下：先掷命中，打中了再掷暴击，打空不掷暴击。打多少取瞄准时那一份算出来的数。</summary>
+    private Strike Resolve(Combatant target, SkillDefinition skill)
+    {
+        StrikeOdds odds = OddsAgainst(target, skill);
+        if (Roll() >= odds.HitChance)
+        {
+            return new Strike(Hit: false, Critical: false, Damage: 0);
+        }
+
+        var critical = Roll() < odds.CriticalChance;
+        var damage = critical ? odds.CriticalDamage : odds.Damage;
+        target.TakeDamage(damage);
+        return new Strike(Hit: true, Critical: critical, Damage: damage);
+    }
+
+    /// <summary>掷一次骰。给的数不在 [0, 1) 里就是随机源接错了，那样会悄悄变成总打不中或总打得中，所以当场抛。</summary>
+    private double Roll()
+    {
+        var value = _roll();
+        return value is >= 0 and < 1
+            ? value
+            : throw new InvalidOperationException($"随机源要给 [0, 1) 里的数，给的是 {value}");
+    }
+
+    private void EndTurnIfOver()
+    {
+        if (_turn.IsOver)
+        {
+            EndTurn();
+        }
+    }
+
     /// <summary>一轮开始：按此刻的敏捷排一次出手顺序，轮到第一个。</summary>
     [MemberNotNull(nameof(_order), nameof(_turn))]
     private void StartRound()
@@ -144,9 +273,13 @@ public sealed class Battle
         BeginTurn();
     }
 
-    /// <summary>轮到的那个人的回合开始：行动力回满，上一回合没用完的不留。</summary>
+    /// <summary>轮到的那个人的回合开始：行动力回满，上一回合没用完的不留；他挂的「格挡」解除。</summary>
     [MemberNotNull(nameof(_turn))]
-    private void BeginTurn() => _turn = new Turn(Current.FullActionPoints);
+    private void BeginTurn()
+    {
+        _turn = new Turn(Current.FullActionPoints);
+        Current.BeginOwnTurn();
+    }
 
     /// <summary>我方烬第一个、学生按敏捷从高到低，敌方按敏捷从高到低；敏捷一样时按站位在场景里的先后。</summary>
     private static IReadOnlyList<Combatant> OrderOf(IReadOnlyList<Combatant> combatants) =>

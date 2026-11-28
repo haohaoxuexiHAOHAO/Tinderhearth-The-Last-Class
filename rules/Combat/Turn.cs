@@ -9,7 +9,7 @@ namespace Tinderhearth.Rules.Combat;
 /// 换成再走满一次是剩下的加上满满一笔，所以行动力没用完时也换得了。要是先用完才许换，剩 1 点而下一步贴着敌人要花 2 点时，
 /// 用剩下的走不动，又没用完换不了。
 ///
-/// 这里只记账：谁走到哪归 <see cref="Battle"/>，放一招占回合的技能怎么接上这一件归设计仓台账 GP-183。
+/// 这里只记账：谁走到哪、放了哪一招归 <see cref="Battle"/>。
 /// </remarks>
 public sealed class Turn
 {

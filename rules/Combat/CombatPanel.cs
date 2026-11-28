@@ -50,5 +50,5 @@ public sealed record CombatPanel(
             MagicCritMultiplier: config.MagicCritMultiplier.At(attributes.Intellect));
     }
 
-    private static int Whole(PanelConversion conversion, int points) => (int)Math.Floor(conversion.At(points));
+    private static int Whole(PanelConversion conversion, int points) => CombatRounding.Floor(conversion.At(points));
 }

@@ -42,6 +42,21 @@ public class CombatContentTests
     }
 
     [Fact]
+    public void 招给自己挂的状态打仗时认不得_载入被拒并点名()
+    {
+        var files = ShippedFiles();
+        files["skills/rage.json"] = files["skills/defend.json"]
+            .Replace("\"id\": \"defend\"", "\"id\": \"rage\"", StringComparison.Ordinal)
+            .Replace("\"block\"", "\"fury\"", StringComparison.Ordinal);
+        var catalog = new ContentCatalog();
+        catalog.AddSource(new InMemoryContentSource("base", files));
+
+        var error = Assert.Throws<InvalidDataException>(() => CombatContent.Load(catalog));
+
+        Assert.Contains("技能 rage 给自己挂的状态「fury」打仗时认不得", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void 读不出来的那一份在报错里点名()
     {
         var catalog = new ContentCatalog();
