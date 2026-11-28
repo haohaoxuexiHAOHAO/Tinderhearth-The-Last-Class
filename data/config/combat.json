@@ -17,5 +17,10 @@
     "magicCritChance": { "base": 0.03, "perPoint": 0.007 },
     "physicalCritMultiplier": { "base": 1.45, "perPoint": 0.005 },
     "magicCritMultiplier": { "base": 1.45, "perPoint": 0.005 }
+  },
+  "movement": {
+    "//": "走一格花几点、贴着敌人走那一步多花几点，照工作区根 desc/各类公式计算.md 的「行动力」抄来；斜着走也算一格。",
+    "stepCost": 1,
+    "extraBesideEnemy": 1
   }
 }

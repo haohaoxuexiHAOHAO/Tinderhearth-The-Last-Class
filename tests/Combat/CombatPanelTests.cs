@@ -96,6 +96,10 @@ public class CombatPanelTests
             panel[item] = new JsonObject { ["base"] = baseValue, ["perPoint"] = perPoint };
         }
 
-        return new JsonObject { ["panel"] = panel };
+        return new JsonObject
+        {
+            ["panel"] = panel,
+            ["movement"] = new JsonObject { ["stepCost"] = 1, ["extraBesideEnemy"] = 1 },
+        };
     }
 }
