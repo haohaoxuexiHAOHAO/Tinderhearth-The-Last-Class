@@ -2,7 +2,7 @@ using Godot;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
 /// <summary>
 /// 当前操作格的光标：算出玩家这一下会作用在哪一格，并给那一格画一个框。
@@ -19,11 +19,11 @@ namespace Tinderhearth.World.Farm;
 ///
 /// 规则出自设计仓 design/界面系统.md 的「世界里那一层：当前操作格」一节。
 /// </remarks>
-public partial class FarmCellCursor : Node2D
+public partial class BaseCellCursor : Node2D
 {
     /// <summary>做世界坐标与格坐标换算用的瓦片层。</summary>
     /// <remarks>
-    /// 必须和 <see cref="FarmField"/> 接的是同一层（也就是耕地层 Tilled）。接了格子大小或位置
+    /// 必须和 <see cref="BaseField"/> 接的是同一层（也就是耕地层 Tilled）。接了格子大小或位置
     /// 不同的另一层时，框会落在这一格而真正作用的是旁边那一格，引擎不报错。
     /// </remarks>
     [Export]
@@ -31,7 +31,7 @@ public partial class FarmCellCursor : Node2D
 
     /// <summary>角色。要读他站在哪一格；手柄时还要读他的朝向。</summary>
     [Export]
-    public FarmWalker? Player { get; set; }
+    public BaseWalker? Player { get; set; }
 
     /// <summary>输入门面。这里只用它判断玩家最后用的是键鼠还是手柄。</summary>
     [Export]
@@ -61,7 +61,7 @@ public partial class FarmCellCursor : Node2D
 
     // 下面几个是 _Ready 里校验过的非空副本，省掉每帧的判空。
     private TileMapLayer _grid = null!;
-    private FarmWalker _player = null!;
+    private BaseWalker _player = null!;
     private InputRouter _router = null!;
     private Texture2D _usable = null!;
     private Texture2D _blocked = null!;
@@ -73,25 +73,25 @@ public partial class FarmCellCursor : Node2D
         SetProcess(false);
 
         _grid = GridLayer ?? throw new InvalidOperationException(
-            $"{nameof(FarmCellCursor)}（节点 {Name}）的 {nameof(GridLayer)} 没接上 —— "
+            $"{nameof(BaseCellCursor)}（节点 {Name}）的 {nameof(GridLayer)} 没接上 —— "
                 + "它要靠一层 TileMapLayer 把世界坐标换成格坐标");
 
         _player = Player ?? throw new InvalidOperationException(
-            $"{nameof(FarmCellCursor)}（节点 {Name}）的 {nameof(Player)} 没接上 —— "
+            $"{nameof(BaseCellCursor)}（节点 {Name}）的 {nameof(Player)} 没接上 —— "
                 + "两个设备族都要读角色站在哪一格，手柄那一侧还要读他朝哪一向");
 
         _router = Router ?? throw new InvalidOperationException(
-            $"{nameof(FarmCellCursor)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
+            $"{nameof(BaseCellCursor)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
                 + "它要靠门面判断最后用的是键鼠还是手柄");
 
         if (_grid.TileSet is null)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmCellCursor)} 接的那一层（{_grid.Name}）还没有 TileSet —— "
+                $"{nameof(BaseCellCursor)} 接的那一层（{_grid.Name}）还没有 TileSet —— "
                 + "没有 TileSet 就没有格大小，框画不出来");
         }
 
-        var art = UIArtGuard.Require(Art, $"{nameof(FarmCellCursor)}（节点 {Name}）");
+        var art = UIArtGuard.Require(Art, $"{nameof(BaseCellCursor)}（节点 {Name}）");
         _usable = HudPlace.Piece(art.WorldCellUsable?.Texture, "world/cell_usable");
         _blocked = HudPlace.Piece(art.WorldCellBlocked?.Texture, "world/cell_blocked");
 
@@ -101,14 +101,14 @@ public partial class FarmCellCursor : Node2D
         if (drawn != new Vector2I(WorldUILayout.CellCursorSide(tile.X), WorldUILayout.CellCursorSide(tile.Y)))
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmCellCursor)} 接的那一层（{_grid.Name}）格子是 {tile}，当前操作格那两张是 {drawn}，"
+                $"{nameof(BaseCellCursor)} 接的那一层（{_grid.Name}）格子是 {tile}，当前操作格那两张是 {drawn}，"
                     + $"要比一格地四边各大 {WorldUILayout.CellCursorOutset} 像素 —— 接的多半不是地面那一层");
         }
 
         if (ReachInCells < 1)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmCellCursor)}（节点 {Name}）的 {nameof(ReachInCells)} 是 {ReachInCells} —— "
+                $"{nameof(BaseCellCursor)}（节点 {Name}）的 {nameof(ReachInCells)} 是 {ReachInCells} —— "
                     + "这个量没有默认值，要在检查器里填一个至少为 1 的数"
                     + "（形状固定是十字、不含斜角，这个数只决定伸多远，填多少实机试）");
         }

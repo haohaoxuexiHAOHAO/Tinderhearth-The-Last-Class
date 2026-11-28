@@ -5,7 +5,7 @@ namespace Tinderhearth.Rules.Economy;
 /// <summary>一片地：一块矩形里的每一格地块，按格坐标找。</summary>
 /// <remarks>
 /// 它是世界状态（<see cref="WorldState"/>）的一部分，所以每日结算复制世界时它整份跟着复制。哪几格算这一片地
-/// 由场景定：作者在农场里摆的位置与大小，经引擎那一侧交进来。
+/// 由场景定：作者在基地里摆的位置与大小，经引擎那一侧交进来。
 /// </remarks>
 public sealed class PlotGrid
 {

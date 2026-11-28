@@ -146,11 +146,11 @@ public sealed record CropDefinition
 
     /// <summary>读内容目录里的全部作物定义，按标识建表，并核种子与产出那两格都指到在册的物品。</summary>
     /// <remarks>
-    /// 启动时与农场里读的是同一处，所以「怎么读、什么算坏」只有这一份。两份文件用了同一个标识在
+    /// 启动时与基地里读的是同一处，所以「怎么读、什么算坏」只有这一份。两份文件用了同一个标识在
     /// <see cref="ContentCatalog.ResolveById"/> 里当场报错，不让后读到的那份静默顶掉前一份。
     ///
     /// 物品要先读：参数里要一份 <see cref="ItemCatalog"/>，所以读作物时不可能跳过这一次核对。指不到的、品质那一位不对的，
-    /// 一次全报，一行一处，点名是哪种作物的哪一格。一份作物都没有也抛：农场里至少要能种一种。
+    /// 一次全报，一行一处，点名是哪种作物的哪一格。一份作物都没有也抛：基地里至少要能种一种。
     /// </remarks>
     public static IReadOnlyDictionary<string, CropDefinition> LoadAll(ContentCatalog catalog, ItemCatalog items)
     {

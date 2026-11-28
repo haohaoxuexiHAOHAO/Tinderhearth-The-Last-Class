@@ -2,7 +2,7 @@ using Godot;
 using Godot.Collections;
 using Tinderhearth.Rules.Economy;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
 /// <summary>一种作物那几张图。在 Godot 里存成 .tres，由作者配。</summary>
 /// <remarks>

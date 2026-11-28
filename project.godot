@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="Tinderhearth-The-Last-Class"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/base/base.tscn"
 config/features=PackedStringArray("4.7", "C#", "Mobile")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Startup="*res://src/Startup.cs"
 
 [display]
 

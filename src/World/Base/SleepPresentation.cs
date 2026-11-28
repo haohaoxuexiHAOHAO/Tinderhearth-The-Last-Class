@@ -4,16 +4,16 @@ using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
-/// <summary>睡下到醒来那一段的表现：淡出、结算、淡入、弹窗。作者在农场里摆一个节点挂它，接上遮罩、两个窗与界面根。</summary>
+/// <summary>睡下到醒来那一段的表现：淡出、结算、淡入、弹窗。作者在基地里摆一个节点挂它，接上遮罩、两个窗与界面根。</summary>
 /// <remarks>
-/// 推进一天的入口仍在那片地上（<see cref="FarmField"/>），这里只管那一段怎么走：关上输入、播淡出；播完结算、播淡入；
+/// 推进一天的入口仍在那片地上（<see cref="BaseField"/>），这里只管那一段怎么走：关上输入、播淡出；播完结算、播淡入；
 /// 播完交回输入、弹窗。走到哪儿、第二次推进被不被拒，判在规则层的 <see cref="SleepSequence"/>；窗里写什么判在
 /// <see cref="WakeReport"/>。窗一弹出，世界照导航栈那一套暂停，按什么都推不动一天，所以这一段到弹窗那一刻就交回了。
 /// 这一段不碰 <c>SceneTree.Paused</c>（设计仓 design/每日结算系统.md 的「结算期间没有输入入口」一节）。
 ///
-/// 它在 _Ready 里把自己登记到那片地上。没摆它的农场按推进一天那个调试键照样过一天，摘要与失败只打在输出面板上；摆了床就必须有它，
+/// 它在 _Ready 里把自己登记到那片地上。没摆它的基地按推进一天那个调试键照样过一天，摘要与失败只打在输出面板上；摆了床就必须有它，
 /// 那一条由那片地在启动之后核。缺了哪一格，当场报错说清缺谁。
 /// </remarks>
 public partial class SleepPresentation : Node
@@ -27,12 +27,12 @@ public partial class SleepPresentation : Node
     private SleepCurtain _curtain = null!;
     private WakeDialog _summary = null!;
     private WakeDialog _notAdvanced = null!;
-    private FarmField? _registeredTo;
+    private BaseField? _registeredTo;
     private bool _subscribed;
 
     /// <summary>睡下去推进的是哪一片地的那一天。</summary>
     [Export]
-    public FarmField? Field { get; set; }
+    public BaseField? Field { get; set; }
 
     /// <summary>界面根。两个窗经它开关，世界暂不暂停照它那一套。</summary>
     [Export]
@@ -64,7 +64,7 @@ public partial class SleepPresentation : Node
 
     public override void _Ready()
     {
-        var field = Field ?? throw Missing(nameof(Field), $"睡下去推进的那一片地（挂了 {nameof(FarmField)} 的节点）");
+        var field = Field ?? throw Missing(nameof(Field), $"睡下去推进的那一片地（挂了 {nameof(BaseField)} 的节点）");
         _ui = UI ?? throw Missing(nameof(UI), $"界面根（挂了 {nameof(UIRoot)} 的节点）");
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
         _curtain = Curtain ?? throw Missing(nameof(Curtain), $"盖住画面的那一块（挂了 {nameof(SleepCurtain)} 的节点）");
@@ -92,8 +92,8 @@ public partial class SleepPresentation : Node
             }
         }
 
-        // 两个窗的字体、字色与按钮的样子从这一份主题来，窗自己不载字体（与主场景给游戏菜单挂主题同一个做法）。
-        // 农场不经过主场景，这里不装的话，窗上的字退回引擎默认字体，而那不报错。
+        // 两个窗的字体、字色与按钮的样子从这一份主题来，窗自己不载字体（与游戏菜单自己装主题同一个做法）。
+        // 像素主题没有一处替整个场景装（启动时那一处没有素材资源可接），这里不装的话，窗上的字退回引擎默认字体，而那不报错。
         var theme = PixelTheme.Install(UIArtGuard.Require(Art, $"{nameof(SleepPresentation)}（节点 {Name}）"), out var checks);
         _summary.Theme = theme;
         _notAdvanced.Theme = theme;

@@ -8,7 +8,7 @@ namespace Tinderhearth.Rules.Economy;
 /// <param name="HasWithered">枯死那一张配没配。</param>
 public sealed record CropArtEntry(string CropId, IReadOnlyList<bool> StagesFilled, bool HasMutatedRipe, bool HasWithered);
 
-/// <summary>农场载入时那一次核对：作物素材缺哪几张、配给了谁、哪几种作物没有素材，一次全报。</summary>
+/// <summary>基地载入时那一次核对：作物素材缺哪几张、配给了谁、哪几种作物没有素材，一次全报。</summary>
 /// <remarks>
 /// 一次全报而不是撞到第一处就停：一种作物一份素材，全部作物一起配的时候，一处一处改、一次一次重跑，作者要来回
 /// 跑很多趟。张数按那条作物自己声明的阶段数算，理由在设计仓 production/场景绘制约定.md 的「作物按它声明的阶段数交付」一节。

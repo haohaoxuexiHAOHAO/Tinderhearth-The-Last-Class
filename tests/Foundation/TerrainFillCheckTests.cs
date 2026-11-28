@@ -14,7 +14,7 @@ public class TerrainFillCheckTests
     private static readonly Rgb8 Water4 = new(85, 121, 133);
     private static readonly Rgb8 Water2 = new(40, 66, 81);
 
-    /// <summary>照农场那份数据层：四种地形，主色从三套双网格图里读出来。</summary>
+    /// <summary>照基地那份数据层：四种地形，主色从三套双网格图里读出来。</summary>
     private static FillTerrain[] Terrains() =>
     [
         new(0, "grass", Moss3),

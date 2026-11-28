@@ -67,7 +67,7 @@ EXPORT_PRESET = "Windows Desktop"
 EXPORT_EXE = EXPORT_DIR / "Tinderhearth-The-Last-Class.exe"
 EXPORT_PCK = EXPORT_DIR / "Tinderhearth-The-Last-Class.pck"
 TESTS_DIR = ROOT / "tests"
-MAIN_SCAFFOLD = ROOT / "src" / "Main.cs"
+STARTUP_SCRIPT = ROOT / "src" / "Startup.cs"  # 启动时那几件事，登记成自动加载；冒烟标记钉在它打的日志上
 
 # 落点自检要看到的文件。两仓各有一个 tools/，靠名字区分不够可靠 —— 让入口自己拒绝
 # 在错的位置跑，才是能自动检出的执行体。
@@ -143,15 +143,15 @@ CS_PLACEHOLDER_MAX_BYTES = 1
 CS_ALLOWED_PREFIX = "src/"
 
 # 包里必须有的东西。只查「没有它就一定不是个能跑的包」的那几条，不做完整的内容清单。启动场景
-# 从 project.godot 读、不在这里写死，这样脚手架被替换时不用回来改一次。
+# 从 project.godot 读、不在这里写死，这样换了启动场景不用回来改一次。
 REQUIRED_PACK_ENTRIES = ("project.binary",)
 REQUIRED_PACK_PREFIXES = ("data/",)
 
 # ── 跑产物 ────────────────────────────────────────────────────────────
-# 这几个标记钉在 src/Main.cs 那个临时脚手架上。脚手架被真正的启动流程替换时，这里要
-# 一起改 —— 所以下面 verify_smoke_markers() 会先确认它们还在源码里，脱节就当场判失败，
+# 这几个标记钉在 src/Startup.cs 打的启动日志上：它登记成自动加载，跑哪个场景都先跑它。那几行改了，
+# 这里要一起改 —— 所以下面 verify_smoke_markers() 会先确认它们还在源码里，脱节就当场判失败，
 # 而不是等到冒烟阶段报一个看不懂的「没找到标记」。
-# 「作物定义」那一行证明作物在启动时读过：农场不是主场景，坏一份作物定义只有这一步判得到。
+# 「作物定义」那一行证明作物在启动时读过：不管启动场景里摆没摆那片地，坏一份作物定义这一步都判得到。
 # 「物品定义」那一行同理，它还证明色板进了发行包：档位的显示色按色板核，色板不在包里这一行就打不出来。
 SMOKE_MARKERS = ("[启动] 引擎 ", "[启动] 名册容量 ", "[启动] 作物定义 ", "[启动] 物品定义 ", "：在册 ")
 SMOKE_ERROR_MARKERS = ("ERROR:", "SCRIPT ERROR:", "USER ERROR:", "Unhandled exception")
@@ -903,13 +903,14 @@ def step_export(rep: Report, godot: Path, release: bool = False) -> StepResult:
 
 # ── 跑产物 ────────────────────────────────────────────────────────────
 def verify_smoke_markers() -> str | None:
-    """标记还在脚手架源码里吗。脱节就当场说清，别等冒烟阶段报一句看不懂的没找到。"""
-    if not MAIN_SCAFFOLD.is_file():
-        return f"{MAIN_SCAFFOLD.relative_to(ROOT).as_posix()} 不在了，冒烟标记无从校对"
-    text = MAIN_SCAFFOLD.read_text(encoding="utf-8")
+    """标记还在启动脚本里吗。脱节就当场说清，别等冒烟阶段报一句看不懂的没找到。"""
+    rel = STARTUP_SCRIPT.relative_to(ROOT).as_posix()
+    if not STARTUP_SCRIPT.is_file():
+        return f"{rel} 不在了，冒烟标记无从校对"
+    text = STARTUP_SCRIPT.read_text(encoding="utf-8")
     gone = [m for m in SMOKE_MARKERS if m not in text]
     if gone:
-        return (f"冒烟标记 {gone} 已不在 src/Main.cs 里 —— 启动流程改过了，"
+        return (f"冒烟标记 {gone} 已不在 {rel} 里 —— 启动流程改过了，"
                 f"请同步改 verify.py 的 SMOKE_MARKERS")
     return None
 

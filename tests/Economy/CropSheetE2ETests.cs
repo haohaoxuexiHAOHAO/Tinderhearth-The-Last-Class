@@ -9,7 +9,7 @@ namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>作物素材表那份需求的端到端：从工程里的作物数据读起，经随身栏播种、按几率掷变异，到收获带着变异。</summary>
 /// <remarks>
-/// 读的是工程里那批作物数据（代码仓 data/crops/），只读不写，走的是启动与农场共用的那个读法。每一次掷用的
+/// 读的是工程里那批作物数据（代码仓 data/crops/），只读不写，走的是启动与基地共用的那个读法。每一次掷用的
 /// 随机数都由测试按顺序给，多掷一次就取空、当场失败，所以每一条都可重复。各一环自己的边界在各自的测试类里，
 /// 这里只把它们串起来。
 /// </remarks>
@@ -117,7 +117,7 @@ public class CropSheetE2ETests
         }
     }
 
-    /// <summary>工程里那批作物数据，经启动与农场共用的那个读法建表，种子与产出对着工程里那批物品核。睡一觉那份端到端也读它。</summary>
+    /// <summary>工程里那批作物数据，经启动与基地共用的那个读法建表，种子与产出对着工程里那批物品核。睡一觉那份端到端也读它。</summary>
     internal static IReadOnlyDictionary<string, CropDefinition> ShippedCrops()
     {
         var catalog = new ContentCatalog();

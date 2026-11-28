@@ -2,7 +2,7 @@ using Godot;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
 /// <summary>俯视场景里走动的角色。管移动、朝向，以及按朝向切精灵。</summary>
 /// <remarks>
@@ -10,14 +10,14 @@ namespace Tinderhearth.World.Farm;
 /// 一条独立的轴、位置由规则层持有；俯视没有独立纵深轴，屏幕的纵向就是纵深。硬凑成一个类之后，
 /// 侧视那套纵深钳制在俯视场景里无处可落。
 ///
-/// 地块和当前操作格不在这里，分别在 <see cref="FarmField"/> 和 <see cref="FarmCellCursor"/>。
+/// 地块和当前操作格不在这里，分别在 <see cref="BaseField"/> 和 <see cref="BaseCellCursor"/>。
 ///
 /// 接地影子也不在这里，它画进素材本身的每一帧里。原先这个类画过一块几何椭圆，删掉的理由是
 /// 它不跟着走路变形：腿迈开而影子钉在正中，人看起来在影子上横向滑。影子进了素材之后形状逐帧
 /// 由作者定，而且天然落在整像素上。代价是它不再知道脚下是什么地面，所以那个色要挑在比所有
 /// 地面都暗一截的区间里 —— 色板里有一条专门的影子色带。
 /// </remarks>
-public partial class FarmWalker : CharacterBody2D
+public partial class BaseWalker : CharacterBody2D
 {
     private const string IdleAction = "idle";
     private const string WalkAction = "walk";
@@ -81,17 +81,17 @@ public partial class FarmWalker : CharacterBody2D
         SetPhysicsProcess(false);
 
         _router = Router ?? throw new InvalidOperationException(
-            $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
+            $"{nameof(BaseWalker)}（节点 {Name}）的 {nameof(Router)} 没接上 —— "
                 + $"请在场景里放一个挂了 {nameof(InputRouter)} 脚本的节点，再把它拖到这一格上");
 
         _body = Body ?? throw new InvalidOperationException(
-            $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(Body)} 没接上 —— "
+            $"{nameof(BaseWalker)}（节点 {Name}）的 {nameof(Body)} 没接上 —— "
                 + "请在它下面放一个 AnimatedSprite2D，再把那个节点拖到这一格上");
 
         if (SpeedPixelsPerSecond <= 0f)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmWalker)}（节点 {Name}）的 {nameof(SpeedPixelsPerSecond)} 是 "
+                $"{nameof(BaseWalker)}（节点 {Name}）的 {nameof(SpeedPixelsPerSecond)} 是 "
                     + $"{SpeedPixelsPerSecond}，这个量没有默认值，要在检查器里填一个大于零的数"
                     + "（填多少实机试）");
         }
@@ -99,7 +99,7 @@ public partial class FarmWalker : CharacterBody2D
         if (_body.SpriteFrames is null)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmWalker)}（节点 {Name}）接的那个精灵（{_body.Name}）还没有 SpriteFrames —— "
+                $"{nameof(BaseWalker)}（节点 {Name}）接的那个精灵（{_body.Name}）还没有 SpriteFrames —— "
                     + "在检查器里新建一份，再到底部那个面板里按「动作_朝向」加动画");
         }
 
@@ -109,7 +109,7 @@ public partial class FarmWalker : CharacterBody2D
         if (missing.Length > 0)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmWalker)}（节点 {Name}）接的那份 SpriteFrames 缺这几个动画："
+                $"{nameof(BaseWalker)}（节点 {Name}）接的那份 SpriteFrames 缺这几个动画："
                     + $"{string.Join("、", missing)} —— 每个朝向各要一套，"
                     + "代码不拿另一向镜像凑；想省画量就在绘图软件里镜像后导出");
         }

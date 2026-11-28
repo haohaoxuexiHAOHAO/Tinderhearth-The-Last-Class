@@ -7,7 +7,7 @@ using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
-/// <summary>背包页从哪读、被拒时找谁说、改了背包之后告诉谁。农场在就绪时交给游戏菜单。</summary>
+/// <summary>背包页从哪读、被拒时找谁说、改了背包之后告诉谁。基地那片地在就绪时交给游戏菜单。</summary>
 /// <param name="Bag">现在那一份背包。每次打开现读：睡一觉之后世界状态换了一份，背包也跟着换。</param>
 /// <param name="Icons">按物品标识与品质取图标。</param>
 /// <param name="Palette">色板：稀有度框与品质点按档位声明的显示色染。</param>
@@ -88,7 +88,7 @@ public sealed partial class BagPageView : VBoxContainer
     private int? _focused;
     private int? _asked;
 
-    /// <summary>搭一页。素材资源、文本表、界面根与主题由游戏菜单给，背包从哪读由农场给。</summary>
+    /// <summary>搭一页。素材资源、文本表、界面根与主题由游戏菜单给，背包从哪读由基地那片地给。</summary>
     /// <param name="art">素材资源：格子各态与几样框从这里取。</param>
     /// <param name="text">文本表：按钮上的字与下面那一行从这里取。</param>
     /// <param name="source">背包从哪读、被拒时找谁说、改了之后告诉谁。</param>

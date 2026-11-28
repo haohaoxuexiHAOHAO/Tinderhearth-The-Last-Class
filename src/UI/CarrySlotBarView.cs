@@ -18,7 +18,7 @@ namespace Tinderhearth.UI;
 /// 它只在基地里有：关卡里那一侧明确后置（设计仓 design/界面系统.md 的「常驻那一层：战斗与经营的抬头显示」）。
 ///
 /// 它不接管输入，所以按它不暂停世界：按一下只换手上那一格，不弹面板。因此鼠标过滤是忽略，
-/// 输入是每帧问门面而不是等信号，与 <c>src/World/Farm/FarmField.cs</c> 的做法一致。物品图标由
+/// 输入是每帧问门面而不是等信号，与 <c>src/World/Base/BaseField.cs</c> 的做法一致。物品图标由
 /// 往格子里装东西的那一方给（<see cref="Icons"/>）—— 物品定义是会被 mod 换掉的内容，界面层不持有
 /// 一张「标识对图标」的表。
 ///
@@ -45,7 +45,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
     public InputRouter? Router { get; set; }
 
     /// <summary>素材资源。那条栏、格子与选中框都从它取，缺了或缺格当场报错并一次列全。</summary>
-    /// <remarks>摆进场景时接的是 <c>assets/self-drawn/ui/ui_art.tres</c>，与主场景接的是同一份。</remarks>
+    /// <remarks>摆进场景时接的是 <c>assets/self-drawn/ui/ui_art.tres</c>，与游戏菜单、鼠标指针接的是同一份。</remarks>
     [Export]
     public UIArt? Art { get; set; }
 

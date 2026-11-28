@@ -70,7 +70,7 @@ public sealed partial class InstantNoticeView : Control, IPlacedUI
 
         _notice = new InstantNotice(SecondsShown);
 
-        // 农场不经过主场景，这里不装的话，那一行的字退回引擎默认字体，而那不报错。
+        // 像素主题没有一处替整个场景装（启动时那一处没有素材资源可接），这里不装的话，那一行的字退回引擎默认字体，而那不报错。
         Theme = PixelTheme.Install(UIArtGuard.Require(Art, $"{nameof(InstantNoticeView)}（节点 {Name}）"), out _);
         MouseFilter = MouseFilterEnum.Ignore;
         _line.MouseFilter = MouseFilterEnum.Ignore;

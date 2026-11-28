@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GaugeMotion" format=3]
+
+[ext_resource type="Script" uid="uid://cvedyqxh4qaa2" path="res://src/UI/GaugeMotion.cs" id="1_gauges"]
+
+[resource]
+script = ExtResource("1_gauges")
+ChasePixelsPerSecond = 60.0
+LagHoldSeconds = 0.5
+FlowPixelsPerSecond = 30.0
+BubblePixelsPerSecond = 4.0

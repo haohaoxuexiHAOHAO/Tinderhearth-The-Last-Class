@@ -38,7 +38,7 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable, I
 
     /// <summary>主角站立时的身体高度，世界像素。实体碰撞框与受击框共用它，不各写一个数。</summary>
     /// <remarks>
-    /// 它是 internal，因为 <see cref="TrainingRoom"/> 挂受击框时要读它，那边不该再抄一遍数字。
+    /// 它是 internal，因为挂受击框的那一方要读它，那边不该再抄一遍数字。
     ///
     /// 28 是站立姿实测量出来的（去掉地面参考线之后量的）。受击框原先写死 32，那是木桩柱子的高度，
     /// 套到主角身上高出 4 像素，从头顶掠过的攻击照样判命中，而且不报错。

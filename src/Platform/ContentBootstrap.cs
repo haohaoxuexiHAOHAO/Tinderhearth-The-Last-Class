@@ -12,7 +12,7 @@ namespace Tinderhearth.Platform;
 
 /// <summary>把内容来源按顺序叠成一份目录：基础内容在前，已安装的 mod 依次叠在后面。</summary>
 /// <remarks>
-/// 单独抽出来是因为不止一处要用：启动流程要它，在编辑器里单独跑一个场景时那个场景也要它。
+/// 单独抽出来是因为不止一处要用：启动时那一次核对（<see cref="Startup"/>）要它，场景里用到内容的节点（基地那片地、游戏菜单）也要它。
 /// 两处各写一份的话，往里加一个内容来源时漏改哪一处都不报错，表现只是「mod 在某些场景里不生效」。
 ///
 /// 这里的先后顺序就是覆盖顺序；覆盖怎么算见 <see cref="ContentCatalog"/>，本类不重复一遍。
@@ -34,7 +34,7 @@ public static class ContentBootstrap
     }
 
     /// <summary>读结构性容量那份配置。缺了那一份当场抛；缺字段、写了不合理的数，由 <see cref="GameConfig"/> 报。</summary>
-    /// <remarks>主场景与在编辑器里单独跑的农场都要它（农场要背包的格数），理由同 <see cref="BuildCatalog"/>。</remarks>
+    /// <remarks>启动时那一次核对与基地都要它（基地要背包的格数），理由同 <see cref="BuildCatalog"/>。</remarks>
     public static GameConfig LoadConfig(ContentCatalog catalog)
     {
         ArgumentNullException.ThrowIfNull(catalog);
@@ -47,7 +47,7 @@ public static class ContentBootstrap
     /// <summary>读这种语言的文本表：各来源里那一份逐条按键合并，后面的覆盖前面的同键条目。</summary>
     /// <remarks>
     /// 一条一条按键合并，不是整个文件覆盖：否则 mod 只想改一句台词就会抹掉其余全部文本。
-    /// 主场景与在编辑器里单独跑的农场都要它，理由同 <see cref="BuildCatalog"/>。
+    /// 启动时那一次核对、基地与游戏菜单都要它，理由同 <see cref="BuildCatalog"/>。
     /// </remarks>
     public static TextCatalog LoadText(ContentCatalog catalog)
     {
@@ -80,7 +80,7 @@ public static class ContentBootstrap
 
     /// <summary>读物品、类别与两条轴的档位，再核文本表：坏一份当场报错；文本表里缺的，打一条错误、游戏照跑。</summary>
     /// <remarks>
-    /// 放在这里、不写在主场景里：农场不经过主场景，用到物品时要从同一处读，理由同 <see cref="BuildCatalog"/>。
+    /// 放在这里、不写在启动那一处：启动时那一次核对与基地读物品要走同一处，理由同 <see cref="BuildCatalog"/>。
     /// 缺文字不停下来，与 <see cref="TextCatalog"/> 缺键显成占位、不抛是同一个理由。
     /// </remarks>
     public static ItemCatalog LoadItems(ContentCatalog catalog, TextCatalog text)

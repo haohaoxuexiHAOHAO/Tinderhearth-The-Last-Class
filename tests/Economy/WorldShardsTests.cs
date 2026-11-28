@@ -599,7 +599,7 @@ public class WorldShardsTests
             [(0, 0, slots[CarryCells]!.Value), (2, 1, slots[CarryCells + 6]!.Value)],
             StacksByPosition(back.Bag));
 
-        var again = WorldShards.Read(SaveFile.ReadFormalSave(registry, FarmSave.Write(registry, back)), Crops, NewGameBag());
+        var again = WorldShards.Read(SaveFile.ReadFormalSave(registry, BaseSave.Write(registry, back)), Crops, NewGameBag());
         AssertSameWorld(back, again);
     }
 

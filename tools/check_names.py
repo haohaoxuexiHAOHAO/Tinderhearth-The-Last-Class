@@ -31,7 +31,7 @@ include_filter 里不带通配符的条目，必须按大小写精确存在于�
     python tools/check_names.py     # 退出码 0 就是全部符合
 
 verify.py 的命名那一步把本脚本当子进程调，认「覆盖量：」这个前缀判过。本脚本没有自证入口，
-改了它只能靠改的人复核：最省事的办法是临时把 scenes/main.tscn 改名成 Main.tscn，确认真的报
+改了它只能靠改的人复核：最省事的办法是临时把 scenes/base/base.tscn 改名成 Base.tscn，确认真的报
 出来，再改回去。
 """
 
@@ -133,7 +133,7 @@ def check_scene_file_name(rel: str, fails: list[str]) -> None:
     stem = Path(rel).stem
     if not SNAKE_FILE_RE.match(stem):
         fails.append(
-            f"[FAIL] {rel}：场景文件名要用小写 snake_case（如 `training_room.tscn`）")
+            f"[FAIL] {rel}：场景文件名要用小写 snake_case（如 `base.tscn`）")
 
 
 def check_csharp_path(rel: str, fails: list[str]) -> None:
@@ -192,7 +192,7 @@ def exists_exact(rel: str) -> bool:
     """按大小写精确判断 res://<rel> 是否存在。
 
     这里不能用 Path.exists()。Windows 和 macOS 的文件系统默认不区分大小写，它对
-    scenes/Main.tscn 会返回 True，而那个名字在 .pck 里并不存在——那正是本脚本要抓的错。
+    scenes/base/Base.tscn 会返回 True，而那个名字在 .pck 里并不存在——那正是本脚本要抓的错。
     所以逐段 scandir 出真实名字来比。
     """
     current = ROOT

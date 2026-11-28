@@ -10,7 +10,7 @@ namespace Tinderhearth.Rules.Tests.Economy;
 
 /// <summary>睡一觉能推进一天那份需求的端到端：开新档、种下去、一夜夜推进、醒来那份摘要、写出存档、读回来。</summary>
 /// <remarks>
-/// 作物与文本表读的都是工程里那一份（只读不写），走的是农场用的那几个读口：开新档与读档、结算驱动、窗里写什么。
+/// 作物与文本表读的都是工程里那一份（只读不写），走的是基地用的那几个读口：开新档与读档、结算驱动、窗里写什么。
 /// 写档接在测试自己的写入口上，写出来的文本留在内存里，不碰真文件；变异的随机源由测试给。各一环自己的边界在
 /// 各自的测试类里，这里只把它们串起来。窗上的措辞不在这里钉：期望值照文本表里那一条的写法算出来，作者改字不该让这里红。
 /// </remarks>
@@ -111,7 +111,7 @@ public class SleepE2ETests
         Assert.True(calendar.Remove(dropped));
 
         var e = Assert.Throws<SaveRejectedException>(
-            () => FarmSave.LoadOrNew(root.ToJsonString(), RegistryFor(room.Scene), crops, room.Scene, TestBags.Empty()));
+            () => BaseSave.LoadOrNew(root.ToJsonString(), RegistryFor(room.Scene), crops, room.Scene, TestBags.Empty()));
 
         Assert.Equal(SaveRejection.MissingField, e.Reason);
         Assert.Contains($"「{dropped}」", e.Message);
@@ -166,14 +166,14 @@ public class SleepE2ETests
         /// <summary>为真时写档那一下抛出，就像存档文件设成了只读。</summary>
         public bool WriteFails { get; set; }
 
-        /// <summary>还没有存档时进农场：按开局那一天与场景里那片地开新档。</summary>
-        public CurrentWorld NewGame() => new(FarmSave.LoadOrNew(null, Registry, Crops, Scene, TestBags.Empty()));
+        /// <summary>还没有存档时进基地：按开局那一天与场景里那片地开新档。</summary>
+        public CurrentWorld NewGame() => new(BaseSave.LoadOrNew(null, Registry, Crops, Scene, TestBags.Empty()));
 
         /// <summary>睡一觉：走结算那唯一的入口。</summary>
         public SettlementOutcome Sleep(CurrentWorld world) => Settlement.EndDay(world, DayEndSource.Sleep);
 
         /// <summary>停掉游戏再进来：用最后写成的那一份读回来。</summary>
-        public WorldState Reload() => FarmSave.LoadOrNew(Saved, RegistryFor(Scene), Crops, Scene, TestBags.Empty());
+        public WorldState Reload() => BaseSave.LoadOrNew(Saved, RegistryFor(Scene), Crops, Scene, TestBags.Empty());
 
         private void Write(WorldState world)
         {
@@ -182,7 +182,7 @@ public class SleepE2ETests
                 throw new IOException("写不进去");
             }
 
-            Saved = FarmSave.Write(Registry, world);
+            Saved = BaseSave.Write(Registry, world);
         }
     }
 

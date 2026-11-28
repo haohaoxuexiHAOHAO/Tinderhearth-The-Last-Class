@@ -7,7 +7,7 @@ namespace Tinderhearth.Rules.Tests.Progression;
 
 /// <summary>工程里那批物品数据：类别、两条轴的档位与物品。只读不写。</summary>
 /// <remarks>
-/// 读法与启动、农场同一处（<see cref="ItemCatalog.Load"/>），色板读仓库里那一份。作物那几份端到端也读它：作物要指到
+/// 读法与启动、基地同一处（<see cref="ItemCatalog.Load"/>），色板读仓库里那一份。作物那几份端到端也读它：作物要指到
 /// 在册的物品，读作物之前得先有这一份。
 /// </remarks>
 internal static class ShippedItems

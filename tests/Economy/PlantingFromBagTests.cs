@@ -27,7 +27,7 @@ public class PlantingFromBagTests
 
     private static CropDefinition? SeedOf(string id) => BySeed.GetValueOrDefault(id);
 
-    /// <summary>与农场里那一步同一个换法：背包上随身栏那一排每一格换成屏幕上随身栏的一格。</summary>
+    /// <summary>与基地里那一步同一个换法：背包上随身栏那一排每一格换成屏幕上随身栏的一格。</summary>
     private static IReadOnlyList<CarrySlot> Bar(Bag bag) =>
         [.. bag.Carry.Select(s => s is { } stack ? new CarrySlot(stack.ItemId, stack.Count) : CarrySlot.Empty)];
 

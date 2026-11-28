@@ -274,7 +274,7 @@ public class CropDefinitionTests
     }
 
     /// <summary>作物目录里一份都没有就抛，别的目录里有内容也不算。</summary>
-    /// <remarks>没有一种作物的农场随身栏是空的，而那不报错 —— 表现只是种不了地。</remarks>
+    /// <remarks>没有一种作物的基地随身栏是空的，而那不报错 —— 表现只是种不了地。</remarks>
     [Fact]
     public void 一份作物定义都没有就抛()
     {

@@ -36,11 +36,11 @@ Godot 官方的建议是：文件夹与文件名用 snake_case，**C# 脚本例�
 
 | 元素 | 形式 | 例子 |
 | --- | --- | --- |
-| 场景文件 | 小写 snake_case | `scenes/main.tscn`、`scenes/training_room.tscn` |
+| 场景文件 | 小写 snake_case | `scenes/base/base.tscn` |
 | 资源、素材与数据文件 | 小写 | `data/config/game.json`、`assets/self-drawn/tiles/tilled.png` |
-| 节点名 | PascalCase | 场景里的 `Main`、`TrainingRoom`；代码里设的 `LevelHud`、`CastRing` |
-| C# 文件 | PascalCase，与类名一致 | `UIMetrics.cs`、`PlayerActor.cs` |
-| C# 目录 | PascalCase，与命名空间一致 | `rules/UI/`、`src/World/Farm/` |
+| 节点名 | PascalCase | 场景里的 `Base`、`TerrainData`；代码里设的 `LevelHud`、`CastRing` |
+| C# 文件 | PascalCase，与类名一致 | `UIMetrics.cs`、`BaseField.cs` |
+| C# 目录 | PascalCase，与命名空间一致 | `rules/UI/`、`src/World/Base/` |
 
 有理由的偏离写在这里，**不是漏改**：
 
@@ -48,8 +48,8 @@ Godot 官方的建议是：文件夹与文件名用 snake_case，**C# 脚本例�
   `src/ui/`。但本仓要求命名空间与目录对应（见上面「命名」一节），而命名空间是 PascalCase，
   于是目录只能跟着走；官方那页自己也留了口子：风格指南另有规定时可以破 snake_case，只要一致。
   **这条偏离不是免疫，是被守卫兜着的**：`src/` 在 `res://` 下，`.cs` 以 1 字节占位的形式进包
-  （实测包内有 `src/Main.cs` 这样的条目），而 `scenes/main.tscn` 就是按 `res://src/Main.cs`
-  这个路径引脚本的 —— 大小写一样要对。保护它的不是「不在资源路径里」，是两件事：这类路径由
+  （实测包内有 `src/Startup.cs` 这样的条目），而 `scenes/base/base.tscn` 就是按 `res://src/World/Base/BaseWalker.cs`
+  这样的路径引脚本的 —— 大小写一样要对。保护它的不是「不在资源路径里」，是两件事：这类路径由
   编辑器写而不是人手敲，以及 `check_names.py` 把每一处 `res://` 字面量逐段比过大小写。
 - **素材文件名用中划线**（`skill-icon-1.png`、`self-drawn/`）而不是下划线。全小写，同样吃不到那个坑；
   而改名要动一批写死的路径常量，并且**必须在 Godot 编辑器里做** —— 在外面改，`.import` 附属物
@@ -62,7 +62,7 @@ Godot 官方的建议是：文件夹与文件名用 snake_case，**C# 脚本例�
 | --- | --- |
 | `assets/fonts/LICENSE-OFL.txt` | 授权文件的通行名。它的大小写同时写在磁盘、`rules/UI/PixelFont.cs` 与 `export_presets.cfg` 的 `include_filter` 里，三处必须一致 |
 | `assets/downloaded/fists-of-fury/LICENSE.txt`、`assets/downloaded/samurai/License.txt` | 上游原名。改了就断了与来源的对应，而两份来源本来就不同名 |
-| `data/text/zh-CN.json` | 语言标签的标准写法。`src/Main.cs` 拿它的全名精确匹配，改名要同时改那一处 |
+| `data/text/zh-CN.json` | 语言标签的标准写法。`rules/Foundation/Text/GameLanguage.cs` 拿这个全名拼文本表的路径，改名要同时改那一处 |
 | 仓库根的 `README.md`、`ARCHITECTURE.md`、`CONVENTIONS.md`、`.csproj`、`.sln` | 不是引擎资源，不进发行包 |
 
 这一节由 `tools/check_names.py` 静态核，它是 `verify.py` 第一步的一部分。
@@ -311,7 +311,7 @@ row.AddThemeConstantOverride("separation", UIMetrics.ItemGap);
 
 注释语言：与代码仓一致，使用中文。
 
-参考范本：`src/World/Farm/FarmCellCursor.cs`。
+参考范本：`src/World/Base/BaseCellCursor.cs`。
 
 ## 架构层边界
 

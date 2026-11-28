@@ -5,8 +5,8 @@ using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Economy;
 
-/// <summary>农场那一份正式存档：没有就开新档，有就读回，与场景里那片地对不上、读不出来都当场被拒。</summary>
-public class FarmSaveTests
+/// <summary>基地那一份正式存档：没有就开新档，有就读回，与场景里那片地对不上、读不出来都当场被拒。</summary>
+public class BaseSaveTests
 {
     private static readonly CropDefinition Turnip = new()
     {
@@ -37,7 +37,7 @@ public class FarmSaveTests
         var world = new WorldState(new GameDate(1, Season.Summer, 4), scene.Clone(), TestBags.Empty());
         world.Plots.Cells.First().Plot.Plant(Turnip);
         Assert.True(world.Bag.TryAdd(TestBags.Turnip, TestBags.Common, 7));
-        return FarmSave.Write(RegistryFor(scene), world);
+        return BaseSave.Write(RegistryFor(scene), world);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class FarmSaveTests
     {
         var scene = Scene();
 
-        var world = FarmSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, TestBags.Empty());
+        var world = BaseSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, TestBags.Empty());
 
         Assert.Equal(Calendar.StartDate, world.Date);
         Assert.Equal(PlotSnapshot.Of(WorldState.NewGame(scene.Clone(), TestBags.Empty())), PlotSnapshot.Of(world));
@@ -60,7 +60,7 @@ public class FarmSaveTests
         var scene = Scene();
         var newGameBag = TestBags.Empty();
 
-        var world = FarmSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, newGameBag);
+        var world = BaseSave.LoadOrNew(null, RegistryFor(scene), Crops, scene, newGameBag);
         Assert.True(world.Bag.TryAdd(TestBags.TurnipSeed, null, 3));
 
         Assert.Equal(newGameBag.SlotCount, newGameBag.EmptySlotCount);
@@ -71,7 +71,7 @@ public class FarmSaveTests
     {
         var scene = Scene();
 
-        var world = FarmSave.LoadOrNew(SavedOn(scene), RegistryFor(scene), Crops, scene, TestBags.Empty());
+        var world = BaseSave.LoadOrNew(SavedOn(scene), RegistryFor(scene), Crops, scene, TestBags.Empty());
 
         Assert.Equal(new GameDate(1, Season.Summer, 4), world.Date);
         Assert.Equal(PlotState.Planted, world.Plots.Cells.First().Plot.State);
@@ -84,7 +84,7 @@ public class FarmSaveTests
         var text = SavedOn(Scene(x: 2));
         var moved = Scene(x: 3);
 
-        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(moved), Crops, moved, TestBags.Empty()));
+        var e = Assert.Throws<InvalidDataException>(() => BaseSave.LoadOrNew(text, RegistryFor(moved), Crops, moved, TestBags.Empty()));
 
         Assert.Contains("(5, 3)", e.Message);
         Assert.Contains("(2, 3)", e.Message);
@@ -96,7 +96,7 @@ public class FarmSaveTests
         var text = SavedOn(Scene(width: 3));
         var wider = Scene(width: 4);
 
-        var e = Assert.Throws<InvalidDataException>(() => FarmSave.LoadOrNew(text, RegistryFor(wider), Crops, wider, TestBags.Empty()));
+        var e = Assert.Throws<InvalidDataException>(() => BaseSave.LoadOrNew(text, RegistryFor(wider), Crops, wider, TestBags.Empty()));
 
         Assert.Contains("(5, 3)", e.Message);
         Assert.Contains("(5, 4)", e.Message);
@@ -108,7 +108,7 @@ public class FarmSaveTests
         var scene = Scene();
 
         var e = Assert.Throws<SaveRejectedException>(
-            () => FarmSave.LoadOrNew("{ 写坏了", RegistryFor(scene), Crops, scene, TestBags.Empty()));
+            () => BaseSave.LoadOrNew("{ 写坏了", RegistryFor(scene), Crops, scene, TestBags.Empty()));
 
         Assert.Equal(SaveRejection.Unreadable, e.Reason);
     }

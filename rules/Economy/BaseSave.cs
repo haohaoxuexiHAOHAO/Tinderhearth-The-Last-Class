@@ -2,12 +2,12 @@ using Tinderhearth.Rules.Foundation.Save;
 
 namespace Tinderhearth.Rules.Economy;
 
-/// <summary>农场那一份正式存档：读回或者开新档，以及写成一份文本。读写文件那一下归引擎层。</summary>
+/// <summary>基地那一份正式存档：读回或者开新档，以及写成一份文本。读写文件那一下归引擎层。</summary>
 /// <remarks>
 /// 读不出来、被拒、或者存档里那片地与场景里那片地对不上，一律抛出去，不开新档：开了新档，下一次睡觉就会把那份
 /// 读不出来的存档盖掉，而它多半只是装少了一个 mod 或者改过一次场景。
 /// </remarks>
-public static class FarmSave
+public static class BaseSave
 {
     /// <summary>一个列表里最多点名几格，再多就只报个数。</summary>
     private const int NamedCellLimit = 12;

@@ -2,12 +2,12 @@ using Tinderhearth.Rules.Foundation.Text;
 
 namespace Tinderhearth.Rules.Economy;
 
-/// <summary>农场里一个动作被拒时，即时提示那一行写什么：每一种被拒各一条文本键，不合成一句「不能」。</summary>
+/// <summary>基地里一个动作被拒时，即时提示那一行写什么：每一种被拒各一条文本键，不合成一句「不能」。</summary>
 /// <remarks>
 /// 几种被拒的补救办法不一样（播种那三种的分别写在 <see cref="PlantResult"/> 上），合成一句之后玩家不知道该换格子、
 /// 换东西还是先锄地。字在代码仓 data/text/ 下的文本表里，这里只有键；有一条测试核工程里那一份一条不缺。
 /// </remarks>
-public static class FarmNotices
+public static class BaseNotices
 {
     /// <summary>手上那一格是空的。</summary>
     public const string SowNothingSelectedKey = "ui.notice.sow_nothing_selected";

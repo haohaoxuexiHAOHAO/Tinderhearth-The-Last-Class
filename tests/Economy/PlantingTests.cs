@@ -144,7 +144,7 @@ public class PlantingTests
     public void 那一格状态不许播时被拒()
     {
         // 这一条在游戏里走不到：动作按格子状态派发，只有已锄的格才派发到播种。
-        // 规则层仍然要能单独拒掉它，这样换派发方式时不会悄悄放过去。口径见 FarmField 的类注释。
+        // 规则层仍然要能单独拒掉它，这样换派发方式时不会悄悄放过去。口径见 BaseField 的类注释。
         var plot = new Plot(PlotState.Cleared);   // 清过但没锄
         var bar = CarrySlotBar.Empty();
         bar.Fill([
@@ -204,7 +204,7 @@ public class PlantingTests
             () => Planting.TryPlant(Tilled(), Turnip, null!));
     }
 
-    /// <summary>把「手上那一格」翻译成播种那一下，与 <c>FarmField</c> 里那一步写法相同。</summary>
+    /// <summary>把「手上那一格」翻译成播种那一下，与 <c>BaseField</c> 里那一步写法相同。</summary>
     private static PlantResult Plant(
         Plot plot, CarrySlotBar bar, Func<string, CropDefinition?> seeds)
     {

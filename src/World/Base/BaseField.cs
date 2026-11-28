@@ -8,7 +8,7 @@ using Tinderhearth.Rules.Progression;
 using Tinderhearth.Rules.UI;
 using Tinderhearth.UI;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
 /// <summary>
 /// 一片地：把 <see cref="Plot"/> 那台状态机接到瓦片层和作物精灵上。
@@ -26,7 +26,7 @@ namespace Tinderhearth.World.Farm;
 /// 播哪一种作物取随身栏选中那一格，屏幕上的随身栏画的是背包上随身栏那一排；判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>。
 /// 还没有商店，种子由开发期调试键往背包里放（<see cref="GiveSeedBatch"/>）。
 /// </remarks>
-public partial class FarmField : Node
+public partial class BaseField : Node
 {
     /// <summary>耕地那一层。代码往它上面刷，作者不要手刷。</summary>
     /// <remarks>
@@ -54,7 +54,7 @@ public partial class FarmField : Node
 
     /// <summary>当前操作格。全部逐格动作都从它读要作用的格子。</summary>
     [Export]
-    public FarmCellCursor? Cursor { get; set; }
+    public BaseCellCursor? Cursor { get; set; }
 
     /// <summary>输入门面。</summary>
     [Export]
@@ -138,7 +138,7 @@ public partial class FarmField : Node
 
     /// <summary>每个物品的图标。一个物品一份，靠标识与物品定义配对；在册的每一个都要有。</summary>
     /// <remarks>
-    /// 缺了、重了、变异那一格没写，农场启动时一次全报（<see cref="ItemIconCheck"/>）。随身栏的格子画的就是它。
+    /// 缺了、重了、变异那一格没写，基地启动时一次全报（<see cref="ItemIconCheck"/>）。随身栏的格子画的就是它。
     /// </remarks>
     [Export]
     public Godot.Collections.Array<ItemIcon> ItemIcons { get; set; } = [];
@@ -156,13 +156,13 @@ public partial class FarmField : Node
     public InstantNoticeView? Notice { get; set; }
 
     /// <summary>游戏菜单。背包那一页从这里读背包。</summary>
-    /// <remarks>缺了当场报错：没有游戏菜单，农场里看不见背包，打开游戏菜单的键按下去也没反应，而那不报错。</remarks>
+    /// <remarks>缺了当场报错：没有游戏菜单，基地里看不见背包，打开游戏菜单的键按下去也没反应，而那不报错。</remarks>
     [Export]
     public GameMenuPanel? GameMenu { get; set; }
 
     private TileMapLayer _tilled = null!;
     private Node2D _crops = null!;
-    private FarmCellCursor _cursor = null!;
+    private BaseCellCursor _cursor = null!;
     private InputRouter _router = null!;
     private CarrySlotBarView _carry = null!;
     private InstantNoticeView _notice = null!;
@@ -200,7 +200,7 @@ public partial class FarmField : Node
 
         _tilled = TilledLayer ?? throw Missing(nameof(TilledLayer), "耕地那一层（叠在天然地形之上的 TileMapLayer）");
         _crops = CropsContainer ?? throw Missing(nameof(CropsContainer), "放作物精灵的那个节点");
-        _cursor = Cursor ?? throw Missing(nameof(Cursor), $"当前操作格（挂了 {nameof(FarmCellCursor)} 的节点）");
+        _cursor = Cursor ?? throw Missing(nameof(Cursor), $"当前操作格（挂了 {nameof(BaseCellCursor)} 的节点）");
         _router = Router ?? throw Missing(nameof(Router), $"输入门面（挂了 {nameof(InputRouter)} 的节点）");
         _carry = CarryBar ?? throw Missing(nameof(CarryBar), $"随身栏（挂了 {nameof(CarrySlotBarView)} 的节点）");
         _notice = Notice ?? throw Missing(nameof(Notice), $"即时提示那一行（挂了 {nameof(InstantNoticeView)} 的节点）");
@@ -209,7 +209,7 @@ public partial class FarmField : Node
         if (_tilled.TileSet is null)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）接的耕地层（{_tilled.Name}）还没有 TileSet");
+                $"{nameof(BaseField)}（节点 {Name}）接的耕地层（{_tilled.Name}）还没有 TileSet");
         }
 
         // 框和实际作用的格必须落在同一套网格上。接成两层时它们可能差半格（双网格的显示层就是
@@ -217,7 +217,7 @@ public partial class FarmField : Node
         if (!ReferenceEquals(_cursor.GridLayer, _tilled))
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）接的耕地层是「{_tilled.Name}」，"
+                $"{nameof(BaseField)}（节点 {Name}）接的耕地层是「{_tilled.Name}」，"
                     + $"而当前操作格算坐标用的是「{_cursor.GridLayer?.Name}」，两者必须是同一个节点。"
                     + "尤其不要接双网格的显示层，它往左上偏了半格");
         }
@@ -225,7 +225,7 @@ public partial class FarmField : Node
         if (FieldSizeInCells.X < 1 || FieldSizeInCells.Y < 1)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）的 {nameof(FieldSizeInCells)} 是 {FieldSizeInCells} —— "
+                $"{nameof(BaseField)}（节点 {Name}）的 {nameof(FieldSizeInCells)} 是 {FieldSizeInCells} —— "
                     + "两个方向都要至少 1 格，否则这一片地里一格都没有");
         }
 
@@ -239,11 +239,11 @@ public partial class FarmField : Node
         if (FallowRevertDays < 1)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）的 {nameof(FallowRevertDays)} 是 {FallowRevertDays} —— "
+                $"{nameof(BaseField)}（节点 {Name}）的 {nameof(FallowRevertDays)} 是 {FallowRevertDays} —— "
                     + "荒置退化天数至少 1 天，要在检查器里填");
         }
 
-        // 作物要指到在册的物品，所以物品先读；读法与主场景是同一处（ContentBootstrap.LoadItems）。
+        // 作物要指到在册的物品，所以物品先读；读法与启动时那一次核对是同一处（ContentBootstrap.LoadItems）。
         var catalog = ContentBootstrap.BuildCatalog();
         _text = ContentBootstrap.LoadText(catalog);
         _items = ContentBootstrap.LoadItems(catalog, _text);
@@ -277,7 +277,7 @@ public partial class FarmField : Node
         if (_beds.Count > 0 && _wake is null)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）这片地摆了床（{string.Join("、", _beds.Select(b => b.Name))}），"
+                $"{nameof(BaseField)}（节点 {Name}）这片地摆了床（{string.Join("、", _beds.Select(b => b.Name))}），"
                     + $"却没有醒来那一套（挂了 {nameof(SleepPresentation)} 的节点）—— 睡下去之后没有淡出淡入，也没有摘要弹窗");
         }
     }
@@ -290,10 +290,10 @@ public partial class FarmField : Node
             return;
         }
 
-        switch (FarmInteraction.Pick(_beds.Any(bed => bed.SleeperInReach)))
+        switch (BaseInteraction.Pick(_beds.Any(bed => bed.SleeperInReach)))
         {
-            case FarmInteractTarget.Bed: Sleep(); break;
-            case FarmInteractTarget.CurrentCell: ActOnCurrentCell(); break;
+            case BaseInteractTarget.Bed: Sleep(); break;
+            case BaseInteractTarget.CurrentCell: ActOnCurrentCell(); break;
         }
     }
 
@@ -316,7 +316,7 @@ public partial class FarmField : Node
         if (_wake is not null && !ReferenceEquals(_wake, wake))
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）接了两套醒来的表现（{_wake.Name} 与 {wake.Name}）—— 一片地只摆一套");
+                $"{nameof(BaseField)}（节点 {Name}）接了两套醒来的表现（{_wake.Name} 与 {wake.Name}）—— 一片地只摆一套");
         }
 
         _wake = wake;
@@ -345,11 +345,11 @@ public partial class FarmField : Node
             return;
         }
 
-        if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmEndDay))
+        if (InputMapInstaller.IsDebugKey(key, DebugKeys.BaseEndDay))
         {
             Sleep();
         }
-        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.FarmGiveSeeds))
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.BaseGiveSeeds))
         {
             GiveSeedBatch();
         }
@@ -367,7 +367,7 @@ public partial class FarmField : Node
         var stored = _world.State.Bag.TryAddAll(batch);
         var batches = SeedBatches.CountFor(_cropDefs.Count, CarrySlotBar.SlotCount);
 
-        if (FarmNotices.ForSeedBatch(stored, _text) is string line)
+        if (BaseNotices.ForSeedBatch(stored, _text) is string line)
         {
             _notice.Show(line);
             GD.Print("[地块] 第 ", _seedBatch + 1, " 批种子（共 ", batches, " 批）没放进背包：", line);
@@ -386,7 +386,7 @@ public partial class FarmField : Node
     /// 另开一条的话，调试推的那天没走完整串，而那种不一致在排缺陷时会把人带到错的方向。
     ///
     /// 摆了醒来那一套（<see cref="SleepPresentation"/>）就由它走淡出、结算、淡入、弹窗；没摆就当场结算，
-    /// 结果只打在输出面板上。后一种是作物素材表那份实机清单搭出来的农场，那时还没有床。
+    /// 结果只打在输出面板上。后一种是作物素材表那份实机清单搭出来的基地，那时还没有床。
     /// </remarks>
     private void Sleep()
     {
@@ -425,7 +425,7 @@ public partial class FarmField : Node
     /// </remarks>
     private void WriteSave(WorldState world)
     {
-        var text = FarmSave.Write(_registry, world);
+        var text = BaseSave.Write(_registry, world);
         var shards = SaveFile.ShardBytes(text);
         var total = _store.Write(text);
         GD.Print("[存档] 写成 ", _store.Path, "，共 ", total, " 字节（",
@@ -488,7 +488,7 @@ public partial class FarmField : Node
 
     /// <summary>播一次：手上那一格是背包里的哪一格，就从那一格拿一颗种子去播。</summary>
     /// <remarks>
-    /// 判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>，被拒时写哪一句在 <see cref="FarmNotices"/>；本方法把那一句交给
+    /// 判定与扣种子在 <see cref="Planting.TryPlantFromBag"/>，被拒时写哪一句在 <see cref="BaseNotices"/>；本方法把那一句交给
     /// 即时提示，输出面板也打同一句，带上是哪一格。屏幕上的随身栏画的是背包上随身栏那一排，所以选中第几格就是那一排第几格。
     ///
     /// 三种原因要分得开（手上是空格、手上不是种子、这一格不许播）。合并成一句「不能播」之后，
@@ -502,7 +502,7 @@ public partial class FarmField : Node
             _carry.Bar.SelectedIndex,
             id => _cropsBySeed.TryGetValue(id, out var crop) ? crop : null);
 
-        if (FarmNotices.ForSowing(result, _text) is string line)
+        if (BaseNotices.ForSowing(result, _text) is string line)
         {
             _notice.Show(line);
             GD.Print("[地块] 播不了 ", _cursor.Cell, "：", line);
@@ -513,7 +513,7 @@ public partial class FarmField : Node
 
     /// <summary>收一次：收成经生产那条管道进主角的背包，放不下那一株照旧待收。</summary>
     /// <remarks>
-    /// 判在规则层（<see cref="Harvesting.ByProtagonist"/>），被拒时写哪一句在 <see cref="FarmNotices"/>。不要在这里绕过它直接往背包里放：
+    /// 判在规则层（<see cref="Harvesting.ByProtagonist"/>），被拒时写哪一句在 <see cref="BaseNotices"/>。不要在这里绕过它直接往背包里放：
     /// 产出入库只有管道那一处，多一个入口，「放不下那一株还在」就只在其中一处成立。
     /// </remarks>
     private bool Harvest(Plot plot)
@@ -522,7 +522,7 @@ public partial class FarmField : Node
             $"这一格是 {plot.State}、作物标识是 {plot.CropId}，但找不到那份作物定义");
 
         var attempt = Harvesting.ByProtagonist(plot, crop, _yield, _world.State.Bag);
-        if (FarmNotices.ForHarvest(attempt.Status, _text) is string line)
+        if (BaseNotices.ForHarvest(attempt.Status, _text) is string line)
         {
             _notice.Show(line);
             GD.Print("[地块] 收不了 ", _cursor.Cell, "：", line);
@@ -558,7 +558,7 @@ public partial class FarmField : Node
         if (problems.Count > 0)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）的作物素材有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+                $"{nameof(BaseField)}（节点 {Name}）的作物素材有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
         }
 
         foreach (var art in CropArts)
@@ -578,7 +578,7 @@ public partial class FarmField : Node
         if (problems.Count > 0)
         {
             throw new InvalidOperationException(
-                $"{nameof(FarmField)}（节点 {Name}）的物品图标有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
+                $"{nameof(BaseField)}（节点 {Name}）的物品图标有 {problems.Count} 处不对：\n  " + string.Join("\n  ", problems));
         }
 
         foreach (var icon in ItemIcons)
@@ -602,7 +602,7 @@ public partial class FarmField : Node
     /// <summary>有存档就读回，没有就开新档：日期是开局那一天，地按检查器里那几格铺出来。</summary>
     /// <remarks>
     /// 存档在、却读不出来或被拒时当场报错，不开新档：开了新档，下一次睡觉就会把那份存档盖掉，而它多半只是改过一次
-    /// 场景里那片地、或者装少了一个 mod。判在规则层（<see cref="FarmSave"/>），这里只把文件读进来、把报错写上路径。
+    /// 场景里那片地、或者装少了一个 mod。判在规则层（<see cref="BaseSave"/>），这里只把文件读进来、把报错写上路径。
     /// </remarks>
     private void LoadWorld()
     {
@@ -616,7 +616,7 @@ public partial class FarmField : Node
         try
         {
             text = _store.ReadOrNull();
-            world = FarmSave.LoadOrNew(text, _registry, _cropDefs, sceneField, _newGameBag);
+            world = BaseSave.LoadOrNew(text, _registry, _cropDefs, sceneField, _newGameBag);
         }
         catch (Exception e) when (e is SaveRejectedException or InvalidDataException or IOException or UnauthorizedAccessException)
         {
@@ -750,7 +750,7 @@ public partial class FarmField : Node
     }
 
     private InvalidOperationException Missing(string exportName, string what) =>
-        new($"{nameof(FarmField)}（节点 {Name}）的 {exportName} 没接上 —— 它要的是{what}");
+        new($"{nameof(BaseField)}（节点 {Name}）的 {exportName} 没接上 —— 它要的是{what}");
 
     /// <summary>瓦片层的格坐标换成规则层那一片地的格坐标。两边一格对一格，只是类型不同。</summary>
     private static GridCell ToGridCell(Vector2I cell) => new(cell.X, cell.Y);

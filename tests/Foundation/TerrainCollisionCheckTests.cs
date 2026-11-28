@@ -12,7 +12,7 @@ public class TerrainCollisionCheckTests
     private static TerrainTile Tile(int terrain, string name, string tile, bool collision, int terrainSet = DataSet) =>
         new(terrainSet, terrain, name, tile, collision);
 
-    /// <summary>照农场那份配好的样子：草与裸土不带碰撞，浅水的两张与深水那一张都带。</summary>
+    /// <summary>照基地那份配好的样子：草与裸土不带碰撞，浅水的两张与深水那一张都带。</summary>
     private static TerrainTile[] Configured() =>
     [
         Tile(0, "grass", "grass-dirt.png（源 0）的 (0, 3)", collision: false),

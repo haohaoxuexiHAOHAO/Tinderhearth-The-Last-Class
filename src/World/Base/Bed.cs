@@ -1,15 +1,15 @@
 using Godot;
 using Tinderhearth.Rules.Economy;
 
-namespace Tinderhearth.World.Farm;
+namespace Tinderhearth.World.Base;
 
-/// <summary>床：作者摆在农场里的一个交互点。角色站进它的范围里按交互键就睡，推进一天。</summary>
+/// <summary>床：作者摆在基地里的一个交互点。角色站进它的范围里按交互键就睡，推进一天。</summary>
 /// <remarks>
-/// 床自己不听按键。交互键只在 <see cref="FarmField"/> 那一处听：按下那一刻问每一张床角色在不在它的范围里，
-/// 再由规则层挑是睡还是作用在当前操作格上（<see cref="FarmInteraction"/>）。两处各听各的话，同一下按键先被谁
+/// 床自己不听按键。交互键只在 <see cref="BaseField"/> 那一处听：按下那一刻问每一张床角色在不在它的范围里，
+/// 再由规则层挑是睡还是作用在当前操作格上（<see cref="BaseInteraction"/>）。两处各听各的话，同一下按键先被谁
 /// 接住就看引擎的调用先后，而那不报错。
 ///
-/// 床在 _Ready 里把自己登记到检查器里接的那一片地上。没摆床的农场只能按推进一天那个调试键过一天，那不算配错：床迟早要
+/// 床在 _Ready 里把自己登记到检查器里接的那一片地上。没摆床的基地只能按推进一天那个调试键过一天，那不算配错：床迟早要
 /// 搬进室内（设计仓台账 GP-130）。摆了床却缺了哪一格，当场报错说清缺谁。
 /// </remarks>
 public partial class Bed : Node2D
@@ -22,18 +22,18 @@ public partial class Bed : Node2D
     [Export]
     public Area2D? Reach { get; set; }
 
-    /// <summary>谁站进范围里算站在床边：农场里那个角色。</summary>
+    /// <summary>谁站进范围里算站在床边：基地里那个角色。</summary>
     [Export]
     public CharacterBody2D? Sleeper { get; set; }
 
     /// <summary>睡下去推进的是哪一片地的那一天。</summary>
     [Export]
-    public FarmField? Field { get; set; }
+    public BaseField? Field { get; set; }
 
     // 下面两个是 _Ready 里校验过的非空副本。
     private Area2D _reach = null!;
     private CharacterBody2D _sleeper = null!;
-    private FarmField? _registeredTo;
+    private BaseField? _registeredTo;
 
     /// <summary>角色这一刻在不在床的范围里。</summary>
     /// <remarks>
@@ -45,8 +45,8 @@ public partial class Bed : Node2D
     public override void _Ready()
     {
         _reach = Reach ?? throw Missing(nameof(Reach), "可交互范围（一个 Area2D，下面挂碰撞形状）");
-        _sleeper = Sleeper ?? throw Missing(nameof(Sleeper), "农场里那个角色：站进范围里的是他，才算站在床边");
-        var field = Field ?? throw Missing(nameof(Field), $"睡下去推进的那一片地（挂了 {nameof(FarmField)} 的节点）");
+        _sleeper = Sleeper ?? throw Missing(nameof(Sleeper), "基地里那个角色：站进范围里的是他，才算站在床边");
+        var field = Field ?? throw Missing(nameof(Field), $"睡下去推进的那一片地（挂了 {nameof(BaseField)} 的节点）");
 
         if (!_reach.GetChildren().Any(HasArea))
         {

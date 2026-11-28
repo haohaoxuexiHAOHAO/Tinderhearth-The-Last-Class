@@ -20,10 +20,10 @@ namespace Tinderhearth.UI;
 ///
 /// 子页签上的字从文本表取（<c>ui.game_menu.page.*</c>），缺了显成缺文本的占位，一眼看得出来。
 ///
-/// 它有两种来路。主场景里由代码建出来、登记到界面根上，素材资源、文本表与主题由主场景给；别的场景（农场）里由作者
-/// 摆成界面根的子节点、在检查器里接素材资源，界面根就绪时把它挪到面板那一层、登记成游戏菜单那个界面（<see cref="IPlacedSurface"/>）。
-/// 后一种没有人给文本表与主题，所以没给就自己拿：文本表与主场景读的是同一处（<see cref="ContentBootstrap.LoadText"/>），
-/// 主题用同一份素材资源装。它在自己的 <c>_Ready</c> 里搭好全部内容、连好全部信号，被界面根挪动之后不再搭第二遍。
+/// 它由作者摆成场景里界面根的子节点、在检查器里接素材资源，界面根就绪时把它挪到面板那一层、登记成游戏菜单那个界面
+/// （<see cref="IPlacedSurface"/>）。文本表与主题没人给就自己拿：文本表走内容引导那一处读（<see cref="ContentBootstrap.LoadText"/>），
+/// 主题用同一份素材资源装；代码搭它的那一方（例如一次性探针）也可以在挂上之前给。它在自己的 <c>_Ready</c> 里搭好全部内容、
+/// 连好全部信号，被界面根挪动之后不再搭第二遍。
 /// 那些信号都连在它自己与它的子节点之间、从不断开，所以挪动不丢 —— <see cref="IPlacedUI"/> 说会丢的，是出树时断开的那种。
 ///
 /// 顶层页签只画了图标、不写字，也不另放一行当前页标题：鼠标指着一个页签、或者键盘与手柄的焦点停在它上面，
@@ -60,13 +60,13 @@ public partial class GameMenuPanel : Control, IPlacedSurface
     private UIRoot _ui = null!;
 
     /// <summary>输入门面。打开游戏菜单与直达三个页签的键一律经它问，缺了当场报错。</summary>
-    /// <remarks>摆进场景时在检查器里拖挂了 <see cref="InputRouter"/> 的那个节点；主场景由代码在挂上之前给。</remarks>
+    /// <remarks>在检查器里拖挂了 <see cref="InputRouter"/> 的那个节点。</remarks>
     [Export]
     public InputRouter? Router { get; set; }
 
     /// <summary>素材资源。页签上的图标从这里取，缺了或缺格当场报错并一次列全。</summary>
     /// <remarks>
-    /// 摆进场景时在检查器里接 <c>assets/self-drawn/ui/ui_art.tres</c>，与随身栏接的是同一份；主场景由代码在挂上之前给。
+    /// 在检查器里接 <c>assets/self-drawn/ui/ui_art.tres</c>，与随身栏接的是同一份。
     /// </remarks>
     [Export]
     public UIArt? Art { get; set; }
@@ -74,7 +74,7 @@ public partial class GameMenuPanel : Control, IPlacedSurface
     /// <summary>文本表。子页签上的字从这里取。代码搭这个面板的那一方在挂上之前给；没给就在就绪时自己读一份。</summary>
     public TextCatalog? Catalog { get; set; }
 
-    /// <summary>背包那一页从哪读背包。农场在就绪时给；没给的场景（主场景）里那一页照旧只写页名。</summary>
+    /// <summary>背包那一页从哪读背包。基地那片地在就绪时给；没人给时那一页照旧只写页名。</summary>
     /// <remarks>它不是检查器里的格子：背包是世界状态的一部分，由持有它的那一方交过来。</remarks>
     public BagPageSource? Bag
     {
@@ -119,7 +119,7 @@ public partial class GameMenuPanel : Control, IPlacedSurface
         _ui = UIRoot.Above(this) ?? throw new InvalidOperationException(
             $"{nameof(GameMenuPanel)}（节点 {Name}）不在界面根下面 —— 把它直接摆成挂了 {nameof(UIRoot)} 的那个节点的子节点");
 
-        // 摆进场景的那一种没有人给文本表与主题：自己拿，与主场景同一个来源。不拿的话子页签上一片缺文本的占位，
+        // 摆进场景时没有人给文本表与主题：自己拿，与启动时那一次核对同一个来源。不拿的话子页签上一片缺文本的占位，
         // 字也退回引擎默认字体，而后者不报错。
         _text = Catalog ?? ContentBootstrap.LoadText(ContentBootstrap.BuildCatalog());
         Theme ??= PixelTheme.Install(_art, out _);
@@ -442,7 +442,7 @@ public partial class GameMenuPanel : Control, IPlacedSurface
     }
 
     /// <summary>
-    /// 内容区里放什么：背包那一页有了从哪读背包，就画背包；其余各页，与还没接上背包的主场景，照旧只写页名。
+    /// 内容区里放什么：背包那一页有了从哪读背包，就画背包；其余各页，与还没人给背包时的背包页，照旧只写页名。
     /// </summary>
     /// <remarks>背包那一页第一次露面时才搭，之后每次露面都照背包的当前值重画。</remarks>
     private void ShowPageContent()

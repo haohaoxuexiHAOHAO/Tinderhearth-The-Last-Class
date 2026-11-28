@@ -16,7 +16,7 @@ public static class UIArtGuard
     /// 核一份素材资源，全对就把它交回去；没接上或有一处不对就抛，并把全部问题一次列出来。
     /// </summary>
     /// <param name="art">检查器里接的那一份。</param>
-    /// <param name="owner">谁要它，例如「Main（节点 Main）」。报错里说给作者听是哪个节点没接上。</param>
+    /// <param name="owner">谁要它，例如「CursorSkin（节点 CursorSkin）」。报错里说给作者听是哪个节点没接上。</param>
     public static UIArt Require(UIArt? art, string owner)
     {
         var resource = art ?? throw new InvalidOperationException(

@@ -61,7 +61,7 @@ public static class DepthRendering
     /// 位置，整体下移半条带会让它们量错地方，并报出与颜色无关的失败。
     ///
     /// 代价是地形也得画成一条跟带一样厚的带子，否则角色在带内前后走时脚会离开那条画出来的地面线。
-    /// 训练房的地面因此按带宽画，见 <c>TrainingRoom</c> 的 <c>BuildTerrain</c>。
+    /// 侧视的地面因此按带宽画。
     /// </remarks>
     public static double DrawOffsetWorldPx(double depthWorldPx) =>
         DepthBand.Clamp(depthWorldPx) - DepthBand.CenterWorldPx;
