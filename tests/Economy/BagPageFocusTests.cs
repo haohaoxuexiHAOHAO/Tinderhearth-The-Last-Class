@@ -122,6 +122,21 @@ public class BagPageFocusTests
     }
 
     [Fact]
+    public void 往网格外面找时_从现在这一样朝那一边的边上对着这一行的那一格找()
+    {
+        var focus = BagPageFocus.Of(Sample(), new BagControls(), held: null);
+
+        // 盾占页上 4、5、8、9：从它左下那一格往右，边上那一格是右下；从右上那一格往左，是左上。
+        Assert.Equal(9, focus.EdgeToward(8, FocusDirection.Right));
+        Assert.Equal(4, focus.EdgeToward(5, FocusDirection.Left));
+        Assert.Equal(9, focus.EdgeToward(5, FocusDirection.Down));
+        Assert.Equal(5, focus.EdgeToward(9, FocusDirection.Up));
+        // 一格大的就是它自己；拿着盾时，盾的每一格也各是一样。
+        Assert.Equal(6, focus.EdgeToward(6, FocusDirection.Right));
+        Assert.Equal(4, BagPageFocus.Of(Sample(), new BagControls(), held: 4).EdgeToward(4, FocusDirection.Right));
+    }
+
+    [Fact]
     public void 随身栏那一排不满一行时_往上走到最近的那一格()
     {
         // 随身栏 3 格、网格 4 宽：网格第一行最右那一格（页上第 6 格）上面没有格。

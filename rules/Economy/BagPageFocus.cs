@@ -122,6 +122,28 @@ public sealed class BagPageFocus
         return best;
     }
 
+    /// <summary>
+    /// 焦点停在页上第 <paramref name="from"/> 格时，现在这一样朝 <paramref name="direction"/> 那一边的边上、对着焦点那一行（列）的那一格。
+    /// 一格大的就是它自己。
+    /// </summary>
+    /// <remarks>那一边网格里没有了、要往网格外面找时，从这一格找：从一块大东西中间那一格往外找，先碰上的是同一块里的另一格。</remarks>
+    public int EdgeToward(int from, FocusDirection direction)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(from);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(from, _areas.Count);
+
+        var source = _areas[from];
+        var at = _positions[from];
+        return _indexAt[direction switch
+        {
+            FocusDirection.Left => (source.Left, at.Row),
+            FocusDirection.Right => (source.Right - 1, at.Row),
+            FocusDirection.Up => (at.Column, source.Top),
+            FocusDirection.Down => (at.Column, source.Bottom - 1),
+            _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "方向键只有上下左右"),
+        }];
+    }
+
     /// <summary>同一行（列）上、越过现在这一样的那一段格位，由近到远；有的格位上没有格（随身栏那一排不满一行时）。</summary>
     private IEnumerable<(int Column, int Row)> Line(Area source, (int Column, int Row) at, FocusDirection direction) =>
         direction switch

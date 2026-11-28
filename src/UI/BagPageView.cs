@@ -643,11 +643,11 @@ public sealed partial class BagPageView : VBoxContainer
             return;
         }
 
-        var from = _cells[index].Button;
-        from.AcceptEvent();
-        var next = BagPageFocus.Of(_source.Bag(), _controls, _held).Next(index, direction) is { } at
+        _cells[index].Button.AcceptEvent();
+        var focus = BagPageFocus.Of(_source.Bag(), _controls, _held);
+        var next = focus.Next(index, direction) is { } at
             ? _cells[at].Button
-            : OutsideGrid(from, direction);
+            : OutsideGrid(_cells[focus.EdgeToward(index, direction)].Button, direction);
         next?.GrabFocus();
     }
 
@@ -672,9 +672,11 @@ public sealed partial class BagPageView : VBoxContainer
     }
 
     /// <summary>那一边网格里没有了：交给引擎找网格外面的那一个（右边那一列、上面的页签），找不到就停在原处。</summary>
+    /// <param name="from">从哪一格找：现在这一样朝那一边的边上、对着玩家这一行（列）的那一格（<see cref="BagPageFocus.EdgeToward"/>）。</param>
+    /// <param name="direction">往哪边。</param>
     /// <remarks>
-    /// 先从这一格找，找到的才挨着玩家这一行（列）。找到的若还是网格里的一格（同一块里的另一格，或者只有一半在那一边的那一块），
-    /// 就改从整张网格找：网格里的格全在它里面，一格都挑不上。
+    /// 从这一格找，找到的才挨着玩家这一行（列）。找到的若还是网格里的一格（只有一半在那一边的那一块），就改从整张网格找：
+    /// 网格里的格全在它里面，一格都挑不上。
     /// </remarks>
     private Control? OutsideGrid(Button from, FocusDirection direction)
     {
