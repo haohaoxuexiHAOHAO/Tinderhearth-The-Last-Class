@@ -2,7 +2,7 @@ namespace Tinderhearth.Rules.Economy;
 
 /// <summary>一天怎么结束的：主动睡，或者到点强制结束。</summary>
 /// <remarks>
-/// 两个来源之后走同一个入口、同一串步序。差别只在触发那一下的表现与随之算出的熬夜档位，而熬夜档位还没有，
+/// 两个来源之后走同一个入口、同一串步序。差别只在触发那一下的表现与算不算熬夜，而熬夜还没有做，
 /// 归设计仓台账 GP-156。依据在设计仓 design/每日结算系统.md 的「一个入口，两个来源」一节。
 /// </remarks>
 public enum DayEndSource
