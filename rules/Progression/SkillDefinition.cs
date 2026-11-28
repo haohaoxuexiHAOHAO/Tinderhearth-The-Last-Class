@@ -5,7 +5,7 @@ namespace Tinderhearth.Rules.Progression;
 
 /// <summary>一招的定义，来自数据文件而不是代码。普通攻击与防御也是招，一份文件一招。</summary>
 /// <remarks>
-/// 每一招要写什么在工作区根 desc/战斗规则.md 的「技能」。这里只读打一场仗那份需求用得上的几格（设计仓台账 GP-179）；
+/// 每一招要写什么在工作区根 desc/战斗规则.md 的「技能」。这里只读打一场仗用得上的几格；
 /// 准备回合、范围形状、击退与消耗，等用到它们的需求再加。
 ///
 /// 每一格都用 <c>required</c>，理由同 <see cref="ItemDefinition"/>：伤害那三格、给自己挂的状态与兵器种类写 <c>null</c>
