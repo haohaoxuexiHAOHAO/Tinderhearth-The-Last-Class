@@ -1,8 +1,8 @@
 using System.Globalization;
 using Godot;
 using Tinderhearth.Platform;
+using Tinderhearth.Rules.Combat;
 using Tinderhearth.Rules.Economy;
-using Tinderhearth.Rules.Foundation.Actors;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
@@ -51,7 +51,8 @@ public partial class Startup : Node
 
         var config = ContentBootstrap.LoadConfig(catalog);
         var text = ContentBootstrap.LoadText(catalog);
-        var characters = LoadCharacters(catalog);
+        // 角色、技能与战斗配置一起读，读完核角色指的招在不在册（CombatContent）。
+        var combat = CombatContent.Load(catalog);
 
         // 作物要指到在册的物品，所以物品先读；作物的名字读它产出的那一样物品，文字那一次核对在物品那一步。
         var items = ContentBootstrap.LoadItems(catalog, text);
@@ -59,23 +60,25 @@ public partial class Startup : Node
 
         GD.Print("[启动] 名册容量 ", config.RosterCapacity, "（读的是配置文件，不是代码里的常量）");
         GD.Print("[启动] 文本条目 ", text.Count, " 条");
-        GD.Print("[启动] 角色定义 ", characters.Count, " 份");
+        GD.Print("[启动] 角色定义 ", combat.Characters.Count, " 份，技能定义 ", combat.Skills.Count, " 份");
+        var missingCombatText = text.MissingKeys(combat.TextKeys);
+        if (missingCombatText.Count > 0)
+        {
+            GD.PushError($"[启动] 文本表 {GameLanguage.TextTablePath} 里缺 {missingCombatText.Count} 条角色与技能的文字，"
+                         + $"界面上会显成缺文本的占位：{string.Join("、", missingCombatText)}");
+        }
         GD.Print("[启动] 作物定义 ", crops.Count, " 份");
         GD.Print("[启动] 物品定义 ", items.Items.Count, " 份，类别 ", items.Categories.Count, " 个，稀有度 ",
                  items.Rarities.Count, " 档，品质 ", items.Qualities.Count, " 档");
 
-        var roster = new Roster(config.RosterCapacity);
-        var controllers = new ActorControllerRegistry();
-        foreach (var character in characters)
+        foreach (var character in combat.Characters.Values.OrderBy(c => c.Id, StringComparer.Ordinal))
         {
-            roster.TryAdd(character.Id);
-            // 谁被玩家驱动由这张登记表决定，不由「是不是主角」决定。
-            controllers.Assign(character.Id, new LocalPlayerController(character.Id));
             GD.Print("[启动]   ", character.Id, " → ", text[character.DisplayNameKey]);
         }
 
-        GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count,
-                 " 人，控制器 ", controllers.Count, " 个");
+        // 角色定义里有敌人与占位学生，不再一份一份登进名册：谁在册归学生上工那一份需求（设计仓台账 GP-177）。
+        var roster = new Roster(config.RosterCapacity);
+        GD.Print("[启动] ", text["boot.contentReady"], "：在册 ", roster.ActorIds.Count, " 人");
     }
 
     private int _framesBeforeMetrics = 2;
@@ -128,9 +131,4 @@ public partial class Startup : Node
                  " 纹理过滤 ",
                  ProjectSettings.GetSetting("rendering/textures/canvas_textures/default_texture_filter"));
     }
-
-    /// <summary>读全部角色定义。两份文件用了同一个标识在这里当场报错，理由见 <see cref="ContentCatalog.ResolveById"/>。</summary>
-    private static List<CharacterDefinition> LoadCharacters(ContentCatalog catalog) =>
-        [.. catalog.ResolveById(CharacterDefinition.ContentDirectory,
-                e => CharacterDefinition.Parse(e.Text, e.RelativePath), c => c.Id).Values];
 }

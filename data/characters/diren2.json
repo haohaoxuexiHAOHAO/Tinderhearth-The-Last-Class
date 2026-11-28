@@ -1,0 +1,11 @@
+{
+  "//": "占位敌人乙：打一场仗那份需求里的两名敌人之一（设计仓台账 GP-179）。理由同 diren1.json；它的敏捷比敌人甲高，敌方阶段先动。",
+  "id": "diren2",
+  "displayNameKey": "character.diren2.name",
+  "traitIds": [],
+  "attributes": { "strength": 3, "agility": 5, "constitution": 3, "intellect": 2 },
+  "actionPoints": 5,
+  "basicAttackSkillId": "basic_attack",
+  "defendSkillId": "defend",
+  "combatWisdom": "Dull"
+}

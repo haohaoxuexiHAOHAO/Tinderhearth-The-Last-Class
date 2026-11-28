@@ -1,0 +1,11 @@
+{
+  "//": "占位敌人甲：打一场仗那份需求里的两名敌人之一（设计仓台账 GP-179）。名字、属性都是占位，敌人有哪几种由作者定。两名敌人的敏捷不一样，敌方阶段谁先动看得出来；行动力 5 是工作区根 desc/角色面板.md 写的人形敌人起步值；战斗智慧取最低一档。",
+  "id": "diren1",
+  "displayNameKey": "character.diren1.name",
+  "traitIds": [],
+  "attributes": { "strength": 4, "agility": 3, "constitution": 4, "intellect": 2 },
+  "actionPoints": 5,
+  "basicAttackSkillId": "basic_attack",
+  "defendSkillId": "defend",
+  "combatWisdom": "Dull"
+}

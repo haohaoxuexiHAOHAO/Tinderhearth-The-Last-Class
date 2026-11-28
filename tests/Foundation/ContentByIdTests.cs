@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Progression;
+using Tinderhearth.Rules.Tests.Progression;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Foundation;
@@ -58,8 +59,7 @@ public class ContentByIdTests
     {
         var catalog = Catalog(
             Source("base", ("characters/jin.json", Character("jin"))),
-            Source("mod:example", ("characters/jin.json",
-                """{ "id": "jin", "displayNameKey": "mod.jin.name", "traitIds": [] }""")));
+            Source("mod:example", ("characters/jin.json", TestCharacters.Json("jin", "mod.jin.name"))));
 
         var byId = Characters(catalog);
 
@@ -126,7 +126,7 @@ public class ContentByIdTests
     public void 没写标识的角色定义载入被拒()
     {
         Assert.Throws<InvalidDataException>(() => CharacterDefinition.Parse(
-            """{ "displayNameKey": "character.x.name", "traitIds": [] }""", "测试"));
+            TestCharacters.Json(id: null, "character.x.name"), "测试"));
     }
 
     private static ContentCatalog Catalog(params InMemoryContentSource[] sources)
@@ -143,8 +143,7 @@ public class ContentByIdTests
     private static InMemoryContentSource Source(string name, params (string Path, string Json)[] files) =>
         new(name, files.ToDictionary(f => f.Path, f => f.Json));
 
-    private static string Character(string id) =>
-        $$"""{ "id": "{{id}}", "displayNameKey": "character.{{id}}.name", "traitIds": [] }""";
+    private static string Character(string id) => TestCharacters.Json(id, $"character.{id}.name");
 
     private static IReadOnlyDictionary<string, CharacterDefinition> Characters(ContentCatalog catalog) =>
         catalog.ResolveById(CharacterDefinition.ContentDirectory,

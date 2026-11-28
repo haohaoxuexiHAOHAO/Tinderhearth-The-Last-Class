@@ -1,0 +1,11 @@
+{
+  "//": "占位学生：打一场仗那份需求里跟着烬上场的那一名（设计仓台账 GP-179）。名字、属性都是占位，名册里的九个学生归设计仓台账 GP-177，那时这一份删掉。四项属性照设计仓 design/numeric-model-params.json 的 attributes.start_student 抄来；行动力 5 照工作区根 desc/角色面板.md；战斗智慧取最低一档。",
+  "id": "xuesheng",
+  "displayNameKey": "character.xuesheng.name",
+  "traitIds": [],
+  "attributes": { "strength": 4, "agility": 4, "constitution": 5, "intellect": 4 },
+  "actionPoints": 5,
+  "basicAttackSkillId": "basic_attack",
+  "defendSkillId": "defend",
+  "combatWisdom": "Dull"
+}

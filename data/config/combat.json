@@ -1,0 +1,21 @@
+{
+  "//": "战斗那一份配置，每一格是什么在代码仓 rules/Combat/CombatConfig.cs。全是占位值，正式的归设计仓 design/数值模型.md，两边对不对得上现在没有守卫，归设计仓台账 DOC-6。",
+  "panel": {
+    "//": "属性换算成面板：初始值 + 每点属性给的 × 那一项属性；哪一项看哪一项属性照工作区根 desc/各类公式计算.md 的「属性换算成面板」，写在代码里，不在这里。HP、MP、物理与魔法的攻防、暴击几率照设计仓 design/numeric-model-params.json 的 derived 那几个抄来；暴击倍率的初始值 1.45 照 desc；其余几项那里还没有，先填一个说得过去的数。几率与倍率写小数，1 就是 100%。",
+    "hpMax": { "base": 120, "perPoint": 12 },
+    "mpMax": { "base": 20, "perPoint": 5 },
+    "hpRegen": { "base": 2, "perPoint": 0.5 },
+    "mpRegen": { "base": 1, "perPoint": 0.3 },
+    "physicalAttack": { "base": 32, "perPoint": 3 },
+    "magicAttack": { "base": 32, "perPoint": 3 },
+    "physicalDefense": { "base": 8, "perPoint": 0.8 },
+    "magicDefense": { "base": 8, "perPoint": 0.8 },
+    "toughnessMax": { "base": 30, "perPoint": 2 },
+    "hitRate": { "base": 0.8, "perPoint": 0.01 },
+    "dodgeRate": { "base": 0.1, "perPoint": 0.01 },
+    "physicalCritChance": { "base": 0.03, "perPoint": 0.007 },
+    "magicCritChance": { "base": 0.03, "perPoint": 0.007 },
+    "physicalCritMultiplier": { "base": 1.45, "perPoint": 0.005 },
+    "magicCritMultiplier": { "base": 1.45, "perPoint": 0.005 }
+  }
+}

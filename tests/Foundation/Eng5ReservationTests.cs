@@ -3,6 +3,7 @@ using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Content;
 using Tinderhearth.Rules.Foundation.Text;
 using Tinderhearth.Rules.Progression;
+using Tinderhearth.Rules.Tests.Progression;
 using Xunit;
 
 namespace Tinderhearth.Rules.Tests.Foundation;
@@ -89,13 +90,7 @@ public class Eng5ReservationTests
     [Fact]
     public void 角色定义从数据文件来且显示名是文本键不是名字()
     {
-        const string json = """
-            {
-              "id": "jin",
-              "displayNameKey": "character.jin.name",
-              "traitIds": ["trait.example"]
-            }
-            """;
+        var json = TestCharacters.Json("jin", "character.jin.name", """["trait.example"]""");
 
         var definition = CharacterDefinition.Parse(json, "测试用角色定义");
 
@@ -217,11 +212,11 @@ public class Eng5ReservationTests
         var catalog = new ContentCatalog();
         catalog.AddSource(new InMemoryContentSource("base", new Dictionary<string, string>
         {
-            ["characters/jin.json"] = """{ "id": "jin", "displayNameKey": "a", "traitIds": ["t1"] }""",
+            ["characters/jin.json"] = TestCharacters.Json("jin", "a", """["t1"]"""),
         }));
         catalog.AddSource(new InMemoryContentSource("mod", new Dictionary<string, string>
         {
-            ["characters/jin.json"] = """{ "id": "jin", "displayNameKey": "b", "traitIds": [] }""",
+            ["characters/jin.json"] = TestCharacters.Json("jin", "b"),
         }));
 
         var resolved = catalog.Resolve("characters");

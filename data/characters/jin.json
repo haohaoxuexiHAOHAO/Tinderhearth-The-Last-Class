@@ -2,8 +2,13 @@
   "//": "主角。displayNameKey 是文本表里的键，不是名字本身 —— 名字走 data/text/。",
   "//假名": "玩家开局可自定义主角假名，届时由存档覆盖显示名，见工作区根 desc/经营规则.md 的「开局」。",
   "//id": "标识取名字的拼音，取法在设计仓 production/界面绘制约定.md 的「文件放哪、叫什么」一节；小头像的文件名就是它。",
-
+  "//战斗": "打仗要的那几格，每一格是什么在代码仓 rules/Progression/CharacterDefinition.cs。四项属性照设计仓 design/numeric-model-params.json 的 attributes.start_protagonist 抄来，是占位；行动力 5 照工作区根 desc/角色面板.md；主角总由玩家操作，战斗智慧写 Unpredictable（面板上显示「变幻无常」）。",
   "id": "jin",
   "displayNameKey": "character.jin.name",
-  "traitIds": []
+  "traitIds": [],
+  "attributes": { "strength": 5, "agility": 5, "constitution": 5, "intellect": 5 },
+  "actionPoints": 5,
+  "basicAttackSkillId": "basic_attack",
+  "defendSkillId": "defend",
+  "combatWisdom": "Unpredictable"
 }

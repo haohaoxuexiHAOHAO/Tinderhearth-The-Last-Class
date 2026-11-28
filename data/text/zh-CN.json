@@ -4,6 +4,14 @@
   "//HUD": "hud.* 是关卡 HUD 的文字（UI-8）。三条量各有一个名（DOC-18）：战斗那条叫体力条、经营那条当日预算叫精力条、派生它们上限的属性叫体质。HP 与 MP 沿用 desc 的缩写（工作区根 desc/战斗规则.md 的「HP 与 MP」）。按键记号（1–6、左／上／下、L／R）与倒地记号（×）是符号不是文案，刻意不在这里。",
 
   "character.jin.name": "烬",
+  "//占位角色": "下面三个名字是占位，打一场仗那份需求里上场的那一名学生与两名敌人用（设计仓台账 GP-179）；名册里的学生归设计仓台账 GP-177，敌人有哪几种由作者定。",
+  "character.xuesheng.name": "学生",
+  "character.diren1.name": "敌人甲",
+  "character.diren2.name": "敌人乙",
+  "skill.basic_attack.name": "普通攻击",
+  "skill.basic_attack.description": "打挨着的一个对面的人。",
+  "skill.defend.name": "防御",
+  "skill.defend.description": "到自己下一回合为止，受到的伤害降低。",
   "boot.title": "火种：最后一届",
   "boot.contentReady": "内容已载入",
 
