@@ -3,15 +3,23 @@
 [ext_resource type="Script" uid="uid://db6sbk2of5xs8" path="res://src/UI/InputRouter.cs" id="1_a4t06"]
 [ext_resource type="Texture2D" uid="uid://cfqq013om8go3" path="res://assets/self-drawn/tiles/grass-dirt.png" id="2_wgrn4"]
 [ext_resource type="Texture2D" uid="uid://bundxmw6gmevx" path="res://assets/self-drawn/tiles/grass-shallow.png" id="3_xp5e4"]
+[ext_resource type="Script" uid="uid://p45x6vyumr1u" path="res://src/UI/UIRoot.cs" id="4_15daf"]
 [ext_resource type="Script" uid="uid://b8h44fq0njxpg" path="res://src/World/Terrain/DualGridPainter.cs" id="4_36fi7"]
 [ext_resource type="Texture2D" uid="uid://by1umrn66w6jr" path="res://assets/self-drawn/tiles/shallow-deep.png" id="4_fhtoc"]
 [ext_resource type="Script" uid="uid://ips55vvx00bm" path="res://src/World/Terrain/DualGridPair.cs" id="5_36fi7"]
+[ext_resource type="Script" uid="uid://j1fih88awbnj" path="res://src/UI/CarrySlotBarView.cs" id="5_pfp3c"]
+[ext_resource type="Script" uid="uid://csudeqskakcmw" path="res://src/UI/InstantNoticeView.cs" id="6_br2e6"]
 [ext_resource type="Texture2D" uid="uid://bhggkqvksblbo" path="res://assets/self-drawn/player_topdown/idle/down/idle1.png" id="7_51x8p"]
 [ext_resource type="Script" uid="uid://cyv4ywrdisxfq" path="res://src/World/Base/BaseWalker.cs" id="7_dbu0n"]
+[ext_resource type="Script" uid="uid://dw51ocpx35voa" path="res://src/UI/GameMenuPanel.cs" id="7_vnbcb"]
+[ext_resource type="Script" uid="uid://dx8rkh64lgugw" path="res://src/UI/SleepCurtain.cs" id="8_2ydg5"]
 [ext_resource type="Texture2D" uid="uid://dy8ltk0vsyy12" path="res://assets/self-drawn/player_topdown/idle/left/idle1.png" id="8_cxgs2"]
 [ext_resource type="Texture2D" uid="uid://cn5t5gxdgj2mv" path="res://assets/self-drawn/player_topdown/idle/right/idle1.png" id="9_a5wis"]
+[ext_resource type="Script" uid="uid://ck75enry4kawd" path="res://src/UI/WakeDialog.cs" id="9_vwgcw"]
 [ext_resource type="Texture2D" uid="uid://ddtbavaa8oqbr" path="res://assets/self-drawn/player_topdown/idle/up/idle1.png" id="10_72sg3"]
+[ext_resource type="Texture2D" uid="uid://bdaqdqxf4uk6v" path="res://assets/self-drawn/tiles/tilled.png" id="11_4gw4k"]
 [ext_resource type="Texture2D" uid="uid://bacfx3tr587v6" path="res://assets/self-drawn/player_topdown/walk/down/walk1.png" id="11_8f51s"]
+[ext_resource type="Texture2D" uid="uid://6i8ql7nplpi3" path="res://assets/self-drawn/tiles/tilled-wet.png" id="12_2ydg5"]
 [ext_resource type="Texture2D" uid="uid://c05cnfr2bdxtj" path="res://assets/self-drawn/player_topdown/walk/down/walk2.png" id="12_c51wh"]
 [ext_resource type="Texture2D" uid="uid://brgptnoomphhr" path="res://assets/self-drawn/player_topdown/walk/down/walk3.png" id="13_sofig"]
 [ext_resource type="Texture2D" uid="uid://dbe2q3weyhyso" path="res://assets/self-drawn/player_topdown/walk/down/walk4.png" id="14_hhofp"]
@@ -45,6 +53,72 @@
 [ext_resource type="Texture2D" uid="uid://c5rtvpgfeqb0v" path="res://assets/self-drawn/player_topdown/walk/up/walk8.png" id="42_271n8"]
 [ext_resource type="Script" uid="uid://pacoqagypbdw" path="res://src/UI/CursorSkin.cs" id="43_cursor"]
 [ext_resource type="Resource" uid="uid://54f1smpss1as" path="res://assets/self-drawn/ui/ui_art.tres" id="44_uiart"]
+[ext_resource type="Script" uid="uid://d11h6exydhjo1" path="res://src/World/Base/BaseCellCursor.cs" id="52_vwgcw"]
+[ext_resource type="Script" uid="uid://c4g833kudpolt" path="res://src/World/Base/BaseField.cs" id="53_o170d"]
+[ext_resource type="Script" uid="uid://dbhktrvn72hai" path="res://src/World/Base/Bed.cs" id="54_o170d"]
+[ext_resource type="Script" uid="uid://dvhhqo0ny6ooc" path="res://src/World/Base/CropArt.cs" id="54_q66e4"]
+[ext_resource type="Resource" uid="uid://c5bfld11shj8f" path="res://assets/self-drawn/crops/crop_01.tres" id="55_853y0"]
+[ext_resource type="Script" uid="uid://bn2o1pe05f86b" path="res://src/World/NotDrawnYetSprite.cs" id="55_q66e4"]
+[ext_resource type="Resource" uid="uid://bkeh6e56ywsf6" path="res://assets/self-drawn/crops/crop_02.tres" id="56_ib8ps"]
+[ext_resource type="Resource" uid="uid://b13qlqht4jjk3" path="res://assets/self-drawn/crops/crop_03.tres" id="57_tb3hs"]
+[ext_resource type="Resource" uid="uid://b0qgw7n88wg63" path="res://assets/self-drawn/crops/crop_04.tres" id="58_4jysl"]
+[ext_resource type="Resource" uid="uid://cdhnuab0lm6jb" path="res://assets/self-drawn/crops/crop_05.tres" id="59_87njt"]
+[ext_resource type="Resource" uid="uid://beugaygi1sbmm" path="res://assets/self-drawn/crops/crop_06.tres" id="60_da0l4"]
+[ext_resource type="Resource" uid="uid://bx5g4sp8frgqd" path="res://assets/self-drawn/crops/crop_07.tres" id="61_xbsvp"]
+[ext_resource type="Resource" uid="uid://v5qk618r16nq" path="res://assets/self-drawn/crops/crop_08.tres" id="62_i5i5d"]
+[ext_resource type="Resource" uid="uid://v6o6w22cg7xt" path="res://assets/self-drawn/crops/crop_09.tres" id="63_w445s"]
+[ext_resource type="Resource" uid="uid://nsamnxmgymui" path="res://assets/self-drawn/crops/crop_10.tres" id="64_ctdi4"]
+[ext_resource type="Resource" uid="uid://b2efrygbkwiym" path="res://assets/self-drawn/crops/crop_11.tres" id="65_kc2qa"]
+[ext_resource type="Resource" uid="uid://ubqwe18ai8xs" path="res://assets/self-drawn/crops/crop_12.tres" id="66_gk206"]
+[ext_resource type="Resource" uid="uid://cssa06oym303t" path="res://assets/self-drawn/crops/crop_13.tres" id="67_dv0md"]
+[ext_resource type="Resource" uid="uid://cqf36id63mh4p" path="res://assets/self-drawn/crops/crop_14.tres" id="68_jmqqb"]
+[ext_resource type="Resource" uid="uid://koji4hncqxlf" path="res://assets/self-drawn/crops/crop_15.tres" id="69_5itdh"]
+[ext_resource type="Script" uid="uid://ctfskp0we6dc1" path="res://src/UI/ItemIcon.cs" id="70_55glv"]
+[ext_resource type="Resource" uid="uid://cfa3r64c4ctwj" path="res://assets/self-drawn/crops/crop_01_harvest.tres" id="71_tehqu"]
+[ext_resource type="Resource" uid="uid://d2v85ftft4dvt" path="res://assets/self-drawn/crops/crop_01_seed.tres" id="72_q7acc"]
+[ext_resource type="Resource" uid="uid://dgyvdb7xp5be5" path="res://assets/self-drawn/crops/crop_02_harvest.tres" id="73_it8jv"]
+[ext_resource type="Resource" uid="uid://b1rcnjidm6xvl" path="res://assets/self-drawn/crops/crop_02_seed.tres" id="74_t3e53"]
+[ext_resource type="Resource" uid="uid://byywcb16400aq" path="res://assets/self-drawn/crops/crop_03_harvest.tres" id="75_ohxyq"]
+[ext_resource type="Resource" uid="uid://bhuqay2wl6vre" path="res://assets/self-drawn/crops/crop_03_seed.tres" id="76_43a4r"]
+[ext_resource type="Resource" uid="uid://bk44a0iup715t" path="res://assets/self-drawn/crops/crop_04_harvest.tres" id="77_tp4e5"]
+[ext_resource type="Resource" uid="uid://2enmorlwth7w" path="res://assets/self-drawn/crops/crop_04_seed.tres" id="78_x4yhu"]
+[ext_resource type="Resource" uid="uid://c43to8tab562b" path="res://assets/self-drawn/crops/crop_05_harvest.tres" id="79_1pxrw"]
+[ext_resource type="Resource" uid="uid://d158dl4ntmyu7" path="res://assets/self-drawn/crops/crop_05_seed.tres" id="80_ayc6o"]
+[ext_resource type="Resource" uid="uid://bfetswkhu62gs" path="res://assets/self-drawn/crops/crop_06_harvest.tres" id="81_7acy4"]
+[ext_resource type="Resource" uid="uid://bnuiiipg5eji8" path="res://assets/self-drawn/crops/crop_06_seed.tres" id="82_qxjyy"]
+[ext_resource type="Resource" uid="uid://c0my0mtkguhlg" path="res://assets/self-drawn/crops/crop_07_harvest.tres" id="83_pbtlw"]
+[ext_resource type="Resource" uid="uid://dxwk6xsao3uai" path="res://assets/self-drawn/crops/crop_07_seed.tres" id="84_fxcg8"]
+[ext_resource type="Resource" uid="uid://2upg3ylmou5r" path="res://assets/self-drawn/crops/crop_08_harvest.tres" id="85_pc0sm"]
+[ext_resource type="Resource" uid="uid://t3oo7vyxhby3" path="res://assets/self-drawn/crops/crop_08_seed.tres" id="86_m0vy6"]
+[ext_resource type="Resource" uid="uid://dlyemoitf5405" path="res://assets/self-drawn/crops/crop_09_harvest.tres" id="87_jf107"]
+[ext_resource type="Resource" uid="uid://buicqxnfkp50o" path="res://assets/self-drawn/crops/crop_09_seed.tres" id="88_50vxc"]
+[ext_resource type="Resource" uid="uid://b74drt5rn0q68" path="res://assets/self-drawn/crops/crop_10_harvest.tres" id="89_qaqxy"]
+[ext_resource type="Resource" uid="uid://ix1hnpt4l1r7" path="res://assets/self-drawn/crops/crop_10_seed.tres" id="90_8vk4d"]
+[ext_resource type="Resource" uid="uid://bx07ss6r7qkgi" path="res://assets/self-drawn/crops/crop_11_harvest.tres" id="91_utymv"]
+[ext_resource type="Resource" uid="uid://c5kedlvry48xh" path="res://assets/self-drawn/crops/crop_11_seed.tres" id="92_e5h0u"]
+[ext_resource type="Resource" uid="uid://xjhrb7in4cya" path="res://assets/self-drawn/crops/crop_12_harvest.tres" id="93_6wwcp"]
+[ext_resource type="Resource" uid="uid://ts2rp18t5oge" path="res://assets/self-drawn/crops/crop_12_seed.tres" id="94_vxmm1"]
+[ext_resource type="Resource" uid="uid://brhne7hqgfoxu" path="res://assets/self-drawn/crops/crop_13_harvest.tres" id="95_g51bw"]
+[ext_resource type="Resource" uid="uid://o2iepg6aql1k" path="res://assets/self-drawn/crops/crop_13_seed.tres" id="96_x3k2t"]
+[ext_resource type="Resource" uid="uid://h360ljff1eng" path="res://assets/self-drawn/crops/crop_14_harvest.tres" id="97_ep1fb"]
+[ext_resource type="Resource" uid="uid://ba02py76gq1jh" path="res://assets/self-drawn/crops/crop_14_seed.tres" id="98_gjfoo"]
+[ext_resource type="Resource" uid="uid://bj584m18b0ptk" path="res://assets/self-drawn/crops/crop_15_harvest.tres" id="99_mofac"]
+[ext_resource type="Resource" uid="uid://ccj1mvwrploj4" path="res://assets/self-drawn/crops/crop_15_seed.tres" id="100_3l2ha"]
+[ext_resource type="Script" uid="uid://csxnk43iu4s14" path="res://src/World/Base/SleepPresentation.cs" id="105_853y0"]
+
+[sub_resource type="Animation" id="Animation_ib8ps"]
+resource_name = "fade_in"
+length = 0.4
+
+[sub_resource type="Animation" id="Animation_tb3hs"]
+resource_name = "fade_out"
+length = 0.4
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_4jysl"]
+_data = {
+&"fade_in": SubResource("Animation_ib8ps"),
+&"fade_out": SubResource("Animation_tb3hs")
+}
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fev0l"]
 texture = ExtResource("2_wgrn4")
@@ -188,6 +262,185 @@ texture = ExtResource("4_fhtoc")
 sources/0 = SubResource("TileSetAtlasSource_fhtoc")
 sources/1 = SubResource("TileSetAtlasSource_f0ucu")
 sources/2 = SubResource("TileSetAtlasSource_k484s")
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_55201"]
+texture = ExtResource("11_4gw4k")
+margins = Vector2i(16, 16)
+separation = Vector2i(48, 48)
+0:0/0 = 0
+0:0/0/terrain_set = 0
+0:0/0/terrain = 0
+1:0/0 = 0
+1:0/0/terrain_set = 0
+1:0/0/terrain = 0
+1:0/0/terrains_peering_bit/top_side = 0
+2:0/0 = 0
+2:0/0/terrain_set = 0
+2:0/0/terrain = 0
+2:0/0/terrains_peering_bit/bottom_side = 0
+3:0/0 = 0
+3:0/0/terrain_set = 0
+3:0/0/terrain = 0
+3:0/0/terrains_peering_bit/left_side = 0
+0:1/0 = 0
+0:1/0/terrain_set = 0
+0:1/0/terrain = 0
+0:1/0/terrains_peering_bit/right_side = 0
+1:1/0 = 0
+1:1/0/terrain_set = 0
+1:1/0/terrain = 0
+1:1/0/terrains_peering_bit/left_side = 0
+1:1/0/terrains_peering_bit/top_side = 0
+2:1/0 = 0
+2:1/0/terrain_set = 0
+2:1/0/terrain = 0
+2:1/0/terrains_peering_bit/right_side = 0
+2:1/0/terrains_peering_bit/top_side = 0
+3:1/0 = 0
+3:1/0/terrain_set = 0
+3:1/0/terrain = 0
+3:1/0/terrains_peering_bit/bottom_side = 0
+3:1/0/terrains_peering_bit/left_side = 0
+0:2/0 = 0
+0:2/0/terrain_set = 0
+0:2/0/terrain = 0
+0:2/0/terrains_peering_bit/right_side = 0
+0:2/0/terrains_peering_bit/bottom_side = 0
+1:2/0 = 0
+1:2/0/terrain_set = 0
+1:2/0/terrain = 0
+1:2/0/terrains_peering_bit/bottom_side = 0
+1:2/0/terrains_peering_bit/top_side = 0
+2:2/0 = 0
+2:2/0/terrain_set = 0
+2:2/0/terrain = 0
+2:2/0/terrains_peering_bit/right_side = 0
+2:2/0/terrains_peering_bit/left_side = 0
+3:2/0 = 0
+3:2/0/terrain_set = 0
+3:2/0/terrain = 0
+3:2/0/terrains_peering_bit/right_side = 0
+3:2/0/terrains_peering_bit/bottom_side = 0
+3:2/0/terrains_peering_bit/left_side = 0
+0:3/0 = 0
+0:3/0/terrain_set = 0
+0:3/0/terrain = 0
+0:3/0/terrains_peering_bit/right_side = 0
+0:3/0/terrains_peering_bit/left_side = 0
+0:3/0/terrains_peering_bit/top_side = 0
+1:3/0 = 0
+1:3/0/terrain_set = 0
+1:3/0/terrain = 0
+1:3/0/terrains_peering_bit/right_side = 0
+1:3/0/terrains_peering_bit/bottom_side = 0
+1:3/0/terrains_peering_bit/top_side = 0
+2:3/0 = 0
+2:3/0/terrain_set = 0
+2:3/0/terrain = 0
+2:3/0/terrains_peering_bit/bottom_side = 0
+2:3/0/terrains_peering_bit/left_side = 0
+2:3/0/terrains_peering_bit/top_side = 0
+3:3/0 = 0
+3:3/0/terrain_set = 0
+3:3/0/terrain = 0
+3:3/0/terrains_peering_bit/right_side = 0
+3:3/0/terrains_peering_bit/bottom_side = 0
+3:3/0/terrains_peering_bit/left_side = 0
+3:3/0/terrains_peering_bit/top_side = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_kt0lh"]
+texture = ExtResource("12_2ydg5")
+margins = Vector2i(16, 16)
+separation = Vector2i(48, 48)
+0:0/0 = 0
+0:0/0/terrain_set = 0
+0:0/0/terrain = 1
+1:0/0 = 0
+1:0/0/terrain_set = 0
+1:0/0/terrain = 1
+1:0/0/terrains_peering_bit/top_side = 1
+2:0/0 = 0
+2:0/0/terrain_set = 0
+2:0/0/terrain = 1
+2:0/0/terrains_peering_bit/bottom_side = 1
+3:0/0 = 0
+3:0/0/terrain_set = 0
+3:0/0/terrain = 1
+3:0/0/terrains_peering_bit/left_side = 1
+0:1/0 = 0
+0:1/0/terrain_set = 0
+0:1/0/terrain = 1
+0:1/0/terrains_peering_bit/right_side = 1
+1:1/0 = 0
+1:1/0/terrain_set = 0
+1:1/0/terrain = 1
+1:1/0/terrains_peering_bit/left_side = 1
+1:1/0/terrains_peering_bit/top_side = 1
+2:1/0 = 0
+2:1/0/terrain_set = 0
+2:1/0/terrain = 1
+2:1/0/terrains_peering_bit/right_side = 1
+2:1/0/terrains_peering_bit/top_side = 1
+3:1/0 = 0
+3:1/0/terrain_set = 0
+3:1/0/terrain = 1
+3:1/0/terrains_peering_bit/bottom_side = 1
+3:1/0/terrains_peering_bit/left_side = 1
+0:2/0 = 0
+0:2/0/terrain_set = 0
+0:2/0/terrain = 1
+0:2/0/terrains_peering_bit/right_side = 1
+0:2/0/terrains_peering_bit/bottom_side = 1
+1:2/0 = 0
+1:2/0/terrain_set = 0
+1:2/0/terrain = 1
+1:2/0/terrains_peering_bit/bottom_side = 1
+1:2/0/terrains_peering_bit/top_side = 1
+2:2/0 = 0
+2:2/0/terrain_set = 0
+2:2/0/terrain = 1
+2:2/0/terrains_peering_bit/right_side = 1
+2:2/0/terrains_peering_bit/left_side = 1
+3:2/0 = 0
+3:2/0/terrain_set = 0
+3:2/0/terrain = 1
+3:2/0/terrains_peering_bit/right_side = 1
+3:2/0/terrains_peering_bit/bottom_side = 1
+3:2/0/terrains_peering_bit/left_side = 1
+0:3/0 = 0
+0:3/0/terrain_set = 0
+0:3/0/terrain = 1
+0:3/0/terrains_peering_bit/right_side = 1
+0:3/0/terrains_peering_bit/left_side = 1
+0:3/0/terrains_peering_bit/top_side = 1
+1:3/0 = 0
+1:3/0/terrain_set = 0
+1:3/0/terrain = 1
+1:3/0/terrains_peering_bit/right_side = 1
+1:3/0/terrains_peering_bit/bottom_side = 1
+1:3/0/terrains_peering_bit/top_side = 1
+2:3/0 = 0
+2:3/0/terrain_set = 0
+2:3/0/terrain = 1
+2:3/0/terrains_peering_bit/bottom_side = 1
+2:3/0/terrains_peering_bit/left_side = 1
+2:3/0/terrains_peering_bit/top_side = 1
+3:3/0 = 0
+3:3/0/terrain_set = 0
+3:3/0/terrain = 1
+3:3/0/terrains_peering_bit/right_side = 1
+3:3/0/terrains_peering_bit/bottom_side = 1
+3:3/0/terrains_peering_bit/left_side = 1
+3:3/0/terrains_peering_bit/top_side = 1
+
+[sub_resource type="TileSet" id="TileSet_u2dc4"]
+terrain_set_0/mode = 2
+terrain_set_0/terrain_0/name = "干"
+terrain_set_0/terrain_0/color = Color(0.5, 0.34375, 0.25, 1)
+terrain_set_0/terrain_1/name = "湿"
+terrain_set_0/terrain_1/color = Color(0.5, 0.4375, 0.25, 1)
+sources/0 = SubResource("TileSetAtlasSource_55201")
+sources/1 = SubResource("TileSetAtlasSource_kt0lh")
 
 [sub_resource type="Resource" id="Resource_f0ucu"]
 script = ExtResource("5_36fi7")
@@ -363,6 +616,9 @@ animations = [{
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2p8xd"]
 size = Vector2(12, 8)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_87njt"]
+size = Vector2(32, 24)
+
 [node name="Base" type="Node2D" unique_id=707598893]
 
 [node name="InputRouter" type="Node" parent="." unique_id=1565077523]
@@ -371,6 +627,147 @@ script = ExtResource("1_a4t06")
 [node name="CursorSkin" type="Node" parent="." unique_id=1093847562]
 script = ExtResource("43_cursor")
 Art = ExtResource("44_uiart")
+
+[node name="UI" type="Node" parent="." unique_id=2140856621]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+script = ExtResource("4_15daf")
+
+[node name="CarryBar" type="Control" parent="UI" unique_id=2087343376 node_paths=PackedStringArray("Router")]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("5_pfp3c")
+Router = NodePath("../../InputRouter")
+Art = ExtResource("44_uiart")
+
+[node name="Notice" type="Control" parent="UI" unique_id=952164168 node_paths=PackedStringArray("Line")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6_br2e6")
+Line = NodePath("Line")
+Art = ExtResource("44_uiart")
+SecondsShown = 2.0
+
+[node name="Line" type="Label" parent="UI/Notice" unique_id=1725788498]
+layout_mode = 0
+anchor_right = 1.0
+offset_bottom = 23.0
+horizontal_alignment = 1
+
+[node name="GameMenu" type="Control" parent="UI" unique_id=768440216 node_paths=PackedStringArray("Router")]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("7_vnbcb")
+Router = NodePath("../../InputRouter")
+Art = ExtResource("44_uiart")
+
+[node name="Curtain" type="Control" parent="UI" unique_id=217589320 node_paths=PackedStringArray("Animator")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("8_2ydg5")
+Animator = NodePath("Animator")
+FadeOut = &"fade_out"
+FadeIn = &"fade_in"
+
+[node name="Shade" type="TextureRect" parent="UI/Curtain" unique_id=1417464510]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch_mode = 1
+
+[node name="Animator" type="AnimationPlayer" parent="UI/Curtain" unique_id=908245857]
+libraries/ = SubResource("AnimationLibrary_4jysl")
+
+[node name="Summary" type="Control" parent="UI" unique_id=1705293404 node_paths=PackedStringArray("Title", "Body", "CloseButton")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("9_vwgcw")
+Title = NodePath("Center/Box/VBox/Title")
+Body = NodePath("Center/Box/VBox/Body")
+CloseButton = NodePath("Center/Box/VBox/Close")
+
+[node name="Center" type="CenterContainer" parent="UI/Summary" unique_id=1579601750]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="PanelContainer" parent="UI/Summary/Center" unique_id=1395225747]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+theme_type_variation = &"ContentInset"
+
+[node name="VBox" type="VBoxContainer" parent="UI/Summary/Center/Box" unique_id=612529320]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="UI/Summary/Center/Box/VBox" unique_id=45056893]
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+
+[node name="Body" type="Label" parent="UI/Summary/Center/Box/VBox" unique_id=1084806330]
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+autowrap_mode = 3
+
+[node name="Close" type="Button" parent="UI/Summary/Center/Box/VBox" unique_id=778714819]
+layout_mode = 2
+
+[node name="NotAdvanced" type="Control" parent="UI" unique_id=1054958083 node_paths=PackedStringArray("Title", "Body", "CloseButton")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("9_vwgcw")
+Title = NodePath("Center/Box/VBox/Title")
+Body = NodePath("Center/Box/VBox/Body")
+CloseButton = NodePath("Center/Box/VBox/Close")
+
+[node name="Center" type="CenterContainer" parent="UI/NotAdvanced" unique_id=1678634903]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="PanelContainer" parent="UI/NotAdvanced/Center" unique_id=1774942459]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+theme_type_variation = &"ContentInset"
+
+[node name="VBox" type="VBoxContainer" parent="UI/NotAdvanced/Center/Box" unique_id=2073972571]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="UI/NotAdvanced/Center/Box/VBox" unique_id=2125299401]
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+
+[node name="Body" type="Label" parent="UI/NotAdvanced/Center/Box/VBox" unique_id=53000248]
+layout_mode = 2
+theme_type_variation = &"PaperLabel"
+autowrap_mode = 3
+max_lines_visible = 4
+
+[node name="Close" type="Button" parent="UI/NotAdvanced/Center/Box/VBox" unique_id=1865802803]
+layout_mode = 2
 
 [node name="TerrainData" type="TileMapLayer" parent="." unique_id=311729217]
 visible = false
@@ -381,6 +778,10 @@ tile_set = SubResource("TileSet_wgrn4")
 position = Vector2(-8, -8)
 tile_map_data = PackedByteArray("AAAJAAUAAQABAAMAAAAKAAUAAQABAAEAAAAIAAYAAQABAAMAAAAJAAYAAQABAAEAAAAKAAYAAQACAAEAAAAHAAcAAQABAAMAAAAIAAcAAQABAAEAAAAJAAcAAQACAAEAAAAHAAgAAQABAAEAAAAIAAgAAQACAAEAAAAKAAgAAgABAAAAAAAAAAAAAAAAAAMAAAABAAAAAAAAAAMAAAACAAAAAAAAAAMAAAADAAAAAAABAAAAAAAEAAAAAAACAAEAAAAFAAAAAAADAAIAAAAGAAAAAAAAAAMAAAAHAAAAAAAAAAMAAAAIAAAAAAAAAAMAAAAJAAAAAAAAAAMAAAAKAAAAAQABAAAAAAAAAAEAAAAAAAMAAAABAAEAAAAAAAMAAAACAAEAAAAAAAMAAAADAAEAAAABAAAAAAAEAAEAAAACAAEAAAAFAAEAAAADAAIAAAAGAAEAAAAAAAMAAAAHAAEAAAAAAAMAAAAIAAEAAAAAAAMAAAAJAAEAAAAAAAMAAAAKAAEAAQABAAAAAAAAAAIAAAAAAAMAAAABAAIAAAAAAAMAAAACAAIAAAAAAAMAAAADAAIAAAABAAAAAAAEAAIAAAACAAEAAAAFAAIAAAACAAAAAAAGAAIAAAADAAAAAAAHAAIAAAAAAAAAAAAIAAIAAAAAAAMAAAAJAAIAAAAAAAMAAAAKAAIAAQABAAAAAAAAAAMAAAAAAAMAAAABAAMAAAAAAAMAAAACAAMAAAAAAAMAAAADAAMAAAABAAAAAAAIAAMAAAAAAAMAAAAJAAMAAAAAAAMAAAAKAAMAAQABAAAAAAAAAAQAAAAAAAMAAAABAAQAAAAAAAMAAAAAAAUAAAAAAAMAAAABAAUAAAAAAAMAAAAAAAYAAAAAAAMAAAABAAYAAAAAAAMAAAACAAYAAAAAAAIAAAADAAYAAAAAAAEAAAAEAAYAAAAAAAAAAAAFAAYAAAAAAAMAAAAGAAYAAAAAAAMAAAAHAAYAAAAAAAMAAAAAAAcAAAAAAAMAAAABAAcAAAAAAAMAAAACAAcAAAAAAAMAAAADAAcAAAAAAAIAAAAEAAcAAAADAAMAAAAFAAcAAAAAAAMAAAAGAAcAAAAAAAMAAAAAAAgAAQADAAAAAAABAAgAAQADAAAAAAACAAgAAQADAAAAAAADAAgAAQADAAAAAAAEAAgAAQADAAAAAAAFAAgAAQADAAAAAAAGAAgAAQADAAAAAAAEAAMAAAACAAEAAAAFAAMAAAACAAEAAAAGAAMAAAACAAEAAAAHAAMAAAADAAIAAAACAAQAAAAAAAMAAAADAAQAAAABAAAAAAAEAAQAAAACAAEAAAAFAAQAAAACAAEAAAAGAAQAAAADAAEAAAAHAAQAAAADAAMAAAAIAAQAAAAAAAMAAAAJAAQAAAAAAAMAAAAKAAQAAQABAAAAAAACAAUAAAABAAMAAAADAAUAAAACAAMAAAAEAAUAAAABAAIAAAAFAAUAAAABAAIAAAAGAAUAAAADAAMAAAAHAAUAAAAAAAMAAAAIAAUAAAAAAAMAAAALAAcAAgADAAAAAAAMAAcAAgADAAAAAAALAAgAAgACAAEAAAAMAAgAAgACAAEAAAAIAAkAAgABAAMAAAAJAAkAAgADAAAAAAAKAAkAAgABAAEAAAALAAkAAgACAAEAAAAMAAkAAgACAAEAAAAIAAoAAgABAAEAAAAJAAoAAgACAAEAAAAKAAoAAgACAAEAAAALAAAAAQACAAEAAAALAAEAAQACAAEAAAALAAIAAQACAAEAAAALAAMAAQACAAEAAAALAAQAAQACAAEAAAALAAUAAQACAAEAAAAAAAkAAQACAAEAAAABAAkAAQACAAEAAAACAAkAAQACAAEAAAADAAkAAQACAAEAAAAEAAkAAQACAAEAAAAFAAkAAQACAAEAAAAGAAkAAQACAAEAAAAHAAkAAQACAAEAAAALAAoAAgACAAEAAAAMAAoAAgACAAEAAAAKAAcAAgABAAMAAAAMAAAAAQACAAEAAAANAAAAAQACAAEAAAAMAAEAAQACAAEAAAANAAEAAQACAAEAAAAMAAIAAQADAAEAAAANAAIAAQABAAIAAAAMAAMAAQADAAIAAAANAAMAAAAAAAMAAAAMAAQAAQACAAAAAAANAAQAAQAAAAAAAAAMAAUAAQACAAEAAAANAAUAAQACAAAAAAALAAYAAQACAAEAAAAMAAYAAQACAAEAAAANAAYAAQACAAEAAAANAAcAAgADAAAAAAAJAAgAAQACAAEAAAANAAgAAgACAAEAAAANAAkAAgACAAEAAAAAAAoAAgADAAAAAAABAAoAAgADAAAAAAACAAoAAgADAAAAAAADAAoAAgADAAAAAAAEAAoAAgADAAAAAAAFAAoAAgADAAAAAAAGAAoAAgADAAAAAAAHAAoAAgADAAAAAAANAAoAAgACAAEAAAAAAAsAAgACAAEAAAABAAsAAgACAAEAAAACAAsAAgACAAEAAAADAAsAAgACAAEAAAAEAAsAAgACAAEAAAAFAAsAAgACAAEAAAAGAAsAAgACAAEAAAAHAAsAAgACAAEAAAAIAAsAAgACAAEAAAAJAAsAAgACAAEAAAAKAAsAAgACAAEAAAALAAsAAgACAAEAAAAMAAsAAgACAAEAAAANAAsAAgACAAEAAAAOAAAAAQACAAEAAAAPAAAAAQACAAEAAAAQAAAAAQACAAEAAAARAAAAAQACAAEAAAAOAAEAAQACAAEAAAAPAAEAAQACAAEAAAAQAAEAAQACAAEAAAARAAEAAQACAAEAAAAOAAIAAQABAAIAAAAPAAIAAQACAAIAAAAQAAIAAQACAAEAAAARAAIAAQACAAEAAAAOAAMAAAAAAAMAAAAPAAMAAQABAAAAAAAQAAMAAQACAAEAAAARAAMAAQACAAEAAAAOAAQAAAAAAAMAAAAPAAQAAQABAAAAAAAQAAQAAQACAAEAAAARAAQAAQACAAEAAAAOAAUAAQADAAAAAAAPAAUAAQABAAEAAAAQAAUAAQACAAEAAAARAAUAAQACAAEAAAAOAAYAAQACAAEAAAAPAAYAAQACAAEAAAAQAAYAAQACAAEAAAARAAYAAQACAAEAAAAOAAcAAgADAAAAAAAPAAcAAgADAAAAAAAQAAcAAgADAAAAAAARAAcAAgADAAAAAAAOAAgAAgACAAEAAAAPAAgAAgACAAEAAAAQAAgAAgACAAEAAAARAAgAAgACAAEAAAAOAAkAAgACAAEAAAAPAAkAAgACAAEAAAAQAAkAAgACAAEAAAARAAkAAgACAAEAAAAOAAoAAgACAAEAAAAPAAoAAgACAAEAAAAQAAoAAgACAAEAAAARAAoAAgACAAEAAAAOAAsAAgACAAEAAAAPAAsAAgACAAEAAAAQAAsAAgACAAEAAAARAAsAAgACAAEAAAA=")
 tile_set = SubResource("TileSet_fev0l")
+
+[node name="Tilled" type="TileMapLayer" parent="." unique_id=1194148020]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+tile_set = SubResource("TileSet_u2dc4")
 
 [node name="Terrain" type="Node" parent="." unique_id=1639871213 node_paths=PackedStringArray("DataLayer", "DisplayLayer")]
 script = ExtResource("4_36fi7")
@@ -406,3 +807,64 @@ offset = Vector2(-16, -32)
 
 [node name="Shape" type="CollisionShape2D" parent="Actors/Player" unique_id=1720481744]
 shape = SubResource("RectangleShape2D_2p8xd")
+
+[node name="Bed" type="Node2D" parent="Actors" unique_id=858997146 node_paths=PackedStringArray("Reach", "Sleeper", "Field")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+position = Vector2(136, 48)
+script = ExtResource("54_o170d")
+Reach = NodePath("Reach")
+Sleeper = NodePath("../Player")
+Field = NodePath("../../Field")
+
+[node name="Sprite" type="Sprite2D" parent="Actors/Bed" unique_id=1283816724]
+centered = false
+offset = Vector2(-16, -32)
+script = ExtResource("55_q66e4")
+PictureSize = Vector2i(32, 32)
+
+[node name="Reach" type="Area2D" parent="Actors/Bed" unique_id=445117330]
+
+[node name="Shape" type="CollisionShape2D" parent="Actors/Bed/Reach" unique_id=1146654187]
+shape = SubResource("RectangleShape2D_87njt")
+
+[node name="Cursor" type="Node2D" parent="." unique_id=1292833772 node_paths=PackedStringArray("GridLayer", "Player", "Router")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+script = ExtResource("52_vwgcw")
+GridLayer = NodePath("../Tilled")
+Player = NodePath("../Actors/Player")
+Router = NodePath("../InputRouter")
+ReachInCells = 1
+Art = ExtResource("44_uiart")
+
+[node name="Field" type="Node" parent="." unique_id=2025671262 node_paths=PackedStringArray("TilledLayer", "CropsContainer", "Cursor", "Router", "CarryBar", "Notice", "GameMenu")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+script = ExtResource("53_o170d")
+TilledLayer = NodePath("../Tilled")
+CropsContainer = NodePath("../Actors")
+Cursor = NodePath("../Cursor")
+Router = NodePath("../InputRouter")
+FieldOrigin = Vector2i(1, 1)
+FieldSizeInCells = Vector2i(5, 5)
+FallowRevertDays = 3
+HarvestBaseCount = 3
+MinWaterFactor = 0.4
+MaxWaterFactor = 1.0
+MutationBaseChance = 0.1
+MutationChanceCap = 0.5
+WetTerrain = 1
+CropArts = Array[ExtResource("54_q66e4")]([ExtResource("55_853y0"), ExtResource("56_ib8ps"), ExtResource("57_tb3hs"), ExtResource("58_4jysl"), ExtResource("59_87njt"), ExtResource("60_da0l4"), ExtResource("61_xbsvp"), ExtResource("62_i5i5d"), ExtResource("63_w445s"), ExtResource("64_ctdi4"), ExtResource("65_kc2qa"), ExtResource("66_gk206"), ExtResource("67_dv0md"), ExtResource("68_jmqqb"), ExtResource("69_5itdh")])
+ItemIcons = Array[ExtResource("70_55glv")]([ExtResource("71_tehqu"), ExtResource("72_q7acc"), ExtResource("73_it8jv"), ExtResource("74_t3e53"), ExtResource("75_ohxyq"), ExtResource("76_43a4r"), ExtResource("77_tp4e5"), ExtResource("78_x4yhu"), ExtResource("79_1pxrw"), ExtResource("80_ayc6o"), ExtResource("81_7acy4"), ExtResource("82_qxjyy"), ExtResource("83_pbtlw"), ExtResource("84_fxcg8"), ExtResource("85_pc0sm"), ExtResource("86_m0vy6"), ExtResource("87_jf107"), ExtResource("88_50vxc"), ExtResource("89_qaqxy"), ExtResource("90_8vk4d"), ExtResource("91_utymv"), ExtResource("92_e5h0u"), ExtResource("93_6wwcp"), ExtResource("94_vxmm1"), ExtResource("95_g51bw"), ExtResource("96_x3k2t"), ExtResource("97_ep1fb"), ExtResource("98_gjfoo"), ExtResource("99_mofac"), ExtResource("100_3l2ha")])
+CarryBar = NodePath("../UI/CarryBar")
+Notice = NodePath("../UI/Notice")
+GameMenu = NodePath("../UI/GameMenu")
+
+[node name="Wake" type="Node" parent="." unique_id=1228940481 node_paths=PackedStringArray("Field", "UI", "Router", "Curtain", "Summary", "NotAdvanced")]
+editor_description = "灰盒：代理照指南的节点名搭的临时节点。美术画好之后照自己的眼光重搭，节点名照旧。"
+script = ExtResource("105_853y0")
+Field = NodePath("../Field")
+UI = NodePath("../UI")
+Router = NodePath("../InputRouter")
+Curtain = NodePath("../UI/Curtain")
+Summary = NodePath("../UI/Summary")
+NotAdvanced = NodePath("../UI/NotAdvanced")
+Art = ExtResource("44_uiart")

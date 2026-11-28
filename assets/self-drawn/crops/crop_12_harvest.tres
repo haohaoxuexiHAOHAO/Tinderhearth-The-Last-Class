@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ItemIcon" format=3 uid="uid://xjhrb7in4cya"]
+
+[ext_resource type="Script" path="res://src/UI/ItemIcon.cs" id="1_a4pgt"]
+
+[resource]
+script = ExtResource("1_a4pgt")
+ItemId = "crop_12_harvest"
+NotDrawnYet = true

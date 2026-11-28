@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="CropArt" format=3 uid="uid://cqf36id63mh4p"]
+
+[ext_resource type="Script" path="res://src/World/Base/CropArt.cs" id="1_5tq56"]
+
+[resource]
+script = ExtResource("1_5tq56")
+CropId = "crop_14"
+NotDrawnYet = true
