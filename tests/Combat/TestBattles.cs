@@ -68,22 +68,24 @@ internal static class TestBattles
         };
     }
 
-    /// <summary>width × height 的地面、没有墙的一间屋，照给的先后摆站位，开打。</summary>
+    /// <summary>width × height 的一间屋，照给的先后摆站位，开打。</summary>
     /// <param name="roll">随机源；不给的话这一场一掷骰就让用例失败。</param>
     /// <param name="config">战斗配置；不给的话面板每一项都是 1，走路、命中与伤害照上面那几份。</param>
     /// <param name="skills">换掉同标识的那几招，比如把防御的冷却改成 2。</param>
+    /// <param name="walls">哪几格是墙；不给就一格墙都没有。</param>
     public static Battle Start(
         int width,
         int height,
         (CharacterDefinition Character, CombatSide Side, GridCell Cell)[] positions,
         Func<double>? roll = null,
         CombatConfig? config = null,
-        IEnumerable<SkillDefinition>? skills = null)
+        IEnumerable<SkillDefinition>? skills = null,
+        IReadOnlyCollection<GridCell>? walls = null)
     {
         Dictionary<string, CharacterDefinition> characters = positions.Select(p => p.Character).DistinctBy(c => c.Id).ToDictionary(c => c.Id);
         var room = BattleRoom.Create(
-            Floor(width, height),
-            [],
+            Floor(width, height).Except(walls ?? []),
+            walls ?? [],
             positions.Select(p => new StartingPosition(p.Cell, p.Character.Id, p.Side)),
             characters);
         return Battle.Start(room, Content(characters, config, skills), roll ?? NoRolls);

@@ -52,8 +52,15 @@ public sealed class Combatant
     /// <summary>他的面板，开打时照他的属性算一次。</summary>
     public CombatPanel Panel { get; }
 
-    /// <summary>还剩多少 HP，最少 0。到 0 之后倒下还是死亡归设计仓台账 GP-184。</summary>
+    /// <summary>还剩多少 HP，最少 0。</summary>
     public int Hp { get; private set; }
+
+    /// <summary>HP 到 0 了：我方的是倒下，敌方的是死亡。倒下、死了的不再行动，也选不中。</summary>
+    /// <remarks>选不中是照「神秘庇佑」那一条（工作区根 desc/状态.md）；那个状态本身这一场还没有，扶起也还没有。</remarks>
+    public bool IsDown => Hp == 0;
+
+    /// <summary>还占着那一格：站着的人与倒下的我方；死了的敌人从格子上拿掉，那一格谁都走得进去。</summary>
+    public bool OccupiesCell => !IsDown || Side == CombatSide.Ally;
 
     /// <summary>他挂着的状态，按标识记；认得哪几个在 <see cref="CombatStatusIds"/>。</summary>
     public IReadOnlySet<string> Statuses => _statuses;

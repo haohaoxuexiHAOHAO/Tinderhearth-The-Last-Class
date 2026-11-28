@@ -15,14 +15,26 @@ public enum BattlePhase
     Enemy,
 }
 
-/// <summary>一场仗打到哪了：谁站在哪一格，这一轮谁先谁后，轮到谁，他这一回合还剩多少行动力。</summary>
+/// <summary>一场仗怎么收场。</summary>
+public enum BattleOutcome
+{
+    /// <summary>敌人全部死亡。</summary>
+    Victory,
+
+    /// <summary>烬倒下，或者学生全部倒下。</summary>
+    Defeat,
+}
+
+/// <summary>一场仗打到哪了：谁站在哪一格，这一轮谁先谁后，轮到谁，他这一回合还剩多少行动力，分出胜负没有。</summary>
 /// <remarks>
 /// 规矩在工作区根 desc/战斗规则.md 的「轮与回合」：一轮先我方阶段、后敌方阶段，每人轮流过一个自己的回合。出手顺序在每轮开始
-/// 按当时的敏捷排一次，这一轮里不再动；敏捷一样时按站位在场景里的先后，不掷骰。
+/// 按当时的敏捷排一次，这一轮里不再动；敏捷一样时按站位在场景里的先后，不掷骰。倒下、死了的不排进去，这一轮里才倒下的轮到他时跳过。
 ///
 /// 引擎层只把点击翻成这里的命令、把结果画出来。走不通、放不出来的命令什么都不改，不抛，理由同 <see cref="Plot"/>：
-/// 点了一格走不到、点了一个够不着的人，是玩家碰得到的正常结果。命中与暴击从开打时给的随机源掷，同一局面、同一串随机数，
-/// 打出来的每一步都一样。
+/// 点了一格走不到、点了一个够不着的人，是玩家碰得到的正常结果。胜负一出，不再有人行动，命令一律不动。命中与暴击从开打时给的
+/// 随机源掷，同一局面、同一串随机数，打出来的每一步都一样。
+///
+/// 谁由玩家操作不在这里定：这里只记这一轮接管了哪个学生，谁归玩家、谁归 AI 由引擎层的控制器登记表答。
 /// </remarks>
 public sealed class Battle
 {
@@ -44,16 +56,16 @@ public sealed class Battle
     /// <summary>打的那一间屋。</summary>
     public BattleRoom Room { get; }
 
-    /// <summary>上场的每一个人，照站位在场景里的先后。</summary>
+    /// <summary>上场的每一个人，照站位在场景里的先后。倒下、死了的也还在这里。</summary>
     public IReadOnlyList<Combatant> Combatants { get; }
 
     /// <summary>第几轮，从 1 起。</summary>
     public int Round { get; private set; }
 
-    /// <summary>这一轮的出手顺序：我方阶段的在前，敌方阶段的在后。</summary>
+    /// <summary>这一轮的出手顺序：我方阶段的在前，敌方阶段的在后。这一轮开始时排的，这一轮里才倒下、死了的还在里面。</summary>
     public IReadOnlyList<Combatant> Order => _order;
 
-    /// <summary>轮到谁。</summary>
+    /// <summary>轮到谁。分出胜负之后停在最后行动的那个人。</summary>
     public Combatant Current => _order[_turnIndex];
 
     /// <summary>现在是哪一个阶段。</summary>
@@ -64,6 +76,12 @@ public sealed class Battle
 
     /// <summary>轮到的那个人这一回合那一件占回合的事用掉了没有：做了，或者换成了再走满一次。</summary>
     public bool TurnActionUsed => _turn.TurnActionUsed;
+
+    /// <summary>这一轮接管了哪个学生；没接管是 <c>null</c>。每轮开始时清掉，下一轮不点就回到 AI。</summary>
+    public Combatant? TakenOver { get; private set; }
+
+    /// <summary>分出胜负没有；还在打是 <c>null</c>。</summary>
+    public BattleOutcome? Outcome { get; private set; }
 
     /// <summary>照那一间屋的站位开打：第一轮排好顺序，轮到烬。</summary>
     /// <param name="room">那一间屋，要用同一份内容里的角色核过。</param>
@@ -83,26 +101,34 @@ public sealed class Battle
         }
 
         Combatant[] combatants = [.. room.Positions.Select((p, index) => Enter(index, p, content))];
+        var empty = combatants.Where(c => c.IsDown).Select(c => c.Character.Id).Distinct().ToList();
+        if (empty.Count > 0)
+        {
+            throw new InvalidDataException(
+                $"{string.Join("、", empty)} 的 HP 上限算出来是 0，一上场就倒下：看 {CombatConfig.ContentPath} 的 Panel.HpMax 与他的体质");
+        }
+
         return new Battle(room, content, roll, combatants);
     }
 
     /// <summary>轮到的那个人此刻能走到哪。</summary>
     public MoveReach Reach()
     {
-        var standing = Combatants.ToDictionary(c => c.Cell, c => c.Side);
-        MovementConfig costs = _content.Config.Movement;
-        var withRemaining = MovementMap.Compute(Room, standing, Current.Cell, Current.Side, _turn.ActionPoints, costs);
-        MovementMap? ifConverted = _turn.BudgetIfConverted is { } budget
-            ? MovementMap.Compute(Room, standing, Current.Cell, Current.Side, budget, costs)
-            : null;
+        var withRemaining = MapOfCurrent(_turn.ActionPoints);
+        MovementMap? ifConverted = _turn.BudgetIfConverted is { } budget ? MapOfCurrent(budget) : null;
         return new MoveReach(withRemaining, ifConverted);
     }
 
     /// <summary>点一格：走得到就沿那一条路走过去，扣掉花的行动力；要把那一件换成再走满一次才走得到的，换了再走。</summary>
-    /// <returns>走过的那一条路，不含起点、含终点；走不到、停不下的是 <c>null</c>，人不动、行动力不扣。</returns>
+    /// <returns>走过的那一条路，不含起点、含终点；走不到、停不下或者已经分出胜负的是 <c>null</c>，人不动、行动力不扣。</returns>
     /// <remarks>走完行动力用完、那一件也用掉了，这一回合当场结束，轮到下一个。</remarks>
     public IReadOnlyList<GridCell>? MoveTo(GridCell cell)
     {
+        if (Outcome is not null)
+        {
+            return null;
+        }
+
         MoveReach reach = Reach();
         if (reach.PathTo(cell) is not { } path || reach.CostTo(cell) is not { } cost)
         {
@@ -129,11 +155,14 @@ public sealed class Battle
     {
         RequireUsable(skill, target);
         var user = Current;
+
         // 占回合的那一件用掉了排在冷却前面：它拦的是这一回合所有占回合的招，比哪一招在冷却更说得清为什么放不了。
         return skill switch
         {
+            _ when Outcome is not null => SkillRefusal.BattleOver,
             { TakesTurn: true } when _turn.TurnActionUsed => SkillRefusal.TurnActionUsed,
             _ when user.CooldownLeft(skill) > 0 => SkillRefusal.OnCooldown,
+            _ when target.IsDown => SkillRefusal.WrongTarget,
             { Target: SkillTarget.Self } when target != user => SkillRefusal.WrongTarget,
             { Target: SkillTarget.Enemy } when target.Side == user.Side => SkillRefusal.WrongTarget,
             _ when GridDistance.Between(user.Cell, target.Cell) > skill.Range => SkillRefusal.OutOfRange,
@@ -142,17 +171,17 @@ public sealed class Battle
     }
 
     /// <summary>瞄准时写的数：轮到的那个人用这一招打这个人，打中的几率与打多少。</summary>
-    /// <returns>这一招不打人、或者点的是自己这一边的人时是 <c>null</c>。够不够得着不在这里判，看 <see cref="RefusalFor"/>。</returns>
+    /// <returns>这一招不打人、点的是自己这一边的人或者倒下、死了的人时是 <c>null</c>。够不够得着不在这里判，看 <see cref="RefusalFor"/>。</returns>
     public StrikeOdds? Preview(SkillDefinition skill, Combatant target)
     {
         RequireUsable(skill, target);
-        return skill.DamageKind is null || target.Side == Current.Side ? null : OddsAgainst(target, skill);
+        return skill.DamageKind is null || target.Side == Current.Side || target.IsDown ? null : OddsAgainst(target, skill);
     }
 
     /// <summary>轮到的那个人对这个人放这一招。</summary>
     /// <remarks>
     /// 占回合的招用掉这一回合那一件占回合的事，剩下的行动力减半；打人的招先掷命中，打中了再掷暴击；给自己挂的状态挂上。
-    /// 放完行动力用完、那一件也用掉了，这一回合当场结束，轮到下一个。放不出来的什么都不改。
+    /// 打到 HP 为 0 当场判胜负。放完行动力用完、那一件也用掉了，这一回合当场结束，轮到下一个。放不出来的什么都不改。
     /// </remarks>
     public SkillUse UseSkill(SkillDefinition skill, Combatant target)
     {
@@ -179,18 +208,56 @@ public sealed class Battle
         return new SkillUse(null, strike);
     }
 
-    /// <summary>结束这一回合，剩下的行动力作废；轮到下一个，这一轮的人都过完了就开始下一轮。</summary>
+    /// <summary>在烬的回合里点一名学生：接管他这一轮，轮到他时由玩家操作。不用掉烬那一件占回合的事。</summary>
+    /// <returns>接管上了是 <c>true</c>。不是烬的回合、点的不是站着的学生、这一轮已经接管过一个、已经分出胜负，都是 <c>false</c>，什么都不改。</returns>
+    /// <remarks>规矩在工作区根 desc/战斗规则.md 的「玩家操作谁」：每轮只能接管一人，被接管的不拒绝。</remarks>
+    public bool TakeOver(Combatant student)
+    {
+        ArgumentNullException.ThrowIfNull(student);
+        if (!Combatants.Contains(student))
+        {
+            throw new ArgumentException($"{student} 不在这一场里", nameof(student));
+        }
+
+        if (Outcome is not null || TakenOver is not null || !Current.IsProtagonist
+            || student.Side != CombatSide.Ally || student.IsProtagonist || student.IsDown)
+        {
+            return false;
+        }
+
+        TakenOver = student;
+        return true;
+    }
+
+    /// <summary>结束这一回合，剩下的行动力作废；轮到下一个，这一轮的人都过完了就开始下一轮。分出胜负之后什么都不做。</summary>
     public void EndTurn()
     {
-        if (_turnIndex + 1 < _order.Count)
+        if (Outcome is not null)
+        {
+            return;
+        }
+
+        do
         {
             _turnIndex++;
+        }
+        while (_turnIndex < _order.Count && _order[_turnIndex].IsDown);
+
+        if (_turnIndex < _order.Count)
+        {
             BeginTurn();
         }
         else
         {
             StartRound();
         }
+    }
+
+    /// <summary>轮到的那个人拿着这么多行动力能走到哪：谁挡路照此刻谁站在哪算，死了的敌人不挡。</summary>
+    internal MovementMap MapOfCurrent(int budget)
+    {
+        var standing = Combatants.Where(c => c.OccupiesCell).ToDictionary(c => c.Cell, c => c.Side);
+        return MovementMap.Compute(Room, standing, Current.Cell, Current.Side, budget, _content.Config.Movement);
     }
 
     /// <summary>照站位上场：面板照属性算一次，会的招从内容里取。内容核过角色指的招都在册。</summary>
@@ -231,7 +298,7 @@ public sealed class Battle
         distance: GridDistance.Between(Current.Cell, target.Cell),
         config: _content.Config);
 
-    /// <summary>真打一下：先掷命中，打中了再掷暴击，打空不掷暴击。打多少取瞄准时那一份算出来的数。</summary>
+    /// <summary>真打一下：先掷命中，打中了再掷暴击，打空不掷暴击。打多少取瞄准时那一份算出来的数；打到 HP 为 0 当场判胜负。</summary>
     private Strike Resolve(Combatant target, SkillDefinition skill)
     {
         StrikeOdds odds = OddsAgainst(target, skill);
@@ -243,7 +310,26 @@ public sealed class Battle
         var critical = Roll() < odds.CriticalChance;
         var damage = critical ? odds.CriticalDamage : odds.Damage;
         target.TakeDamage(damage);
+        if (target.IsDown)
+        {
+            JudgeOutcome();
+        }
+
         return new Strike(Hit: true, Critical: critical, Damage: damage);
+    }
+
+    /// <summary>照工作区根 desc/战斗规则.md 的「失败判定」：烬倒下或学生全部倒下是失败；敌人全部死亡是胜利。</summary>
+    private void JudgeOutcome()
+    {
+        var students = Combatants.Where(c => c.Side == CombatSide.Ally && !c.IsProtagonist);
+        if (Combatants.Any(c => c.IsProtagonist && c.IsDown) || students.All(c => c.IsDown))
+        {
+            Outcome = BattleOutcome.Defeat;
+        }
+        else if (Combatants.Where(c => c.Side == CombatSide.Enemy).All(c => c.IsDown))
+        {
+            Outcome = BattleOutcome.Victory;
+        }
     }
 
     /// <summary>掷一次骰。给的数不在 [0, 1) 里就是随机源接错了，那样会悄悄变成总打不中或总打得中，所以当场抛。</summary>
@@ -263,12 +349,18 @@ public sealed class Battle
         }
     }
 
-    /// <summary>一轮开始：按此刻的敏捷排一次出手顺序，轮到第一个。</summary>
+    /// <summary>一轮开始：按此刻的敏捷给站着的人排一次出手顺序，轮到第一个；上一轮的接管清掉。</summary>
     [MemberNotNull(nameof(_order), nameof(_turn))]
     private void StartRound()
     {
         Round++;
-        _order = OrderOf(Combatants);
+        TakenOver = null;
+        _order = OrderOf([.. Combatants.Where(c => !c.IsDown)]);
+        if (_order.Count == 0)
+        {
+            throw new InvalidOperationException("一个站着的人都没有，胜负却没判出来");
+        }
+
         _turnIndex = 0;
         BeginTurn();
     }
