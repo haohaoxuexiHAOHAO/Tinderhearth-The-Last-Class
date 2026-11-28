@@ -19,7 +19,64 @@ public class CropArtCheckTests
 
     /// <summary>配齐的一份：阶段数照那条作物声明的来，变异成熟与枯死都有。</summary>
     private static CropArtEntry Full(CropDefinition crop) =>
-        new(crop.Id, [.. Enumerable.Repeat(true, crop.StageCount)], HasMutatedRipe: true, HasWithered: true);
+        new(crop.Id, [.. Enumerable.Repeat(true, crop.StageCount)], HasMutatedRipe: true, HasWithered: true, NotDrawnYet: false);
+
+    /// <summary>勾了「暂无」、那几格都空着的一份。</summary>
+    private static CropArtEntry NotDrawn(CropDefinition crop) =>
+        new(crop.Id, [], HasMutatedRipe: false, HasWithered: false, NotDrawnYet: true);
+
+    [Fact]
+    public void 勾了暂无的那一种不配图也没有问题()
+    {
+        var crops = new[] { Crop("crop_01"), Crop("crop_02") };
+
+        Assert.Empty(CropArtCheck.Problems(crops, [NotDrawn(crops[0]), Full(crops[1])]));
+
+        // 阶段那一组排了几项却都空着，照样算没配图：从复制出来的那份上清图时，只清了图、没删项。
+        var emptySlots = NotDrawn(crops[0]) with { StagesFilled = [false, false, false, false] };
+        Assert.Empty(CropArtCheck.Problems(crops, [emptySlots, NotDrawn(crops[1])]));
+    }
+
+    [Fact]
+    public void 勾了暂无又配了图_一份报一行()
+    {
+        var crop = Crop("crop_01");
+        var conflicts = new[]
+        {
+            NotDrawn(crop) with { StagesFilled = [true, false, false, false] },
+            NotDrawn(crop) with { HasMutatedRipe = true },
+            NotDrawn(crop) with { HasWithered = true },
+        };
+
+        foreach (var art in conflicts)
+        {
+            var problem = Assert.Single(CropArtCheck.Problems([crop], [art]));
+            Assert.Contains("暂无", problem);
+            Assert.Contains("crop_01", problem);
+        }
+    }
+
+    [Fact]
+    public void 暂无不顶替漏配_没有素材的那一种照旧报()
+    {
+        var crops = new[] { Crop("crop_01"), Crop("crop_02") };
+
+        var problem = Assert.Single(CropArtCheck.Problems(crops, [NotDrawn(crops[0])]));
+
+        Assert.Contains("crop_02", problem);
+        Assert.Contains("没有素材", problem);
+    }
+
+    [Fact]
+    public void 还是暂无的那几种按标识排_不重复_空着的那一项不算()
+    {
+        var crops = new[] { Crop("crop_02"), Crop("crop_01"), Crop("crop_03") };
+
+        var listed = CropArtCheck.NotDrawnYet([NotDrawn(crops[0]), null, Full(crops[2]), NotDrawn(crops[1]), NotDrawn(crops[0])]);
+
+        Assert.Equal(["crop_01", "crop_02"], listed);
+        Assert.Empty(CropArtCheck.NotDrawnYet([Full(crops[2])]));
+    }
 
     [Fact]
     public void 全部配齐时没有问题()
@@ -58,7 +115,7 @@ public class CropArtCheckTests
     public void 同一份里缺的几格各报一条()
     {
         var crop = Crop("crop_01");
-        var art = new CropArtEntry(crop.Id, [true, false, true, false], HasMutatedRipe: false, HasWithered: false);
+        var art = new CropArtEntry(crop.Id, [true, false, true, false], HasMutatedRipe: false, HasWithered: false, NotDrawnYet: false);
 
         var problems = CropArtCheck.Problems([crop], [art]);
 

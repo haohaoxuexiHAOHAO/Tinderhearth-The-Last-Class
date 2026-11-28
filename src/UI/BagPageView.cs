@@ -487,15 +487,34 @@ public sealed partial class BagPageView : VBoxContainer
         rarity.Modulate = ColorOf(block.Content.RarityColor);
         root.AddChild(rarity);
 
-        root.AddChild(new TextureRect
+        var look = _source.Icons(block.Content.ItemId, block.Content.QualityId);
+        if (look.Texture is { } texture)
         {
-            Name = "Icon",
-            StretchMode = TextureRect.StretchModeEnum.Keep,
-            MouseFilter = MouseFilterEnum.Ignore,
-            Position = offset,
-            Size = new Vector2(picture.Width, picture.Height),
-            Texture = _source.Icons(block.Content.ItemId, block.Content.QualityId),
-        });
+            root.AddChild(new TextureRect
+            {
+                Name = "Icon",
+                StretchMode = TextureRect.StretchModeEnum.Keep,
+                MouseFilter = MouseFilterEnum.Ignore,
+                Position = offset,
+                Size = new Vector2(picture.Width, picture.Height),
+                Texture = texture,
+            });
+        }
+        else
+        {
+            // 图还是「暂无」：在图那一块上居中写那一样名字的第一个字（口径见 IconPlaceholder）。字体与字色跟游戏菜单的主题走，
+            // 这里不设：深色的格子底上配浅色的正文字，那一对在主题里。
+            root.AddChild(new Label
+            {
+                Name = "Placeholder",
+                Text = look.Placeholder,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+                Position = offset,
+                Size = new Vector2(picture.Width, picture.Height),
+            });
+        }
 
         if (block.Content.QualityColor is { } quality)
         {

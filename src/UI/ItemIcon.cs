@@ -1,11 +1,43 @@
 using Godot;
 using Tinderhearth.Rules.Economy;
+using Tinderhearth.Rules.UI;
 
 namespace Tinderhearth.UI;
 
-/// <summary>拿一样东西的标识与那一堆的品质换一张图标。每一样在册的东西都有图标（载入时核过），所以它不返回空。</summary>
+/// <summary>一样东西在格子里画什么：画好的那张图标，或者图还是「暂无」时写的那一个字。两样恰好有一样。</summary>
+/// <remarks>写哪一个字由 <see cref="IconPlaceholder"/> 定；画字的那一处要按图标那一块的大小居中写，不另找地方。</remarks>
+public sealed record ItemPicture
+{
+    private ItemPicture(Texture2D? texture, string? placeholder)
+    {
+        Texture = texture;
+        Placeholder = placeholder;
+    }
+
+    /// <summary>画好的那张图标；图还是「暂无」时为 <c>null</c>。</summary>
+    public Texture2D? Texture { get; }
+
+    /// <summary>图还是「暂无」时格子里写的那一个字；画好了时为 <c>null</c>。</summary>
+    public string? Placeholder { get; }
+
+    /// <summary>画这一张。</summary>
+    public static ItemPicture Drawn(Texture2D texture)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        return new ItemPicture(texture, null);
+    }
+
+    /// <summary>图还没画：写这一个字。</summary>
+    public static ItemPicture NotDrawnYet(string placeholder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(placeholder);
+        return new ItemPicture(null, placeholder);
+    }
+}
+
+/// <summary>拿一样东西的标识与那一堆的品质换它在格子里画什么。每一样在册的东西都有图标资源（载入时核过），所以它不返回空。</summary>
 /// <remarks>随身栏与背包页都按它取：图标那张表属于内容，由装东西的那一方持有，界面层只问、不存。</remarks>
-public delegate Texture2D ItemIconResolver(string itemId, string? qualityId);
+public delegate ItemPicture ItemIconResolver(string itemId, string? qualityId);
 
 /// <summary>一个物品的图标。在 Godot 里存成 .tres，由作者配，一个物品一份。</summary>
 /// <remarks>
@@ -24,6 +56,14 @@ public partial class ItemIcon : Resource
     [Export]
     public string ItemId { get; set; } = "";
 
+    /// <summary>「暂无」：这一样东西的图还没画。勾上它，下面三格都留空，格子里写那一样名字的第一个字。</summary>
+    /// <remarks>
+    /// 要显式勾，不拿空着的图标那一格当暂无：空着与漏填长得一样，而漏填不报错（设计仓 production/像素绘制原则.md 的
+    /// 「像素基准」一节）。勾了又配了图当场报错，启动日志列出还剩哪几样是暂无，都在 <see cref="ItemIconCheck"/>。
+    /// </remarks>
+    [Export]
+    public bool NotDrawnYet { get; set; }
+
     /// <summary>图标那一张。无品质的东西、以及品质不是变异的那几档都画它。</summary>
     [Export]
     public Texture2D? Icon { get; set; }
@@ -41,9 +81,9 @@ public partial class ItemIcon : Resource
     /// 尺寸取贴图自己报的宽高。从一张大图上框出来的那种（AtlasTexture）报的是框的宽高再加上它的 Margin
     /// （引擎源码 AtlasTexture::get_width），所以 Margin 填了数，核的就是加上之后的大小。
     /// </remarks>
-    public ItemIconEntry ToEntry() => new(ItemId, SizeOf(Icon), SizeOf(MutatedIcon), MutatedSameAsIcon);
+    public ItemIconEntry ToEntry() => new(ItemId, SizeOf(Icon), SizeOf(MutatedIcon), MutatedSameAsIcon, NotDrawnYet);
 
-    /// <summary>这一堆画哪一张。只在载入时核过之后用，所以这里不再判缺。</summary>
+    /// <summary>这一堆画哪一张。只在载入时核过、而且没勾「暂无」时用，所以这里不再判缺。</summary>
     /// <param name="qualityId">那一堆的品质；无品质的东西是 <c>null</c>。</param>
     public Texture2D TextureFor(string? qualityId) =>
         ItemIconCheck.ShowsMutated(qualityId) && !MutatedSameAsIcon ? MutatedIcon! : Icon!;

@@ -32,12 +32,19 @@ public class ItemIconCheckTests
         TestBags.Items.Qualities,
         name => name.Split(' ')[0]);
 
-    private static ItemIconEntry Seed() => new(TestBags.TurnipSeed, Icon: OneCell, MutatedIcon: null, MutatedSameAsIcon: false);
+    private static ItemIconEntry Seed() =>
+        new(TestBags.TurnipSeed, Icon: OneCell, MutatedIcon: null, MutatedSameAsIcon: false, NotDrawnYet: false);
 
     private static ItemIconEntry Turnip(bool mutatedIcon = true, bool sameAsIcon = false) =>
-        new(TestBags.Turnip, Icon: OneCell, MutatedIcon: mutatedIcon ? OneCell : null, MutatedSameAsIcon: sameAsIcon);
+        new(TestBags.Turnip, Icon: OneCell, MutatedIcon: mutatedIcon ? OneCell : null, MutatedSameAsIcon: sameAsIcon,
+            NotDrawnYet: false);
 
-    private static ItemIconEntry GemIcon(IconSize icon) => new(Gem, Icon: icon, MutatedIcon: null, MutatedSameAsIcon: true);
+    private static ItemIconEntry GemIcon(IconSize icon) =>
+        new(Gem, Icon: icon, MutatedIcon: null, MutatedSameAsIcon: true, NotDrawnYet: false);
+
+    /// <summary>勾了「暂无」、图标两格都空着的那一份。</summary>
+    private static ItemIconEntry NotDrawn(string itemId) =>
+        new(itemId, Icon: null, MutatedIcon: null, MutatedSameAsIcon: false, NotDrawnYet: true);
 
     private static IReadOnlyList<string> Problems(ItemCatalog items, IReadOnlyList<ItemIconEntry?> icons) =>
         ItemIconCheck.Problems(items, icons, CellPixels);
@@ -104,7 +111,7 @@ public class ItemIconCheckTests
         var problems = Problems(TestBags.Items,
         [
             Seed() with { Icon = null },
-            new ItemIconEntry("item_turnp", Icon: OneCell, MutatedIcon: null, MutatedSameAsIcon: false),
+            new ItemIconEntry("item_turnp", Icon: OneCell, MutatedIcon: null, MutatedSameAsIcon: false, NotDrawnYet: false),
             null,
             Turnip(),
         ]);
@@ -177,6 +184,59 @@ public class ItemIconCheckTests
         var problem = Assert.Single(Problems(TestBags.Items, [seed, Turnip()]));
 
         Assert.Contains("用不上", problem);
+    }
+
+    [Fact]
+    public void 勾了暂无的那一样不配图也没有问题_有品质的与大东西都一样()
+    {
+        Assert.Empty(Problems(WithGem, [NotDrawn(TestBags.TurnipSeed), NotDrawn(TestBags.Turnip), NotDrawn(Gem)]));
+        Assert.Empty(Problems(TestBags.Items, [Seed(), NotDrawn(TestBags.Turnip)]));
+    }
+
+    [Fact]
+    public void 暂无不顶替漏配_在册却一份都没有的照旧报()
+    {
+        // 「暂无」要显式勾：什么都没配的那一样仍然是漏填，不许当成暂无放过去。
+        var problem = Assert.Single(Problems(TestBags.Items, [NotDrawn(TestBags.TurnipSeed)]));
+
+        Assert.Contains(TestBags.Turnip, problem);
+        Assert.Contains("没有图标", problem);
+    }
+
+    [Fact]
+    public void 勾了暂无又配了图_一件报一行写清两条出路()
+    {
+        var withIcon = NotDrawn(TestBags.TurnipSeed) with { Icon = OneCell };
+        var withSame = NotDrawn(TestBags.Turnip) with { MutatedSameAsIcon = true };
+
+        var problems = Problems(TestBags.Items, [withIcon, withSame]);
+
+        Assert.Equal(2, problems.Count);
+        Assert.All(problems, p => Assert.Contains("暂无", p));
+        Assert.Contains(problems, p => p.Contains(TestBags.TurnipSeed) && p.Contains("去掉暂无"));
+        Assert.Contains(problems, p => p.Contains(TestBags.Turnip) && p.Contains("清空"));
+    }
+
+    [Fact]
+    public void 暂无的那一份照样核重与不在册()
+    {
+        var problems = Problems(TestBags.Items, [NotDrawn(TestBags.TurnipSeed), NotDrawn(TestBags.TurnipSeed), Turnip(), NotDrawn("item_turnp")]);
+
+        Assert.Equal(2, problems.Count);
+        Assert.Contains(problems, p => p.Contains("都配给了物品") && p.Contains(TestBags.TurnipSeed));
+        Assert.Contains(problems, p => p.Contains("item_turnp") && p.Contains("不在册"));
+    }
+
+    [Fact]
+    public void 还是暂无的那几样按标识排_不重复_空着的那一项不算()
+    {
+        string[] expected = [.. new[] { TestBags.TurnipSeed, TestBags.Turnip }.Order(StringComparer.Ordinal)];
+
+        var listed = ItemIconCheck.NotDrawnYet(
+            [NotDrawn(TestBags.TurnipSeed), null, Seed() with { ItemId = "item_other" }, NotDrawn(TestBags.Turnip), NotDrawn(TestBags.TurnipSeed)]);
+
+        Assert.Equal(expected, listed);
+        Assert.Empty(ItemIconCheck.NotDrawnYet([Seed(), Turnip()]));
     }
 
     [Fact]

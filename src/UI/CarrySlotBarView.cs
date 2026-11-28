@@ -94,6 +94,10 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
                 + $"换格的按键要经输入门面问（挂了 {nameof(InputRouter)} 的那个节点）");
         _art = UIArtGuard.Require(Art, $"{nameof(CarrySlotBarView)}（节点 {Name}）");
 
+        // 图标还是「暂无」的那一格写一个字，那个字要像素字体与主题里的字色。摆进场景时没人给主题，就自己装一份，
+        // 与游戏菜单同一个做法；不装的话那个字退回引擎默认字体，而那不报错。
+        Theme ??= PixelTheme.Install(_art, out _);
+
         // 铺满所属层、块靠锚点贴角。必须用 SetAnchorsAndOffsetsPreset：对已经在树里的节点调
         // SetAnchorsPreset 会改写偏移、保住那个 0×0 的矩形，而且不报错（同 LevelHud 那一段）。
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -206,6 +210,18 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             icon.SetAnchorsPreset(LayoutPreset.FullRect);
             inner.AddChild(icon);
 
+            // 图还是「暂无」时写那一样名字的第一个字，与图标同一块、居中（口径见 IconPlaceholder）。字色跟主题走，这里不设。
+            var placeholder = new Label
+            {
+                Name = "Placeholder",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+                Visible = false,
+            };
+            placeholder.SetAnchorsPreset(LayoutPreset.FullRect);
+            inner.AddChild(placeholder);
+
             // 件数是贴格子右下角的迷你字，不另占一行：这一块只有一格高，加一行会把块撑高，
             // 而块一高就压掉画面上留给角色的地方。
             var count = new MiniText(_art, MiniText.Corner.BottomRight) { Name = "Count" };
@@ -219,7 +235,7 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
             cell.AddChild(select);
             select.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, -UIMetrics.SelectOutset);
 
-            _cells.Add(new Cell(select, icon, count));
+            _cells.Add(new Cell(select, icon, placeholder, count));
         }
     }
 
@@ -252,20 +268,23 @@ public sealed partial class CarrySlotBarView : Control, IPlacedUI
 
             cell.Select.Visible = lit;
 
-            // 空格不画图标，但框照画 —— 格位固定不动，玩家才记得住哪一格是哪一格。
-            cell.Icon.Texture = slot.IsEmpty ? null : IconOf(slot);
+            // 空格不画图标，但框照画 —— 格位固定不动，玩家才记得住哪一格是哪一格。图还是「暂无」的那一样写一个字。
+            var picture = slot.IsEmpty ? null : PictureOf(slot);
+            cell.Icon.Texture = picture?.Texture;
             cell.Icon.Visible = cell.Icon.Texture is not null;
+            cell.Placeholder.Text = picture?.Placeholder ?? string.Empty;
+            cell.Placeholder.Visible = picture?.Placeholder is not null;
 
             cell.Count.Text = slot.ShowsCount ? slot.Count.ToString(CultureInfo.InvariantCulture) : string.Empty;
         }
     }
 
-    private Texture2D IconOf(CarrySlot slot) =>
+    private ItemPicture PictureOf(CarrySlot slot) =>
         Icons is { } icons
             ? icons(slot.ItemId, slot.QualityId)
             : throw new InvalidOperationException(
                 $"{nameof(CarrySlotBarView)}（节点 {Name}）的 {nameof(Icons)} 没设，格子里却装了「{slot.ItemId}」—— "
                     + "往随身栏里装东西的那一方要在装之前给一个按物品标识与品质取图标的办法");
 
-    private sealed record Cell(TextureRect Select, TextureRect Icon, MiniText Count);
+    private sealed record Cell(TextureRect Select, TextureRect Icon, Label Placeholder, MiniText Count);
 }

@@ -6,7 +6,9 @@ namespace Tinderhearth.Rules.Economy;
 /// <param name="StagesFilled">生长阶段那一组，每一项配没配，顺序即生长顺序。</param>
 /// <param name="HasMutatedRipe">变异成熟那一张配没配。</param>
 /// <param name="HasWithered">枯死那一张配没配。</param>
-public sealed record CropArtEntry(string CropId, IReadOnlyList<bool> StagesFilled, bool HasMutatedRipe, bool HasWithered);
+/// <param name="NotDrawnYet">勾没勾「暂无」：这一种作物的图还没配。勾了的那一份，那几格都要空着。</param>
+public sealed record CropArtEntry(
+    string CropId, IReadOnlyList<bool> StagesFilled, bool HasMutatedRipe, bool HasWithered, bool NotDrawnYet);
 
 /// <summary>基地载入时那一次核对：作物素材缺哪几张、配给了谁、哪几种作物没有素材，一次全报。</summary>
 /// <remarks>
@@ -15,6 +17,10 @@ public sealed record CropArtEntry(string CropId, IReadOnlyList<bool> StagesFille
 ///
 /// 两份素材配给同一种作物单独报一条：配好一份再复制、忘了改标识，是照着指南配的时候最容易出的错，而不报的话
 /// 后一份会顶掉前一份，表现只是另一种作物「有定义但没有素材」，绕一圈才找得到原因。
+///
+/// 图还没配的那一种勾「暂无」，游戏照常起来，地里画统一的占位（口径在设计仓 production/像素绘制原则.md 的「像素基准」
+/// 一节）。「暂无」要显式勾、整份一起勾：作者从素材表上一次框一整行，不会只框半种。勾了暂无又配了图也报，理由与
+/// 物品图标那一条相同（<see cref="ItemIconCheck"/>）。
 /// </remarks>
 public static class CropArtCheck
 {
@@ -50,6 +56,17 @@ public static class CropArtCheck
                 continue;
             }
 
+            if (art.NotDrawnYet)
+            {
+                if (art.StagesFilled.Any(filled => filled) || art.HasMutatedRipe || art.HasWithered)
+                {
+                    problems.Add($"作物「{art.CropId}」勾了 Not Drawn Yet（暂无），又配了图 —— "
+                        + "图配好了就去掉暂无，还没配就把那几格清空");
+                }
+
+                continue;
+            }
+
             problems.AddRange(ProblemsOf(art, crop));
         }
 
@@ -60,6 +77,18 @@ public static class CropArtCheck
         }
 
         return problems;
+    }
+
+    /// <summary>那一组里还是「暂无」的那几种，按标识排、不重复。启动日志照它列出还剩哪几种没配。</summary>
+    /// <param name="arts">那一组作物素材；空着的那一项是 <c>null</c>，不算。</param>
+    public static IReadOnlyList<string> NotDrawnYet(IReadOnlyList<CropArtEntry?> arts)
+    {
+        ArgumentNullException.ThrowIfNull(arts);
+        return [.. arts.OfType<CropArtEntry>()
+            .Where(art => art.NotDrawnYet)
+            .Select(art => art.CropId)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)];
     }
 
     private static IEnumerable<string> ProblemsOf(CropArtEntry art, CropDefinition crop)

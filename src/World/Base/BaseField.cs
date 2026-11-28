@@ -254,6 +254,7 @@ public partial class BaseField : Node
         _settlement = StandardSettlement.Create(_cropDefs, FallowRevertDays, RollMutation, WriteSave, PrintSummary);
         IndexCropArts();
         IndexItemIcons();
+        PrintNotDrawnYet();
 
         _carry.Icons = IconFor;
         LoadWorld();
@@ -587,8 +588,32 @@ public partial class BaseField : Node
         }
     }
 
-    /// <summary>一样东西画哪一张图标。背包里的每一样都在册，在册的每一样都核过有图标，所以按标识直接取。</summary>
-    private Texture2D IconFor(string itemId, string? qualityId) => _itemIcons[itemId].TextureFor(qualityId);
+    /// <summary>一样东西在格子里画什么。背包里的每一样都在册，在册的每一样都核过有图标资源，所以按标识直接取。</summary>
+    /// <remarks>图还是「暂无」的那一样写它名字的第一个字（<see cref="IconPlaceholder"/>），名字从文本表取，与背包页下面那一行同一处。</remarks>
+    private ItemPicture IconFor(string itemId, string? qualityId)
+    {
+        var icon = _itemIcons[itemId];
+        return icon.NotDrawnYet
+            ? ItemPicture.NotDrawnYet(IconPlaceholder.TextFor(_text[_items.Items[itemId].NameKey]))
+            : ItemPicture.Drawn(icon.TextureFor(qualityId));
+    }
+
+    /// <summary>启动日志列出还剩哪几份是「暂无」：一组一行，一份都没有的那一组不打。</summary>
+    /// <remarks>打的是标识，不是名字：要找的是检查器里那一份资源，资源上写的是标识。</remarks>
+    private void PrintNotDrawnYet()
+    {
+        var icons = ItemIconCheck.NotDrawnYet([.. ItemIcons.Select(icon => icon?.ToEntry())]);
+        if (icons.Count > 0)
+        {
+            GD.Print("[素材] 物品图标还是「暂无」的 ", icons.Count, " 份：", string.Join("、", icons));
+        }
+
+        var arts = CropArtCheck.NotDrawnYet([.. CropArts.Select(art => art?.ToEntry())]);
+        if (arts.Count > 0)
+        {
+            GD.Print("[素材] 作物素材还是「暂无」的 ", arts.Count, " 份：", string.Join("、", arts));
+        }
+    }
 
     /// <summary>随身栏照背包上随身栏那一排重画：屏幕上的随身栏自己不存东西，背包变了它就跟着变。</summary>
     /// <remarks>选中第几格不跟着内容走，那由 <see cref="CarrySlotBar.Fill"/> 保证。品质跟着那一堆走，画哪一张图标看它。</remarks>
@@ -731,11 +756,22 @@ public partial class BaseField : Node
         new(-Mathf.Floor(texture.GetWidth() / 2f), -texture.GetHeight());
 
     /// <summary>这一格现在该显示哪一张作物图；没有作物时为 <c>null</c>。</summary>
+    /// <remarks>
+    /// 那种作物的图还是「暂无」时，每个阶段、变异与枯死都画同一个占位框，一格那么大（<see cref="NotDrawnYetArt"/>）：
+    /// 看得出这一格种着东西，看不出长到哪一步 —— 长到哪一步要等图配上。
+    /// </remarks>
     private Texture2D? TextureFor(Plot plot)
     {
         if (plot.CropId is not string id || !_cropArts.TryGetValue(id, out var art))
         {
             return null;
+        }
+
+        if (art.NotDrawnYet)
+        {
+            return plot.State is PlotState.Planted or PlotState.Harvestable or PlotState.Withered
+                ? NotDrawnYetArt.Box(_tilled.TileSet.TileSize)
+                : null;
         }
 
         return plot.State switch

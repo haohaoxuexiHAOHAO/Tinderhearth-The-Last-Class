@@ -28,6 +28,14 @@ public partial class CropArt : Resource
     [Export]
     public string CropId { get; set; } = "";
 
+    /// <summary>「暂无」：这一种作物的图还没配。勾上它，下面几格都留空，地里每个阶段都画同一个占位框。</summary>
+    /// <remarks>
+    /// 要显式勾、整份一起勾，理由与物品图标那一格相同（设计仓 production/像素绘制原则.md 的「像素基准」一节）。
+    /// 勾了又配了图当场报错，启动日志列出还剩哪几种是暂无，都在 <see cref="CropArtCheck"/>。
+    /// </remarks>
+    [Export]
+    public bool NotDrawnYet { get; set; }
+
     /// <summary>每个生长阶段各一张，顺序就是生长顺序，最后一张是成熟。</summary>
     /// <remarks>
     /// 成熟那一张要靠轮廓和前一张分开，不能只靠换颜色。因为「这一格能不能收」在画面上只有这一处
@@ -57,7 +65,8 @@ public partial class CropArt : Resource
         CropId,
         [.. StageTextures.Select(texture => texture is not null)],
         MutatedRipeTexture is not null,
-        WitheredTexture is not null);
+        WitheredTexture is not null,
+        NotDrawnYet);
 
     /// <summary>某个阶段该显示哪一张。</summary>
     public Texture2D TextureForStage(int stage) => StageTextures[stage];
