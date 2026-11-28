@@ -450,7 +450,7 @@ public partial class GameMenuPanel : Control, IPlacedSurface
         var showsBag = _activePage?.Id == GameMenu.BagPageId && _bag is not null;
         if (showsBag && _bagView is null)
         {
-            _bagView = new BagPageView(_art, _text, _bag!, _ui, Theme);
+            _bagView = new BagPageView(_art, _text, _bag!, _ui, Theme, _router);
             _inset.AddChild(_bagView);
         }
 

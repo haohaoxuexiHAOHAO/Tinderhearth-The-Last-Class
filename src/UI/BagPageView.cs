@@ -26,6 +26,7 @@ public sealed record BagPageSource(
 /// 格距归规则层、有测试管着，背包多了格只多几行。
 ///
 /// 每一格是一个按钮，键盘与手柄靠焦点在格子与右边那一列之间走，鼠标指上去与焦点停上去是同一个样子（格子里那一圈亮边）。
+/// 格子之间按方向键走到哪一格判在 <see cref="BagPageFocus"/>，引擎自带的找法只管走出网格那一下。
 /// 一堆画成一块：格子框挨着格子框，大东西那几格并成一个大框、图放正中，点到一块里的哪一格都是那一堆。
 /// 挪格是点一格、再点目标格：第一下拿起那一堆（那一块的格子底色亮一档），之后指着哪里，那里就画出它要占的那一块，
 /// 放得下与放不下用两张形状不同的件；第二下放过去 —— 空着就挪过去，是同标识的就合进去，
@@ -51,11 +52,21 @@ public sealed partial class BagPageView : VBoxContainer
     /// <summary>丢之前那一问是哪一个界面：挂在弹窗那一层，关卡里也开得了（背包是随身物）。</summary>
     public static readonly UISurface DiscardSurface = new("bag.discard", UILayer.Dialog, SurfaceKind.Carried);
 
+    /// <summary>引擎内置的四个挪焦点的动作，各往哪边。键盘方向键、手柄十字键与左摇杆都落在它们上面。</summary>
+    private static readonly (string Action, FocusDirection Direction)[] Directions =
+    [
+        ("ui_left", FocusDirection.Left),
+        ("ui_up", FocusDirection.Up),
+        ("ui_right", FocusDirection.Right),
+        ("ui_down", FocusDirection.Down),
+    ];
+
     private readonly UIArt _art;
     private readonly TextCatalog _text;
     private readonly BagPageSource _source;
     private readonly UIRoot _ui;
     private readonly Theme _theme;
+    private readonly InputRouter _router;
     private readonly BagControls _controls = new();
     private readonly List<Cell> _cells = [];
     private readonly Dictionary<int, Block> _blocks = [];
@@ -94,13 +105,15 @@ public sealed partial class BagPageView : VBoxContainer
     /// <param name="source">背包从哪读、被拒时找谁说、改了之后告诉谁。</param>
     /// <param name="ui">界面根：丢之前那一问登记在它上面、经它的导航栈开关。</param>
     /// <param name="theme">像素主题：那一问不在游戏菜单下面，接不到游戏菜单那一份，由这里转交。</param>
-    public BagPageView(UIArt art, TextCatalog text, BagPageSource source, UIRoot ui, Theme theme)
+    /// <param name="router">输入门面：摇杆推一下算不算一下，经它问。</param>
+    public BagPageView(UIArt art, TextCatalog text, BagPageSource source, UIRoot ui, Theme theme, InputRouter router)
     {
         _art = art ?? throw new ArgumentNullException(nameof(art));
         _text = text ?? throw new ArgumentNullException(nameof(text));
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _ui = ui ?? throw new ArgumentNullException(nameof(ui));
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        _router = router ?? throw new ArgumentNullException(nameof(router));
         _frame = Nine(art.KitSlotNormal, "kit/slot_normal");
         _heldFrame = Nine(art.KitSlotHeld, "kit/slot_held");
         _focusRing = Nine(art.KitSlotFocus, "kit/slot_focus");
@@ -611,8 +624,70 @@ public sealed partial class BagPageView : VBoxContainer
             ShowSelection();
         };
         button.Pressed += () => Press(index);
+        button.GuiInput += @event => OnCellInput(index, @event);
 
         return cell;
+    }
+
+    /// <summary>
+    /// 焦点停在一格上按方向键：照规则层那一份走（<see cref="BagPageFocus"/>）；那一边网格里没有了，才去网格外面找。
+    /// </summary>
+    /// <remarks>
+    /// 这一下一律收下：引擎先把事件交给焦点所在的那个控件，没人收才照它自己那一套挪（引擎源码 scene/main/viewport.cpp 的
+    /// _gui_input_event），不收的话一下会走两步。
+    /// </remarks>
+    private void OnCellInput(int index, InputEvent @event)
+    {
+        if (DirectionOf(@event) is not { } direction)
+        {
+            return;
+        }
+
+        var from = _cells[index].Button;
+        from.AcceptEvent();
+        var next = BagPageFocus.Of(_source.Bag(), _controls, _held).Next(index, direction) is { } at
+            ? _cells[at].Button
+            : OutsideGrid(from, direction);
+        next?.GrabFocus();
+    }
+
+    /// <summary>这一下是往哪边挪焦点；不是就是 <c>null</c>。</summary>
+    /// <remarks>
+    /// 与引擎挪焦点同一个判法（同上那一处）：键盘按住不放时的连发也算；摇杆只认推过去的那一下，推着不放会一直来事件。
+    /// </remarks>
+    private FocusDirection? DirectionOf(InputEvent @event)
+    {
+        foreach (var (action, direction) in Directions)
+        {
+            var pressed = @event is InputEventJoypadMotion
+                ? @event.IsActionPressed(action) && _router.IsJustPressedBy(action, @event)
+                : @event.IsActionPressed(action, allowEcho: true, exactMatch: true);
+            if (pressed)
+            {
+                return direction;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>那一边网格里没有了：交给引擎找网格外面的那一个（右边那一列、上面的页签），找不到就停在原处。</summary>
+    /// <remarks>
+    /// 先从这一格找，找到的才挨着玩家这一行（列）。找到的若还是网格里的一格（同一块里的另一格，或者只有一半在那一边的那一块），
+    /// 就改从整张网格找：网格里的格全在它里面，一格都挑不上。
+    /// </remarks>
+    private Control? OutsideGrid(Button from, FocusDirection direction)
+    {
+        var side = direction switch
+        {
+            FocusDirection.Left => Side.Left,
+            FocusDirection.Up => Side.Top,
+            FocusDirection.Right => Side.Right,
+            FocusDirection.Down => Side.Bottom,
+            _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "方向键只有上下左右"),
+        };
+        var next = from.FindValidFocusNeighbor(side);
+        return next is not null && _cellLayer.IsAncestorOf(next) ? _grid.FindValidFocusNeighbor(side) : next;
     }
 
     /// <summary>

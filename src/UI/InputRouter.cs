@@ -82,6 +82,16 @@ public partial class InputRouter : Node
     /// <summary>这一帧这个动作是不是刚松开。闸关着时读不到。</summary>
     public bool IsJustReleased(string action) => Gate.IsOpen && Input.IsActionJustReleased(action);
 
+    /// <summary>这一下事件是不是让这个动作刚按下的那一下。同样受闸与修饰键遮挡影响。</summary>
+    /// <remarks>
+    /// 界面自己挪焦点时认摇杆用，与引擎挪焦点同一个判法（引擎源码 scene/main/viewport.cpp 的 _gui_input_event）：
+    /// 摇杆推着不放会一直来事件，同一帧里也可能来好几下，只认按下去的那一下，否则推一下焦点走好几格。
+    /// </remarks>
+    public bool IsJustPressedBy(string action, InputEvent @event) =>
+        Gate.IsOpen
+        && !_modifiers.ShouldSuppress(action)
+        && Input.IsActionJustPressedByEvent(action, @event);
+
     /// <summary>
     /// 移动方向。不受修饰键遮挡 —— 挑技能的时候还得能走位；闸关着时是零，按着方向键也站住不动。
     /// </summary>
