@@ -1,9 +1,6 @@
 using System.Text.Json.Nodes;
 using Tinderhearth.Rules.Economy;
-using Tinderhearth.Rules.Foundation.Config;
 using Tinderhearth.Rules.Foundation.Save;
-using Tinderhearth.Rules.Progression;
-using Tinderhearth.Rules.Tests.Progression;
 using Tinderhearth.Rules.UI;
 using Xunit;
 
@@ -13,12 +10,10 @@ namespace Tinderhearth.Rules.Tests.Economy;
 /// <remarks>
 /// 作物、物品与配置读的都是工程里那一份（只读不写），走的是基地用的那几个读口：开新档与读档、调试键那一批、
 /// 从背包播种、结算驱动、收获那一道闸。变异的随机源由测试按顺序给，写档写进内存、不碰真文件。各一环自己的边界
-/// 在各自的测试类里，这里只把它们串起来。
+/// 在各自的测试类里，这里只把它们串起来。基地那一套搭在 <see cref="BaseSetup"/>。
 /// </remarks>
 public class ItemsInBagE2ETests
 {
-    private const int FallowDays = 7;
-
     private static readonly HarvestYieldRule Yield = new(BaseCount: 4, MinWaterFactor: 0.5, MaxWaterFactor: 1.0);
 
     /// <summary>播下去的那两格。</summary>
@@ -184,55 +179,5 @@ public class ItemsInBagE2ETests
         Assert.Equal(PlotState.Tilled, PlotAt(world.State, First).State);
     }
 
-    /// <summary>基地那一套：工程里的作物、物品与配置，场景里一片地，写档写进内存。</summary>
-    private sealed class BaseSetup
-    {
-        private readonly Queue<bool> _rolls;
-
-        public BaseSetup(IEnumerable<bool> rolls)
-        {
-            _rolls = new Queue<bool>(rolls);
-            Items = ShippedItems.Load();
-            Crops = CropSheetE2ETests.ShippedCrops();
-            var config = GameConfig.Parse(File.ReadAllText(Path.Combine(RepoFiles.Root(), "data", "config", "game.json")));
-            NewGameBag = Bag.NewGame(config, Items, CarrySlotBar.SlotCount);
-            Settlement = StandardSettlement.Create(Crops, FallowDays, () => _rolls.Dequeue(), _ => { }, _ => { });
-        }
-
-        /// <summary>场景里那片地：2×2，左上角不在原点，读回来时格坐标真的被核到。</summary>
-        public PlotGrid Scene { get; } = PlotGrid.Rectangle(new GridCell(4, 2), width: 2, height: 2, PlotState.Tilled);
-
-        public ItemCatalog Items { get; }
-
-        public IReadOnlyDictionary<string, CropDefinition> Crops { get; }
-
-        /// <summary>开新档时的背包：网格第一级那么大，随身栏那一排与技能位同数，空的。</summary>
-        public Bag NewGameBag { get; }
-
-        public DailySettlement Settlement { get; }
-
-        /// <summary>还没有存档时进基地。</summary>
-        public CurrentWorld NewGame() => new(Load(null));
-
-        /// <summary>睡一觉：走结算那唯一的入口。</summary>
-        public SettlementOutcome Sleep(CurrentWorld world) => Settlement.EndDay(world, DayEndSource.Sleep);
-
-        /// <summary>手上是随身栏第一格，播到给定那一格。</summary>
-        public PlantResult PlantFromFirstSlot(CurrentWorld world, GridCell cell) =>
-            Planting.TryPlantFromBag(PlotAt(world.State, cell), world.State.Bag, 0, CropDefinition.BySeed(Crops).GetValueOrDefault);
-
-        public string Write(WorldState world) => BaseSave.Write(Registry(), world);
-
-        public WorldState Load(string? saved) => BaseSave.LoadOrNew(saved, Registry(), Crops, Scene, NewGameBag);
-
-        private SaveShardRegistry Registry()
-        {
-            var registry = new SaveShardRegistry();
-            WorldShards.Register(registry, Scene, NewGameBag);
-            return registry;
-        }
-    }
-
-    private static Plot PlotAt(WorldState world, GridCell cell) =>
-        world.Plots.TryGet(cell, out var plot) ? plot : throw new InvalidOperationException($"没有 {cell} 这一格");
+    private static Plot PlotAt(WorldState world, GridCell cell) => BaseSetup.PlotAt(world, cell);
 }
