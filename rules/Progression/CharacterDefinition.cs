@@ -22,6 +22,9 @@ public sealed record CharacterDefinition
 {
     public const string ContentDirectory = "characters";
 
+    /// <summary>主角烬的标识。玩家给主角起的假名只改显示名，不改它（工作区根 desc/经营规则.md 的「开局」）。</summary>
+    public const string ProtagonistId = "jin";
+
     /// <summary>稳定标识：存档、站位与名册都按它引用。没写时是空串，由 <see cref="Parse"/> 拒掉。</summary>
     public string Id { get; init; } = "";
 
