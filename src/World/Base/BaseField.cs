@@ -170,6 +170,7 @@ public partial class BaseField : Node
     private HarvestYieldRule _yield = null!;
     private MutationChanceRule _mutation = null!;
     private int _seedBatch;
+    private int _bigItem;
     private CurrentWorld _world = null!;
     private DailySettlement _settlement = null!;
     private SaveShardRegistry _registry = null!;
@@ -332,12 +333,12 @@ public partial class BaseField : Node
         }
     }
 
-    /// <summary>开发期的调试键：推进一天、换下一批种子。哪个键登在 <see cref="DebugKeys"/>。</summary>
+    /// <summary>开发期的调试键：推进一天、换下一批种子、放一件大东西。哪个键登在 <see cref="DebugKeys"/>。</summary>
     /// <remarks>
     /// 直接读按键、不走 <c>InputMap</c>，理由在 <see cref="DebugKeys"/>；键从那一处取，冲突测试才看得见它们。
     ///
     /// 推进一天与床走同一条路（<see cref="Sleep"/>），所以摆了醒来那一套时它也淡出淡入、也弹摘要。
-    /// 睡下到醒来那一段里两个键都不响应：它们不经输入门面，门面上那道闸挡不住它们，只能在这里挡。
+    /// 睡下到醒来那一段里这几个键都不响应：它们不经输入门面，门面上那道闸挡不住它们，只能在这里挡。
     /// </remarks>
     public override void _UnhandledKeyInput(InputEvent @event)
     {
@@ -354,6 +355,42 @@ public partial class BaseField : Node
         {
             GiveSeedBatch();
         }
+        else if (InputMapInstaller.IsDebugKey(key, DebugKeys.BaseGiveBigItem))
+        {
+            GiveBigItem();
+        }
+    }
+
+    /// <summary>开发期的调试键：往背包里放下一件大东西，占不止一格的那几样轮着给，一次一件（<see cref="BigItemSamples"/>）。</summary>
+    /// <remarks>
+    /// 作者要在背包页里看大图、试挪大块，现在没有别的路子拿到大东西。它与另两个键一样直接读按键、不进输入映射。
+    /// 放不下就一件不放，屏上那一行说清是满了还是放不下这么大的，这一件也不往后挪 —— 腾出位置再按，给的还是这一件。
+    /// </remarks>
+    private void GiveBigItem()
+    {
+        var kinds = BigItemSamples.Kinds(_items);
+        if (kinds.Count == 0)
+        {
+            GD.Print("[背包] 在册的物品里没有占不止一格的东西，这个键没东西可给");
+            return;
+        }
+
+        var (itemId, qualityId, count) = BigItemSamples.Sample(_items, _bigItem);
+        var bag = _world.State.Bag;
+        if (!bag.TryAdd(itemId, qualityId, count))
+        {
+            // 放不下时背包一件没变，这时问的就是这一次为什么放不下。
+            var refusal = bag.RefusalFor(itemId, qualityId, count)
+                ?? throw new InvalidOperationException($"背包放不下 {itemId}，却答不出为什么放不下");
+            var line = BaseNotices.ForBigItem(refusal, _text);
+            _notice.Show(line);
+            GD.Print("[背包] 第 ", _bigItem + 1, " 样大东西 ", itemId, "（共 ", kinds.Count, " 样）没放进背包：", line);
+            return;
+        }
+
+        // 大东西进不了随身栏那一排，屏幕上的随身栏不用重画。
+        GD.Print("[背包] 第 ", _bigItem + 1, " 样大东西 ", itemId, "（共 ", kinds.Count, " 样）放进了背包");
+        _bigItem = BigItemSamples.Next(_bigItem, kinds.Count);
     }
 
     /// <summary>开发期的调试键：往背包里放下一批种子，每样一满堆，最后一批之后回到第一批。</summary>

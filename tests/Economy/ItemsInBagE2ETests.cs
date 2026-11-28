@@ -105,6 +105,40 @@ public class ItemsInBagE2ETests
     }
 
     [Fact]
+    public void 调试键给大东西_开新档的背包放到放不下为止_再给被拒的原因是放不下这么大的_那一下背包一件不变()
+    {
+        var setup = new BaseSetup(rolls: []);
+        var bag = setup.NewGame().State.Bag;
+        var kinds = BigItemSamples.Kinds(setup.Items);
+        Assert.NotEmpty(kinds);
+
+        // 照调试键那样一件一件给：放得下就往后轮一样，放不下就停在那一件上。
+        var next = 0;
+        var stored = 0;
+        while (true)
+        {
+            var (itemId, qualityId, count) = BigItemSamples.Sample(setup.Items, next);
+            if (!bag.TryAdd(itemId, qualityId, count))
+            {
+                break;
+            }
+
+            stored++;
+            next = BigItemSamples.Next(next, kinds.Count);
+            Assert.True(stored <= bag.SlotCount, "一件大东西至少占两格，放进去的件数不会比网格的格数还多");
+        }
+
+        Assert.True(stored > 0, "开新档时背包是空的，至少放得下一件");
+        Assert.All(bag.Carry, slot => Assert.Null(slot));
+        var before = bag.Carry.Concat(bag.Slots).ToList();
+        var (refusedId, refusedQuality, refusedCount) = BigItemSamples.Sample(setup.Items, next);
+
+        // 随身栏那一排还空着，所以不是满了：有空格，却凑不出一块放得下它的地方。
+        Assert.Equal(BagRefusal.NoRoomForSize, bag.RefusalFor(refusedId, refusedQuality, refusedCount));
+        Assert.Equal(before, bag.Carry.Concat(bag.Slots));
+    }
+
+    [Fact]
     public void 失败路径_同一版的存档缺背包那一片被拒()
     {
         var setup = new BaseSetup(rolls: []);

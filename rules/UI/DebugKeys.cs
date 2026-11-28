@@ -23,6 +23,9 @@ public static class DebugKeys
     /// <summary>基地：往背包里放下一批种子，每样一满堆，最后一批之后回到第一批。</summary>
     public static readonly DebugKey BaseGiveSeeds = new("基地", InputSymbol.KeyG, "往背包里放下一批种子");
 
+    /// <summary>基地：往背包里放下一件大东西，占不止一格的那几样轮着给，最后一样之后回到第一样。</summary>
+    public static readonly DebugKey BaseGiveBigItem = new("基地", InputSymbol.KeyV, "往背包里放下一件大东西");
+
     /// <summary>全部调试键。冲突测试读的是这一份。</summary>
-    public static readonly IReadOnlyList<DebugKey> All = [BaseEndDay, BaseGiveSeeds];
+    public static readonly IReadOnlyList<DebugKey> All = [BaseEndDay, BaseGiveSeeds, BaseGiveBigItem];
 }

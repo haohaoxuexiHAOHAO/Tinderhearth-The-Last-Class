@@ -1,0 +1,16 @@
+{
+  "//": "占位宝石 gem_03，稀有度高级。各格的来路同 gem_01.json。",
+  "id": "gem_03",
+  "nameKey": "item.gem_03.name",
+  "descriptionKey": "item.gem_03.description",
+  "categoryId": "gem",
+  "footprint": { "width": 2, "height": 2 },
+  "rarityId": "high",
+  "hasQuality": true,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

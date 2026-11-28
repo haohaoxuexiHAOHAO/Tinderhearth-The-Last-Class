@@ -50,6 +50,13 @@ public class BaseNoticesTests
     }
 
     [Fact]
+    public void 调试键给大东西放不下时_满了与放不下这么大的各是一句()
+    {
+        Assert.Equal($"<{BaseNotices.BigItemBagFullKey}>", BaseNotices.ForBigItem(BagRefusal.Full, Fake));
+        Assert.Equal($"<{BaseNotices.BigItemNoRoomForSizeKey}>", BaseNotices.ForBigItem(BagRefusal.NoRoomForSize, Fake));
+    }
+
+    [Fact]
     public void 收获只在背包放不下时出提示()
     {
         // 不是待收的那一格到不了收获，那一下不是被拒，不出提示。

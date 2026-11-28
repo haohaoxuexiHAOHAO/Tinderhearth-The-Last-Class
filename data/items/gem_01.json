@@ -1,0 +1,16 @@
+{
+  "//": "占位宝石 gem_01：作者画的四颗大宝石之一，占 2×2，开发期调试键给它，在背包页里看大图用；有品质。名字、价钱与稀有度都是占位，正式的由作者定；四颗的稀有度各取一档（01 低级、02 中级、03 与 04 高级），背包里三档稀有度框都看得到。每一格是什么在设计仓 design/物品系统.md 的「物品定义的字段：只写「它是什么」，不写「它能干什么」」一节；stackLimit 照设计仓 design/numeric-model-params.json 的 capacity.stack_limit_default，basePriceCopper 还没给值写 null。名字与描述在 data/text/zh-CN.json。",
+  "id": "gem_01",
+  "nameKey": "item.gem_01.name",
+  "descriptionKey": "item.gem_01.description",
+  "categoryId": "gem",
+  "footprint": { "width": 2, "height": 2 },
+  "rarityId": "low",
+  "hasQuality": true,
+  "stackLimit": 20,
+  "basePriceCopper": null,
+  "discardable": true,
+  "sellable": true,
+  "useEffectId": null,
+  "confirmBeforeUse": false
+}

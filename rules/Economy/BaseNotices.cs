@@ -28,11 +28,17 @@ public static class BaseNotices
     /// <summary>开发期调试键那一批种子背包放不下，整批没放进去。</summary>
     public const string SeedBatchBagFullKey = "ui.notice.seed_batch_bag_full";
 
+    /// <summary>开发期调试键给的那一件大东西背包放不下：一格空的都没有。</summary>
+    public const string BigItemBagFullKey = "ui.notice.big_item_bag_full";
+
+    /// <summary>开发期调试键给的那一件大东西背包放不下：有空格却凑不出放得下它的一块，挪一挪就放得下。</summary>
+    public const string BigItemNoRoomForSizeKey = "ui.notice.big_item_no_room_for_size";
+
     /// <summary>上面那几条键，给核文本表用。</summary>
     public static readonly IReadOnlyList<string> TextKeys =
     [
         SowNothingSelectedKey, SowNotASeedKey, SowCellNotReadyKey, HarvestBagFullKey, HarvestNoRoomForSizeKey,
-        SeedBatchBagFullKey,
+        SeedBatchBagFullKey, BigItemBagFullKey, BigItemNoRoomForSizeKey,
     ];
 
     /// <summary>播种被拒那一行；播下去了是 <c>null</c>，不出提示。</summary>
@@ -70,5 +76,18 @@ public static class BaseNotices
     {
         ArgumentNullException.ThrowIfNull(text);
         return stored ? null : text[SeedBatchBagFullKey];
+    }
+
+    /// <summary>开发期调试键给大东西那一下被拒那一行：满了与放不下这么大的各是一句，补救办法不一样。</summary>
+    public static string ForBigItem(BagRefusal refusal, TextCatalog text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return refusal switch
+        {
+            BagRefusal.Full => text[BigItemBagFullKey],
+            BagRefusal.NoRoomForSize => text[BigItemNoRoomForSizeKey],
+            _ => throw new ArgumentOutOfRangeException(nameof(refusal), refusal, "放不下多了一种原因，这里没有给它一句"),
+        };
     }
 }

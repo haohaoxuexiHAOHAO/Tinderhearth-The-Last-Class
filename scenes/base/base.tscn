@@ -105,6 +105,10 @@
 [ext_resource type="Resource" uid="uid://bj584m18b0ptk" path="res://assets/self-drawn/crops/crop_15_harvest.tres" id="99_mofac"]
 [ext_resource type="Resource" uid="uid://ccj1mvwrploj4" path="res://assets/self-drawn/crops/crop_15_seed.tres" id="100_3l2ha"]
 [ext_resource type="Script" uid="uid://csxnk43iu4s14" path="res://src/World/Base/SleepPresentation.cs" id="105_853y0"]
+[ext_resource type="Resource" uid="uid://heopsxv8lopk" path="res://assets/self-drawn/icons/gem_01.tres" id="105_ib8ps"]
+[ext_resource type="Resource" uid="uid://opci0wja85cy" path="res://assets/self-drawn/icons/gem_02.tres" id="106_tb3hs"]
+[ext_resource type="Resource" uid="uid://bqogc2pirqd3p" path="res://assets/self-drawn/icons/gem_03.tres" id="107_4jysl"]
+[ext_resource type="Resource" uid="uid://tut4fochnme" path="res://assets/self-drawn/icons/gem_04.tres" id="108_87njt"]
 
 [sub_resource type="Animation" id="Animation_ib8ps"]
 resource_name = "fade_in"
@@ -853,7 +857,7 @@ MutationBaseChance = 0.1
 MutationChanceCap = 0.5
 WetTerrain = 1
 CropArts = Array[ExtResource("54_q66e4")]([ExtResource("55_853y0"), ExtResource("56_ib8ps"), ExtResource("57_tb3hs"), ExtResource("58_4jysl"), ExtResource("59_87njt"), ExtResource("60_da0l4"), ExtResource("61_xbsvp"), ExtResource("62_i5i5d"), ExtResource("63_w445s"), ExtResource("64_ctdi4"), ExtResource("65_kc2qa"), ExtResource("66_gk206"), ExtResource("67_dv0md"), ExtResource("68_jmqqb"), ExtResource("69_5itdh")])
-ItemIcons = Array[ExtResource("70_55glv")]([ExtResource("71_tehqu"), ExtResource("72_q7acc"), ExtResource("73_it8jv"), ExtResource("74_t3e53"), ExtResource("75_ohxyq"), ExtResource("76_43a4r"), ExtResource("77_tp4e5"), ExtResource("78_x4yhu"), ExtResource("79_1pxrw"), ExtResource("80_ayc6o"), ExtResource("81_7acy4"), ExtResource("82_qxjyy"), ExtResource("83_pbtlw"), ExtResource("84_fxcg8"), ExtResource("85_pc0sm"), ExtResource("86_m0vy6"), ExtResource("87_jf107"), ExtResource("88_50vxc"), ExtResource("89_qaqxy"), ExtResource("90_8vk4d"), ExtResource("91_utymv"), ExtResource("92_e5h0u"), ExtResource("93_6wwcp"), ExtResource("94_vxmm1"), ExtResource("95_g51bw"), ExtResource("96_x3k2t"), ExtResource("97_ep1fb"), ExtResource("98_gjfoo"), ExtResource("99_mofac"), ExtResource("100_3l2ha")])
+ItemIcons = Array[ExtResource("70_55glv")]([ExtResource("71_tehqu"), ExtResource("72_q7acc"), ExtResource("73_it8jv"), ExtResource("74_t3e53"), ExtResource("75_ohxyq"), ExtResource("76_43a4r"), ExtResource("77_tp4e5"), ExtResource("78_x4yhu"), ExtResource("79_1pxrw"), ExtResource("80_ayc6o"), ExtResource("81_7acy4"), ExtResource("82_qxjyy"), ExtResource("83_pbtlw"), ExtResource("84_fxcg8"), ExtResource("85_pc0sm"), ExtResource("86_m0vy6"), ExtResource("87_jf107"), ExtResource("88_50vxc"), ExtResource("89_qaqxy"), ExtResource("90_8vk4d"), ExtResource("91_utymv"), ExtResource("92_e5h0u"), ExtResource("93_6wwcp"), ExtResource("94_vxmm1"), ExtResource("95_g51bw"), ExtResource("96_x3k2t"), ExtResource("97_ep1fb"), ExtResource("98_gjfoo"), ExtResource("99_mofac"), ExtResource("100_3l2ha"), ExtResource("105_ib8ps"), ExtResource("106_tb3hs"), ExtResource("107_4jysl"), ExtResource("108_87njt")])
 CarryBar = NodePath("../UI/CarryBar")
 Notice = NodePath("../UI/Notice")
 GameMenu = NodePath("../UI/GameMenu")

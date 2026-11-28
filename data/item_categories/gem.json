@@ -1,0 +1,6 @@
+{
+  "//": "宝石：角色面板上数值的来源之一（工作区根 desc/角色面板.md）。现在归这一类的只有作者画的四颗占位宝石（items/gem_01.json 到 gem_04.json），先放在最顶层；要不要挂到哪一类下面，等正式的宝石做的时候定。",
+  "id": "gem",
+  "nameKey": "item_category.gem.name",
+  "parentId": null
+}
