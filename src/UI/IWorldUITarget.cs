@@ -9,7 +9,7 @@ namespace Tinderhearth.UI;
 /// </summary>
 /// <remarks>
 /// 往身上挂东西的那几个方法只收它，所以没报的目标编译都过不了；报了 0 或没选档的，挂的那一刻当场抛
-/// （<see cref="WorldUIAnchor"/>）。侧视角色现在是代码搭的，由角色自己声明；换成作者在场景里放的锚点节点归设计仓台账 GP-14。
+/// （<see cref="WorldUIAnchor"/>）。侧视角色现在是代码搭的，由角色自己声明；格子战斗的角色摆进场景之后，换不换成作者放的锚点节点跟设计仓台账 GP-175 走。
 /// </remarks>
 public interface IWorldUITarget
 {

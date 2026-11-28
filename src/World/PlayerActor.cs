@@ -186,13 +186,13 @@ public partial class PlayerActor : CharacterBody2D, IBlockingActor, IHittable, I
 
     /// <inheritdoc />
     /// <remarks>
-    /// 取站立姿实测的身体高（<see cref="BodyHeightWorldPx"/>），与碰撞框、受击框是同一个数。换成作者在场景里放的
-    /// 锚点节点归设计仓台账 GP-14。
+    /// 取站立姿实测的身体高（<see cref="BodyHeightWorldPx"/>），与碰撞框、受击框是同一个数。侧视这一套跟设计仓台账
+    /// GP-175 一起删。
     /// </remarks>
     public int HeadHeightWorldPx => BodyHeightWorldPx;
 
     /// <inheritdoc />
-    /// <remarks>主角与训练房那两个沙包都是人形，走体型表里「人」那一档。</remarks>
+    /// <remarks>主角是人形，走体型表里「人」那一档。</remarks>
     public BodyTier BodyTier => BodyTier.Human;
 
     /// <summary>哪些动作因为缺图退回了几何占位。空的就表示每个动作都有真图。</summary>
